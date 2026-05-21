@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TaiKaiX — Category Management</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <style>
+    .category-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+    }
+
+    .category-row {
+      display: grid;
+      grid-template-columns: 2fr 0.7fr 1fr 1fr 1.5fr 0.9fr;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-4) var(--space-5);
+      background: var(--shiro);
+      border: 1px solid var(--neutral-300);
+      border-radius: 8px;
+      transition: border-color 0.2s;
+    }
+
+    .category-row:hover { border-color: var(--ao); }
+
+    .status-select-header {
+      appearance: none;
+      border: none;
+      border-radius: 999px;
+      padding: 4px 12px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      width: 100%;
+      max-width: 110px;
+      text-align: center;
+    }
+
+    .status-live-select { background: var(--status-live-bg); color: var(--status-live); }
+    .status-upcoming-select { background: var(--status-upcoming-bg); color: var(--status-upcoming); }
+    .status-done-select { background: var(--status-done-bg); color: var(--status-done); }
+
+    .mat-select {
+      height: 38px;
+      border: 1.5px solid var(--neutral-300);
+      border-radius: 8px;
+      padding: 0 10px;
+      font-size: 13px;
+      font-family: var(--font-body);
+      color: var(--neutral-900);
+      background: var(--shiro);
+      width: 100%;
+      outline: none;
+    }
+
+    .mat-select:focus,
+    .time-input:focus {
+      border-color: var(--ao);
+      box-shadow: 0 0 0 3px rgba(26, 77, 181, 0.12);
+    }
+
+    .time-wrap {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      width: 100%;
+    }
+
+    .time-input {
+      height: 38px;
+      border: 1.5px solid var(--neutral-300);
+      border-radius: 8px;
+      padding: 0 10px;
+      font-size: 13px;
+      font-family: var(--font-body);
+      color: var(--neutral-900);
+      background: var(--shiro);
+      outline: none;
+      width: 100%;
+      min-width: 110px;
+    }
+
+    .row-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: var(--space-2);
+    }
+
+    .saved-tag {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--status-live);
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    .saved-tag.visible { opacity: 1; }
+
+    @media (max-width: 1360px) {
+      .category-row {
+        grid-template-columns: 1.8fr 0.7fr 1fr 1fr 1.4fr 0.9fr;
+      }
+    }
+
+    @media (max-width: 1180px) {
+      .category-row {
+        grid-template-columns: 1fr;
+        gap: var(--space-2);
+      }
+      .category-row .text-micro {
+        margin-bottom: 2px;
+      }
+      .row-actions {
+        justify-content: flex-start;
+      }
+      .header-row {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="nav-logo">TAIKAIX</div>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link">Dashboard</a>
+      <a href="competitions.html" class="nav-link active">Competitions</a>
+      <a href="users.html" class="nav-link">Users</a>
+    </div>
+    <div class="nav-profile">
+      <a href="taikaix-profile.html" class="avatar" style="border: 2px solid transparent; transition: border-color 0.2s;"></a>
+      <i data-lucide="chevron-down" style="width: 16px; color: var(--neutral-500);"></i>
+    </div>
+  </nav>
+
+  <div class="sub-nav">
+    <a href="competition-detail.html" class="sub-nav-link">Overview</a>
+    <a href="categories.html" class="sub-nav-link active">Categories</a>
+    <a href="bracket.html" class="sub-nav-link">Tiesheet</a>
+    <a href="mats-grid.html" class="sub-nav-link">Mats</a>
+    <a href="taikaix-live-staff.html" class="sub-nav-link">Staff</a>
+    <a href="athletes.html" class="sub-nav-link">Athletes</a>
+    <a href="medals.html" class="sub-nav-link">Medals</a>
+    <a href="schedule.html" class="sub-nav-link">Schedule</a>
+    <div style="flex: 1;"></div>
+  </div>
+
+  <main class="container">
+    <header class="page-header">
+      <div>
+        <div class="breadcrumb">Kyoto 2026 Finals / Management</div>
+        <h1>Category Management</h1>
+      </div>
+      <div style="display: flex; gap: var(--space-3);">
+        <button id="save-all-btn" class="btn btn-primary">
+          <i data-lucide="save"></i> Save Category Schedule
+        </button>
+      </div>
+    </header>
+
+    <section class="category-list">
+      <div class="category-row header-row" style="background: var(--neutral-50); border: none; font-weight: 600; padding-top: 12px; padding-bottom: 12px;">
+        <div class="text-micro">Category Name</div>
+        <div class="text-micro">Entries</div>
+        <div class="text-micro">Status</div>
+        <div class="text-micro">Assigned Mat</div>
+        <div class="text-micro">Time Frame</div>
+        <div class="text-micro" style="text-align: right;">Action</div>
+      </div>
+      <div id="category-body"></div>
+    </section>
+  </main>
+
+  <script>
+    const STORAGE_KEY = "taikaixCategorySchedule";
+    const categoryBody = document.getElementById("category-body");
+    const saveAllBtn = document.getElementById("save-all-btn");
+
+    const categoryData = [
+      { id: "CAT-001", name: "Senior Male Kumite -75kg", entries: 32, status: "live", mat: "MAT 01", start: "09:00", end: "10:10" },
+      { id: "CAT-002", name: "Senior Female Kata", entries: 24, status: "live", mat: "MAT 02", start: "09:10", end: "10:20" },
+      { id: "CAT-003", name: "U21 Male Kumite +84kg", entries: 16, status: "live", mat: "MAT 03", start: "10:30", end: "11:10" },
+      { id: "CAT-004", name: "U21 Female Kumite -61kg", entries: 12, status: "upcoming", mat: "MAT 04", start: "11:15", end: "11:55" },
+      { id: "CAT-005", name: "Junior Male Kata", entries: 40, status: "upcoming", mat: "MAT 05", start: "12:00", end: "12:45" }
+    ];
+
+    function matOptions(selectedMat) {
+      const mats = ["MAT 01", "MAT 02", "MAT 03", "MAT 04", "MAT 05", "MAT 06", "MAT 07", "MAT 08"];
+      return mats.map((mat) => `<option value="${mat}" ${mat === selectedMat ? "selected" : ""}>${mat}</option>`).join("");
+    }
+
+    function statusClass(status) {
+      if (status === "live") return "status-live-select";
+      if (status === "done") return "status-done-select";
+      return "status-upcoming-select";
+    }
+
+    function getStoredValue(key) {
+      try {
+        return localStorage.getItem(key);
+      } catch (error) {
+        console.error("Storage read failed", error);
+        return null;
+      }
+    }
+
+    function setStoredValue(key, value) {
+      try {
+        localStorage.setItem(key, value);
+      } catch (error) {
+        console.error("Storage write failed", error);
+      }
+    }
+
+    function hydrateFromStorage() {
+      const raw = getStoredValue(STORAGE_KEY);
+      if (!raw) return;
+      try {
+        const saved = JSON.parse(raw);
+        if (!Array.isArray(saved)) return;
+        saved.forEach((item) => {
+          const target = categoryData.find((row) => row.id === item.id);
+          if (!target) return;
+          target.mat = item.mat || target.mat;
+          target.start = item.start || target.start;
+          target.end = item.end || target.end;
+          target.status = item.status || target.status;
+        });
+      } catch (error) {
+        console.error("Unable to load saved category schedule", error);
+      }
+    }
+
+    function persistSchedule() {
+      const snapshot = categoryData.map((row) => ({
+        id: row.id,
+        category: row.name,
+        mat: row.mat,
+        start: row.start,
+        end: row.end,
+        status: row.status
+      }));
+      setStoredValue(STORAGE_KEY, JSON.stringify(snapshot));
+    }
+
+    function setSavedState(tr) {
+      const tag = tr.querySelector(".saved-tag");
+      tag.classList.add("visible");
+      setTimeout(() => tag.classList.remove("visible"), 1200);
+    }
+
+    function readRowValues(tr) {
+      return {
+        status: tr.querySelector('[data-field="status"]').value,
+        mat: tr.querySelector('[data-field="mat"]').value,
+        start: tr.querySelector('[data-field="start"]').value,
+        end: tr.querySelector('[data-field="end"]').value
+      };
+    }
+
+    function syncStatusClass(select, value) {
+      select.classList.remove("status-live-select", "status-upcoming-select", "status-done-select");
+      select.classList.add(statusClass(value));
+    }
+
+    function saveRow(tr) {
+      const id = tr.dataset.id;
+      const next = readRowValues(tr);
+      const target = categoryData.find((row) => row.id === id);
+      if (!target) return;
+      target.status = next.status;
+      target.mat = next.mat;
+      target.start = next.start;
+      target.end = next.end;
+      persistSchedule();
+      setSavedState(tr);
+    }
+
+    function bindHandlers() {
+      categoryBody.querySelectorAll(".save-row-btn").forEach((button) => {
+        button.addEventListener("click", () => saveRow(button.closest("article")));
+      });
+
+      categoryBody.querySelectorAll('[data-field="status"]').forEach((select) => {
+        select.addEventListener("change", () => {
+          syncStatusClass(select, select.value);
+          saveRow(select.closest("article"));
+        });
+      });
+
+      categoryBody.querySelectorAll('[data-field="mat"], [data-field="start"], [data-field="end"]').forEach((input) => {
+        input.addEventListener("change", () => saveRow(input.closest("article")));
+      });
+    }
+
+    function renderCategories() {
+      categoryBody.innerHTML = categoryData.map((row) => `
+        <article class="category-row bento-reveal" data-id="${row.id}">
+          <div style="font-weight: 600;">${row.name}</div>
+          <div class="data-mono">${row.entries}</div>
+          <div>
+            <select class="status-select-header ${statusClass(row.status)}" data-field="status">
+              <option value="live" ${row.status === "live" ? "selected" : ""}>LIVE</option>
+              <option value="upcoming" ${row.status === "upcoming" ? "selected" : ""}>UPCOMING</option>
+              <option value="done" ${row.status === "done" ? "selected" : ""}>DONE</option>
+            </select>
+          </div>
+          <div>
+            <select class="mat-select" data-field="mat">
+              ${matOptions(row.mat)}
+            </select>
+          </div>
+          <div class="time-wrap">
+            <input class="time-input" data-field="start" type="time" value="${row.start}">
+            <span class="text-small">to</span>
+            <input class="time-input" data-field="end" type="time" value="${row.end}">
+          </div>
+          <div class="row-actions">
+            <span class="saved-tag">Saved</span>
+            <button class="btn btn-secondary save-row-btn" type="button" style="font-size: 12px; padding: 6px 12px;">
+              <i data-lucide="check" style="width: 14px;"></i> Save
+            </button>
+          </div>
+        </article>
+      `).join("");
+
+      bindHandlers();
+      if (window.lucide && typeof window.lucide.createIcons === "function") {
+        window.lucide.createIcons();
+      }
+      if (window.gsap && typeof window.gsap.from === "function") {
+        window.gsap.from(".bento-reveal", {
+          y: 10,
+          opacity: 0,
+          duration: 0.35,
+          stagger: 0.05,
+          ease: "power2.out"
+        });
+      }
+    }
+
+    saveAllBtn.addEventListener("click", () => {
+      categoryBody.querySelectorAll("article").forEach((tr) => {
+        saveRow(tr);
+      });
+    });
+
+    hydrateFromStorage();
+    renderCategories();
+    persistSchedule();
+  </script>
+</body>
+</html>

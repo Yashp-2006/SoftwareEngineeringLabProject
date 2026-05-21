@@ -1,0 +1,1244 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TaiKaiX — Tournament Setup</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <style>
+    .setup-grid {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: var(--space-6);
+      align-items: flex-start;
+    }
+
+    .setup-nav {
+      position: sticky;
+      top: 130px;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-1);
+    }
+
+    .setup-nav-item {
+      padding: var(--space-3) var(--space-4);
+      border-radius: 8px;
+      color: var(--neutral-600);
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      transition: all 0.2s;
+    }
+
+    .setup-nav-item:hover {
+      background: var(--neutral-200);
+      color: var(--neutral-900);
+    }
+
+    .setup-nav-item.active {
+      background: var(--ao-light);
+      color: var(--ao);
+    }
+
+    .setup-section {
+      display: none;
+    }
+
+    .setup-section.active {
+      display: block;
+    }
+
+    /* Mat Config Styles */
+    .mat-setup-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: var(--space-4);
+    }
+
+    .mat-setup-card {
+      background: var(--shiro);
+      border: 1px solid var(--neutral-300);
+      border-radius: 12px;
+      padding: var(--space-4);
+    }
+
+    .mat-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--space-4);
+    }
+
+    .mat-number-badge {
+      font-family: var(--font-display);
+      font-size: 20px;
+      color: var(--neutral-900);
+    }
+
+    .password-input-group {
+      position: relative;
+    }
+
+    .password-input-group input {
+      width: 100%;
+      height: 40px;
+      border: 1.5px solid var(--neutral-300);
+      border-radius: 8px;
+      padding: 0 40px 0 12px;
+      font-family: var(--font-mono);
+      font-size: 14px;
+      outline: none;
+    }
+
+    .password-input-group input:focus {
+      border-color: var(--ao);
+    }
+
+    .toggle-password {
+      position: absolute;
+      right: 12px;
+      top: 10px;
+      color: var(--neutral-400);
+      cursor: pointer;
+    }
+
+    /* Category Management Styles */
+    .category-manager {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-6);
+    }
+
+    .cat-group {
+      background: var(--shiro);
+      border: 1px solid var(--neutral-300);
+      border-radius: 12px;
+      padding: var(--space-5);
+    }
+
+    .cat-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: var(--space-4);
+    }
+
+    .cat-table th {
+      text-align: left;
+      padding: 12px;
+      border-bottom: 2px solid var(--neutral-100);
+    }
+
+    .cat-table td {
+      padding: 12px;
+      border-bottom: 1px solid var(--neutral-100);
+    }
+
+    /* Import Section */
+    .dropzone {
+      border: 2px dashed var(--neutral-300);
+      border-radius: 12px;
+      padding: var(--space-8);
+      text-align: center;
+      background: var(--neutral-50);
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+
+    .dropzone:hover {
+      border-color: var(--ao);
+      background: var(--ao-light);
+    }
+
+    .dropzone-icon {
+      width: 48px;
+      height: 48px;
+      color: var(--neutral-400);
+      margin-bottom: var(--space-4);
+    }
+
+    /* Modal Styles */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: none; align-items: center; justify-content: center;
+      z-index: 1000;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal {
+      background: var(--shiro);
+      width: 450px;
+      border-radius: 12px;
+      padding: var(--space-6);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+    }
+
+    .input-field {
+      width: 100%;
+      height: 44px;
+      border: 1.5px solid var(--neutral-300);
+      border-radius: 8px;
+      padding: 0 var(--space-3);
+      font-family: var(--font-body);
+      font-size: 15px;
+      margin-bottom: var(--space-4);
+      outline: none;
+    }
+
+    .input-field:focus {
+      border-color: var(--ao);
+    }
+
+    @media (max-width: 1024px) {
+      .setup-grid { grid-template-columns: 1fr; }
+      .setup-nav { position: static; flex-direction: row; overflow-x: auto; padding-bottom: 12px; }
+      .setup-nav-item { white-space: nowrap; }
+    }
+
+    .setup-grid {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-5);
+    }
+
+    .wizard-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: var(--space-4);
+      flex-wrap: wrap;
+    }
+
+    .wizard-stepper {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: var(--space-3);
+    }
+
+    .wizard-step {
+      border: 1px solid var(--neutral-300);
+      background: var(--shiro);
+      padding: 12px 14px;
+      border-radius: 10px;
+      text-align: left;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .wizard-step:hover {
+      border-color: var(--neutral-400);
+      transform: translateY(-1px);
+    }
+
+    .wizard-step-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      border-radius: 999px;
+      background: var(--neutral-100);
+      color: var(--neutral-600);
+      font-weight: 700;
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+
+    .wizard-step.active {
+      border-color: var(--ao);
+      box-shadow: 0 6px 18px rgba(39, 122, 255, 0.15);
+    }
+
+    .wizard-step.active .wizard-step-number {
+      background: var(--ao);
+      color: var(--shiro);
+    }
+
+    .wizard-step.completed {
+      border-color: var(--neutral-200);
+      background: var(--neutral-50);
+    }
+
+    .wizard-step-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--neutral-800);
+    }
+
+    .wizard-phase {
+      display: none;
+    }
+
+    .wizard-phase.active {
+      display: block;
+    }
+
+    .review-mode .wizard-phase {
+      display: block;
+    }
+
+    .review-banner {
+      background: var(--neutral-50);
+      border: 1px dashed var(--neutral-300);
+      border-radius: 14px;
+      padding: var(--space-5);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--space-4);
+      flex-wrap: wrap;
+    }
+
+    .phase-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-4);
+      margin-bottom: var(--space-4);
+    }
+
+    .wizard-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--space-4);
+      padding-top: var(--space-4);
+      border-top: 1px solid var(--neutral-200);
+    }
+
+    .wizard-actions .btn[disabled] {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .pool-size-options {
+      display: flex;
+      gap: var(--space-3);
+      flex-wrap: wrap;
+    }
+
+    .pool-size-option {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+
+    .pool-size-option input {
+      display: none;
+    }
+
+    .pool-size-option span {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 52px;
+      height: 40px;
+      border-radius: 999px;
+      border: 1px solid var(--neutral-300);
+      background: var(--shiro);
+      font-weight: 600;
+    }
+
+    .pool-size-option input:checked + span {
+      background: var(--ao);
+      color: var(--shiro);
+      border-color: var(--ao);
+    }
+
+    .tiesheet-preview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: var(--space-4);
+      margin-top: var(--space-4);
+    }
+
+    .phase-warning {
+      border: 1px solid var(--aka);
+      background: color-mix(in oklch, var(--aka) 10%, var(--shiro));
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 13px;
+      color: var(--neutral-800);
+      margin-bottom: var(--space-4);
+      display: none;
+    }
+
+    @media (max-width: 1100px) {
+      .wizard-stepper {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 700px) {
+      .wizard-stepper {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="nav-logo">TAIKAIX</div>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link">Dashboard</a>
+      <a href="competitions.html" class="nav-link active">Competitions</a>
+      <a href="users.html" class="nav-link">Users</a>
+    </div>
+    <div class="nav-profile">
+      <a href="taikaix-profile.html" class="avatar" style="border: 2px solid transparent; transition: border-color 0.2s;"></a>
+      <i data-lucide="chevron-down" style="width: 16px; color: var(--neutral-500);"></i>
+    </div>
+  </nav>
+
+  <div class="sub-nav">
+    <a href="taikaix-tournament-setup.html" class="sub-nav-link active">Setup</a>
+    <div style="flex: 1;"></div>
+  </div>
+
+  <main class="container">
+    <header class="page-header">
+      <div>
+        <div class="breadcrumb">Kyoto 2026 Finals / Setup</div>
+        <h1>Tournament Setup Wizard</h1>
+      </div>
+      <div style="display: flex; gap: var(--space-3);">
+        <button class="btn btn-secondary">
+          <i data-lucide="save"></i> Save Draft
+        </button>
+        <button class="btn btn-primary">
+          <i data-lucide="check-circle"></i> Finalize Setup
+        </button>
+      </div>
+    </header>
+
+    <div class="setup-grid">
+      <div class="wizard-header">
+        <div>
+          <div class="text-micro" style="color: var(--neutral-500);">Setup Wizard</div>
+          <h2>Guided Tournament Setup</h2>
+          <p class="text-small">Move through five phases and skip straight to review if you already know what to fix.</p>
+        </div>
+        <div>
+          <button class="btn btn-ghost" id="skip-review">
+            <i data-lucide="arrow-right"></i> Skip to Review
+          </button>
+        </div>
+      </div>
+
+      <div class="wizard-stepper" id="wizard-stepper">
+        <button class="wizard-step active" data-phase="1">
+          <div class="wizard-step-number">1</div>
+          <div class="wizard-step-label">Categories + Mats</div>
+        </button>
+        <button class="wizard-step" data-phase="2">
+          <div class="wizard-step-number">2</div>
+          <div class="wizard-step-label">Pool Size + Import</div>
+        </button>
+        <button class="wizard-step" data-phase="3">
+          <div class="wizard-step-number">3</div>
+          <div class="wizard-step-label">Tiesheet Preview</div>
+        </button>
+        <button class="wizard-step" data-phase="4">
+          <div class="wizard-step-number">4</div>
+          <div class="wizard-step-label">Staff + Mat Security</div>
+        </button>
+        <button class="wizard-step" data-phase="5">
+          <div class="wizard-step-number">5</div>
+          <div class="wizard-step-label">Review & Edit</div>
+        </button>
+      </div>
+
+      <div class="wizard-actions">
+        <div class="text-small" id="wizard-progress">Step 1 of 5</div>
+        <div style="display: flex; gap: var(--space-3);">
+          <button class="btn btn-ghost" id="wizard-back" disabled>Back</button>
+          <button class="btn btn-primary" id="wizard-next">Next</button>
+        </div>
+      </div>
+
+      <section class="wizard-phase" data-phase="5">
+        <div class="review-banner">
+          <div>
+            <div class="text-micro" style="color: var(--neutral-500);">Phase 5</div>
+            <h3>Review & Edit Everything</h3>
+            <p class="text-small">All sections below are unlocked. Edit any step and the tiesheet preview will flag for regeneration.</p>
+          </div>
+          <button class="btn btn-ghost" id="review-back">Return to Step 4</button>
+        </div>
+        <div class="category-manager" style="margin-top: var(--space-4);">
+          <div class="cat-group">
+            <h3>Tournament Profile</h3>
+            <p class="text-small mb-4">Basic information about the event.</p>
+            <div class="form-group" style="margin-bottom: var(--space-4);">
+              <label class="text-micro" style="display: block; margin-bottom: 8px;">Tournament Name</label>
+              <input type="text" class="input-field" value="Kyoto 2026 Finals" style="margin-bottom: 0;">
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="wizard-phase active" data-phase="1">
+        <div class="phase-header">
+          <div>
+            <h3>Phase 1 — Categories + Mats</h3>
+            <p class="text-small">Define divisions and set how many mats will be active for the tournament.</p>
+          </div>
+        </div>
+        <div class="phase-warning" id="phase-1-warning">Add at least one category and set at least one mat to continue.</div>
+        <div class="category-manager">
+          <div class="cat-group">
+            <div class="flex-between">
+              <div>
+                <h3>Mats & Capacity</h3>
+                <p class="text-small">The mat count drives score operator assignments and security setup.</p>
+              </div>
+            </div>
+            <div style="display: flex; gap: var(--space-4); align-items: flex-end; margin-top: var(--space-4);">
+              <div style="flex: 1;">
+                <label class="text-micro" style="display: block; margin-bottom: 8px;">Total Active Mats</label>
+                <input type="number" class="input-field" id="mat-count-input" value="8" min="1" max="20" style="margin-bottom: 0;">
+              </div>
+              <button class="btn btn-primary" style="height: 44px; padding: 0 24px;" onclick="updateMatCount(this)">Apply Capacity</button>
+            </div>
+          </div>
+
+          <div class="cat-group">
+            <div class="flex-between">
+              <div>
+                <h3>Standard Categories</h3>
+                <p class="text-small">Generic weight and age divisions without complex prerequisite rules.</p>
+              </div>
+              <div style="display: flex; gap: var(--space-3);">
+                <button class="btn btn-ghost" onclick="openModal('merge')">
+                  <i data-lucide="combine"></i> Merge Categories
+                </button>
+                <button class="btn btn-secondary" onclick="openModal('standard')">
+                  <i data-lucide="plus"></i> Add Standard
+                </button>
+              </div>
+            </div>
+            <table class="cat-table">
+              <thead>
+                <tr>
+                  <th class="text-micro">Category Name</th>
+                  <th class="text-micro">Age Group</th>
+                  <th class="text-micro">Weight Range</th>
+                  <th class="text-micro" style="text-align: right;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="standard-list">
+                <tr>
+                  <td style="font-weight: 500;">Senior Male -75kg</td>
+                  <td>18+ Years</td>
+                  <td>67 kg – 75 kg</td>
+                  <td style="text-align: right;">
+                    <button class="btn btn-ghost" style="padding: 4px;"><i data-lucide="edit-2" style="width: 16px;"></i></button>
+                    <button class="btn btn-ghost" style="padding: 4px; color: var(--aka);"><i data-lucide="trash-2" style="width: 16px;"></i></button>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="font-weight: 500;">Senior Female -55kg</td>
+                  <td>18+ Years</td>
+                  <td>50 kg – 55 kg</td>
+                  <td style="text-align: right;">
+                    <button class="btn btn-ghost" style="padding: 4px;"><i data-lucide="edit-2" style="width: 16px;"></i></button>
+                    <button class="btn btn-ghost" style="padding: 4px; color: var(--aka);"><i data-lucide="trash-2" style="width: 16px;"></i></button>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="font-weight: 500;">Youth (8-10 yrs)</td>
+                  <td>8 – 10 Years</td>
+                  <td>Open</td>
+                  <td style="text-align: right;">
+                    <button class="btn btn-ghost" style="padding: 4px;"><i data-lucide="edit-2" style="width: 16px;"></i></button>
+                    <button class="btn btn-ghost" style="padding: 4px; color: var(--aka);"><i data-lucide="trash-2" style="width: 16px;"></i></button>
+                  </td>
+                </tr>
+                <tr id="merged-row-demo" style="display: none;">
+                  <td style="font-weight: 500;">Youth (5-10 yrs) <span style="font-size: 10px; color: var(--neutral-500); margin-left: 4px;">(Merged)</span></td>
+                  <td>5 – 10 Years</td>
+                  <td>Open</td>
+                  <td style="text-align: right;">
+                    <button class="btn btn-ghost" style="padding: 4px;"><i data-lucide="edit-2" style="width: 16px;"></i></button>
+                    <button class="btn btn-ghost" style="padding: 4px; color: var(--aka);"><i data-lucide="trash-2" style="width: 16px;"></i></button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="cat-group">
+            <div class="flex-between">
+              <div>
+                <h3>Special Categories</h3>
+                <p class="text-small">Custom divisions with specific prerequisite rules (e.g. Gold Medalists only).</p>
+              </div>
+              <button class="btn btn-secondary" onclick="openModal('special')">
+                <i data-lucide="star"></i> Add Special Category
+              </button>
+            </div>
+            <table class="cat-table">
+              <thead>
+                <tr>
+                  <th class="text-micro">Category Name</th>
+                  <th class="text-micro">Applied Rules</th>
+                  <th class="text-micro">Est. Athletes</th>
+                  <th class="text-micro" style="text-align: right;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="special-list">
+                <tr>
+                  <td style="font-weight: 500;">Super Gold Open</td>
+                  <td>
+                    <span class="status-chip status-live" style="background: var(--neutral-100); color: var(--neutral-600); font-size: 10px; padding: 2px 6px; margin-right: 4px;">Medal: Gold Only</span>
+                    <span class="status-chip status-live" style="background: var(--neutral-100); color: var(--neutral-600); font-size: 10px; padding: 2px 6px; margin-right: 4px;">Age: U21</span>
+                  </td>
+                  <td>12</td>
+                  <td style="text-align: right;">
+                    <button class="btn btn-ghost" style="padding: 4px;"><i data-lucide="edit-2" style="width: 16px;"></i></button>
+                    <button class="btn btn-ghost" style="padding: 4px; color: var(--aka);"><i data-lucide="trash-2" style="width: 16px;"></i></button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="wizard-phase" data-phase="2">
+        <div class="phase-header">
+          <div>
+            <h3>Phase 2 — Match Pool Size + Excel Import</h3>
+            <p class="text-small">Choose a pool size and import athletes to generate tiesheets.</p>
+          </div>
+        </div>
+        <div class="category-manager">
+          <div class="cat-group">
+            <h3>Match Pool Size</h3>
+            <p class="text-small">Pick a standard pool size. Max supported size is 32.</p>
+            <div class="pool-size-options" style="margin-top: var(--space-4);">
+              <label class="pool-size-option"><input type="radio" name="pool-size" value="4"><span>4</span></label>
+              <label class="pool-size-option"><input type="radio" name="pool-size" value="8" checked><span>8</span></label>
+              <label class="pool-size-option"><input type="radio" name="pool-size" value="16"><span>16</span></label>
+              <label class="pool-size-option"><input type="radio" name="pool-size" value="32"><span>32</span></label>
+            </div>
+          </div>
+
+          <div class="cat-group">
+            <div class="flex-between mb-4">
+              <div>
+                <h3>Tiesheet Data Import</h3>
+                <p class="text-small">Upload your CSV or Excel files to automatically generate brackets.</p>
+              </div>
+            </div>
+
+            <div class="dropzone" id="main-dropzone">
+              <i data-lucide="file-spreadsheet" class="dropzone-icon" id="dropzone-icon-state"></i>
+              <h3 id="dropzone-title">Drag & drop your registration file here</h3>
+              <p class="text-small" id="dropzone-desc" style="margin-bottom: var(--space-4);">Supports .csv, .xls, .xlsx (Max 10MB)</p>
+              <button class="btn btn-primary" id="dropzone-btn">Browse Files</button>
+            </div>
+
+            <div id="import-status" class="card" style="display: none; margin-top: var(--space-4); padding: var(--space-4);">
+              <div class="flex-between">
+                <div>
+                  <h3 style="color: var(--ao);">Import Complete</h3>
+                  <p class="text-small">Athletes mapped to categories. Tiesheets ready for preview.</p>
+                </div>
+                <span class="status-chip status-live">Successful</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="wizard-phase" data-phase="3">
+        <div class="phase-header">
+          <div>
+            <h3>Phase 3 — Tiesheet Generation Preview</h3>
+            <p class="text-small">Preview tiesheets per category and regenerate if changes were made.</p>
+          </div>
+          <button class="btn btn-secondary" id="regenerate-btn">
+            <i data-lucide="refresh-cw"></i> Regenerate
+          </button>
+        </div>
+        <div class="cat-group">
+          <p class="text-small" id="pool-size-summary">Pool size: 8 (max 32)</p>
+          <div id="tiesheet-empty" class="card" style="padding: var(--space-5); border: 1px dashed var(--neutral-300); margin-top: var(--space-4);">
+            <h3>No tiesheets yet</h3>
+            <p class="text-small">Import your Excel/CSV file in Phase 2 to generate category tiesheets.</p>
+            <button class="btn btn-secondary" id="go-import">Go to Import</button>
+          </div>
+          <div id="tiesheet-preview-list" class="tiesheet-preview-grid" style="display: none;">
+            <div class="mat-setup-card">
+              <div class="flex-between" style="margin-bottom: 12px;">
+                <h4>Senior Male -75kg</h4>
+                <span class="status-chip status-live tiesheet-status">Generated</span>
+              </div>
+              <p class="text-small text-neutral-500 mb-4">32 Athletes • Kumite</p>
+              <a href="bracket.html" class="btn btn-secondary" style="width: 100%; justify-content: center;">View Tiesheet</a>
+            </div>
+            <div class="mat-setup-card">
+              <div class="flex-between" style="margin-bottom: 12px;">
+                <h4>Senior Female -55kg</h4>
+                <span class="status-chip status-live tiesheet-status">Generated</span>
+              </div>
+              <p class="text-small text-neutral-500 mb-4">24 Athletes • Kumite</p>
+              <a href="bracket.html" class="btn btn-secondary" style="width: 100%; justify-content: center;">View Tiesheet</a>
+            </div>
+            <div class="mat-setup-card">
+              <div class="flex-between" style="margin-bottom: 12px;">
+                <h4>U21 Male Kata</h4>
+                <span class="status-chip status-live tiesheet-status">Generated</span>
+              </div>
+              <p class="text-small text-neutral-500 mb-4">16 Athletes • Kata</p>
+              <a href="bracket.html" class="btn btn-secondary" style="width: 100%; justify-content: center;">View Tiesheet</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="wizard-phase" data-phase="4">
+        <div class="phase-header">
+          <div>
+            <h3>Phase 4 — Staff Assignment + Mat Security</h3>
+            <p class="text-small">Lock in who runs each mat, attendance coverage, medal distribution, and passwords.</p>
+          </div>
+        </div>
+        <div class="category-manager">
+          <div class="cat-group">
+            <div class="flex-between mb-4">
+              <div>
+                <h3>Mat Security</h3>
+                <p class="text-small">Set unique access passwords for each mat score table.</p>
+              </div>
+              <button class="btn btn-ghost" id="bulk-password-btn">
+                <i data-lucide="key"></i> Bulk Set
+              </button>
+            </div>
+            <div class="mat-setup-list" id="mat-setup-container"></div>
+          </div>
+
+          <div class="cat-group">
+            <div class="flex-between">
+              <div>
+                <h3>Attendance Volunteers</h3>
+                <p class="text-small">Assign volunteers to manage athlete attendance per category.</p>
+              </div>
+            </div>
+            <table class="cat-table">
+              <thead>
+                <tr>
+                  <th class="text-micro">Category</th>
+                  <th class="text-micro">Assigned Volunteer</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style="font-weight: 500;">Senior Male -75kg</td>
+                  <td>
+                    <select class="input-field" style="margin-bottom: 0; background: var(--shiro);">
+                      <option>Unassigned</option>
+                      <option selected>Kenji Sato</option>
+                      <option>Maria Garcia</option>
+                    </select>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="font-weight: 500;">Senior Female -55kg</td>
+                  <td>
+                    <select class="input-field" style="margin-bottom: 0; background: var(--shiro);">
+                      <option selected>Unassigned</option>
+                      <option>Kenji Sato</option>
+                      <option>Maria Garcia</option>
+                    </select>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="cat-group">
+            <div class="flex-between">
+              <div>
+                <h3>Score Operators</h3>
+                <p class="text-small">Assign scoreboard controllers to specific mats.</p>
+              </div>
+            </div>
+            <table class="cat-table">
+              <thead>
+                <tr>
+                  <th class="text-micro">Mat Number</th>
+                  <th class="text-micro">Assigned Operator</th>
+                </tr>
+              </thead>
+              <tbody id="score-operator-list"></tbody>
+            </table>
+          </div>
+
+          <div class="cat-group">
+            <div class="flex-between">
+              <div>
+                <h3>Medal Distributors</h3>
+                <p class="text-small">Assign distributors to manage medal ceremonies.</p>
+              </div>
+            </div>
+            <div style="margin-top: var(--space-4);">
+              <label class="text-micro" style="display: block; margin-bottom: 8px;">Primary Medal Distributor</label>
+              <select class="input-field" style="background: var(--shiro); max-width: 400px;">
+                <option>Unassigned</option>
+                <option selected>Yuki Tanaka</option>
+                <option>Rafael Silva</option>
+              </select>
+              <p class="text-small text-neutral-500 mt-2">This user will have permissions to filter and distribute medals across all categories.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <div class="modal-overlay" id="setup-modal">
+    <div class="modal">
+      <h3 id="modal-title">Add Category</h3>
+      <p class="text-small mb-4" id="modal-desc">Enter details for the new division configuration.</p>
+      <div id="modal-fields">
+        <!-- Injected via JS -->
+      </div>
+      <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="confirmModalAction()">Confirm Action</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    lucide.createIcons();
+    const steps = Array.from(document.querySelectorAll('.wizard-step'));
+    const phases = Array.from(document.querySelectorAll('.wizard-phase'));
+    const backBtn = document.getElementById('wizard-back');
+    const nextBtn = document.getElementById('wizard-next');
+    const skipBtn = document.getElementById('skip-review');
+    const progressLabel = document.getElementById('wizard-progress');
+    const reviewBackBtn = document.getElementById('review-back');
+    const phaseWarning = document.getElementById('phase-1-warning');
+
+    let currentPhase = 1;
+    let importComplete = false;
+    let tiesheetDirty = false;
+
+    function setPhase(phase) {
+      currentPhase = phase;
+      document.body.classList.toggle('review-mode', phase === 5);
+      steps.forEach(step => {
+        const stepNum = parseInt(step.dataset.phase, 10);
+        step.classList.toggle('active', stepNum === phase);
+        step.classList.toggle('completed', stepNum < phase);
+      });
+      phases.forEach(section => {
+        const sectionPhase = parseInt(section.dataset.phase, 10);
+        section.classList.toggle('active', sectionPhase === phase);
+      });
+      if (progressLabel) progressLabel.textContent = `Step ${phase} of 5`;
+      if (backBtn) backBtn.disabled = phase === 1;
+      if (nextBtn) {
+        if (phase === 4) {
+          nextBtn.textContent = 'Go to Review';
+        } else if (phase === 5) {
+          nextBtn.textContent = 'Back to Step 4';
+        } else {
+          nextBtn.textContent = 'Next';
+        }
+      }
+      if (skipBtn) skipBtn.style.visibility = phase === 5 ? 'hidden' : 'visible';
+      if (phaseWarning) phaseWarning.style.display = 'none';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function getVisibleRowCount(selector) {
+      return Array.from(document.querySelectorAll(selector)).filter(row => row.offsetParent !== null).length;
+    }
+
+    function validatePhase1() {
+      const matInput = document.getElementById('mat-count-input');
+      const matCount = parseInt(matInput ? matInput.value : '0', 10);
+      const categoryCount = getVisibleRowCount('#standard-list tr') + getVisibleRowCount('#special-list tr');
+      if (matCount < 1 || categoryCount < 1) {
+        if (phaseWarning) phaseWarning.style.display = 'block';
+        return false;
+      }
+      return true;
+    }
+
+    steps.forEach(step => {
+      step.addEventListener('click', () => {
+        const stepNum = parseInt(step.dataset.phase, 10);
+        if (stepNum > 1 && !validatePhase1()) return;
+        setPhase(stepNum);
+      });
+    });
+
+    if (backBtn) {
+      backBtn.addEventListener('click', () => {
+        if (currentPhase === 5) {
+          setPhase(4);
+        } else {
+          setPhase(Math.max(1, currentPhase - 1));
+        }
+      });
+    }
+
+    if (nextBtn) {
+      nextBtn.addEventListener('click', () => {
+        if (currentPhase === 1 && !validatePhase1()) return;
+        if (currentPhase === 4) {
+          setPhase(5);
+          return;
+        }
+        if (currentPhase === 5) {
+          setPhase(4);
+          return;
+        }
+        setPhase(Math.min(5, currentPhase + 1));
+      });
+    }
+
+    if (skipBtn) {
+      skipBtn.addEventListener('click', () => setPhase(5));
+    }
+
+    if (reviewBackBtn) {
+      reviewBackBtn.addEventListener('click', () => setPhase(4));
+    }
+
+    const poolSizeInputs = document.querySelectorAll('input[name="pool-size"]');
+    poolSizeInputs.forEach(input => {
+      input.addEventListener('change', () => {
+        updatePoolSizeSummary();
+        markTiesheetDirty();
+      });
+    });
+
+    function updatePoolSizeSummary() {
+      const selected = document.querySelector('input[name="pool-size"]:checked');
+      const value = selected ? selected.value : '8';
+      const summary = document.getElementById('pool-size-summary');
+      if (summary) summary.textContent = `Pool size: ${value} (max 32)`;
+    }
+
+    function markTiesheetDirty() {
+      if (!importComplete) return;
+      tiesheetDirty = true;
+      updateTiesheetState();
+    }
+
+    function updateImportUI() {
+      const status = document.getElementById('import-status');
+      if (status) {
+        status.style.display = importComplete ? 'block' : 'none';
+      }
+    }
+
+    function updateTiesheetState() {
+      const empty = document.getElementById('tiesheet-empty');
+      const list = document.getElementById('tiesheet-preview-list');
+      if (!importComplete) {
+        if (empty) empty.style.display = 'block';
+        if (list) list.style.display = 'none';
+        return;
+      }
+      if (empty) empty.style.display = 'none';
+      if (list) list.style.display = 'grid';
+      document.querySelectorAll('.tiesheet-status').forEach(label => {
+        if (tiesheetDirty) {
+          label.textContent = 'Needs Regeneration';
+          label.classList.remove('status-live');
+          label.classList.add('status-upcoming');
+        } else {
+          label.textContent = 'Generated';
+          label.classList.add('status-live');
+          label.classList.remove('status-upcoming');
+        }
+      });
+    }
+
+    function setImportComplete() {
+      importComplete = true;
+      tiesheetDirty = false;
+      updateImportUI();
+      updateTiesheetState();
+    }
+
+    const goImportBtn = document.getElementById('go-import');
+    if (goImportBtn) {
+      goImportBtn.addEventListener('click', () => setPhase(2));
+    }
+
+    const regenerateBtn = document.getElementById('regenerate-btn');
+    if (regenerateBtn) {
+      regenerateBtn.addEventListener('click', () => {
+        tiesheetDirty = false;
+        updateTiesheetState();
+      });
+    }
+
+    const dropzone = document.getElementById('main-dropzone');
+    if (dropzone) {
+      dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropzone.style.borderColor = 'var(--ao)';
+        dropzone.style.background = 'var(--ao-light)';
+      });
+      dropzone.addEventListener('dragleave', () => {
+        dropzone.style.borderColor = 'var(--neutral-300)';
+        dropzone.style.background = 'var(--neutral-50)';
+      });
+      dropzone.addEventListener('click', () => {
+        const icon = document.getElementById('dropzone-icon-state');
+        const title = document.getElementById('dropzone-title');
+        const desc = document.getElementById('dropzone-desc');
+        const btn = document.getElementById('dropzone-btn');
+
+        icon.setAttribute('data-lucide', 'loader-2');
+        lucide.createIcons();
+        gsap.to(icon, { rotation: 360, repeat: -1, duration: 1, ease: 'linear' });
+        title.innerText = 'Processing Registration Data...';
+        desc.innerText = 'Generating brackets and mapping categories.';
+
+        setTimeout(() => {
+          gsap.killTweensOf(icon);
+          icon.setAttribute('data-lucide', 'check-circle');
+          lucide.createIcons();
+          dropzone.style.borderColor = 'var(--ao)';
+          dropzone.style.background = 'var(--ao-light)';
+          title.innerText = 'Import Complete';
+          desc.innerText = '6 categories mapped and ready for preview.';
+          btn.innerText = 'Replace File';
+          setImportComplete();
+        }, 1200);
+      });
+    }
+
+    const modalOverlay = document.getElementById('setup-modal');
+    const modalTitle = document.getElementById('modal-title');
+
+    function openModal(type) {
+      const modalFields = document.getElementById('modal-fields');
+      const desc = document.getElementById('modal-desc');
+
+      if (type === 'standard') {
+        modalTitle.innerText = "Add Standard Category";
+        desc.innerText = "Define both age and weight parameters for this category.";
+        modalFields.innerHTML = `
+          <label class="text-micro">Name</label>
+          <input type="text" class="input-field" placeholder="e.g. Senior Male -75kg">
+          
+          <div style="display: flex; gap: 12px; margin-top: 8px;">
+            <div style="flex: 1;">
+              <label class="text-micro">Min Age</label>
+              <input type="number" class="input-field" placeholder="18">
+            </div>
+            <div style="flex: 1;">
+              <label class="text-micro">Max Age</label>
+              <input type="number" class="input-field" placeholder="99">
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 12px; margin-top: 8px;">
+            <div style="flex: 1;">
+              <label class="text-micro">Min Weight (kg)</label>
+              <input type="number" class="input-field" placeholder="0">
+            </div>
+            <div style="flex: 1;">
+              <label class="text-micro">Max Weight (kg)</label>
+              <input type="number" class="input-field" placeholder="100">
+            </div>
+          </div>
+        `;
+      } else if (type === 'special') {
+        modalTitle.innerText = "Create Special Category";
+        desc.innerText = "Set specific rules and prerequisites for this category.";
+        modalFields.innerHTML = `
+          <label class="text-micro">Category Name</label>
+          <input type="text" class="input-field" placeholder="e.g. Super Gold Open">
+
+          <label class="text-micro" style="margin-top: 12px; display: block;">Prerequisite Rule (Medal/Rank)</label>
+          <select class="input-field" style="background: var(--shiro); cursor: pointer;">
+            <option>None (Open to all)</option>
+            <option>All Medalists</option>
+            <option>Gold Medalists Only</option>
+            <option>Silver & Gold Medalists</option>
+            <option>Black Belts Only</option>
+          </select>
+
+          <label class="text-micro" style="margin-top: 4px; display: block;">Source Category (Apply rule to)</label>
+          <div class="input-field" style="height: auto; max-height: 130px; overflow-y: auto; padding: 12px; background: var(--shiro); display: flex; flex-direction: column; gap: 8px;">
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer;">
+              <input type="checkbox" checked style="width: 16px; height: 16px; accent-color: var(--ao);"> All Categories
+            </label>
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer;">
+              <input type="checkbox" style="width: 16px; height: 16px; accent-color: var(--ao);"> Senior Male -75kg
+            </label>
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer;">
+              <input type="checkbox" style="width: 16px; height: 16px; accent-color: var(--ao);"> Senior Female -55kg
+            </label>
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer;">
+              <input type="checkbox" style="width: 16px; height: 16px; accent-color: var(--ao);"> Youth (5-7 yrs)
+            </label>
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer;">
+              <input type="checkbox" style="width: 16px; height: 16px; accent-color: var(--ao);"> Youth (8-10 yrs)
+            </label>
+          </div>
+
+          <div style="display: flex; gap: 12px; margin-top: 4px;">
+            <div style="flex: 1;">
+              <label class="text-micro">Age Rule</label>
+              <select class="input-field" style="background: var(--shiro); cursor: pointer;">
+                <option>Any Age</option>
+                <option>U18</option>
+                <option>U21</option>
+                <option>Senior (18+)</option>
+              </select>
+            </div>
+            <div style="flex: 1;">
+              <label class="text-micro">Interest/Style</label>
+              <select class="input-field" style="background: var(--shiro); cursor: pointer;">
+                <option>Kumite</option>
+                <option>Kata</option>
+                <option>Both</option>
+              </select>
+            </div>
+          </div>
+        `;
+      } else if (type === 'merge') {
+        modalTitle.innerText = "Merge Categories";
+        desc.innerText = "Combine under-populated divisions into a new category.";
+        modalFields.innerHTML = `
+          <label class="text-micro">Category 1</label>
+          <select class="input-field" style="background: var(--shiro); cursor: pointer;">
+            <option>Youth (5-7 yrs)</option>
+            <option>Youth (8-10 yrs)</option>
+            <option>Senior Male -75kg</option>
+          </select>
+          <label class="text-micro" style="display: block; margin-top: 8px;">Category 2</label>
+          <select class="input-field" style="background: var(--shiro); cursor: pointer;">
+            <option>Youth (8-10 yrs)</option>
+            <option>Youth (5-7 yrs)</option>
+            <option>Senior Male -75kg</option>
+          </select>
+          <label class="text-micro" style="display: block; margin-top: 8px;">Merged Category Name</label>
+          <input type="text" class="input-field" placeholder="e.g. Youth (5-10 yrs)">
+        `;
+      }
+      modalOverlay.classList.add('active');
+    }
+
+    function closeModal() { modalOverlay.classList.remove('active'); }
+
+    function confirmModalAction() {
+      if (modalTitle.innerText === 'Merge Categories') {
+        const demoRow = document.getElementById('merged-row-demo');
+        if (demoRow) {
+          demoRow.style.display = 'table-row';
+          gsap.from(demoRow, { backgroundColor: 'var(--ao-light)', duration: 1.5 });
+        }
+      }
+      markTiesheetDirty();
+      closeModal();
+    }
+
+    function attachPasswordToggle() {
+      document.querySelectorAll('.toggle-password').forEach(icon => {
+        icon.addEventListener('click', () => {
+          const input = icon.previousElementSibling;
+          input.type = input.type === 'password' ? 'text' : 'password';
+          icon.setAttribute('data-lucide', input.type === 'password' ? 'eye' : 'eye-off');
+          lucide.createIcons();
+        });
+      });
+    }
+
+    function renderMats(count) {
+      const container = document.getElementById('mat-setup-container');
+      const operatorList = document.getElementById('score-operator-list');
+      if (!container) return;
+      container.innerHTML = '';
+      if (operatorList) operatorList.innerHTML = '';
+      
+      for (let i = 1; i <= count; i++) {
+        const num = i < 10 ? '0' + i : i;
+        container.innerHTML += `
+          <div class="mat-setup-card">
+            <div class="mat-header">
+              <div class="mat-number-badge">MAT ${num}</div>
+              <span class="status-chip status-live" style="font-size: 10px;">Connected</span>
+            </div>
+            <div class="form-group">
+              <label class="text-micro" style="margin-bottom: 8px; display: block;">Access Password</label>
+              <div class="password-input-group">
+                <input type="password" value="TKX-MAT-${num}026" placeholder="Set password">
+                <i data-lucide="eye" class="toggle-password"></i>
+              </div>
+            </div>
+          </div>
+        `;
+        
+        if (operatorList) {
+          operatorList.innerHTML += `
+            <tr>
+              <td style="font-weight: 500;">MAT ${num}</td>
+              <td>
+                <select class="input-field" style="margin-bottom: 0; background: var(--shiro);">
+                  <option ${i>2 ? 'selected' : ''}>Unassigned</option>
+                  <option ${i===1 ? 'selected' : ''}>Lucas Rossi</option>
+                  <option ${i===2 ? 'selected' : ''}>Amina Ndiaye</option>
+                  <option>Kenji Sato</option>
+                  <option>Maria Garcia</option>
+                </select>
+              </td>
+            </tr>
+          `;
+        }
+      }
+      lucide.createIcons();
+      attachPasswordToggle();
+    }
+
+    function updateMatCount(button) {
+      const input = document.getElementById('mat-count-input');
+      let count = parseInt(input.value || '0', 10);
+      if (count < 1) count = 1;
+      if (count > 20) count = 20;
+      input.value = count;
+      
+      if (button) {
+        const originalText = button.innerText;
+        button.innerText = 'Applied!';
+        setTimeout(() => {
+          button.innerText = originalText;
+        }, 2000);
+      }
+      
+      renderMats(count);
+    }
+
+    const initialMatCount = parseInt(document.getElementById('mat-count-input')?.value || '8', 10);
+    renderMats(initialMatCount);
+    updatePoolSizeSummary();
+    updateImportUI();
+    updateTiesheetState();
+    setPhase(1);
+  </script>
+</body>
+</html>

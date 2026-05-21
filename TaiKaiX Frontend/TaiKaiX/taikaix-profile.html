@@ -1,0 +1,342 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TaiKaiX — User Profile</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <style>
+    /* Profile Specific Styles */
+    .profile-header {
+      background: var(--shiro);
+      border: 1px solid var(--neutral-300);
+      border-radius: 12px;
+      padding: var(--space-6);
+      display: flex;
+      gap: var(--space-6);
+      align-items: center;
+      margin-bottom: var(--space-6);
+      position: relative;
+    }
+
+    .profile-avatar-large {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: var(--neutral-100) url('https://api.dicebear.com/7.x/avataaars/svg?seed=Felix') center/cover;
+      border: 4px solid var(--shiro);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .profile-info h1 {
+      margin-bottom: var(--space-1);
+    }
+
+    .profile-meta {
+      display: flex;
+      gap: var(--space-5);
+      color: var(--neutral-500);
+      font-size: 14px;
+    }
+
+    .profile-meta-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    .edit-profile-btn {
+      position: absolute;
+      top: var(--space-6);
+      right: var(--space-6);
+    }
+
+    /* Stats Grid */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--space-4);
+      margin-bottom: var(--space-6);
+    }
+
+    .stat-card {
+      background: var(--shiro);
+      border: 1px solid var(--neutral-300);
+      border-radius: 10px;
+      padding: var(--space-4);
+      text-align: center;
+    }
+
+    .stat-value {
+      font-family: var(--font-display);
+      font-size: 32px;
+      color: var(--neutral-900);
+      line-height: 1;
+      margin-bottom: var(--space-1);
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--neutral-500);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+    }
+
+    /* Competition List */
+    .section-title {
+      font-family: var(--font-display);
+      font-size: 24px;
+      margin-bottom: var(--space-4);
+      color: var(--neutral-900);
+    }
+
+    .comp-list {
+      display: grid;
+      gap: var(--space-4);
+    }
+
+    .comp-item {
+      background: var(--shiro);
+      border: 1px solid var(--neutral-300);
+      border-radius: 10px;
+      padding: var(--space-4);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .comp-item:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+
+    .comp-info {
+      display: flex;
+      gap: var(--space-4);
+      align-items: center;
+    }
+
+    .comp-date-badge {
+      width: 50px;
+      height: 50px;
+      background: var(--neutral-50);
+      border: 1px solid var(--neutral-300);
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+    }
+
+    .comp-date-day { font-size: 18px; line-height: 1; }
+    .comp-date-month { font-size: 10px; text-transform: uppercase; color: var(--neutral-500); }
+
+    .comp-details h4 {
+      font-size: 16px;
+      margin-bottom: 2px;
+    }
+
+    .comp-details p {
+      font-size: 13px;
+      color: var(--neutral-500);
+    }
+
+    .comp-status {
+      display: flex;
+      align-items: center;
+      gap: var(--space-4);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .profile-header {
+        flex-direction: column;
+        text-align: center;
+        padding: var(--space-7) var(--space-4);
+      }
+      .edit-profile-btn {
+        position: static;
+        margin-top: var(--space-4);
+      }
+      .profile-meta {
+        flex-direction: column;
+        gap: var(--space-2);
+        align-items: center;
+      }
+      .stats-row {
+        grid-template-columns: 1fr;
+      }
+      .comp-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-4);
+      }
+      .comp-status {
+        width: 100%;
+        justify-content: space-between;
+      }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="nav-logo">TAIKAIX</div>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link">Dashboard</a>
+      <a href="competitions.html" class="nav-link">Competitions</a>
+      <a href="users.html" class="nav-link">Users</a>
+    </div>
+    <div class="nav-profile">
+      <a href="taikaix-profile.html" class="avatar" style="border: 2px solid var(--aka);"></a>
+      <i data-lucide="chevron-down" style="width: 16px; color: var(--neutral-500);"></i>
+    </div>
+  </nav>
+
+  <main class="container">
+    <header class="page-header">
+      <div>
+        <div class="breadcrumb">TaiKaiX / User Profile</div>
+        <h1>My Profile</h1>
+      </div>
+    </header>
+
+    <!-- Profile Header -->
+    <section class="profile-header">
+      <div class="profile-avatar-large"></div>
+      <div class="profile-info">
+        <h1>Kenji Sato</h1>
+        <div class="profile-meta">
+          <div class="profile-meta-item">
+            <i data-lucide="mail" style="width: 16px;"></i>
+            kenji.sato@example.com
+          </div>
+          <div class="profile-meta-item">
+            <i data-lucide="map-pin" style="width: 16px;"></i>
+            Osaka, Japan
+          </div>
+          <div class="profile-meta-item">
+            <i data-lucide="calendar" style="width: 16px;"></i>
+            Joined March 2024
+          </div>
+        </div>
+      </div>
+      <a href="taikaix-edit-profile.html" class="btn btn-secondary edit-profile-btn">
+        <i data-lucide="edit-3"></i> Edit Profile
+      </a>
+    </section>
+
+    <!-- Stats -->
+    <section class="stats-row">
+      <div class="stat-card">
+        <div class="stat-value">12</div>
+        <div class="stat-label">Competitions</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">156</div>
+        <div class="stat-label">Matches Called</div>
+      </div>
+    </section>
+
+    <!-- Unified Competition List -->
+    <section class="profile-content">
+      <h2 class="section-title">Competition History</h2>
+      
+      <div class="comp-list">
+        <!-- Live/Upcoming -->
+        <div class="comp-item">
+          <div class="comp-info">
+            <div class="comp-date-badge">
+              <span class="comp-date-day">15</span>
+              <span class="comp-date-month">May</span>
+            </div>
+            <div class="comp-details">
+              <h4>Kyoto 2026 Finals</h4>
+              <p>Kyoto Imperial Arena</p>
+            </div>
+          </div>
+          <div class="comp-status">
+            <span class="status-chip status-live">Live Now</span>
+            <a href="competition-detail.html" class="btn btn-ghost" style="padding: 8px;">
+              <i data-lucide="external-link"></i>
+            </a>
+          </div>
+        </div>
+
+        <div class="comp-item">
+          <div class="comp-info">
+            <div class="comp-date-badge">
+              <span class="comp-date-day">02</span>
+              <span class="comp-date-month">Jun</span>
+            </div>
+            <div class="comp-details">
+              <h4>Osaka Regional Cup</h4>
+              <p>Osaka Prefectural Gym</p>
+            </div>
+          </div>
+          <div class="comp-status">
+            <span class="status-chip status-upcoming">Upcoming</span>
+            <a href="#" class="btn btn-ghost" style="padding: 8px;">
+              <i data-lucide="external-link"></i>
+            </a>
+          </div>
+        </div>
+
+        <!-- Past -->
+        <div class="comp-item">
+          <div class="comp-info">
+            <div class="comp-date-badge">
+              <span class="comp-date-day">10</span>
+              <span class="comp-date-month">Apr</span>
+            </div>
+            <div class="comp-details">
+              <h4>Tokyo Masters</h4>
+              <p>Nippon Budokan</p>
+            </div>
+          </div>
+          <div class="comp-status">
+            <span class="status-chip status-done" style="background: var(--neutral-100); color: var(--neutral-500);">Completed</span>
+            <button class="btn btn-ghost" style="padding: 8px;">
+              <i data-lucide="file-text"></i>
+            </button>
+          </div>
+        </div>
+        
+        <div class="comp-item">
+          <div class="comp-info">
+            <div class="comp-date-badge">
+              <span class="comp-date-day">22</span>
+              <span class="comp-date-month">Mar</span>
+            </div>
+            <div class="comp-details">
+              <h4>Nagoya Open 2026</h4>
+              <p>Nagoya City Gym</p>
+            </div>
+          </div>
+          <div class="comp-status">
+            <span class="status-chip status-done" style="background: var(--neutral-100); color: var(--neutral-500);">Completed</span>
+            <button class="btn btn-ghost" style="padding: 8px;">
+              <i data-lucide="file-text"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    lucide.createIcons();
+
+    // Entrance animations
+    gsap.from('.profile-header', { opacity: 0, y: 20, duration: 0.6, ease: 'power2.out' });
+    gsap.from('.stat-card', { opacity: 0, y: 20, duration: 0.6, stagger: 0.1, delay: 0.2, ease: 'power2.out' });
+    gsap.from('.section-title', { opacity: 0, x: -20, duration: 0.6, delay: 0.4, ease: 'power2.out' });
+    gsap.from('.comp-item', { opacity: 0, y: 10, stagger: 0.1, duration: 0.5, delay: 0.5, ease: 'power2.out' });
+  </script>
+</body>
+</html>

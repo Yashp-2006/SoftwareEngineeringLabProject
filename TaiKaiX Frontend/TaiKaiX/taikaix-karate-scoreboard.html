@@ -1,0 +1,774 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TaiKaiX — Karate Live Scoreboard</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+  
+  <!-- Libraries -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+  <style>
+    :root {
+      /* Brand Tokens (from brand-spec.md) */
+      --aka: oklch(54% 0.22 25);
+      --aka-hover: oklch(48% 0.20 25);
+      --aka-light: oklch(95% 0.02 25);
+      
+      --ao: oklch(44% 0.18 255);
+      --ao-hover: oklch(38% 0.16 255);
+      --ao-light: oklch(94% 0.02 255);
+
+      --shiro: oklch(100% 0 0);
+      --kuro: oklch(15% 0 0);
+      
+      --neutral-900: oklch(18% 0 0);
+      --neutral-700: oklch(35% 0 0);
+      --neutral-500: oklch(52% 0 0);
+      --neutral-300: oklch(82% 0 0);
+      --neutral-100: oklch(96% 0 0);
+      
+      --status-live: oklch(62% 0.16 145);
+      
+      --font-display: 'Bebas Neue', sans-serif;
+      --font-body: 'DM Sans', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+
+      --space-1: 4px;
+      --space-2: 8px;
+      --space-4: 16px;
+      --space-6: 32px;
+      --space-8: 64px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: var(--kuro);
+      color: var(--shiro);
+      font-family: var(--font-body);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Scoreboard Layout */
+    .scoreboard-container {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 320px 1fr;
+      height: 100%;
+      position: relative;
+    }
+
+    /* Sides */
+    .side {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: var(--space-8);
+      position: relative;
+      transition: background-color 0.3s ease;
+    }
+
+    .side.aka { background: var(--aka); }
+    .side.ao { background: var(--ao); }
+
+    /* Competitor Info */
+    .athlete-name {
+      font-family: var(--font-display);
+      font-size: 120px;
+      line-height: 1;
+      text-transform: uppercase;
+      text-align: center;
+      margin-bottom: var(--space-2);
+      text-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+
+    .athlete-country {
+      font-family: var(--font-display);
+      font-size: 32px;
+      color: rgba(255,255,255,0.7);
+      letter-spacing: 0.1em;
+      margin-bottom: var(--space-8);
+    }
+
+    /* Big Score */
+    .score-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .score {
+      font-family: var(--font-display);
+      font-size: 380px;
+      line-height: 0.8;
+      margin: 0;
+      color: var(--shiro);
+    }
+
+    /* Points Detail (Ippon, Waza-ari, Yuko) */
+    .points-detail {
+      display: flex;
+      gap: var(--space-6);
+      margin-top: var(--space-8);
+    }
+
+    .point-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-1);
+    }
+
+    .point-label {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      opacity: 0.8;
+    }
+
+    .point-value {
+      font-family: var(--font-display);
+      font-size: 48px;
+    }
+
+    /* Penalties */
+    .penalties {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-4);
+      margin-top: var(--space-8);
+      width: 100%;
+      max-width: 400px;
+    }
+
+    .penalty-group {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+    }
+
+    .penalty-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      opacity: 0.6;
+      text-align: center;
+    }
+
+    .penalty-dots {
+      display: flex;
+      justify-content: center;
+      gap: var(--space-2);
+    }
+
+    .dot {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.4);
+      transition: all 0.3s ease;
+    }
+
+    .dot.active {
+      background: var(--shiro);
+      box-shadow: 0 0 10px var(--shiro);
+    }
+
+    /* Senshu Indicator */
+    .senshu {
+      position: absolute;
+      top: 40px;
+      font-family: var(--font-display);
+      font-size: 24px;
+      background: var(--shiro);
+      color: var(--kuro);
+      padding: 4px 12px;
+      border-radius: 4px;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    .senshu.active { opacity: 1; }
+
+    /* Center Column */
+    .center-column {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-6) 0;
+      background: var(--kuro);
+      border-left: 1px solid var(--neutral-900);
+      border-right: 1px solid var(--neutral-900);
+      z-index: 10;
+    }
+
+    .logo {
+      font-family: var(--font-display);
+      font-size: 32px;
+      color: var(--shiro);
+      letter-spacing: 0.1em;
+    }
+
+    .timer-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-4);
+    }
+
+    .timer {
+      font-family: var(--font-mono);
+      font-size: 96px;
+      font-weight: 700;
+      color: var(--status-live);
+    }
+
+    .match-info {
+      text-align: center;
+    }
+
+    .match-number {
+      font-family: var(--font-display);
+      font-size: 24px;
+      color: var(--neutral-500);
+      margin-bottom: var(--space-2);
+    }
+
+    .category {
+      font-family: var(--font-body);
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--neutral-300);
+      text-transform: uppercase;
+      max-width: 200px;
+    }
+
+    /* Controls Overlay */
+    .controls-overlay {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.8);
+      backdrop-filter: blur(8px);
+      padding: var(--space-4) var(--space-6);
+      border-radius: 100px;
+      display: flex;
+      gap: var(--space-6);
+      border: 1px solid var(--neutral-700);
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.3s ease;
+      z-index: 100;
+    }
+
+    body:hover .controls-overlay {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+    }
+
+    .control-btn {
+      background: var(--neutral-900);
+      border: 1px solid var(--neutral-700);
+      color: var(--shiro);
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .control-btn:hover {
+      background: var(--neutral-700);
+      transform: translateY(-1px);
+    }
+
+    .control-btn.active {
+      background: var(--aka);
+      border-color: var(--aka);
+    }
+
+    .key-hint {
+      font-size: 10px;
+      background: rgba(255,255,255,0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: var(--neutral-300);
+    }
+
+    /* Animations */
+    .score-change {
+      animation: scorePulse 0.4s ease;
+    }
+
+    @keyframes scorePulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.1); color: var(--shiro); }
+      100% { transform: scale(1); }
+    }
+
+    .fullscreen-btn {
+      position: fixed;
+      top: 24px;
+      right: 24px;
+      z-index: 100;
+      background: rgba(0,0,0,0.5);
+      border: 1px solid var(--neutral-700);
+      color: var(--shiro);
+      padding: 8px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    /* Winner Overlay */
+    .winner-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.9);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.5s ease;
+    }
+    .winner-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .winner-name {
+      font-family: var(--font-display);
+      font-size: 160px;
+      text-transform: uppercase;
+      margin-bottom: var(--space-2);
+    }
+    .winner-label {
+      font-family: var(--font-display);
+      font-size: 48px;
+      color: var(--status-live);
+      letter-spacing: 0.2em;
+    }
+    .winner-aka .winner-name { color: var(--aka); }
+    .winner-ao .winner-name { color: var(--ao); }
+  </style>
+</head>
+<body id="scoreboard-body">
+
+  <button class="fullscreen-btn" id="fs-toggle" title="Toggle Fullscreen (F)">
+    <i data-lucide="maximize-2"></i>
+  </button>
+
+  <!-- WINNER OVERLAY -->
+  <div class="winner-overlay" id="winner-overlay">
+    <div class="winner-label">MATCH WINNER</div>
+    <div class="winner-name" id="winner-name-val">SATO</div>
+    <button class="control-btn" style="margin-top: 40px;" onclick="closeWinner()">
+      <i data-lucide="x"></i> Close
+    </button>
+  </div>
+
+  <div class="scoreboard-container">
+    <!-- AKA (RED) SIDE -->
+    <div class="side aka" id="side-aka">
+      <div class="senshu" id="senshu-aka">SENSHU</div>
+      <div class="athlete-name">SATO</div>
+      <div class="athlete-country">JAPAN</div>
+      
+      <div class="score-wrap">
+        <div class="score" id="score-val-aka">0</div>
+      </div>
+
+      <div class="points-detail" id="details-aka">
+        <div class="point-item">
+          <div class="point-label">Ippon</div>
+          <div class="point-value" id="ippon-aka">0</div>
+        </div>
+        <div class="point-item">
+          <div class="point-label">Waza-ari</div>
+          <div class="point-value" id="wazaari-aka">0</div>
+        </div>
+        <div class="point-item">
+          <div class="point-label">Yuko</div>
+          <div class="point-value" id="yuko-aka">0</div>
+        </div>
+      </div>
+
+      <div class="penalties">
+        <div class="penalty-group" onclick="addPenalty('aka', 'c1')">
+          <div class="penalty-title">Category 1</div>
+          <div class="penalty-dots" id="c1-aka">
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+          </div>
+        </div>
+        <div class="penalty-group" onclick="addPenalty('aka', 'c2')">
+          <div class="penalty-title">Category 2</div>
+          <div class="penalty-dots" id="c2-aka">
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CENTER COLUMN -->
+    <div class="center-column">
+      <div class="logo">TAIKAIX</div>
+      
+      <div class="timer-wrap">
+        <div class="timer" id="timer-display">03:00</div>
+        <div id="status-label" style="text-transform: uppercase; font-size: 12px; letter-spacing: 0.2em; color: var(--neutral-500);">PRE-MATCH</div>
+      </div>
+
+      <div class="match-info">
+        <div class="match-number">MAT 01 - MATCH 42</div>
+        <div class="category">Senior Male Kumite -75kg</div>
+      </div>
+    </div>
+
+    <!-- AO (BLUE) SIDE -->
+    <div class="side ao" id="side-ao">
+      <div class="senshu" id="senshu-ao">SENSHU</div>
+      <div class="athlete-name">MULLER</div>
+      <div class="athlete-country">GERMANY</div>
+      
+      <div class="score-wrap">
+        <div class="score" id="score-val-ao">0</div>
+      </div>
+
+      <div class="points-detail" id="details-ao">
+        <div class="point-item">
+          <div class="point-label">Ippon</div>
+          <div class="point-value" id="ippon-ao">0</div>
+        </div>
+        <div class="point-item">
+          <div class="point-label">Waza-ari</div>
+          <div class="point-value" id="wazaari-ao">0</div>
+        </div>
+        <div class="point-item">
+          <div class="point-label">Yuko</div>
+          <div class="point-value" id="yuko-ao">0</div>
+        </div>
+      </div>
+
+      <div class="penalties">
+        <div class="penalty-group" onclick="addPenalty('ao', 'c1')">
+          <div class="penalty-title">Category 1</div>
+          <div class="penalty-dots" id="c1-ao">
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+          </div>
+        </div>
+        <div class="penalty-group" onclick="addPenalty('ao', 'c2')">
+          <div class="penalty-title">Category 2</div>
+          <div class="penalty-dots" id="c2-ao">
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTROLS OVERLAY -->
+  <div class="controls-overlay">
+    <div class="control-group">
+      <span style="font-size: 11px; font-weight: 700; color: var(--aka);">AKA</span>
+      <button class="control-btn" onclick="addPoint('aka', 1)">+1 <span class="key-hint">1</span></button>
+      <button class="control-btn" onclick="addPoint('aka', 2)">+2 <span class="key-hint">2</span></button>
+      <button class="control-btn" onclick="addPoint('aka', 3)">+3 <span class="key-hint">3</span></button>
+      <button class="control-btn" onclick="addPenalty('aka', 'c1')" title="Add C1 Penalty (Shift+1)">C1</button>
+      <button class="control-btn" onclick="addPenalty('aka', 'c2')" title="Add C2 Penalty (Shift+2)">C2</button>
+    </div>
+    
+    <div class="control-group">
+      <button class="control-btn" id="timer-toggle" onclick="toggleTimer()">
+        <i data-lucide="play"></i> <span>Start</span> <span class="key-hint">Space</span>
+      </button>
+      <button class="control-btn" onclick="resetAll()">
+        <i data-lucide="rotate-ccw"></i> <span>Reset</span> <span class="key-hint">R</span>
+      </button>
+    </div>
+
+    <div class="control-group">
+      <button class="control-btn" onclick="addPenalty('ao', 'c1')" title="Add C1 Penalty (Shift+Q)">C1</button>
+      <button class="control-btn" onclick="addPenalty('ao', 'c2')" title="Add C2 Penalty (Shift+W)">C2</button>
+      <button class="control-btn" onclick="addPoint('ao', 1)">+1 <span class="key-hint">Q</span></button>
+      <button class="control-btn" onclick="addPoint('ao', 2)">+2 <span class="key-hint">W</span></button>
+      <button class="control-btn" onclick="addPoint('ao', 3)">+3 <span class="key-hint">E</span></button>
+      <span style="font-size: 11px; font-weight: 700; color: var(--ao);">AO</span>
+    </div>
+  </div>
+
+  <script>
+    lucide.createIcons();
+
+    // State
+    let state = {
+      aka: { name: 'SATO', score: 0, ippon: 0, wazaari: 0, yuko: 0, c1: 0, c2: 0, senshu: false },
+      ao: { name: 'MULLER', score: 0, ippon: 0, wazaari: 0, yuko: 0, c1: 0, c2: 0, senshu: false },
+      timer: 180, // seconds
+      running: false,
+      senshuClaimed: false
+    };
+
+    let timerInterval = null;
+
+    // Logic
+    function updateUI() {
+      // Aka
+      document.getElementById('score-val-aka').textContent = state.aka.score;
+      document.getElementById('ippon-aka').textContent = state.aka.ippon;
+      document.getElementById('wazaari-aka').textContent = state.aka.wazaari;
+      document.getElementById('yuko-aka').textContent = state.aka.yuko;
+      updatePenalties('aka', 'c1');
+      updatePenalties('aka', 'c2');
+      document.getElementById('senshu-aka').classList.toggle('active', state.aka.senshu);
+
+      // Ao
+      document.getElementById('score-val-ao').textContent = state.ao.score;
+      document.getElementById('ippon-ao').textContent = state.ao.ippon;
+      document.getElementById('wazaari-ao').textContent = state.ao.wazaari;
+      document.getElementById('yuko-ao').textContent = state.ao.yuko;
+      updatePenalties('ao', 'c1');
+      updatePenalties('ao', 'c2');
+      document.getElementById('senshu-ao').classList.toggle('active', state.ao.senshu);
+
+      // Timer
+      const mins = Math.floor(state.timer / 60).toString().padStart(2, '0');
+      const secs = (state.timer % 60).toString().padStart(2, '0');
+      document.getElementById('timer-display').textContent = `${mins}:${secs}`;
+      
+      if (state.timer <= 15) {
+        document.getElementById('timer-display').style.color = 'var(--aka)';
+      } else {
+        document.getElementById('timer-display').style.color = 'var(--status-live)';
+      }
+    }
+
+    function updatePenalties(side, type) {
+      const dots = document.getElementById(`${type}-${side}`).querySelectorAll('.dot');
+      dots.forEach((dot, index) => {
+        dot.classList.toggle('active', index < state[side][type]);
+      });
+    }
+
+    function addPoint(side, points) {
+      if (points === 3) state[side].ippon++;
+      if (points === 2) state[side].wazaari++;
+      if (points === 1) state[side].yuko++;
+      
+      state[side].score += points;
+
+      // Senshu logic
+      if (!state.senshuClaimed && points > 0) {
+        state[side].senshu = true;
+        state.senshuClaimed = true;
+      }
+
+      const el = document.getElementById(`score-val-${side}`);
+      el.classList.remove('score-change');
+      void el.offsetWidth; // trigger reflow
+      el.classList.add('score-change');
+      
+      gsap.fromTo(`#ippon-${side}, #wazaari-${side}, #yuko-${side}`, 
+        { color: 'var(--shiro)' }, 
+        { color: 'var(--shiro)', duration: 0.5 }
+      );
+
+      updateUI();
+    }
+
+    function addPenalty(side, type) {
+      if (state[side][type] < 4) {
+        state[side][type]++;
+        updateUI();
+        
+        // Visual feedback
+        gsap.to(`#${type}-${side}`, {
+          x: 5,
+          repeat: 3,
+          yoyo: true,
+          duration: 0.05
+        });
+      }
+    }
+
+    function toggleTimer() {
+      state.running = !state.running;
+      const btn = document.getElementById('timer-toggle');
+      const label = document.getElementById('status-label');
+
+      if (state.running) {
+        btn.innerHTML = `<i data-lucide="pause"></i> <span>Pause</span> <span class="key-hint">Space</span>`;
+        label.textContent = 'MATCH LIVE';
+        label.style.color = 'var(--status-live)';
+        timerInterval = setInterval(() => {
+          if (state.timer > 0) {
+            state.timer--;
+            updateUI();
+          } else {
+            clearInterval(timerInterval);
+            state.running = false;
+            btn.innerHTML = `<i data-lucide="play"></i> <span>Start</span> <span class="key-hint">Space</span>`;
+            label.textContent = 'TIME OVER';
+            showWinner();
+          }
+        }, 1000);
+      } else {
+        btn.innerHTML = `<i data-lucide="play"></i> <span>Start</span> <span class="key-hint">Space</span>`;
+        label.textContent = 'PAUSED';
+        label.style.color = 'var(--neutral-500)';
+        clearInterval(timerInterval);
+      }
+      lucide.createIcons();
+    }
+
+    function showWinner() {
+      const overlay = document.getElementById('winner-overlay');
+      const nameVal = document.getElementById('winner-name-val');
+      
+      let winner = 'DRAW';
+      overlay.classList.remove('winner-aka', 'winner-ao');
+
+      if (state.aka.score > state.ao.score) {
+        winner = state.aka.name;
+        overlay.classList.add('winner-aka');
+      } else if (state.ao.score > state.aka.score) {
+        winner = state.ao.name;
+        overlay.classList.add('winner-ao');
+      } else if (state.aka.senshu) {
+        winner = state.aka.name;
+        overlay.classList.add('winner-aka');
+      } else if (state.ao.senshu) {
+        winner = state.ao.name;
+        overlay.classList.add('winner-ao');
+      }
+
+      nameVal.textContent = winner;
+      overlay.classList.add('active');
+      
+      gsap.from(nameVal, { scale: 0.5, opacity: 0, duration: 1, ease: 'back.out(1.7)' });
+    }
+
+    function closeWinner() {
+      document.getElementById('winner-overlay').classList.remove('active');
+    }
+
+    function resetAll() {
+      if (confirm('Reset scoreboard?')) {
+        state = {
+          aka: { name: 'SATO', score: 0, ippon: 0, wazaari: 0, yuko: 0, c1: 0, c2: 0, senshu: false },
+          ao: { name: 'MULLER', score: 0, ippon: 0, wazaari: 0, yuko: 0, c1: 0, c2: 0, senshu: false },
+          timer: 180,
+          running: false,
+          senshuClaimed: false
+        };
+        clearInterval(timerInterval);
+        document.getElementById('status-label').textContent = 'PRE-MATCH';
+        document.getElementById('status-label').style.color = 'var(--neutral-500)';
+        updateUI();
+        closeWinner();
+      }
+    }
+
+    // Keyboard Shortcuts
+    window.addEventListener('keydown', (e) => {
+      const key = e.key.toLowerCase();
+      
+      // Aka Points
+      if (key === '1' && !e.shiftKey) addPoint('aka', 1);
+      if (key === '2' && !e.shiftKey) addPoint('aka', 2);
+      if (key === '3' && !e.shiftKey) addPoint('aka', 3);
+      
+      // Ao Points
+      if (key === 'q' && !e.shiftKey) addPoint('ao', 1);
+      if (key === 'w' && !e.shiftKey) addPoint('ao', 2);
+      if (key === 'e' && !e.shiftKey) addPoint('ao', 3);
+
+      // Penalties (Shift + Numbers/Keys)
+      if (e.shiftKey) {
+        if (key === '!') addPenalty('aka', 'c1');
+        if (key === '"') addPenalty('aka', 'c2');
+        if (key === 'q') addPenalty('ao', 'c1');
+        if (key === 'w') addPenalty('ao', 'c2');
+      }
+
+      // Timer
+      if (e.code === 'Space') {
+        e.preventDefault();
+        toggleTimer();
+      }
+
+      // Reset
+      if (key === 'r') resetAll();
+
+      // Fullscreen
+      if (key === 'f') toggleFullscreen();
+    });
+
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      }
+    }
+
+    document.getElementById('fs-toggle').addEventListener('click', toggleFullscreen);
+
+    // Initial load
+    window.addEventListener('load', () => {
+      updateUI();
+      gsap.from('.side.aka', { xPercent: -100, duration: 1, ease: 'power4.out' });
+      gsap.from('.side.ao', { xPercent: 100, duration: 1, ease: 'power4.out' });
+      gsap.from('.center-column', { y: -100, opacity: 0, duration: 0.8, delay: 0.5, ease: 'power3.out' });
+      gsap.from('#details-aka .point-item, #details-ao .point-item', { 
+        y: 20, 
+        opacity: 0, 
+        stagger: 0.1, 
+        duration: 0.6, 
+        delay: 0.8 
+      });
+    });
+  </script>
+</body>
+</html>

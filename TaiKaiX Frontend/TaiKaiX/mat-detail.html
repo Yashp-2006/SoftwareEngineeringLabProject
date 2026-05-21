@@ -1,0 +1,2190 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TaiKaiX — Mat 01 Operations</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <style>
+    .mat-detail-grid {
+      display: grid;
+      grid-template-columns: 1fr 360px;
+      gap: var(--space-6);
+    }
+
+    body {
+      background: var(--screen-bg, var(--neutral-100));
+      transition: background 0.35s ease;
+    }
+
+    body[data-lead="aka"] { --screen-bg: color-mix(in oklch, var(--aka-light) 55%, white); }
+    body[data-lead="ao"] { --screen-bg: color-mix(in oklch, var(--ao-light) 55%, white); }
+    body[data-lead="tie"] { --screen-bg: var(--neutral-100); }
+
+    .ops-scoreboard {
+      background: var(--shiro);
+      border: 1px solid var(--neutral-200);
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .ops-header {
+      padding: var(--space-4) var(--space-6);
+      background: var(--neutral-50);
+      border-bottom: 1px solid var(--neutral-200);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--space-3);
+    }
+
+    .ops-display {
+      display: grid;
+      grid-template-columns: 1fr 180px 1fr;
+      background: var(--neutral-50);
+      color: var(--neutral-900);
+      border-top: 1px solid var(--neutral-200);
+      border-bottom: 1px solid var(--neutral-200);
+    }
+
+    .ops-side {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: var(--space-5) var(--space-4);
+      position: relative;
+      gap: 6px;
+    }
+
+    .ops-side.aka {
+      background: color-mix(in oklch, var(--aka-light) 35%, white);
+      border-right: 1px solid var(--neutral-200);
+    }
+
+    .ops-side.ao {
+      background: color-mix(in oklch, var(--ao-light) 40%, white);
+      border-left: 1px solid var(--neutral-200);
+    }
+
+    .ops-score-num {
+      font-family: var(--font-mono);
+      font-size: clamp(68px, 7.8vw, 120px);
+      font-weight: 700;
+      line-height: 0.8;
+      margin: var(--space-2) 0;
+      letter-spacing: -0.05em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .ops-score-num.aka { color: var(--aka); }
+    .ops-score-num.ao { color: var(--ao); }
+
+    .ops-name {
+      font-family: var(--font-display);
+      font-size: clamp(30px, 2.5vw, 44px);
+      line-height: 1;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+
+    .ops-country {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--neutral-600);
+      letter-spacing: 0.1em;
+      margin-top: 0;
+    }
+
+    .ops-academy {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--neutral-600);
+      letter-spacing: 0.04em;
+      text-transform: none;
+      text-align: center;
+      line-height: 1.2;
+      max-width: 100%;
+      white-space: normal;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+      text-wrap: pretty;
+    }
+
+    .ops-center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: var(--space-4) 10px;
+      border-left: 1px solid var(--neutral-200);
+      border-right: 1px solid var(--neutral-200);
+      background: var(--shiro);
+      gap: var(--space-3);
+    }
+
+    .ops-timer {
+      font-family: var(--font-mono);
+      font-size: clamp(38px, 3.2vw, 56px);
+      font-weight: 700;
+      color: var(--neutral-900);
+      line-height: 1;
+      letter-spacing: -0.04em;
+      font-variant-numeric: tabular-nums;
+      text-align: center;
+      width: 100%;
+      white-space: nowrap;
+    }
+
+    .ops-timer.live {
+      color: var(--status-live);
+    }
+
+    .ops-status-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--neutral-500);
+      font-weight: 700;
+    }
+
+    .ops-status-pill {
+      border: 1px solid var(--neutral-300);
+      background: var(--neutral-100);
+      color: var(--neutral-600);
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 11px;
+      line-height: 1;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .ops-status-pill[data-status="ongoing"] {
+      border-color: color-mix(in oklch, var(--status-live) 45%, white);
+      background: var(--status-live-bg);
+      color: var(--status-live);
+    }
+    .ops-status-pill[data-status="paused"] {
+      border-color: var(--neutral-300);
+      background: var(--neutral-100);
+      color: var(--neutral-600);
+    }
+    .ops-status-pill[data-status="finished"] {
+      border-color: color-mix(in oklch, var(--aka) 35%, white);
+      background: color-mix(in oklch, var(--aka) 10%, white);
+      color: var(--aka);
+    }
+
+    .ops-penalty-title {
+      margin-top: 4px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--neutral-600);
+      font-weight: 700;
+    }
+
+    .ops-penalty-meta {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-top: 4px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--neutral-600);
+      font-weight: 700;
+    }
+
+    .ops-penalty-cap {
+      color: var(--neutral-500);
+    }
+
+    .penalty-track {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 0;
+      background: var(--shiro);
+      padding: 8px 10px;
+      border-radius: 12px;
+      border: 1px solid var(--neutral-300);
+    }
+
+    .pen-slot {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .pen-code {
+      font-size: 9px;
+      line-height: 1;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--neutral-500);
+      font-weight: 700;
+    }
+
+    .pen-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: 1px solid var(--neutral-300);
+      background: var(--neutral-50);
+    }
+
+    .pen-dot.active.aka { border-color: var(--aka); background: var(--aka); }
+    .pen-dot.active.ao { border-color: var(--ao); background: var(--ao); }
+
+    .ops-controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      background: var(--neutral-200);
+      border-top: 1px solid var(--neutral-200);
+    }
+
+    .round-ops-strip {
+      grid-column: 1 / -1;
+      background: var(--shiro);
+      border-bottom: 1px solid var(--neutral-200);
+      padding: var(--space-4) var(--space-5);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-3);
+      flex-wrap: wrap;
+    }
+
+    .round-ops-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--neutral-500);
+      font-weight: 700;
+    }
+
+    .round-ops-actions {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      flex-wrap: wrap;
+    }
+
+    .btn-round {
+      border: 1px solid var(--neutral-300);
+      background: var(--shiro);
+      color: var(--neutral-700);
+      border-radius: 10px;
+      height: 34px;
+      padding: 0 12px;
+      font-size: 12px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .btn-round:hover {
+      border-color: var(--ao);
+      color: var(--ao);
+    }
+
+    .btn-round.next {
+      border-color: color-mix(in oklch, var(--status-live) 40%, white);
+      background: var(--status-live-bg);
+      color: var(--status-live);
+    }
+
+    .ops-round-pill,
+    .fs-round-pill {
+      border: 1px solid var(--neutral-300);
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 11px;
+      line-height: 1;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+      color: var(--neutral-700);
+      background: var(--shiro);
+    }
+
+    .ops-round-pill {
+      margin-top: 2px;
+    }
+
+    .fs-round-pill {
+      margin-top: 4px;
+    }
+
+    .control-panel {
+      background: var(--shiro);
+      padding: var(--space-5);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+    }
+
+    .control-row {
+      display: flex;
+      gap: var(--space-3);
+      flex-wrap: wrap;
+    }
+
+    .btn-score {
+      flex: 1;
+      height: 64px;
+      border: 2px solid transparent;
+      border-radius: 8px;
+      font-size: 24px;
+      font-weight: 800;
+      font-family: var(--font-mono);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+
+    .btn-score.aka {
+      background: var(--aka-light);
+      color: var(--aka);
+      border-color: rgba(217, 38, 44, 0.2);
+    }
+
+    .btn-score.aka:active { background: var(--aka); color: var(--shiro); transform: scale(0.98); }
+
+    .btn-score.ao {
+      background: var(--ao-light);
+      color: var(--ao);
+      border-color: rgba(26, 77, 181, 0.2);
+    }
+
+    .btn-score.ao:active { background: var(--ao); color: var(--shiro); transform: scale(0.98); }
+
+    .btn-score.minus {
+      opacity: 0.8;
+      border-style: dashed;
+      height: 48px;
+      font-size: 20px;
+    }
+
+    .btn-pen {
+      flex: 1 1 148px;
+      min-width: 120px;
+      height: 44px;
+      border: 1px solid var(--neutral-300);
+      background: var(--shiro);
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--neutral-700);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn-pen:active { background: var(--neutral-100); transform: scale(0.98); }
+
+    .table-card {
+      background: var(--shiro);
+      border: 1px solid var(--neutral-200);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+    }
+
+    table { width: 100%; border-collapse: collapse; }
+
+    th {
+      background: var(--neutral-50);
+      padding: 12px 20px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--neutral-500);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid var(--neutral-200);
+    }
+
+    td {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--neutral-100);
+      font-size: 14px;
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    .status-chip {
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .status-chip.status-live { background: var(--status-live-bg); color: var(--status-live); }
+
+    .status-chip.status-live::before {
+      content: "";
+      display: block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--status-live);
+      box-shadow: 0 0 0 2px var(--status-live-bg);
+      animation: pulse 2s infinite;
+    }
+
+    .status-chip.status-next { background: var(--status-upcoming-bg); color: var(--status-upcoming); }
+    .status-chip.status-standby { background: var(--neutral-100); color: var(--neutral-600); }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(98, 224, 145, 0.4); }
+      70% { box-shadow: 0 0 0 6px rgba(98, 224, 145, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(98, 224, 145, 0); }
+    }
+
+    .leaderboard-row {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-3) 0;
+      border-bottom: 1px solid var(--neutral-100);
+    }
+
+    .leaderboard-row:last-child { border-bottom: none; }
+
+    .leaderboard-filter {
+      display: inline-flex;
+      gap: 6px;
+      padding: 4px;
+      border-radius: 999px;
+      background: var(--neutral-100);
+      border: 1px solid var(--neutral-200);
+      margin-bottom: var(--space-3);
+      flex-wrap: wrap;
+    }
+
+    .leaderboard-filter--full {
+      align-self: flex-start;
+      margin-bottom: 10px;
+    }
+
+    .filter-btn {
+      border: none;
+      background: transparent;
+      color: var(--neutral-600);
+      font-size: 12px;
+      font-weight: 700;
+      padding: 6px 12px;
+      border-radius: 999px;
+      cursor: pointer;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .filter-btn.active {
+      background: var(--shiro);
+      color: var(--neutral-900);
+      border: 1px solid var(--neutral-200);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+    }
+
+    .leaderboard-entity {
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .leaderboard-meta {
+      font-size: 12px;
+      color: var(--neutral-500);
+    }
+
+    .leaderboard-medals {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 12px;
+    }
+
+    .medal-chip {
+      padding: 4px 6px;
+      border-radius: 6px;
+      background: var(--neutral-100);
+      color: var(--neutral-700);
+      border: 1px solid var(--neutral-200);
+      letter-spacing: 0.04em;
+    }
+
+    .medal-chip.gold { background: color-mix(in oklch, var(--aka) 12%, white); color: var(--aka); border-color: color-mix(in oklch, var(--aka) 25%, white); }
+    .medal-chip.silver { background: var(--neutral-100); color: var(--neutral-700); }
+    .medal-chip.bronze { background: color-mix(in oklch, var(--ao) 12%, white); color: var(--ao); border-color: color-mix(in oklch, var(--ao) 25%, white); }
+    .medal-chip.total { background: var(--shiro); color: var(--neutral-900); border-color: var(--neutral-300); }
+
+    .rank-badge {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: var(--neutral-100);
+      color: var(--neutral-700);
+      font-size: 12px;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .rank-1 { background: var(--aka); color: var(--shiro); }
+    .rank-2 { background: var(--aka-light); color: var(--aka); }
+    .rank-3 { background: var(--ao-light); color: var(--ao); }
+
+    .btn-fullscreen {
+      border: 1px solid var(--neutral-300);
+      background: var(--shiro);
+      color: var(--neutral-700);
+      font-size: 12px;
+      font-weight: 700;
+      border-radius: 8px;
+      padding: 8px 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+
+    .btn-fullscreen:hover { background: var(--neutral-100); color: var(--neutral-900); }
+
+    .btn[disabled] {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .fullscreen-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 1200;
+      background: var(--screen-bg, var(--neutral-50));
+      color: var(--neutral-900);
+      display: flex;
+      flex-direction: column;
+      padding: clamp(12px, 1.2vw, 20px);
+      overflow: auto;
+    }
+
+    .fullscreen-overlay[hidden] { display: none; }
+
+    .overlay-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      gap: var(--space-4);
+      background: var(--shiro);
+      border: 1px solid var(--neutral-200);
+      border-radius: 12px;
+      padding: 14px 16px;
+    }
+
+    .overlay-title {
+      font-family: var(--font-display);
+      font-size: 42px;
+      letter-spacing: 0.03em;
+      line-height: 1;
+    }
+
+    .overlay-meta {
+      font-size: 12px;
+      color: var(--neutral-500);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    .overlay-actions { display: flex; gap: 10px; }
+
+    .overlay-btn {
+      border: 1px solid var(--neutral-300);
+      background: var(--shiro);
+      color: var(--neutral-700);
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 9px 14px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+
+    .overlay-btn:hover { background: var(--neutral-100); color: var(--neutral-900); }
+
+    .overlay-btn.return {
+      border-color: rgba(26, 77, 181, 0.35);
+      background: var(--ao-light);
+      color: var(--ao);
+    }
+
+    #scoreboard-overlay .overlay-header {
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      padding: 0;
+      margin-bottom: clamp(10px, 1vw, 16px);
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    #scoreboard-overlay .overlay-title {
+      font-family: var(--font-body);
+      font-size: clamp(28px, 2.2vw, 44px);
+      font-weight: 800;
+      letter-spacing: -0.01em;
+      text-transform: none;
+      line-height: 1.08;
+      text-wrap: balance;
+    }
+
+    .overlay-title-live { color: var(--aka); }
+
+    #scoreboard-overlay .overlay-meta {
+      font-size: clamp(12px, 0.82vw, 16px);
+      letter-spacing: 0.06em;
+      color: var(--neutral-500);
+      margin-top: 6px;
+      line-height: 1.25;
+      text-wrap: pretty;
+    }
+
+    #scoreboard-overlay .overlay-actions {
+      gap: 10px;
+      align-items: center;
+      align-self: flex-start;
+      flex-wrap: wrap;
+    }
+
+    #scoreboard-overlay .overlay-header > div:first-child {
+      flex: 1 1 520px;
+      min-width: 0;
+    }
+
+    #scoreboard-overlay .overlay-btn {
+      border-radius: 14px;
+      padding: 0 clamp(14px, 1vw, 22px);
+      min-height: clamp(42px, 3vw, 56px);
+      font-size: clamp(12px, 0.9vw, 16px);
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      font-weight: 700;
+      gap: 10px;
+    }
+
+    #scoreboard-overlay .overlay-btn.return {
+      border-color: var(--kuro);
+      background: var(--kuro);
+      color: var(--shiro);
+    }
+
+    #scoreboard-overlay .overlay-btn.return:hover {
+      background: color-mix(in oklch, var(--kuro) 92%, white);
+      color: var(--shiro);
+    }
+
+    .fullscreen-scoreboard-body {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 92px minmax(0, 1fr) clamp(156px, 12vw, 210px) minmax(0, 1fr) 92px;
+      gap: clamp(8px, 0.7vw, 12px);
+      align-items: stretch;
+      min-height: 0;
+      max-width: 100%;
+    }
+
+    .fs-stat-column {
+      display: grid;
+      grid-template-rows: repeat(4, 1fr);
+      gap: clamp(8px, 0.7vw, 12px);
+      min-height: 0;
+      height: 100%;
+    }
+
+    .fs-stat-card {
+      border: 1px solid var(--neutral-300);
+      border-radius: 12px;
+      background: var(--shiro);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 8px 6px;
+      text-align: center;
+    }
+
+    .fs-stat-label {
+      font-size: clamp(9px, 0.62vw, 11px);
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--neutral-900);
+      line-height: 1.05;
+      margin-bottom: 2px;
+      text-wrap: pretty;
+    }
+
+    .fs-stat-value {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: clamp(22px, 1.8vw, 34px);
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .fs-stat-value[data-side="aka"] { color: var(--aka); }
+    .fs-stat-value[data-side="ao"] { color: var(--ao); }
+
+    .fs-stat-card.active-senshu.aka {
+      background: var(--aka);
+      color: var(--shiro);
+      border-color: var(--aka);
+    }
+    .fs-stat-card.active-senshu.aka .fs-stat-label {
+      color: var(--shiro);
+    }
+
+    .fs-stat-card.active-senshu.ao {
+      background: var(--ao);
+      color: var(--shiro);
+      border-color: var(--ao);
+    }
+    .fs-stat-card.active-senshu.ao .fs-stat-label {
+      color: var(--shiro);
+    }
+
+    .fs-fighter-panel {
+      border: 1px solid var(--neutral-300);
+      border-radius: 16px;
+      background: var(--shiro);
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: clamp(76px, 10vh, 104px) minmax(0, 1fr) clamp(98px, 14vh, 138px);
+      min-height: 0;
+    }
+
+    .fs-fighter-head {
+      color: var(--shiro);
+      text-align: center;
+      padding: 10px 14px;
+      display: grid;
+      align-content: center;
+      gap: 2px;
+    }
+
+    .fs-fighter-head.aka { background: linear-gradient(120deg, #ff1d23 0%, #e90710 100%); }
+    .fs-fighter-head.ao { background: linear-gradient(120deg, #1265de 0%, #0451c2 100%); }
+
+    .fs-fighter-lane {
+      font-size: clamp(13px, 0.8vw, 16px);
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      margin-bottom: 0;
+    }
+
+    .fs-fighter-name {
+      font-family: var(--font-body);
+      font-weight: 800;
+      font-size: clamp(24px, 2.45vw, 48px);
+      line-height: 1;
+      text-transform: uppercase;
+      letter-spacing: 0.01em;
+      overflow-wrap: anywhere;
+      text-wrap: balance;
+    }
+
+    .fs-score-stage {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--shiro);
+      border-top: 1px solid var(--neutral-300);
+      border-bottom: 1px solid var(--neutral-300);
+      padding: 8px 0;
+    }
+
+    .fs-main-score {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: clamp(72px, 7vw, 128px);
+      line-height: 1;
+      letter-spacing: -0.05em;
+      text-align: center;
+      min-width: 1ch;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .fs-main-score.aka { color: var(--aka); }
+    .fs-main-score.ao { color: var(--ao); }
+
+    .fs-fighter-foot {
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      background: var(--neutral-50);
+      justify-content: flex-start;
+    }
+
+    .fs-pen-title {
+      font-size: clamp(12px, 0.82vw, 16px);
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      color: var(--neutral-900);
+      text-align: center;
+      line-height: 1.1;
+    }
+
+    .fs-pen-limit {
+      font-size: clamp(10px, 0.7vw, 13px);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--neutral-500);
+      text-align: center;
+      margin-top: -6px;
+    }
+
+    .fs-penalties {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 6px;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .fs-pen-slot {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .fs-pen-code {
+      font-size: clamp(9px, 0.62vw, 11px);
+      line-height: 1;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--neutral-500);
+      font-weight: 700;
+    }
+
+    .fs-pen-dot {
+      width: clamp(14px, 1.05vw, 22px);
+      height: clamp(14px, 1.05vw, 22px);
+      border-radius: 50%;
+      border: 2px solid var(--neutral-300);
+      background: var(--neutral-50);
+    }
+
+    .fs-pen-dot.active.aka { border-color: var(--aka); background: var(--aka); }
+    .fs-pen-dot.active.ao { border-color: var(--ao); background: var(--ao); }
+
+    .fs-academy {
+      text-align: center;
+      font-size: clamp(10px, 0.72vw, 13px);
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      text-transform: none;
+      color: var(--neutral-900);
+      line-height: 1.2;
+      max-width: 100%;
+      white-space: normal;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+      text-wrap: pretty;
+    }
+
+    .fs-mid-column {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 6px 0;
+    }
+
+    .fs-mid-timer-label {
+      font-size: clamp(13px, 0.88vw, 18px);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--neutral-900);
+      text-align: center;
+    }
+
+    .fs-mid-timer {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: clamp(34px, 3.6vw, 58px);
+      line-height: 1;
+      color: var(--kuro);
+      letter-spacing: -0.06em;
+      font-variant-numeric: tabular-nums;
+      text-align: center;
+      width: 100%;
+      border: 1px solid var(--neutral-300);
+      border-radius: 12px;
+      background: var(--shiro);
+      padding: 8px 6px;
+    }
+
+    .fs-mid-timer.live {
+      color: var(--status-live);
+      border-color: color-mix(in oklch, var(--status-live) 45%, white);
+      background: color-mix(in oklch, var(--status-live-bg) 70%, white);
+    }
+
+    .fs-mid-status-wrap {
+      width: 100%;
+      border: 1px solid var(--neutral-300);
+      border-radius: 12px;
+      background: var(--shiro);
+      padding: 8px 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .fs-mid-status-label {
+      font-size: clamp(11px, 0.75vw, 13px);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--neutral-500);
+      text-align: center;
+    }
+
+    .fs-status-pill {
+      border: 1px solid var(--neutral-300);
+      background: var(--neutral-100);
+      color: var(--neutral-600);
+      border-radius: 999px;
+      padding: 5px 8px;
+      font-size: clamp(9px, 0.62vw, 11px);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    @media (max-width: 1500px) {
+      .fullscreen-scoreboard-body {
+        grid-template-columns: 80px minmax(0, 1fr) 148px minmax(0, 1fr) 80px;
+        gap: 8px;
+      }
+      .fs-fighter-name { font-size: clamp(20px, 2vw, 38px); }
+      .fs-main-score { font-size: clamp(56px, 5.8vw, 100px); }
+      .fs-mid-timer { font-size: clamp(30px, 3.1vw, 50px); }
+    }
+
+    @media (max-height: 820px) {
+      #scoreboard-overlay .overlay-header { margin-bottom: 8px; }
+      .fullscreen-scoreboard-body { gap: 7px; }
+      .fs-fighter-panel {
+        grid-template-rows: clamp(64px, 9vh, 88px) minmax(0, 1fr) clamp(86px, 13vh, 114px);
+      }
+      .fs-fighter-head { padding: 8px 10px; }
+      .fs-fighter-foot { padding: 6px 8px; gap: 6px; }
+      .fs-stat-card { padding: 6px 4px; }
+    }
+
+    .fs-status-pill[data-status="ongoing"] {
+      border-color: color-mix(in oklch, var(--status-live) 40%, white);
+      background: var(--status-live-bg);
+      color: var(--status-live);
+    }
+    .fs-status-pill[data-status="paused"] {
+      border-color: var(--neutral-300);
+      background: var(--neutral-100);
+      color: var(--neutral-600);
+    }
+    .fs-status-pill[data-status="finished"] {
+      border-color: color-mix(in oklch, var(--aka) 35%, white);
+      background: color-mix(in oklch, var(--aka) 10%, white);
+      color: var(--aka);
+    }
+
+    .leaderboard-full {
+      flex: 1;
+      border: 1px solid var(--neutral-200);
+      border-radius: 14px;
+      background: var(--shiro);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .leaderboard-full-caption {
+      font-size: 12px;
+      color: var(--neutral-500);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-weight: 700;
+      margin: 2px 0 8px;
+    }
+
+    .leaderboard-full-head {
+      display: grid;
+      grid-template-columns: 70px 1fr 70px 70px 70px 80px;
+      gap: 12px;
+      padding: 8px 12px;
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--neutral-500);
+      font-weight: 700;
+      border-bottom: 1px solid var(--neutral-200);
+    }
+
+    .leaderboard-full-list {
+      overflow: auto;
+      margin-top: 6px;
+      padding-right: 4px;
+    }
+
+    .leaderboard-full-row {
+      display: grid;
+      grid-template-columns: 70px 1fr 70px 70px 70px 80px;
+      gap: 12px;
+      align-items: center;
+      padding: 13px 12px;
+      border-bottom: 1px solid var(--neutral-100);
+    }
+
+    .leaderboard-full-row.top {
+      background: var(--status-live-bg);
+      border-radius: 10px;
+      margin-bottom: 8px;
+      border: 1px solid color-mix(in oklch, var(--status-live) 35%, white);
+    }
+
+    .leader-rank {
+      font-family: var(--font-mono);
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--neutral-600);
+    }
+
+    .leader-name {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      color: var(--neutral-900);
+    }
+
+    .leader-meta {
+      color: var(--neutral-500);
+      font-size: 12px;
+      margin-top: 2px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .leader-medal {
+      font-family: var(--font-mono);
+      font-size: 26px;
+      font-weight: 700;
+      text-align: right;
+    }
+    .leader-medal.gold { color: var(--aka); }
+    .leader-medal.silver { color: var(--neutral-700); }
+    .leader-medal.bronze { color: var(--ao); }
+    .leader-medal.total { color: var(--neutral-900); }
+
+    @media (max-width: 1200px) {
+      .mat-detail-grid { grid-template-columns: 1fr; }
+      .ops-controls { grid-template-columns: 1fr; }
+      .round-ops-strip { padding: var(--space-3) var(--space-4); }
+      .overlay-title { font-size: 34px; }
+      .fullscreen-scoreboard-body {
+        grid-template-columns: 1fr;
+        gap: 14px;
+      }
+      .fs-fighter-panel { grid-template-rows: auto auto auto; }
+      .fs-stat-column {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-rows: none;
+      }
+      .fs-mid-column { padding: 6px 0; }
+      .fs-mid-status-wrap { width: min(320px, 100%); }
+      .fs-penalties { justify-content: center; flex-wrap: wrap; }
+      .leaderboard-full-head,
+      .leaderboard-full-row { grid-template-columns: 60px 1fr 52px 52px 52px 64px; }
+      .leader-name { font-size: 18px; }
+      .leader-medal { font-size: 20px; }
+    }
+
+    /* Modal Styles */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 1000;
+      opacity: 0; pointer-events: none; transition: 0.2s;
+    }
+    .modal-overlay.active { opacity: 1; pointer-events: auto; }
+    
+    .modal {
+      background: var(--shiro);
+      width: 700px; max-width: 90%;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+      overflow: hidden;
+      transform: translateY(10px); transition: 0.2s;
+      display: flex; flex-direction: column;
+      max-height: 80vh;
+    }
+    .modal-overlay.active .modal { transform: translateY(0); }
+    
+    .modal-header {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--neutral-300);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .modal-header h3 { margin: 0; font-size: 18px; font-weight: 700; }
+    .close-btn { background: none; border: none; cursor: pointer; color: var(--neutral-500); padding: 4px; display: flex; }
+    .close-btn:hover { color: var(--neutral-900); }
+    
+    .modal-body { padding: 0; overflow-y: auto; }
+    
+    .modal-footer {
+      padding: 16px 24px; border-top: 1px solid var(--neutral-300);
+      background: var(--neutral-50); display: flex; justify-content: flex-end; gap: 12px;
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="nav-logo">TAIKAIX</div>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link">Dashboard</a>
+      <a href="competitions.html" class="nav-link active">Competitions</a>
+      <a href="users.html" class="nav-link">Users</a>
+    </div>
+    <div class="nav-profile">
+      <a href="taikaix-profile.html" class="avatar" style="border: 2px solid transparent; transition: border-color 0.2s;"></a>
+      <i data-lucide="chevron-down" style="width: 16px; color: var(--neutral-500);"></i>
+    </div>
+  </nav>
+
+  <div class="sub-nav">
+    <a href="competition-detail.html" class="sub-nav-link">Overview</a>
+    <a href="categories.html" class="sub-nav-link">Categories</a>
+    <a href="bracket.html" class="sub-nav-link">Tiesheet</a>
+    <a href="mats-grid.html" class="sub-nav-link active">Mats</a>
+    <a href="taikaix-live-staff.html" class="sub-nav-link">Staff</a>
+    <a href="athletes.html" class="sub-nav-link">Athletes</a>
+    <a href="medals.html" class="sub-nav-link">Medals</a>
+    <a href="schedule.html" class="sub-nav-link">Schedule</a>
+    <div style="flex: 1;"></div>
+  </div>
+
+  <main class="container">
+    <header class="page-header">
+      <div>
+        <div class="breadcrumb">Kyoto 2026 Finals / Mat 01 / Operations</div>
+        <div class="flex-center gap-3 mt-1">
+          <h1 style="font-size: 40px; margin: 0;">Mat 01</h1>
+          <span class="status-chip status-live">Live</span>
+        </div>
+      </div>
+      <div id="match-actions" style="display: flex; gap: var(--space-3); flex-wrap: wrap;"></div>
+    </header>
+
+    <div class="mat-detail-grid">
+      <div style="display: flex; flex-direction: column; gap: var(--space-6);">
+        <section class="ops-scoreboard bento-reveal">
+          <div class="ops-header">
+            <div>
+              <div class="text-micro" style="color: var(--neutral-500); margin-bottom: 2px;">Current Category</div>
+              <div style="font-weight: 700; font-size: 15px;">Senior Male Kumite -75kg <span style="color: var(--neutral-400); font-weight: 500;">• Semi-Final</span></div>
+            </div>
+            <div style="display: flex; align-items: center; gap: var(--space-3);">
+              <div style="text-align: right;">
+                <div class="text-micro" style="color: var(--neutral-500); margin-bottom: 2px;">Match ID</div>
+                <div class="data-mono" style="font-weight: 700;">M05</div>
+              </div>
+              <button class="btn-fullscreen" id="open-scoreboard-display-inline">
+                <i data-lucide="expand"></i> Fullscreen Display
+              </button>
+            </div>
+          </div>
+
+          <div class="ops-display">
+            <div class="ops-side aka">
+              <div class="ops-country">JPN</div>
+              <div class="ops-name">SATO</div>
+              <div class="ops-academy">Kyoto Martial Academy</div>
+              <div class="ops-score-num aka">3</div>
+              <div class="ops-penalty-title">Penalties</div>
+              <div class="penalty-track">
+                <div class="pen-slot"><span class="pen-code">C1</span><div class="pen-dot c1"></div></div>
+                <div class="pen-slot"><span class="pen-code">C2</span><div class="pen-dot c2"></div></div>
+                <div class="pen-slot"><span class="pen-code">C3</span><div class="pen-dot c3"></div></div>
+                <div class="pen-slot"><span class="pen-code">HC</span><div class="pen-dot hc"></div></div>
+                <div class="pen-slot"><span class="pen-code">H</span><div class="pen-dot h"></div></div>
+              </div>
+            </div>
+
+            <div class="ops-side ops-center">
+              <span class="ops-round-pill" id="round-inline">Round 1</span>
+              <div class="text-micro" style="color: var(--neutral-500); margin-bottom: 2px;">REMAINING</div>
+              <div class="ops-timer live" id="timer">01:42</div>
+              <div class="ops-status-label">Match Status</div>
+              <span class="ops-status-pill" id="match-status-inline" data-status="ongoing">Ongoing</span>
+            </div>
+
+            <div class="ops-side ao">
+              <div class="ops-country">USA</div>
+              <div class="ops-name">DOE</div>
+              <div class="ops-academy">Pacific Dojo Union</div>
+              <div class="ops-score-num ao">1</div>
+              <div class="ops-penalty-title">Penalties</div>
+              <div class="penalty-track">
+                <div class="pen-slot"><span class="pen-code">C1</span><div class="pen-dot c1"></div></div>
+                <div class="pen-slot"><span class="pen-code">C2</span><div class="pen-dot c2"></div></div>
+                <div class="pen-slot"><span class="pen-code">C3</span><div class="pen-dot c3"></div></div>
+                <div class="pen-slot"><span class="pen-code">HC</span><div class="pen-dot hc"></div></div>
+                <div class="pen-slot"><span class="pen-code">H</span><div class="pen-dot h"></div></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="ops-controls">
+            <div class="round-ops-strip">
+              <div class="round-ops-title">Round Operations</div>
+              <div class="round-ops-actions">
+                <button class="btn-round" onclick="startRound()"><i data-lucide="play"></i> Start Round</button>
+                <button class="btn-round" onclick="pauseRound()"><i data-lucide="pause"></i> Pause Round</button>
+                <button class="btn-round" onclick="finishRound()"><i data-lucide="flag"></i> Finish Round</button>
+                <button class="btn-round next" onclick="nextRound()"><i data-lucide="rotate-cw"></i> New Round</button>
+              </div>
+            </div>
+            <div class="control-panel">
+              <div class="control-row">
+                <button class="btn-score aka" onclick="updateScore('aka', 1)">+1 Yuko</button>
+                <button class="btn-score aka" onclick="updateScore('aka', 2)">+2 Waza</button>
+                <button class="btn-score aka" onclick="updateScore('aka', 3)">+3 Ippon</button>
+              </div>
+              <div class="control-row">
+                <button class="btn-score aka minus" onclick="updateScore('aka', -1)">-1 Yuko</button>
+                <button class="btn-score aka minus" onclick="updateScore('aka', -2)">-2 Waza</button>
+                <button class="btn-score aka minus" onclick="updateScore('aka', -3)">-3 Ippon</button>
+              </div>
+              <div class="control-row">
+                <button class="btn-pen" onclick="toggleSenshu('aka')">Senshu (AKA)</button>
+                <button class="btn-pen" style="color: var(--aka);" onclick="togglePenalty('aka', 'c1')">+ Penalty (C1)</button>
+                <button class="btn-pen" style="color: var(--aka);" onclick="togglePenalty('aka', 'c2')">+ Penalty (C2)</button>
+                <button class="btn-pen" style="color: var(--aka);" onclick="togglePenalty('aka', 'c3')">+ Penalty (C3)</button>
+                <button class="btn-pen" style="color: var(--aka);" onclick="togglePenalty('aka', 'hc')">+ Penalty (HC)</button>
+                <button class="btn-pen" style="color: var(--aka);" onclick="togglePenalty('aka', 'h')">+ Penalty (H)</button>
+              </div>
+            </div>
+
+            <div class="control-panel">
+              <div class="control-row">
+                <button class="btn-score ao" onclick="updateScore('ao', 1)">+1 Yuko</button>
+                <button class="btn-score ao" onclick="updateScore('ao', 2)">+2 Waza</button>
+                <button class="btn-score ao" onclick="updateScore('ao', 3)">+3 Ippon</button>
+              </div>
+              <div class="control-row">
+                <button class="btn-score ao minus" onclick="updateScore('ao', -1)">-1 Yuko</button>
+                <button class="btn-score ao minus" onclick="updateScore('ao', -2)">-2 Waza</button>
+                <button class="btn-score ao minus" onclick="updateScore('ao', -3)">-3 Ippon</button>
+              </div>
+              <div class="control-row">
+                <button class="btn-pen" onclick="toggleSenshu('ao')">Senshu (AO)</button>
+                <button class="btn-pen" style="color: var(--ao);" onclick="togglePenalty('ao', 'c1')">+ Penalty (C1)</button>
+                <button class="btn-pen" style="color: var(--ao);" onclick="togglePenalty('ao', 'c2')">+ Penalty (C2)</button>
+                <button class="btn-pen" style="color: var(--ao);" onclick="togglePenalty('ao', 'c3')">+ Penalty (C3)</button>
+                <button class="btn-pen" style="color: var(--ao);" onclick="togglePenalty('ao', 'hc')">+ Penalty (HC)</button>
+                <button class="btn-pen" style="color: var(--ao);" onclick="togglePenalty('ao', 'h')">+ Penalty (H)</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="bento-reveal" style="animation-delay: 0.1s;">
+          <div class="flex-between mb-4">
+            <h2 style="font-size: 20px;">Match Queue</h2>
+            <button class="btn btn-secondary" id="edit-queue-btn" style="font-size: 12px; padding: 6px 12px;">Edit Queue</button>
+          </div>
+          <div class="table-card">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Match-up</th>
+                  <th>Category</th>
+                  <th style="text-align: right;">Status</th>
+                </tr>
+              </thead>
+              <tbody id="match-queue-tbody">
+                <tr draggable="true" style="cursor: grab;">
+                  <td class="data-mono" style="font-weight: 600;">M06</td>
+                  <td style="font-weight: 600;">Tanaka (JPN) <span style="color: var(--neutral-400); margin: 0 6px;">vs</span> Muller (GER)</td>
+                  <td style="color: var(--neutral-600);">Male Kumite -75kg</td>
+                  <td style="text-align: right;"><span class="status-chip status-next">Next</span></td>
+                </tr>
+                <tr draggable="true" style="cursor: grab;">
+                  <td class="data-mono" style="color: var(--neutral-500);">M07</td>
+                  <td style="font-weight: 500;">Chen (CHN) <span style="color: var(--neutral-400); margin: 0 6px;">vs</span> Ali (EGY)</td>
+                  <td style="color: var(--neutral-600);">Male Kumite -75kg</td>
+                  <td style="text-align: right;"><span class="status-chip status-standby">Standby</span></td>
+                </tr>
+                <tr draggable="true" style="cursor: grab;">
+                  <td class="data-mono" style="color: var(--neutral-500);">M08</td>
+                  <td style="font-weight: 500;">Kim (KOR) <span style="color: var(--neutral-400); margin: 0 6px;">vs</span> Brown (ENG)</td>
+                  <td style="color: var(--neutral-600);">Male Kumite -75kg</td>
+                  <td style="text-align: right;"><span class="status-chip status-standby">Standby</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <aside class="bento-reveal" style="animation-delay: 0.2s;">
+        <div class="flex-between mb-4">
+          <h2 style="font-size: 20px;">Leaderboard</h2>
+          <button class="btn-fullscreen" id="open-leaderboard-display">
+            <i data-lucide="tv"></i> View Fullscreen
+          </button>
+        </div>
+        <div class="card" style="border-radius: 12px; padding: var(--space-4);">
+          <div class="leaderboard-filter" role="tablist" aria-label="Leaderboard filter">
+            <button class="filter-btn active" data-leaderboard-filter="academy" role="tab" aria-selected="true">Academy</button>
+            <button class="filter-btn" data-leaderboard-filter="state" role="tab" aria-selected="false">State</button>
+            <button class="filter-btn" data-leaderboard-filter="country" role="tab" aria-selected="false">Country</button>
+          </div>
+          <div class="text-micro mb-4" id="leaderboard-caption" style="color: var(--neutral-500);">Top 3 Academies</div>
+          <div id="leaderboard-list"></div>
+
+          <button class="btn btn-secondary" id="open-leaderboard-display-inline" style="width: 100%; margin-top: var(--space-4); font-size: 13px; justify-content: center;">View on Fullscreen</button>
+        </div>
+
+        <div class="card mt-4" style="background: var(--neutral-50); border: 1px dashed var(--neutral-300); border-radius: 12px;">
+          <div class="text-micro mb-3" style="color: var(--neutral-500);">Recent Results (Mat 01)</div>
+          <div style="font-size: 13px; border-bottom: 1px solid var(--neutral-200); padding-bottom: 10px; margin-bottom: 10px;">
+            <span class="data-mono" style="font-weight: 600; font-size: 12px; margin-right: 6px;">M04</span> Sato (JPN) def. Rossi (ITA) <span style="font-weight: 600; margin-left: 4px;">3-1</span>
+          </div>
+          <div style="font-size: 13px; border-bottom: 1px solid var(--neutral-200); padding-bottom: 10px; margin-bottom: 10px;">
+            <span class="data-mono" style="font-weight: 600; font-size: 12px; margin-right: 6px;">M03</span> Doe (USA) def. Silva (BRA) <span style="font-weight: 600; margin-left: 4px;">2-0</span>
+          </div>
+          <div style="font-size: 13px;">
+            <span class="data-mono" style="font-weight: 600; font-size: 12px; margin-right: 6px;">M02</span> Muller (GER) def. Smith (ENG) <span style="font-weight: 600; margin-left: 4px;">1-0</span>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <div class="modal-overlay" id="edit-queue-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Edit Full Match Queue</h3>
+        <button class="close-btn" id="close-edit-queue-modal"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead style="position: sticky; top: 0; z-index: 1; background: var(--neutral-50);">
+            <tr>
+              <th style="padding: 12px 20px;">ID</th>
+              <th style="padding: 12px 20px;">Match-up</th>
+              <th style="padding: 12px 20px;">Category</th>
+              <th style="padding: 12px 20px; text-align: right;">Status</th>
+            </tr>
+          </thead>
+          <tbody id="full-match-queue-tbody">
+            <!-- Populated via JS -->
+          </tbody>
+        </table>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="cancel-edit-queue" style="font-size: 13px; font-weight: 600;">Cancel</button>
+        <button class="btn btn-primary" id="save-edit-queue" style="font-size: 13px; font-weight: 600;">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <section class="fullscreen-overlay" id="scoreboard-overlay" hidden>
+    <div id="fs-flash-overlay" style="position: absolute; inset: 0; pointer-events: none; z-index: 999; opacity: 0; display: flex; align-items: center; justify-content: center; font-size: clamp(60px, 8vw, 120px); font-weight: 800; color: var(--shiro); text-transform: uppercase; letter-spacing: -0.02em;">
+      <div id="fs-flash-text"></div>
+    </div>
+    <div class="overlay-header">
+      <div>
+        <div class="overlay-title">Mat 01 — <span class="overlay-title-live">Live Scoreboard</span></div>
+        <div class="overlay-meta">Kyoto 2026 Finals • Senior Male Kumite -75kg • Semi-Final</div>
+      </div>
+      <div class="overlay-actions">
+        <button class="overlay-btn" id="scoreboard-open-native"><i data-lucide="maximize"></i> Enter Fullscreen</button>
+        <button class="overlay-btn return" id="scoreboard-return"><i data-lucide="arrow-left"></i> Return to Mat Operations</button>
+      </div>
+    </div>
+
+    <div class="fullscreen-scoreboard-body">
+      <div class="fs-stat-column">
+        <div class="fs-stat-card">
+          <div class="fs-stat-label">Yuko</div>
+          <div class="fs-stat-value" data-side="aka" data-point="yuko">1</div>
+        </div>
+        <div class="fs-stat-card">
+          <div class="fs-stat-label">Waza</div>
+          <div class="fs-stat-value" data-side="aka" data-point="waza">1</div>
+        </div>
+        <div class="fs-stat-card">
+          <div class="fs-stat-label">Ippon</div>
+          <div class="fs-stat-value" data-side="aka" data-point="ippon">0</div>
+        </div>
+        <div class="fs-stat-card active-senshu aka">
+          <div class="fs-stat-label" style="font-size: clamp(14px, 1.2vw, 18px); margin: 0;">Senshu</div>
+        </div>
+      </div>
+
+      <article class="fs-fighter-panel aka">
+        <div class="fs-fighter-head aka">
+          <div class="fs-fighter-lane">AKA</div>
+          <div class="fs-fighter-name">Sato</div>
+        </div>
+        <div class="fs-score-stage">
+          <div class="fs-main-score aka">3</div>
+        </div>
+        <div class="fs-fighter-foot">
+          <div class="ops-penalty-title">Penalties</div>
+          <div class="fs-penalties">
+            <span class="fs-pen-slot"><span class="fs-pen-code">C1</span><span class="fs-pen-dot c1 active aka"></span></span>
+            <span class="fs-pen-slot"><span class="fs-pen-code">C2</span><span class="fs-pen-dot c2 active aka"></span></span>
+            <span class="fs-pen-slot"><span class="fs-pen-code">C3</span><span class="fs-pen-dot c3"></span></span>
+            <span class="fs-pen-slot"><span class="fs-pen-code">HC</span><span class="fs-pen-dot hc"></span></span>
+            <span class="fs-pen-slot"><span class="fs-pen-code">H</span><span class="fs-pen-dot h"></span></span>
+          </div>
+          <div class="fs-academy">Kyoto Martial Academy</div>
+        </div>
+      </article>
+
+      <div class="fs-mid-column">
+        <span class="fs-round-pill" id="round-fullscreen">Round 1</span>
+        <div class="fs-mid-timer-label">Time Remaining</div>
+        <div class="fs-mid-timer" id="timer-fullscreen">01:42</div>
+        <div class="fs-mid-status-wrap">
+          <div class="fs-mid-status-label">Match Status</div>
+          <span class="fs-status-pill" id="match-status-fullscreen" data-status="ongoing">Ongoing</span>
+        </div>
+      </div>
+
+      <article class="fs-fighter-panel ao">
+        <div class="fs-fighter-head ao">
+          <div class="fs-fighter-lane">AO</div>
+          <div class="fs-fighter-name">Doe</div>
+        </div>
+        <div class="fs-score-stage">
+          <div class="fs-main-score ao">1</div>
+        </div>
+        <div class="fs-fighter-foot">
+          <div class="ops-penalty-title">Penalties</div>
+          <div class="fs-penalties">
+            <span class="fs-pen-slot"><span class="fs-pen-code">C1</span><span class="fs-pen-dot c1 active ao"></span></span>
+            <span class="fs-pen-slot"><span class="fs-pen-code">C2</span><span class="fs-pen-dot c2"></span></span>
+            <span class="fs-pen-slot"><span class="fs-pen-code">C3</span><span class="fs-pen-dot c3"></span></span>
+            <span class="fs-pen-slot"><span class="fs-pen-code">HC</span><span class="fs-pen-dot hc"></span></span>
+            <span class="fs-pen-slot"><span class="fs-pen-code">H</span><span class="fs-pen-dot h"></span></span>
+          </div>
+          <div class="fs-academy">Pacific Dojo Union</div>
+        </div>
+      </article>
+
+      <div class="fs-stat-column">
+        <div class="fs-stat-card">
+          <div class="fs-stat-label">Yuko</div>
+          <div class="fs-stat-value" data-side="ao" data-point="yuko">0</div>
+        </div>
+        <div class="fs-stat-card">
+          <div class="fs-stat-label">Waza</div>
+          <div class="fs-stat-value" data-side="ao" data-point="waza">0</div>
+        </div>
+        <div class="fs-stat-card">
+          <div class="fs-stat-label">Ippon</div>
+          <div class="fs-stat-value" data-side="ao" data-point="ippon">0</div>
+        </div>
+        <div class="fs-stat-card">
+          <div class="fs-stat-label" style="font-size: clamp(14px, 1.2vw, 18px); margin: 0;">Senshu</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="fullscreen-overlay" id="leaderboard-overlay" hidden>
+    <div class="overlay-header">
+      <div>
+        <div class="overlay-title">Leaderboard — Kyoto 2026 Finals</div>
+        <div class="overlay-meta">Live ranking board • Updated after each match</div>
+      </div>
+      <div class="overlay-actions">
+        <button class="overlay-btn" id="leaderboard-open-native"><i data-lucide="maximize"></i> Enter Fullscreen</button>
+        <button class="overlay-btn return" id="leaderboard-return"><i data-lucide="arrow-left"></i> Return to Mat Operations</button>
+      </div>
+    </div>
+
+      <div class="leaderboard-full">
+        <div class="leaderboard-filter leaderboard-filter--full" role="tablist" aria-label="Leaderboard filter (fullscreen)">
+          <button class="filter-btn active" data-leaderboard-filter="academy" role="tab" aria-selected="true">Academy</button>
+          <button class="filter-btn" data-leaderboard-filter="state" role="tab" aria-selected="false">State</button>
+          <button class="filter-btn" data-leaderboard-filter="country" role="tab" aria-selected="false">Country</button>
+        </div>
+        <div class="leaderboard-full-caption" id="leaderboard-full-caption">Top 3 Academies</div>
+        <div class="leaderboard-full-head">
+          <div>Rank</div>
+          <div>Entity</div>
+          <div style="text-align:right;">Gold</div>
+          <div style="text-align:right;">Silver</div>
+          <div style="text-align:right;">Bronze</div>
+          <div style="text-align:right;">Total</div>
+        </div>
+        <div class="leaderboard-full-list" id="leaderboard-full-list"></div>
+      </div>
+  </section>
+
+  <script>
+    lucide.createIcons();
+
+    // --- State Management ---
+    const ROUND_DURATION_SECONDS = 102;
+    const matchState = {
+      matchId: "M05",
+      category: "Senior Male Kumite -75kg • Semi-Final",
+      aka: {
+        name: "SATO",
+        country: "JPN",
+        academy: "Kyoto Martial Academy",
+        points: { yuko: 1, waza: 1, ippon: 0 },
+        score: 3,
+        penalties: { c1: 1, c2: 1, c3: 0, hc: 0, h: 0 },
+        senshu: true
+      },
+      ao: {
+        name: "DOE",
+        country: "USA",
+        academy: "Pacific Dojo Union",
+        points: { yuko: 1, waza: 0, ippon: 0 },
+        score: 1,
+        penalties: { c1: 1, c2: 0, c3: 0, hc: 0, h: 0 },
+        senshu: false
+      },
+      timer: ROUND_DURATION_SECONDS,
+      status: "upcoming", // "upcoming", "ongoing", "paused", "finished"
+      round: 1,
+      isTimerRunning: false,
+      recentResults: [
+        { id: "M04", winner: "Sato (JPN)", loser: "Rossi (ITA)", score: "3-1" },
+        { id: "M03", winner: "Doe (USA)", loser: "Silva (BRA)", score: "2-0" },
+        { id: "M02", winner: "Muller (GER)", loser: "Smith (ENG)", score: "1-0" }
+      ]
+    };
+
+    // --- DOM Elements ---
+    const elements = {
+      akaScore: document.querySelectorAll('.ops-score-num.aka, .fs-main-score.aka'),
+      aoScore: document.querySelectorAll('.ops-score-num.ao, .fs-main-score.ao'),
+      akaPenalties: {
+        c1: document.querySelectorAll('.aka [class*="pen-dot"][class*="c1"], .aka [class*="fs-pen-dot"][class*="c1"]'), // This selector might need to be more precise
+      },
+      timer: document.querySelectorAll('#timer, #timer-fullscreen'),
+      round: document.querySelectorAll('#round-inline, #round-fullscreen'),
+      status: document.querySelectorAll('#match-status-inline, #match-status-fullscreen'),
+      headerActions: document.getElementById('match-actions'),
+      recentResults: document.querySelector('aside .card.mt-4'),
+      pointValues: document.querySelectorAll('.fs-stat-value[data-side]'),
+      akaName: document.querySelectorAll('.ops-side.aka .ops-name, .fs-fighter-head.aka .fs-fighter-name'),
+      aoName: document.querySelectorAll('.ops-side.ao .ops-name, .fs-fighter-head.ao .fs-fighter-name'),
+      akaCountry: document.querySelectorAll('.ops-side.aka .ops-country'),
+      aoCountry: document.querySelectorAll('.ops-side.ao .ops-country'),
+      akaAcademy: document.querySelectorAll('.ops-side.aka .ops-academy, .fs-fighter-panel.aka .fs-academy'),
+      aoAcademy: document.querySelectorAll('.ops-side.ao .ops-academy, .fs-fighter-panel.ao .fs-academy'),
+    };
+
+    // --- Update Functions ---
+    function updateLeadTheme() {
+      let lead = "tie";
+      if (matchState.aka.score > matchState.ao.score) lead = "aka";
+      if (matchState.ao.score > matchState.aka.score) lead = "ao";
+      document.body.dataset.lead = lead;
+    }
+
+    function updateDisplay() {
+      // Point breakdown
+      elements.pointValues.forEach(el => {
+        const side = el.dataset.side;
+        const point = el.dataset.point;
+        if (matchState[side]?.points) {
+          el.textContent = matchState[side].points[point];
+        }
+      });
+
+      // Scores
+      elements.akaScore.forEach(el => el.textContent = matchState.aka.score);
+      elements.aoScore.forEach(el => el.textContent = matchState.ao.score);
+      updateLeadTheme();
+
+      // Names & Meta
+      document.querySelectorAll('.ops-side.aka .ops-name, .fs-fighter-head.aka .fs-fighter-name').forEach(el => el.textContent = matchState.aka.name);
+      document.querySelectorAll('.ops-side.ao .ops-name, .fs-fighter-head.ao .fs-fighter-name').forEach(el => el.textContent = matchState.ao.name);
+      document.querySelectorAll('.ops-side.aka .ops-country').forEach(el => el.textContent = matchState.aka.country);
+      document.querySelectorAll('.ops-side.ao .ops-country').forEach(el => el.textContent = matchState.ao.country);
+      
+      // Academy - more specific
+      document.querySelectorAll('.ops-side.aka .ops-academy').forEach(el => el.textContent = matchState.aka.academy);
+      document.querySelectorAll('.fs-fighter-panel.aka .fs-academy').forEach(el => el.textContent = matchState.aka.academy);
+      document.querySelectorAll('.ops-side.ao .ops-academy').forEach(el => el.textContent = matchState.ao.academy);
+      document.querySelectorAll('.fs-fighter-panel.ao .fs-academy').forEach(el => el.textContent = matchState.ao.academy);
+
+      // Penalties
+      syncPenalties('aka');
+      syncPenalties('ao');
+
+      // Senshu
+      document.querySelectorAll('.fs-stat-card[class*="senshu"]').forEach(el => {
+        el.classList.remove('active-senshu', 'aka', 'ao');
+        if (matchState.aka.senshu && el.closest('.fs-stat-column').previousElementSibling?.classList.contains('fs-stat-column') === false) {
+           // This logic is fragile, better to use IDs or specific classes
+        }
+      });
+      // Simplified Senshu display update
+      const akaSenshuCards = document.querySelectorAll('.fs-stat-column:first-of-type .fs-stat-card:last-child');
+      akaSenshuCards.forEach(card => {
+        if (matchState.aka.senshu) card.classList.add('active-senshu', 'aka');
+        else card.classList.remove('active-senshu', 'aka');
+      });
+      const aoSenshuCards = document.querySelectorAll('.fs-stat-column:last-of-type .fs-stat-card:last-child');
+      aoSenshuCards.forEach(card => {
+        if (matchState.ao.senshu) card.classList.add('active-senshu', 'ao');
+        else card.classList.remove('active-senshu', 'ao');
+      });
+
+      // Timer
+      const m = Math.floor(matchState.timer / 60).toString().padStart(2, "0");
+      const s = (matchState.timer % 60).toString().padStart(2, "0");
+      const timerStr = `${m}:${s}`;
+      elements.timer.forEach(el => {
+        el.textContent = timerStr;
+        el.style.color = matchState.timer < 10 ? "var(--aka)" : "";
+        el.classList.toggle("live", matchState.isTimerRunning);
+      });
+
+      // Round
+      elements.round.forEach(el => el.textContent = `Round ${matchState.round}`);
+
+      // Status
+      const statusLabel = matchState.status.charAt(0).toUpperCase() + matchState.status.slice(1);
+      elements.status.forEach(el => {
+        el.textContent = statusLabel;
+        el.dataset.status = matchState.status;
+      });
+
+      // Header Actions
+      renderHeaderActions();
+
+      // Recent Results
+      renderRecentResults();
+    }
+
+    function syncPenalties(side) {
+      const penalties = matchState[side].penalties;
+      const sideClass = side === 'aka' ? '.aka' : '.ao';
+      
+      ['c1', 'c2', 'c3', 'hc', 'h'].forEach(p => {
+        const dots = document.querySelectorAll(`.ops-side${sideClass} .pen-dot.${p}, .fs-fighter-panel${sideClass} .fs-pen-dot.${p}`);
+        dots.forEach(dot => {
+          if (penalties[p]) {
+            dot.classList.add('active', side);
+          } else {
+            dot.classList.remove('active', 'aka', 'ao');
+          }
+        });
+      });
+    }
+
+    function renderHeaderActions() {
+      const canStart = matchState.status === 'upcoming' || matchState.status === 'paused';
+      const canFinish = matchState.status === 'ongoing' || matchState.status === 'paused';
+      const isFinished = matchState.status === 'finished';
+      let html = `
+        <button class="btn btn-primary" onclick="startMatch()" ${canStart ? "" : "disabled"}><i data-lucide="play"></i> Start Match</button>
+        <button class="btn btn-danger" onclick="finishMatch()" ${canFinish ? "" : "disabled"}><i data-lucide="flag"></i> Match Over</button>
+      `;
+      if (isFinished) {
+        html += `<button class="btn btn-success" style="background: var(--status-live); border-color: var(--status-live); color: white;" onclick="loadNextMatch()"><i data-lucide="skip-forward"></i> Load Next Match</button>`;
+      }
+      html += `<button class="btn btn-primary" id="open-scoreboard-display"><i data-lucide="monitor-play"></i> View Scoreboard Fullscreen</button>`;
+      
+      elements.headerActions.innerHTML = html;
+      lucide.createIcons();
+      
+      // Re-attach fullscreen listener
+      document.getElementById("open-scoreboard-display")?.addEventListener("click", openScoreboardOverlay);
+    }
+
+    function renderRecentResults() {
+      let html = '<div class="text-micro mb-3" style="color: var(--neutral-500);">Recent Results (Mat 01)</div>';
+      matchState.recentResults.forEach((res, i) => {
+        const border = i < matchState.recentResults.length - 1 ? 'border-bottom: 1px solid var(--neutral-200); padding-bottom: 10px; margin-bottom: 10px;' : '';
+        html += `
+          <div style="font-size: 13px; ${border}">
+            <span class="data-mono" style="font-weight: 600; font-size: 12px; margin-right: 6px;">${res.id}</span> 
+            ${res.winner} def. ${res.loser} <span style="font-weight: 600; margin-left: 4px;">${res.score}</span>
+          </div>
+        `;
+      });
+      elements.recentResults.innerHTML = html;
+    }
+
+    // --- Leaderboard ---
+    const leaderboardState = { filter: "academy" };
+    const leaderboardData = {
+      academy: {
+        label: "Top 3 Academies",
+        rows: [
+          { name: "Kyoto Martial Academy", meta: "Japan • 18 medals", gold: 8, silver: 6, bronze: 4, total: 18 },
+          { name: "Pacific Dojo Union", meta: "USA • 14 medals", gold: 6, silver: 5, bronze: 3, total: 14 },
+          { name: "Roma Karatedo Center", meta: "Italy • 12 medals", gold: 5, silver: 4, bronze: 3, total: 12 }
+        ]
+      },
+      state: {
+        label: "Top 3 States",
+        rows: [
+          { name: "Kyoto Prefecture", meta: "Japan • 16 medals", gold: 7, silver: 5, bronze: 4, total: 16 },
+          { name: "California", meta: "USA • 13 medals", gold: 6, silver: 4, bronze: 3, total: 13 },
+          { name: "Bavaria", meta: "Germany • 9 medals", gold: 4, silver: 3, bronze: 2, total: 9 }
+        ]
+      },
+      country: {
+        label: "Top 3 Countries",
+        rows: [
+          { name: "Japan", meta: "9 academies • 39 medals", gold: 18, silver: 12, bronze: 9, total: 39 },
+          { name: "USA", meta: "7 academies • 31 medals", gold: 14, silver: 10, bronze: 7, total: 31 },
+          { name: "Italy", meta: "5 academies • 24 medals", gold: 10, silver: 8, bronze: 6, total: 24 }
+        ]
+      }
+    };
+
+    const leaderboardList = document.getElementById("leaderboard-list");
+    const leaderboardFullList = document.getElementById("leaderboard-full-list");
+    const leaderboardCaption = document.getElementById("leaderboard-caption");
+    const leaderboardFullCaption = document.getElementById("leaderboard-full-caption");
+
+    function renderLeaderboard() {
+      const data = leaderboardData[leaderboardState.filter];
+      if (leaderboardCaption) leaderboardCaption.textContent = data.label;
+      if (leaderboardFullCaption) leaderboardFullCaption.textContent = data.label;
+
+      if (leaderboardList) {
+        leaderboardList.innerHTML = data.rows.map((row, index) => {
+          const rankClass = index === 0 ? "rank-1" : index === 1 ? "rank-2" : "rank-3";
+          return `
+            <div class="leaderboard-row">
+              <div class="rank-badge ${rankClass}">${index + 1}</div>
+              <div style="flex: 1;">
+                <div class="leaderboard-entity">${row.name}</div>
+                <div class="leaderboard-meta">${row.meta}</div>
+              </div>
+              <div class="leaderboard-medals">
+                <span class="medal-chip gold">G ${row.gold}</span>
+                <span class="medal-chip silver">S ${row.silver}</span>
+                <span class="medal-chip bronze">B ${row.bronze}</span>
+                <span class="medal-chip total">T ${row.total}</span>
+              </div>
+            </div>
+          `;
+        }).join("");
+      }
+
+      if (leaderboardFullList) {
+        leaderboardFullList.innerHTML = data.rows.map((row, index) => `
+          <div class="leaderboard-full-row ${index === 0 ? "top" : ""}">
+            <div class="leader-rank">#${index + 1}</div>
+            <div>
+              <div class="leader-name">${row.name}</div>
+              <div class="leader-meta">${row.meta}</div>
+            </div>
+            <div class="leader-medal gold">${row.gold}</div>
+            <div class="leader-medal silver">${row.silver}</div>
+            <div class="leader-medal bronze">${row.bronze}</div>
+            <div class="leader-medal total">${row.total}</div>
+          </div>
+        `).join("");
+      }
+    }
+
+    function setLeaderboardFilter(filter) {
+      if (!leaderboardData[filter]) return;
+      leaderboardState.filter = filter;
+      document.querySelectorAll('[data-leaderboard-filter]').forEach(btn => {
+        const isActive = btn.dataset.leaderboardFilter === filter;
+        btn.classList.toggle('active', isActive);
+        btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      });
+      renderLeaderboard();
+    }
+
+    document.querySelectorAll('[data-leaderboard-filter]').forEach(btn => {
+      btn.addEventListener('click', () => setLeaderboardFilter(btn.dataset.leaderboardFilter));
+    });
+
+    // --- Actions ---
+    window.updateScore = (side, amount) => {
+      if (matchState.status === 'finished') return;
+      const pointKey = { 1: 'yuko', 2: 'waza', 3: 'ippon' }[Math.abs(amount)];
+      if (!pointKey) return;
+      const delta = amount > 0 ? 1 : -1;
+      matchState[side].points[pointKey] = Math.max(0, matchState[side].points[pointKey] + delta);
+      matchState[side].score = (matchState[side].points.yuko) + (matchState[side].points.waza * 2) + (matchState[side].points.ippon * 3);
+      triggerGlow(side, `${side.toUpperCase()} ${amount > 0 ? '+' : ''}${Math.abs(amount)} ${pointKey.toUpperCase()}`);
+      updateDisplay();
+    };
+
+    window.togglePenalty = (side, type) => {
+      if (matchState.status === 'finished') return;
+      matchState[side].penalties[type] = matchState[side].penalties[type] ? 0 : 1;
+      triggerGlow(side, `${side.toUpperCase()} Penalty ${type.toUpperCase()}`);
+      updateDisplay();
+    };
+
+    window.toggleSenshu = (side) => {
+      if (matchState.status === 'finished') return;
+      if (matchState[side].senshu) {
+        matchState[side].senshu = false;
+      } else {
+        matchState.aka.senshu = false;
+        matchState.ao.senshu = false;
+        matchState[side].senshu = true;
+      }
+      triggerGlow(side, `${side.toUpperCase()} SENSHU`);
+      updateDisplay();
+    };
+
+    window.startMatch = () => {
+      if (matchState.status === 'finished') return;
+      if (matchState.timer <= 0) matchState.timer = ROUND_DURATION_SECONDS;
+      matchState.status = 'ongoing';
+      matchState.isTimerRunning = true;
+      updateDisplay();
+    };
+
+    window.finishMatch = (auto = false) => {
+      if (matchState.status === 'finished' || matchState.status === 'upcoming') return;
+      matchState.status = 'finished';
+      matchState.isTimerRunning = false;
+      
+      // Determine winner
+      let winner, loser, score;
+      if (matchState.aka.score >= matchState.ao.score) {
+        winner = `${matchState.aka.name} (${matchState.aka.country})`;
+        loser = `${matchState.ao.name} (${matchState.ao.country})`;
+        score = `${matchState.aka.score}-${matchState.ao.score}`;
+        triggerGlow('aka', 'AKA WINNER', 3);
+      } else {
+        winner = `${matchState.ao.name} (${matchState.ao.country})`;
+        loser = `${matchState.aka.name} (${matchState.aka.country})`;
+        score = `${matchState.ao.score}-${matchState.aka.score}`;
+        triggerGlow('ao', 'AO WINNER', 3);
+      }
+
+      // Add to recent results
+      matchState.recentResults.unshift({
+        id: matchState.matchId,
+        winner,
+        loser,
+        score
+      });
+      if (matchState.recentResults.length > 5) matchState.recentResults.pop();
+
+      updateDisplay();
+    };
+
+    window.loadNextMatch = () => {
+      if (matchState.status !== 'finished') return;
+      // Mock loading next match
+      matchState.matchId = "M06";
+      matchState.aka = { name: "TANAKA", country: "JPN", academy: "Kansai Fighters Club", points: { yuko: 0, waza: 0, ippon: 0 }, score: 0, penalties: { c1: 0, c2: 0, c3: 0, hc: 0, h: 0 }, senshu: false };
+      matchState.ao = { name: "MULLER", country: "GER", academy: "Berlin Budo Center", points: { yuko: 0, waza: 0, ippon: 0 }, score: 0, penalties: { c1: 0, c2: 0, c3: 0, hc: 0, h: 0 }, senshu: false };
+      matchState.timer = ROUND_DURATION_SECONDS;
+      matchState.round = 1;
+      matchState.status = "upcoming";
+      matchState.isTimerRunning = false;
+      updateDisplay();
+    };
+
+    window.startRound = () => {
+      if (matchState.status === 'finished') return;
+      matchState.status = 'ongoing';
+      matchState.isTimerRunning = true;
+      updateDisplay();
+    };
+
+    window.pauseRound = () => {
+      if (matchState.status === 'finished') return;
+      matchState.status = 'paused';
+      matchState.isTimerRunning = false;
+      updateDisplay();
+    };
+
+    window.finishRound = () => {
+      if (matchState.status === 'finished') return;
+      matchState.isTimerRunning = false;
+      matchState.status = 'paused';
+      updateDisplay();
+    };
+
+    window.nextRound = () => {
+      if (matchState.status === 'finished') return;
+      matchState.round++;
+      matchState.timer = ROUND_DURATION_SECONDS;
+      matchState.isTimerRunning = false;
+      matchState.status = 'paused';
+      updateDisplay();
+    };
+
+    // --- Core UI Logic ---
+    const scoreboardOverlay = document.getElementById("scoreboard-overlay");
+    const leaderboardOverlay = document.getElementById("leaderboard-overlay");
+
+    function openOverlay(overlay) { overlay.hidden = false; }
+    function closeOverlay(overlay) { overlay.hidden = true; }
+    function requestNativeFullscreen(el) { if (el.requestFullscreen) el.requestFullscreen().catch(() => {}); }
+    function closeCurrentFullscreenIfAny() { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {}); }
+
+    function openScoreboardOverlay() {
+      closeOverlay(leaderboardOverlay);
+      openOverlay(scoreboardOverlay);
+      requestNativeFullscreen(scoreboardOverlay);
+    }
+
+    function openLeaderboardOverlay() {
+      closeOverlay(scoreboardOverlay);
+      openOverlay(leaderboardOverlay);
+      requestNativeFullscreen(leaderboardOverlay);
+    }
+
+    function returnToOperations() {
+      closeOverlay(scoreboardOverlay);
+      closeOverlay(leaderboardOverlay);
+      closeCurrentFullscreenIfAny();
+    }
+
+    document.getElementById("open-scoreboard-display-inline").addEventListener("click", openScoreboardOverlay);
+    document.getElementById("open-leaderboard-display").addEventListener("click", openLeaderboardOverlay);
+    document.getElementById("open-leaderboard-display-inline").addEventListener("click", openLeaderboardOverlay);
+    document.getElementById("scoreboard-open-native").addEventListener("click", () => requestNativeFullscreen(scoreboardOverlay));
+    document.getElementById("leaderboard-open-native").addEventListener("click", () => requestNativeFullscreen(leaderboardOverlay));
+    document.getElementById("scoreboard-return").addEventListener("click", returnToOperations);
+    document.getElementById("leaderboard-return").addEventListener("click", returnToOperations);
+
+    function triggerGlow(side, message, duration = 1.5) {
+      const fsOverlay = document.getElementById("fs-flash-overlay");
+      const fsTextEl = document.getElementById("fs-flash-text");
+      
+      let bgColor = 'var(--neutral-800)';
+      if (side === 'aka') bgColor = 'var(--aka)';
+      if (side === 'ao') bgColor = 'var(--ao)';
+      
+      if (fsTextEl) fsTextEl.textContent = message;
+      if (fsOverlay) fsOverlay.style.backgroundColor = bgColor;
+      
+      gsap.killTweensOf([fsOverlay, fsTextEl]);
+      gsap.fromTo(fsOverlay, { opacity: 0 }, { opacity: 0.95, duration: 0.2, ease: "power2.out" });
+      gsap.fromTo(fsTextEl, { scale: 0.8, y: 20 }, { scale: 1, y: 0, duration: 0.4, ease: "back.out(1.7)" });
+      gsap.to(fsOverlay, { opacity: 0, duration: 0.4, delay: duration, ease: "power2.in" });
+    }
+
+    // --- Initialize ---
+    window.addEventListener("load", () => {
+      gsap.from(".bento-reveal", {
+        y: 20,
+        opacity: 0,
+        duration: 0.6,
+        stagger: 0.1,
+        ease: "power3.out"
+      });
+
+      updateDisplay();
+      renderLeaderboard();
+
+      setInterval(() => {
+        if (matchState.isTimerRunning && matchState.timer > 0) {
+          matchState.timer--;
+          if (matchState.timer === 0 && matchState.status === "ongoing") {
+            finishMatch(true);
+            return;
+          }
+          updateDisplay();
+        }
+      }, 1000);
+    });
+
+    // Drag and Drop Logic (kept as is but ensured it uses syncMainQueue)
+    const tbody = document.getElementById("match-queue-tbody");
+    let draggedRow = null;
+    if (tbody) {
+      tbody.addEventListener("dragstart", (e) => {
+        const row = e.target.closest("tr");
+        if (row) {
+          draggedRow = row;
+          setTimeout(() => { row.style.opacity = "0.4"; }, 0);
+          e.dataTransfer.effectAllowed = "move";
+        }
+      });
+      tbody.addEventListener("dragend", (e) => {
+        const row = e.target.closest("tr");
+        if (row) {
+          row.style.opacity = "1";
+          draggedRow = null;
+          updateQueueStatus();
+        }
+      });
+      tbody.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        const targetRow = e.target.closest("tr");
+        if (targetRow && targetRow !== draggedRow && targetRow.parentElement === tbody) {
+          const bounding = targetRow.getBoundingClientRect();
+          const offset = bounding.y + (bounding.height / 2);
+          if (e.clientY > offset) targetRow.after(draggedRow);
+          else targetRow.before(draggedRow);
+        }
+      });
+    }
+
+    function updateQueueStatus() {
+      const rows = tbody.querySelectorAll("tr");
+      rows.forEach((row, index) => {
+        const idCell = row.cells[0];
+        const matchCell = row.cells[1];
+        const statusCell = row.cells[3];
+        if (index === 0) {
+          idCell.style.fontWeight = "600"; idCell.style.color = "";
+          matchCell.style.fontWeight = "600";
+          statusCell.innerHTML = '<span class="status-chip status-next">Next</span>';
+        } else {
+          idCell.style.fontWeight = "normal"; idCell.style.color = "var(--neutral-500)";
+          matchCell.style.fontWeight = "500";
+          statusCell.innerHTML = '<span class="status-chip status-standby">Standby</span>';
+        }
+      });
+    }
+
+    // Modal Logic
+    const editQueueBtn = document.getElementById("edit-queue-btn");
+    const editQueueModal = document.getElementById("edit-queue-modal");
+    const closeEditQueueModal = document.getElementById("close-edit-queue-modal");
+    const cancelEditQueue = document.getElementById("cancel-edit-queue");
+    const saveEditQueue = document.getElementById("save-edit-queue");
+    const fullQueueTbody = document.getElementById("full-match-queue-tbody");
+    
+    let fullQueueData = [
+      { id: "M06", p1: "Tanaka (JPN)", p2: "Muller (GER)", cat: "Male Kumite -75kg" },
+      { id: "M07", p1: "Chen (CHN)", p2: "Ali (EGY)", cat: "Male Kumite -75kg" },
+      { id: "M08", p1: "Kim (KOR)", p2: "Brown (ENG)", cat: "Male Kumite -75kg" },
+      { id: "M09", p1: "Silva (BRA)", p2: "Lopez (ESP)", cat: "Male Kumite -75kg" },
+      { id: "M10", p1: "Gomez (MEX)", p2: "Katz (RSA)", cat: "Male Kumite -75kg" }
+    ];
+    
+    function renderFullQueue() {
+      fullQueueTbody.innerHTML = "";
+      fullQueueData.forEach((match, index) => {
+        const tr = document.createElement("tr");
+        tr.draggable = true; tr.style.cursor = "grab"; tr.dataset.index = index;
+        let statusHtml = index === 0 ? '<span class="status-chip status-next">Next</span>' : '<span class="status-chip status-standby">Standby</span>';
+        const idStyle = index === 0 ? 'font-weight: 600;' : 'color: var(--neutral-500);';
+        const matchStyle = index === 0 ? 'font-weight: 600;' : 'font-weight: 500;';
+        tr.innerHTML = `
+          <td class="data-mono" style="${idStyle} padding: 16px 20px; border-bottom: 1px solid var(--neutral-100);">${match.id}</td>
+          <td style="${matchStyle} padding: 16px 20px; border-bottom: 1px solid var(--neutral-100);">${match.p1} <span style="color: var(--neutral-400); margin: 0 6px;">vs</span> ${match.p2}</td>
+          <td style="color: var(--neutral-600); padding: 16px 20px; border-bottom: 1px solid var(--neutral-100);">${match.cat}</td>
+          <td style="text-align: right; padding: 16px 20px; border-bottom: 1px solid var(--neutral-100);">${statusHtml}</td>
+        `;
+        fullQueueTbody.appendChild(tr);
+      });
+      setupFullQueueDragAndDrop();
+    }
+    
+    function setupFullQueueDragAndDrop() {
+      let draggedFullRow = null;
+      fullQueueTbody.querySelectorAll("tr").forEach(row => {
+        row.addEventListener("dragstart", (e) => {
+          draggedFullRow = row;
+          setTimeout(() => { row.style.opacity = "0.4"; }, 0);
+          e.dataTransfer.effectAllowed = "move";
+        });
+        row.addEventListener("dragend", (e) => {
+          row.style.opacity = "1";
+          draggedFullRow = null;
+          const newQueue = [];
+          fullQueueTbody.querySelectorAll("tr").forEach(r => newQueue.push(fullQueueData[r.dataset.index]));
+          fullQueueData = newQueue;
+          renderFullQueue();
+        });
+        row.addEventListener("dragover", (e) => {
+          e.preventDefault();
+          const targetRow = e.target.closest("tr");
+          if (targetRow && targetRow !== draggedFullRow) {
+            const bounding = targetRow.getBoundingClientRect();
+            if (e.clientY > (bounding.y + bounding.height / 2)) targetRow.after(draggedFullRow);
+            else targetRow.before(draggedFullRow);
+          }
+        });
+      });
+    }
+
+    editQueueBtn.addEventListener("click", () => { renderFullQueue(); editQueueModal.classList.add("active"); });
+    closeEditQueueModal.addEventListener("click", () => editQueueModal.classList.remove("active"));
+    cancelEditQueue.addEventListener("click", () => editQueueModal.classList.remove("active"));
+    saveEditQueue.addEventListener("click", () => {
+      const mainTbody = document.getElementById("match-queue-tbody");
+      mainTbody.innerHTML = "";
+      fullQueueData.slice(0, 3).forEach((match, index) => {
+        const tr = document.createElement("tr");
+        tr.draggable = true; tr.style.cursor = "grab";
+        let statusHtml = index === 0 ? '<span class="status-chip status-next">Next</span>' : '<span class="status-chip status-standby">Standby</span>';
+        const idStyle = index === 0 ? 'font-weight: 600;' : 'color: var(--neutral-500);';
+        const matchStyle = index === 0 ? 'font-weight: 600;' : 'font-weight: 500;';
+        tr.innerHTML = `<td class="data-mono" style="${idStyle}">${match.id}</td><td style="${matchStyle}">${match.p1} vs ${match.p2}</td><td style="color: var(--neutral-600);">${match.cat}</td><td style="text-align: right;">${statusHtml}</td>`;
+        mainTbody.appendChild(tr);
+      });
+      editQueueModal.classList.remove("active");
+    });
+  </script>
+</body>
+</html>

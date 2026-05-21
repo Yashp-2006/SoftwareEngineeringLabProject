@@ -1,0 +1,693 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TaiKaiX — Medals</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    .medals-layout {
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      gap: var(--space-5);
+      align-items: start;
+    }
+
+    .category-panel {
+      background: var(--shiro);
+      border: 1px solid var(--neutral-300);
+      border-radius: 12px;
+      padding: var(--space-4);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+      position: sticky;
+      top: 130px;
+    }
+
+    .category-button {
+      width: 100%;
+      border: 1px solid var(--neutral-300);
+      background: var(--shiro);
+      border-radius: 10px;
+      padding: 12px;
+      text-align: left;
+      cursor: pointer;
+      margin-bottom: var(--space-2);
+      transition: all 0.2s;
+    }
+
+    .category-button:hover { border-color: var(--ao); }
+    .category-button.active {
+      border-color: var(--aka);
+      background: var(--aka-light);
+      box-shadow: 0 0 0 1px var(--aka-light);
+    }
+
+    .category-name {
+      font-weight: 600;
+      color: var(--neutral-900);
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .category-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--neutral-500);
+      font-weight: 600;
+    }
+
+    .medals-panel {
+      background: var(--shiro);
+      border: 1px solid var(--neutral-300);
+      border-radius: 12px;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+      overflow: hidden;
+    }
+
+    .medals-panel-header {
+      padding: var(--space-4) var(--space-5);
+      border-bottom: 1px solid var(--neutral-300);
+      background: var(--neutral-50);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--space-3);
+      flex-wrap: wrap;
+    }
+
+    .medals-panel-header h2 {
+      font-size: 20px;
+      font-weight: 600;
+      margin: 0;
+    }
+
+    .search-wrap {
+      position: relative;
+      width: 260px;
+      max-width: 100%;
+    }
+
+    .search-wrap i {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--neutral-500);
+      width: 14px;
+    }
+
+    .search-input {
+      width: 100%;
+      height: 38px;
+      border: 1.5px solid var(--neutral-300);
+      border-radius: 8px;
+      padding: 0 12px 0 32px;
+      font-size: 13px;
+      font-family: var(--font-body);
+      color: var(--neutral-900);
+      outline: none;
+    }
+
+    .search-input:focus {
+      border-color: var(--ao);
+      box-shadow: 0 0 0 3px rgba(26, 77, 181, 0.12);
+    }
+
+    .add-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 16px; background: var(--neutral-900); color: var(--shiro);
+      border: none; border-radius: 8px; font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: 0.2s; white-space: nowrap; height: 38px;
+    }
+    .add-btn:hover { background: #000; }
+
+    table.medal-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .medal-table thead th {
+      text-align: left;
+      padding: 12px 24px;
+      background: var(--neutral-50);
+      border-bottom: 1px solid var(--neutral-300);
+    }
+
+    .medal-table tbody td {
+      padding: 14px 24px;
+      border-bottom: 1px solid var(--neutral-100);
+      font-size: 14px;
+      color: var(--neutral-900);
+      vertical-align: middle;
+    }
+
+    .medal-table tbody tr:hover { background: var(--neutral-50); }
+    .medal-table tbody tr:last-child td { border-bottom: none; }
+
+    .academy-name {
+      color: var(--neutral-500);
+      font-size: 13px;
+    }
+
+    .medal-name {
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      font-size: 12px;
+    }
+
+    .medal-name.gold { color: #9a6a00; }
+    .medal-name.silver { color: #6b7280; }
+    .medal-name.bronze { color: #92400e; }
+
+    .medal-control {
+      display: inline-flex;
+      border: 1px solid var(--neutral-300);
+      border-radius: 999px;
+      padding: 2px;
+      background: var(--shiro);
+      gap: 2px;
+    }
+
+    .medal-btn {
+      border: none;
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      cursor: pointer;
+      background: transparent;
+      color: var(--neutral-500);
+    }
+
+    .medal-btn.received.active {
+      background: var(--status-live-bg);
+      color: var(--status-live);
+    }
+
+    .medal-btn.not-received.active {
+      background: var(--aka-light);
+      color: var(--aka);
+    }
+
+    .remove-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--neutral-400);
+      padding: 6px;
+      border-radius: 6px;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .remove-btn:hover {
+      color: var(--aka);
+      background: var(--aka-light);
+    }
+
+    .empty-state {
+      padding: var(--space-6);
+      text-align: center;
+      color: var(--neutral-500);
+      font-size: 14px;
+    }
+
+    /* Modal Styles */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 1000;
+      opacity: 0; pointer-events: none; transition: 0.2s;
+    }
+    .modal-overlay.active { opacity: 1; pointer-events: auto; }
+    
+    .modal {
+      background: var(--shiro);
+      width: 400px; max-width: 90%;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+      overflow: hidden;
+      transform: translateY(10px); transition: 0.2s;
+    }
+    .modal-overlay.active .modal { transform: translateY(0); }
+    
+    .modal-header {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--neutral-300);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .modal-header h3 { margin: 0; font-size: 16px; font-weight: 600; }
+    .close-btn { background: none; border: none; cursor: pointer; color: var(--neutral-500); padding: 4px; display: flex; }
+    .close-btn:hover { color: var(--neutral-900); }
+    
+    .modal-body { padding: 24px; }
+    .form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; color: var(--neutral-700); }
+    .input-field {
+      width: 100%; height: 40px;
+      border: 1.5px solid var(--neutral-300); border-radius: 8px;
+      padding: 0 12px; font-size: 14px; font-family: var(--font-body); outline: none;
+    }
+    .input-field:focus { border-color: var(--ao); box-shadow: 0 0 0 3px rgba(26, 77, 181, 0.12); }
+    
+    .search-results {
+      margin-top: 8px; max-height: 160px; overflow-y: auto;
+      border: 1px solid var(--neutral-300); border-radius: 8px;
+      display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+    .search-result-item {
+      padding: 10px 12px; font-size: 13px; cursor: pointer;
+      border-bottom: 1px solid var(--neutral-100);
+    }
+    .search-result-item:last-child { border-bottom: none; }
+    .search-result-item:hover, .search-result-item.selected { background: var(--neutral-50); }
+    .search-result-item .academy { font-size: 11px; color: var(--neutral-500); margin-top: 2px; }
+    
+    .modal-footer {
+      padding: 16px 24px; border-top: 1px solid var(--neutral-300);
+      background: var(--neutral-50); display: flex; justify-content: flex-end; gap: 12px;
+    }
+    .btn-secondary {
+      padding: 8px 16px; background: white; border: 1px solid var(--neutral-300);
+      border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.2s;
+    }
+    .btn-secondary:hover { background: var(--neutral-50); }
+    .btn-primary {
+      padding: 8px 16px; background: var(--ao); color: white; border: none;
+      border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.2s;
+    }
+    .btn-primary:hover { background: #153c8e; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    @media (max-width: 1100px) {
+      .medals-layout { grid-template-columns: 1fr; }
+      .category-panel {
+        position: static;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: var(--space-2);
+      }
+      .category-button { margin-bottom: 0; }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="nav-logo">TAIKAIX</div>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link">Dashboard</a>
+      <a href="competitions.html" class="nav-link active">Competitions</a>      
+      <a href="users.html" class="nav-link">Users</a>
+    </div>
+    <div class="nav-profile">
+      <a href="taikaix-profile.html" class="avatar" style="border: 2px solid transparent; transition: border-color 0.2s;"></a>
+      <i data-lucide="chevron-down" style="width: 16px; color: var(--neutral-500);"></i>
+    </div>
+  </nav>
+
+  <div class="sub-nav">
+    <a href="competition-detail.html" class="sub-nav-link">Overview</a>
+    <a href="categories.html" class="sub-nav-link">Categories</a>
+    <a href="bracket.html" class="sub-nav-link">Tiesheet</a>
+    <a href="mats-grid.html" class="sub-nav-link">Mats</a>
+    <a href="taikaix-live-staff.html" class="sub-nav-link">Staff</a>
+    <a href="athletes.html" class="sub-nav-link">Athletes</a>
+    <a href="medals.html" class="sub-nav-link active">Medals</a>
+    <a href="schedule.html" class="sub-nav-link">Schedule</a>
+    <div style="flex: 1;"></div>
+  </div>
+
+  <main class="container">
+    <header class="page-header">
+      <div>
+        <div class="breadcrumb">Kyoto 2026 Finals / Operations</div>
+        <h1>Medal Tracking</h1>
+      </div>
+    </header>
+
+    <section class="medals-layout">
+      <aside class="category-panel" id="category-panel"></aside>
+
+      <div class="medals-panel">
+        <div class="medals-panel-header">
+          <div>
+            <h2 id="active-category-name">Senior Male Kumite -75kg</h2>
+            <div class="text-small" id="active-category-meta">Kyoto 2026 Finals</div>
+          </div>
+          <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+            <div class="search-wrap">
+              <i data-lucide="search"></i>
+              <input id="athlete-search" class="search-input" type="text" placeholder="Search athlete or academy...">
+            </div>
+            <button class="add-btn" id="open-modal-btn">
+              <i data-lucide="plus" style="width: 16px;"></i> Add Medalist
+            </button>
+          </div>
+        </div>
+
+        <table class="medal-table">
+          <thead>
+            <tr>
+              <th class="text-micro">Athlete Name</th>
+              <th class="text-micro">Academy</th>
+              <th class="text-micro">Medal Name</th>
+              <th class="text-micro">Medal Received</th>
+              <th class="text-micro" style="width: 40px;"></th>
+            </tr>
+          </thead>
+          <tbody id="athlete-table-body"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- Delete Confirmation Modal -->
+  <div class="modal-overlay" id="delete-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Remove Medalist</h3>
+        <button class="close-btn" id="close-delete-modal"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 14px; color: var(--neutral-700); margin: 0; line-height: 1.5;">Are you sure you want to remove this athlete from the medals list?</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="cancel-delete-modal">Cancel</button>
+        <button class="btn-primary" id="confirm-delete-modal" style="background: var(--aka); color: white;">Remove</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Medalist Modal -->
+  <div class="modal-overlay" id="add-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Add Medalist</h3>
+        <button class="close-btn" id="close-modal"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Search Athlete</label>
+          <input type="text" id="modal-search" class="input-field" placeholder="Type athlete name...">
+          <div class="search-results" id="modal-results"></div>
+        </div>
+        <div class="form-group" style="margin-top: 16px;">
+          <label>Select Medal</label>
+          <select id="modal-medal" class="input-field">
+            <option value="Gold">Gold</option>
+            <option value="Silver">Silver</option>
+            <option value="Bronze">Bronze</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="cancel-modal">Cancel</button>
+        <button class="btn-primary" id="save-modal" disabled>Add Medalist</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const categoryData = [
+      {
+        id: "smk-75",
+        name: "Senior Male Kumite -75kg",
+        mat: "MAT 01",
+        status: "LIVE",
+        allAthletes: [
+          { id: "A001", name: "Takumi Sato", academy: "Kyoto Shotokan Club" },
+          { id: "A002", name: "Miguel Rossi", academy: "Roma Karate Dojo" },
+          { id: "A003", name: "Jaden Smith", academy: "LA Combat Academy" },
+          { id: "A004", name: "Leon Silva", academy: "Sao Paulo Kumite Lab" },
+          { id: "A005", name: "Kenji Moto", academy: "Tokyo Budo" }
+        ],
+        winners: [
+          { id: "A001", name: "Takumi Sato", academy: "Kyoto Shotokan Club", medalName: "Gold", medal: "received" },
+          { id: "A002", name: "Miguel Rossi", academy: "Roma Karate Dojo", medalName: "Silver", medal: "received" },
+          { id: "A004", name: "Leon Silva", academy: "Sao Paulo Kumite Lab", medalName: "Bronze", medal: "not-received" }
+        ]
+      },
+      {
+        id: "sfk-55",
+        name: "Senior Female Kumite -55kg",
+        mat: "MAT 02",
+        status: "LIVE",
+        allAthletes: [
+          { id: "B011", name: "Aiko Tanaka", academy: "Osaka Elite Dojo" },
+          { id: "B012", name: "Maria Garcia", academy: "Madrid Kensei Club" },
+          { id: "B013", name: "Elena Costa", academy: "Lisbon Karate Center" },
+          { id: "B014", name: "Sarah Jones", academy: "UK National Team" }
+        ],
+        winners: [
+          { id: "B011", name: "Aiko Tanaka", academy: "Osaka Elite Dojo", medalName: "Gold", medal: "received" },
+          { id: "B012", name: "Maria Garcia", academy: "Madrid Kensei Club", medalName: "Silver", medal: "received" },
+          { id: "B013", name: "Elena Costa", academy: "Lisbon Karate Center", medalName: "Bronze", medal: "not-received" }
+        ]
+      },
+      {
+        id: "smk-67",
+        name: "U21 Male Kumite -67kg",
+        mat: "UNASSIGNED",
+        status: "UPCOMING",
+        allAthletes: [
+          { id: "C031", name: "Ren Kobayashi", academy: "Nagoya Budo Academy" },
+          { id: "C032", name: "Arjun Mehta", academy: "Delhi Fighting Arts" },
+          { id: "C033", name: "Noah Kim", academy: "Seoul Kumite Studio" },
+          { id: "C034", name: "Luca Bruno", academy: "Torino Kata Works" },
+          { id: "C035", name: "Alex Chen", academy: "Vancouver Combat" }
+        ],
+        winners: [
+          { id: "C031", name: "Ren Kobayashi", academy: "Nagoya Budo Academy", medalName: "Gold", medal: "not-received" },
+          { id: "C032", name: "Arjun Mehta", academy: "Delhi Fighting Arts", medalName: "Silver", medal: "not-received" },
+          { id: "C034", name: "Luca Bruno", academy: "Torino Kata Works", medalName: "Bronze", medal: "not-received" }
+        ]
+      }
+    ];
+
+    let activeCategoryId = categoryData[0].id;
+    const categoryPanel = document.getElementById("category-panel");
+    const tableBody = document.getElementById("athlete-table-body");
+    const activeCategoryName = document.getElementById("active-category-name"); 
+    const activeCategoryMeta = document.getElementById("active-category-meta"); 
+    const searchInput = document.getElementById("athlete-search");
+
+    function buildCategoryPanel() {
+      categoryPanel.innerHTML = categoryData.map((category) => {
+        const isActive = category.id === activeCategoryId ? "active" : "";      
+        return `
+          <button class="category-button ${isActive}" data-category-id="${category.id}">
+            <div class="category-name">${category.name}</div>
+            <div class="category-meta">
+              <span>${category.mat}</span>
+              <span>${category.status}</span>
+            </div>
+          </button>
+        `;
+      }).join("");
+
+      categoryPanel.querySelectorAll(".category-button").forEach((button) => {  
+        button.addEventListener("click", () => {
+          activeCategoryId = button.dataset.categoryId;
+          searchInput.value = "";
+          render();
+        });
+      });
+    }
+
+    function buildMedalControl(categoryId, athleteId, currentStatus) {
+      const isReceived = currentStatus === "received" ? "active" : "";
+      const isNotReceived = currentStatus === "not-received" ? "active" : "";   
+      return `
+        <div class="medal-control">
+          <button class="medal-btn received ${isReceived}" data-category-id="${categoryId}" data-athlete-id="${athleteId}" data-value="received">Received</button>
+          <button class="medal-btn not-received ${isNotReceived}" data-category-id="${categoryId}" data-athlete-id="${athleteId}" data-value="not-received">Not Received</button>
+        </div>
+      `;
+    }
+
+    function buildTable() {
+      const category = categoryData.find((item) => item.id === activeCategoryId);
+      const query = searchInput.value.trim().toLowerCase();
+      const rows = category.winners.filter((athlete) => {
+        if (!query) return true;
+        return athlete.name.toLowerCase().includes(query) || athlete.academy.toLowerCase().includes(query);
+      });
+
+      activeCategoryName.textContent = category.name;
+      activeCategoryMeta.textContent = `${category.mat} • ${category.status} • ${rows.length} medal winners`;
+
+      if (!rows.length) {
+        tableBody.innerHTML = `<tr><td colspan="5" class="empty-state">No medal winners found for this filter.</td></tr>`;
+        return;
+      }
+
+      tableBody.innerHTML = rows.map((athlete) => `
+        <tr>
+          <td>${athlete.name}</td>
+          <td class="academy-name">${athlete.academy}</td>
+          <td class="medal-name ${athlete.medalName.toLowerCase()}">${athlete.medalName}</td>
+          <td>${buildMedalControl(category.id, athlete.id, athlete.medal)}</td> 
+          <td style="text-align: right;">
+            <button class="remove-btn" data-category-id="${category.id}" data-athlete-id="${athlete.id}" title="Remove Medalist">
+              <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
+            </button>
+          </td>
+        </tr>
+      `).join("");
+
+      tableBody.querySelectorAll(".medal-btn").forEach((button) => {
+        button.addEventListener("click", () => {
+          const { categoryId, athleteId, value } = button.dataset;
+          const targetCategory = categoryData.find((item) => item.id === categoryId);
+          const targetAthlete = targetCategory.winners.find((item) => item.id === athleteId);
+          targetAthlete.medal = value;
+          buildTable();
+        });
+      });
+
+      tableBody.querySelectorAll(".remove-btn").forEach((button) => {
+        button.addEventListener("click", () => {
+          const { categoryId, athleteId } = button.dataset;
+          openDeleteModal(categoryId, athleteId);
+        });
+      });
+
+      if (window.lucide) {
+        lucide.createIcons();
+      }
+    }
+
+    function render() {
+      buildCategoryPanel();
+      buildTable();
+      lucide.createIcons();
+    }
+
+    searchInput.addEventListener("input", buildTable);
+
+    // Modal Logic for Adding Medalist
+    const modal = document.getElementById("add-modal");
+    const openModalBtn = document.getElementById("open-modal-btn");
+    const closeModalBtn = document.getElementById("close-modal");
+    const cancelModalBtn = document.getElementById("cancel-modal");
+    const saveModalBtn = document.getElementById("save-modal");
+    const modalSearch = document.getElementById("modal-search");
+    const modalResults = document.getElementById("modal-results");
+    const modalMedal = document.getElementById("modal-medal");
+
+    let selectedAthleteForModal = null;
+
+    openModalBtn.addEventListener("click", () => {
+      modal.classList.add("active");
+      modalSearch.value = "";
+      modalResults.style.display = "none";
+      selectedAthleteForModal = null;
+      saveModalBtn.disabled = true;
+      modalMedal.value = "Bronze"; // Default
+    });
+
+    const hideModal = () => {
+      modal.classList.remove("active");
+    };
+
+    closeModalBtn.addEventListener("click", hideModal);
+    cancelModalBtn.addEventListener("click", hideModal);
+
+    modalSearch.addEventListener("input", (e) => {
+      const query = e.target.value.toLowerCase().trim();
+      selectedAthleteForModal = null;
+      saveModalBtn.disabled = true;
+      
+      if (!query) {
+        modalResults.style.display = "none";
+        return;
+      }
+
+      const category = categoryData.find(c => c.id === activeCategoryId);
+      // Find athletes matching query who are NOT already winners
+      const availableAthletes = category.allAthletes.filter(a => 
+        !category.winners.some(w => w.id === a.id) &&
+        (a.name.toLowerCase().includes(query) || a.academy.toLowerCase().includes(query))
+      );
+
+      if (availableAthletes.length > 0) {
+        modalResults.innerHTML = availableAthletes.map(a => `
+          <div class="search-result-item" data-id="${a.id}">
+            <div>${a.name}</div>
+            <div class="academy">${a.academy}</div>
+          </div>
+        `).join("");
+        modalResults.style.display = "block";
+        
+        modalResults.querySelectorAll('.search-result-item').forEach(item => {
+          item.addEventListener('click', () => {
+            const id = item.dataset.id;
+            selectedAthleteForModal = category.allAthletes.find(a => a.id === id);
+            modalSearch.value = selectedAthleteForModal.name;
+            modalResults.style.display = "none";
+            saveModalBtn.disabled = false;
+          });
+        });
+      } else {
+        modalResults.innerHTML = `<div class="search-result-item" style="color:var(--neutral-500); cursor:default;">No matching athletes</div>`;
+        modalResults.style.display = "block";
+      }
+    });
+
+    saveModalBtn.addEventListener("click", () => {
+      if (!selectedAthleteForModal) return;
+      const category = categoryData.find(c => c.id === activeCategoryId);
+      
+      category.winners.push({
+        ...selectedAthleteForModal,
+        medalName: modalMedal.value,
+        medal: "not-received"
+      });
+      
+      buildTable();
+      hideModal();
+    });
+
+    // Modal Logic for Deleting Medalist
+    const deleteModal = document.getElementById("delete-modal");
+    const closeDeleteModalBtn = document.getElementById("close-delete-modal");
+    const cancelDeleteModalBtn = document.getElementById("cancel-delete-modal");
+    const confirmDeleteModalBtn = document.getElementById("confirm-delete-modal");
+
+    let athleteToDelete = null;
+
+    function openDeleteModal(categoryId, athleteId) {
+      athleteToDelete = { categoryId, athleteId };
+      deleteModal.classList.add("active");
+    }
+
+    const hideDeleteModal = () => {
+      deleteModal.classList.remove("active");
+      athleteToDelete = null;
+    };
+
+    closeDeleteModalBtn.addEventListener("click", hideDeleteModal);
+    cancelDeleteModalBtn.addEventListener("click", hideDeleteModal);
+
+    confirmDeleteModalBtn.addEventListener("click", () => {
+      if (!athleteToDelete) return;
+      const { categoryId, athleteId } = athleteToDelete;
+      const targetCategory = categoryData.find((item) => item.id === categoryId);
+      targetCategory.winners = targetCategory.winners.filter((item) => item.id !== athleteId);
+      buildTable();
+      hideDeleteModal();
+    });
+
+    render();
+  </script>
+</body>
+</html>

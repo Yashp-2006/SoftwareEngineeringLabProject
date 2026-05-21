@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TaiKaiX — Competitions</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <style>
+    .comp-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+      gap: var(--space-5);
+    }
+    .comp-card {
+      position: relative;
+      border-left: 4px solid var(--neutral-300);
+    }
+    .comp-card.live { border-left-color: var(--aka); }
+    .comp-card.upcoming { border-left-color: var(--status-upcoming); }
+    .comp-card.done { border-left-color: var(--status-done); }
+    
+    .comp-actions {
+      position: absolute;
+      top: var(--space-4);
+      right: var(--space-4);
+      display: flex;
+      gap: var(--space-2);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .comp-card:hover .comp-actions { opacity: 1; }
+    /* Modal Styles */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 1000;
+      opacity: 0; pointer-events: none; transition: 0.2s;
+    }
+    .modal-overlay.active { opacity: 1; pointer-events: auto; }
+    
+    .modal {
+      background: var(--shiro);
+      width: 500px; max-width: 90%;
+      max-height: 90vh; display: flex; flex-direction: column;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+      overflow: hidden;
+      transform: translateY(10px); transition: 0.2s;
+    }
+    .modal-overlay.active .modal { transform: translateY(0); }
+    
+    .modal-header {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--neutral-300);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .modal-header h3 { margin: 0; font-size: 16px; font-weight: 600; }
+    .close-btn { background: none; border: none; cursor: pointer; color: var(--neutral-500); padding: 4px; display: flex; }
+    .close-btn:hover { color: var(--neutral-900); }
+    
+    .modal-body { padding: 24px; overflow-y: auto; flex: 1; }
+    .form-group { margin-bottom: 16px; }
+    .form-group:last-child { margin-bottom: 0; }
+    .form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; color: var(--neutral-700); }
+    .input-field {
+      width: 100%; height: 40px;
+      border: 1.5px solid var(--neutral-300); border-radius: 8px;
+      padding: 0 12px; font-size: 14px; font-family: var(--font-body); outline: none;
+    }
+    .input-field:focus { border-color: var(--ao); box-shadow: 0 0 0 3px rgba(26, 77, 181, 0.12); }
+    
+    .modal-footer {
+      padding: 16px 24px; border-top: 1px solid var(--neutral-300);
+      background: var(--neutral-50); display: flex; justify-content: flex-end; gap: 12px;
+    }
+    .btn-secondary {
+      padding: 8px 16px; background: white; border: 1px solid var(--neutral-300);
+      border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.2s;
+    }
+    .btn-secondary:hover { background: var(--neutral-50); }
+    .btn-primary {
+      padding: 8px 16px; background: var(--ao); color: white; border: none;
+      border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.2s;
+    }
+    .btn-primary:hover { background: #153c8e; }
+
+    .category-list {
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .category-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 12px; border: 1px solid var(--neutral-300); border-radius: 6px;
+      font-size: 13px;
+    }
+    .add-category-row {
+      display: flex; gap: 8px; margin-top: 8px;
+    }
+    .add-category-row input { flex: 1; }
+    .add-category-btn {
+      padding: 0 12px; background: var(--neutral-100); border: 1px solid var(--neutral-300);
+      border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; transition: 0.2s;
+    }
+    .add-category-btn:hover { background: var(--neutral-200); }
+    .remove-btn {
+      background: none; border: none; cursor: pointer; transition: 0.2s;
+      display: inline-flex; align-items: center; justify-content: center;
+      border-radius: 4px;
+    }
+    .remove-btn:hover { background: var(--aka-light); }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="nav-logo">TAIKAIX</div>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link">Dashboard</a>
+      <a href="competitions.html" class="nav-link active">Competitions</a>
+      <a href="users.html" class="nav-link">Users</a>
+    </div>
+    <div class="nav-profile">
+      <a href="taikaix-profile.html" class="avatar" style="border: 2px solid transparent; transition: border-color 0.2s;"></a>
+      <i data-lucide="chevron-down" style="width: 16px; color: var(--neutral-500);"></i>
+    </div>
+  </nav>
+
+  <div class="sub-nav">
+    <a href="#" class="sub-nav-link active" data-filter="all">All Competitions</a>
+    <a href="#" class="sub-nav-link" data-filter="live">Live</a>
+    <a href="#" class="sub-nav-link" data-filter="upcoming">Upcoming</a>
+    <a href="#" class="sub-nav-link" data-filter="done">Archives</a>
+  </div>
+
+  <main class="container">
+    <header class="page-header">
+      <div>
+        <div class="breadcrumb">Admin / Competitions</div>
+        <h1>Competition Management</h1>
+      </div>
+      <div style="display: flex; gap: var(--space-3);">
+        <div style="position: relative;">
+          <input type="text" placeholder="Search events..." id="comp-search" style="height: 40px; border-radius: 6px; border: 1.5px solid var(--neutral-300); padding: 0 var(--space-7) 0 var(--space-4); font-family: var(--font-body);">
+          <i data-lucide="search" style="position: absolute; right: 12px; top: 11px; width: 18px; color: var(--neutral-500);"></i>
+        </div>
+        <button class="btn btn-primary" id="create-comp-btn">
+          <i data-lucide="plus"></i> Create New
+        </button>
+      </div>
+    </header>
+
+    <div class="comp-grid" id="competitions-grid">
+      <!-- Kyoto 2026 Finals -->
+      <div class="card comp-card live card-interactive comp-reveal" data-status="live">
+        <div class="comp-actions">
+          <button class="btn btn-ghost" style="padding: 6px;"><i data-lucide="edit-3"></i></button>
+          <button class="btn btn-ghost" style="padding: 6px;"><i data-lucide="archive"></i></button>
+          <button class="btn btn-ghost" style="padding: 6px; color: var(--aka);"><i data-lucide="trash-2"></i></button>
+        </div>
+        <div class="flex-between mb-2">
+          <span class="status-chip status-live">Live Now</span>
+          <span class="text-micro" style="color: var(--neutral-500);">ID: KYO-2026</span>
+        </div>
+        <h3 style="font-size: 22px; margin-bottom: var(--space-1);">Kyoto 2026 Finals</h3>
+        <div class="text-small mb-2">May 15-18, 2026 • Kyoto Imperial Arena</div>
+        <div style="display: flex; gap: var(--space-4); margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--neutral-100);">
+          <div>
+            <div class="text-micro" style="color: var(--neutral-500);">Athletes</div>
+            <div style="font-weight: 600;">420</div>
+          </div>
+          <div>
+            <div class="text-micro" style="color: var(--neutral-500);">Categories</div>
+            <div style="font-weight: 600;">24</div>
+          </div>
+          <div>
+            <div class="text-micro" style="color: var(--neutral-500);">Mats</div>
+            <div style="font-weight: 600;">8</div>
+          </div>
+        </div>
+        <div class="mt-4">
+          <a href="competition-detail.html" class="btn btn-primary" style="width: 100%; justify-content: center;">
+            Manage Operations <i data-lucide="arrow-right"></i>
+          </a>
+        </div>
+      </div>
+
+      <!-- Osaka Regional Cup -->
+      <div class="card comp-card upcoming card-interactive comp-reveal" data-status="upcoming">
+        <div class="comp-actions">
+          <button class="btn btn-ghost" style="padding: 6px;"><i data-lucide="edit-3"></i></button>
+          <button class="btn btn-ghost" style="padding: 6px;"><i data-lucide="archive"></i></button>
+        </div>
+        <div class="flex-between mb-2">
+          <span class="status-chip status-upcoming">Upcoming</span>
+          <span class="text-micro" style="color: var(--neutral-500);">ID: OSA-2026</span>
+        </div>
+        <h3 style="font-size: 22px; margin-bottom: var(--space-1);">Osaka Regional Cup</h3>
+        <div class="text-small mb-2">June 02-04, 2026 • Osaka Prefectural Gym</div>
+        <div style="display: flex; gap: var(--space-4); margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--neutral-100);">
+          <div>
+            <div class="text-micro" style="color: var(--neutral-500);">Registered</div>
+            <div style="font-weight: 600;">185</div>
+          </div>
+          <div>
+            <div class="text-micro" style="color: var(--neutral-500);">Mats</div>
+            <div style="font-weight: 600;">4</div>
+          </div>
+        </div>
+        <div class="mt-4">
+          <a href="taikaix-tournament-setup.html" class="btn btn-secondary" style="width: 100%; justify-content: center; text-decoration: none;">
+            Setup Tournament
+          </a>
+        </div>
+      </div>
+
+      <!-- Tokyo Masters -->
+      <div class="card comp-card done card-interactive comp-reveal" data-status="done">
+        <div class="flex-between mb-2">
+          <span class="status-chip status-done">Completed</span>
+          <span class="text-micro" style="color: var(--neutral-500);">ID: TOK-2026</span>
+        </div>
+        <h3 style="font-size: 22px; margin-bottom: var(--space-1);">Tokyo Masters</h3>
+        <div class="text-small mb-2">April 10-12, 2026 • Nippon Budokan</div>
+        <div style="display: flex; gap: var(--space-4); margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--neutral-100);">
+          <div>
+            <div class="text-micro" style="color: var(--neutral-500);">Total Entries</div>
+            <div style="font-weight: 600;">512</div>
+          </div>
+          <div>
+            <div class="text-micro" style="color: var(--neutral-500);">Winners</div>
+            <div style="font-weight: 600;">32</div>
+          </div>
+        </div>
+        <div class="mt-4">
+          <a href="taikaix-archive-detail.html" class="btn btn-ghost" style="width: 100%; justify-content: center; background: var(--neutral-50); text-decoration: none; display: flex; align-items: center;">
+            View Archives
+          </a>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Create Competition Modal -->
+  <div class="modal-overlay" id="create-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Create New Competition</h3>
+        <button class="close-btn" id="close-create-modal"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Competition Name</label>
+          <input type="text" id="comp-name" class="input-field" placeholder="e.g. Kyoto 2026 Finals">
+        </div>
+        <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+          <div class="form-group" style="flex: 1; margin-bottom: 0;">
+            <label>Dates</label>
+            <input type="text" id="comp-dates" class="input-field" placeholder="e.g. May 15-18, 2026">
+          </div>
+          <div class="form-group" style="flex: 1; margin-bottom: 0;">
+            <label>Venue</label>
+            <input type="text" id="comp-location" class="input-field" placeholder="e.g. Nippon Budokan">
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+          <div class="form-group" style="flex: 1; margin-bottom: 0;">
+            <label>Tournament Type</label>
+            <select class="input-field" id="comp-type" style="background: white;">
+              <option value="national">National Tournament</option>
+              <option value="international">International Tournament</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex: 1; margin-bottom: 0;">
+            <label>Rule Settings</label>
+            <select class="input-field" id="comp-rules" style="background: white;">
+              <option value="wkf">WKF Settings</option>
+              <option value="custom">Custom Settings</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Number of Mats</label>
+          <input type="number" id="comp-mats" class="input-field" placeholder="e.g. 6" min="1" max="20" style="width: 120px;">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="cancel-create-modal">Cancel</button>
+        <button class="btn-primary" id="confirm-create-modal">Create Competition</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+
+      const subNavLinks = document.querySelectorAll('.sub-nav-link');
+      const searchInput = document.getElementById('comp-search');
+      const grid = document.getElementById('competitions-grid');
+
+      function filterCompetitions() {
+        const activeLink = document.querySelector('.sub-nav-link.active');
+        if (!activeLink) return;
+        
+        const activeFilter = activeLink.dataset.filter;
+        const searchQuery = (searchInput.value || "").toLowerCase();
+        const cards = document.querySelectorAll('.comp-card');
+
+        cards.forEach(card => {
+          const status = card.dataset.status;
+          const title = (card.querySelector('h3')?.textContent || "").toLowerCase();
+          const matchesFilter = activeFilter === 'all' || status === activeFilter;
+          const matchesSearch = title.includes(searchQuery);
+
+          if (matchesFilter && matchesSearch) {
+            card.style.display = 'block';
+            gsap.to(card, { opacity: 1, scale: 1, duration: 0.3, overwrite: true });
+          } else {
+            gsap.to(card, { 
+              opacity: 0, 
+              scale: 0.95, 
+              duration: 0.2,
+              overwrite: true,
+              onComplete: () => { 
+                if (card.style.opacity == 0) card.style.display = 'none'; 
+              }
+            });
+          }
+        });
+      }
+
+      subNavLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+          e.preventDefault();
+          subNavLinks.forEach(l => l.classList.remove('active'));
+          link.classList.add('active');
+          filterCompetitions();
+          
+          // Update URL hash without jumping
+          const filter = link.dataset.filter;
+          history.pushState(null, null, filter === 'all' ? ' ' : `#${filter}`);
+        });
+      });
+
+      searchInput.addEventListener('input', filterCompetitions);
+
+      // Handle Initial Hash
+      const hash = window.location.hash.replace('#', '');
+      if (hash) {
+        const targetLink = document.querySelector(`.sub-nav-link[data-filter="${hash}"]`);
+        if (targetLink) {
+          subNavLinks.forEach(l => l.classList.remove('active'));
+          targetLink.classList.add('active');
+          filterCompetitions();
+        }
+      }
+
+      // Initial Reveal Animation
+      gsap.from('.comp-reveal', {
+        scale: 0.95,
+        opacity: 0,
+        duration: 0.4,
+        stagger: 0.1,
+        ease: 'power2.out'
+      });
+
+      // Modal Logic
+      const createModal = document.getElementById("create-modal");
+      const createBtn = document.getElementById("create-comp-btn");
+      const closeCreateBtn = document.getElementById("close-create-modal");
+      const cancelCreateBtn = document.getElementById("cancel-create-modal");
+      const confirmCreateBtn = document.getElementById("confirm-create-modal");
+
+      if (createBtn) {
+        createBtn.addEventListener("click", () => {
+          createModal.classList.add("active");
+        });
+      }
+
+      const hideCreateModal = () => {
+        createModal.classList.remove("active");
+      };
+
+      closeCreateBtn.addEventListener("click", hideCreateModal);
+      cancelCreateBtn.addEventListener("click", hideCreateModal);
+
+      confirmCreateBtn.addEventListener("click", () => {
+        const name = document.getElementById("comp-name").value || "New Competition";
+        const dates = document.getElementById("comp-dates").value || "TBD";
+        const location = document.getElementById("comp-location").value || "TBD";
+        const mats = document.getElementById("comp-mats").value || "6";
+        
+        const id = "NEW-" + Math.floor(Math.random() * 10000);
+        
+        const newCard = document.createElement("div");
+        newCard.className = "card comp-card upcoming card-interactive comp-reveal";
+        newCard.dataset.status = "upcoming";
+        newCard.innerHTML = `
+          <div class="comp-actions">
+            <button class="btn btn-ghost" style="padding: 6px;"><i data-lucide="edit-3"></i></button>
+            <button class="btn btn-ghost" style="padding: 6px;"><i data-lucide="archive"></i></button>
+          </div>
+          <div class="flex-between mb-2">
+            <span class="status-chip status-upcoming">Upcoming</span>
+            <span class="text-micro" style="color: var(--neutral-500);">ID: ${id}</span>
+          </div>
+          <h3 style="font-size: 22px; margin-bottom: var(--space-1);">${name}</h3>
+          <div class="text-small mb-2">${dates} • ${location}</div>
+          <div style="display: flex; gap: var(--space-4); margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--neutral-100);">
+            <div>
+              <div class="text-micro" style="color: var(--neutral-500);">Categories</div>
+              <div style="font-weight: 600;">0</div>
+            </div>
+            <div>
+              <div class="text-micro" style="color: var(--neutral-500);">Mats</div>
+              <div style="font-weight: 600;">${mats}</div>
+            </div>
+          </div>
+          <div class="mt-4">
+            <a href="taikaix-tournament-setup.html" class="btn btn-secondary" style="width: 100%; justify-content: center; text-decoration: none;">
+              Setup Tournament
+            </a>
+          </div>
+        `;
+        
+        grid.prepend(newCard);
+        lucide.createIcons();
+        hideCreateModal();
+        
+        // Reset form
+        document.getElementById("comp-name").value = "";
+        document.getElementById("comp-dates").value = "";
+        document.getElementById("comp-location").value = "";
+        
+        // Re-apply filter to the new card
+        filterCompetitions();
+        
+        gsap.from(newCard, {
+          scale: 0.95, opacity: 0, duration: 0.4, ease: 'power2.out'
+        });
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TaiKaiX — Mat 01 Display</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <style>
+    body { background-color: var(--kuro); color: var(--shiro); overflow: hidden; }
+    
+    .mat-container {
+      height: calc(100vh - var(--nav-height) - 52px);
+      display: flex;
+      flex-direction: column;
+      padding: var(--space-6);
+    }
+
+    .mat-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--space-8);
+    }
+
+    .score-board {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 200px 1fr;
+      gap: var(--space-8);
+      align-items: center;
+    }
+
+    .competitor-side {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      border-radius: 20px;
+      padding: var(--space-8);
+    }
+
+    .competitor-side.aka { background-color: var(--aka); }
+    .competitor-side.ao { background-color: var(--ao); }
+
+    .score-value {
+      font-family: var(--font-display);
+      font-size: 240px;
+      line-height: 0.8;
+      margin-bottom: var(--space-4);
+    }
+
+    .competitor-name {
+      font-family: var(--font-display);
+      font-size: 64px;
+      text-transform: uppercase;
+      text-align: center;
+    }
+
+    .timer-center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-4);
+    }
+
+    .timer-value {
+      font-family: var(--font-mono);
+      font-size: 84px;
+      color: var(--status-live);
+    }
+
+    .category-label {
+      font-family: var(--font-display);
+      font-size: 24px;
+      color: var(--neutral-300);
+      letter-spacing: 0.1em;
+    }
+
+    .penalty-row {
+      display: flex;
+      gap: var(--space-2);
+      margin-top: var(--space-4);
+    }
+
+    .penalty-dot {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.4);
+    }
+
+    .penalty-dot.active { background: var(--shiro); }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="nav-logo">TAIKAIX</div>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link">Dashboard</a>
+      <a href="competitions.html" class="nav-link active">Competitions</a>
+      <a href="users.html" class="nav-link">Users</a>
+    </div>
+    <div class="nav-profile">
+      <a href="taikaix-profile.html" class="avatar" style="border: 2px solid transparent; transition: border-color 0.2s;"></a>
+      <i data-lucide="chevron-down" style="width: 16px; color: var(--neutral-500);"></i>
+    </div>
+  </nav>
+
+  <div class="sub-nav">
+    <a href="competition-detail.html" class="sub-nav-link">Overview</a>
+    <a href="categories.html" class="sub-nav-link">Categories</a>
+    <a href="bracket.html" class="sub-nav-link">Tiesheet</a>
+    <a href="mats-grid.html" class="sub-nav-link active">Mats</a>
+    <a href="taikaix-live-staff.html" class="sub-nav-link">Staff</a>
+    <a href="athletes.html" class="sub-nav-link">Athletes</a>
+    <a href="medals.html" class="sub-nav-link">Medals</a>
+    <a href="schedule.html" class="sub-nav-link">Schedule</a>
+    <div style="flex: 1;"></div>
+  </div>
+
+  <div class="mat-container">
+    <div class="mat-header">
+      <div class="nav-logo">TAIKAIX <span style="color: var(--neutral-500);">| MAT 01</span></div>
+      <div class="category-label">SENIOR MALE KUMITE -75KG</div>
+      <div class="data-mono" style="color: var(--neutral-500);">KYOTO 2026 FINALS</div>
+    </div>
+
+    <div class="score-board">
+      <!-- AKA Side -->
+      <div class="competitor-side aka mat-reveal">
+        <div class="score-value" id="score-aka">3</div>
+        <div class="competitor-name">SATO</div>
+        <div class="text-micro" style="color: rgba(255,255,255,0.8);">JAPAN</div>
+        <div class="penalty-row">
+          <div class="penalty-dot active"></div>
+          <div class="penalty-dot active"></div>
+          <div class="penalty-dot"></div>
+          <div class="penalty-dot"></div>
+        </div>
+      </div>
+
+      <!-- Center Timer -->
+      <div class="timer-center mat-reveal">
+        <div class="text-micro" style="color: var(--neutral-500);">TIME REMAINING</div>
+        <div class="timer-value" id="timer">01:42</div>
+        <div class="status-chip status-live">Match Live</div>
+        <div style="margin-top: var(--space-8); text-align: center;">
+            <div class="text-micro" style="color: var(--neutral-500); margin-bottom: 8px;">NEXT UP</div>
+            <div class="text-small">TANAKA vs MULLER</div>
+        </div>
+      </div>
+
+      <!-- AO Side -->
+      <div class="competitor-side ao mat-reveal">
+        <div class="score-value" id="score-ao">1</div>
+        <div class="competitor-name">DOE</div>
+        <div class="text-micro" style="color: rgba(255,255,255,0.8);">USA</div>
+        <div class="penalty-row">
+          <div class="penalty-dot active"></div>
+          <div class="penalty-dot"></div>
+          <div class="penalty-dot"></div>
+          <div class="penalty-dot"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    lucide.createIcons();
+
+    window.addEventListener('load', () => {
+      gsap.from('.aka', { x: -100, opacity: 0, duration: 0.8, ease: 'power3.out' });
+      gsap.from('.ao', { x: 100, opacity: 0, duration: 0.8, ease: 'power3.out' });
+      gsap.from('.timer-center', { scale: 0.8, opacity: 0, duration: 0.8, delay: 0.2, ease: 'back.out(1.7)' });
+      
+      // Fake timer countdown
+      let time = 102; // seconds
+      const timerEl = document.getElementById('timer');
+      setInterval(() => {
+        if (time > 0) {
+          time--;
+          const m = Math.floor(time / 60).toString().padStart(2, '0');
+          const s = (time % 60).toString().padStart(2, '0');
+          timerEl.textContent = `${m}:${s}`;
+          if (time < 10) timerEl.style.color = 'var(--aka)';
+        }
+      }, 1000);
+    });
+  </script>
+</body>
+</html>

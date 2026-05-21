@@ -1,0 +1,223 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TaiKaiX — Admin Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+</head>
+<body>
+  <nav>
+    <div class="nav-logo">TAIKAIX</div>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link active">Dashboard</a>
+      <a href="competitions.html" class="nav-link">Competitions</a>
+      <a href="bracket.html" class="nav-link">Live Bracket</a>
+      <a href="live-mat.html" class="nav-link">Mat Display</a>
+    </div>
+    <div class="nav-profile">
+      <a href="taikaix-profile.html" class="avatar" style="border: 2px solid transparent; transition: border-color 0.2s;"></a>
+      <i data-lucide="chevron-down" style="width: 16px; color: var(--neutral-500);"></i>
+    </div>
+  </nav>
+
+  <main class="container">
+    <header class="page-header">
+      <div>
+        <div class="breadcrumb">Admin / Dashboard</div>
+        <h1>Operations Hub</h1>
+      </div>
+      <div style="display: flex; gap: var(--space-3);">
+        <button class="btn btn-secondary">
+          <i data-lucide="download"></i> Export Report
+        </button>
+        <button class="btn btn-primary">
+          <i data-lucide="plus"></i> New Competition
+        </button>
+      </div>
+    </header>
+
+    <section class="bento-grid">
+      <!-- Stat Tile: Total Competitions -->
+      <div class="bento-tile bento-reveal">
+        <div class="text-micro">Total Competitions</div>
+        <div class="display-large" id="stat-total">12</div>
+        <div class="text-small">
+          <span style="color: var(--status-live); font-weight: 600;">+2</span> this month
+        </div>
+      </div>
+
+      <!-- Stat Tile: Active Competitions -->
+      <div class="bento-tile bento-reveal">
+        <div class="text-micro">Active Now</div>
+        <div class="display-large" style="color: var(--aka);" id="stat-active">3</div>
+        <div class="text-small">Running on 8 mats</div>
+      </div>
+
+      <!-- Graph Tile: Comps per Month -->
+      <div class="bento-tile span-2-2 bento-reveal" style="justify-content: flex-start; gap: var(--space-4);">
+        <div class="flex-between">
+          <div class="text-micro">Participation Trends</div>
+          <div class="text-small">Last 6 Months</div>
+        </div>
+        <div style="flex: 1; display: flex; align-items: flex-end; gap: var(--space-3); padding-top: var(--space-4);">
+          <div style="flex: 1; height: 40%; background: var(--neutral-100); border-radius: 4px; position: relative;">
+            <div style="position: absolute; bottom: 0; width: 100%; height: 60%; background: var(--neutral-300); border-radius: 4px;"></div>
+          </div>
+          <div style="flex: 1; height: 60%; background: var(--neutral-100); border-radius: 4px; position: relative;">
+            <div style="position: absolute; bottom: 0; width: 100%; height: 80%; background: var(--neutral-300); border-radius: 4px;"></div>
+          </div>
+          <div style="flex: 1; height: 80%; background: var(--neutral-100); border-radius: 4px; position: relative;">
+            <div style="position: absolute; bottom: 0; width: 100%; height: 40%; background: var(--neutral-300); border-radius: 4px;"></div>
+          </div>
+          <div style="flex: 1; height: 100%; background: var(--neutral-100); border-radius: 4px; position: relative;">
+            <div style="position: absolute; bottom: 0; width: 100%; height: 90%; background: var(--aka); border-radius: 4px;"></div>
+          </div>
+          <div style="flex: 1; height: 70%; background: var(--neutral-100); border-radius: 4px; position: relative;">
+            <div style="position: absolute; bottom: 0; width: 100%; height: 50%; background: var(--neutral-300); border-radius: 4px;"></div>
+          </div>
+          <div style="flex: 1; height: 90%; background: var(--neutral-100); border-radius: 4px; position: relative;">
+            <div style="position: absolute; bottom: 0; width: 100%; height: 75%; background: var(--ao); border-radius: 4px;"></div>
+          </div>
+        </div>
+        <div class="flex-between" style="font-size: 10px; color: var(--neutral-500); padding-top: var(--space-2);">
+          <span>JAN</span><span>FEB</span><span>MAR</span><span>APR</span><span>MAY</span><span>JUN</span>
+        </div>
+      </div>
+
+      <!-- Stat Tile: Total Users -->
+      <div class="bento-tile bento-reveal">
+        <div class="text-micro">Total Athletes</div>
+        <div class="display-large" id="stat-athletes">1,482</div>
+        <div class="text-small">Across 42 clubs</div>
+      </div>
+
+      <!-- Stat Tile: Upcoming -->
+      <div class="bento-tile bento-reveal">
+        <div class="text-micro">Upcoming Events</div>
+        <div class="display-large" style="color: var(--status-upcoming);" id="stat-upcoming">5</div>
+        <div class="text-small">Next: Kyoto 2026 Finals</div>
+      </div>
+    </section>
+
+    <section class="mt-4">
+      <div class="flex-between mb-2">
+        <h2>Live Competition Stream</h2>
+        <a href="competitions.html" style="color: var(--ao); font-size: 14px; font-weight: 500; text-decoration: none;">View All</a>
+      </div>
+      <div class="card" style="padding: 0; overflow: hidden;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead style="background: var(--neutral-50); border-bottom: 1px solid var(--neutral-300);">
+            <tr>
+              <th class="text-micro" style="padding: 12px 24px; text-align: left;">Competition</th>
+              <th class="text-micro" style="padding: 12px 24px; text-align: left;">Category</th>
+              <th class="text-micro" style="padding: 12px 24px; text-align: left;">Status</th>
+              <th class="text-micro" style="padding: 12px 24px; text-align: left;">Mat</th>
+              <th class="text-micro" style="padding: 12px 24px; text-align: right;">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom: 1px solid var(--neutral-100);">
+              <td style="padding: 12px 24px;">
+                <a href="competition-detail.html" style="text-decoration: none; color: inherit;">
+                  <div style="font-weight: 600;" class="hover-aka">Kyoto 2026 Finals</div>
+                  <div class="text-small">International Open</div>
+                </a>
+              </td>
+              <td style="padding: 12px 24px;">Senior Male Kumite -75kg</td>
+              <td style="padding: 12px 24px;">
+                <span class="status-chip status-live">Live</span>
+              </td>
+              <td style="padding: 12px 24px;" class="data-mono">Mat 01</td>
+              <td style="padding: 12px 24px; text-align: right;">
+                <a href="bracket.html" class="btn btn-ghost" style="padding: 6px;">
+                  <i data-lucide="eye"></i>
+                </a>
+              </td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--neutral-100);">
+              <td style="padding: 12px 24px;">
+                <a href="competition-detail.html" style="text-decoration: none; color: inherit;">
+                  <div style="font-weight: 600;" class="hover-aka">Kyoto 2026 Finals</div>
+                  <div class="text-small">International Open</div>
+                </a>
+              </td>
+              <td style="padding: 12px 24px;">Senior Female Kata</td>
+              <td style="padding: 12px 24px;">
+                <span class="status-chip status-live">Live</span>
+              </td>
+              <td style="padding: 12px 24px;" class="data-mono">Mat 02</td>
+              <td style="padding: 12px 24px; text-align: right;">
+                <a href="bracket.html" class="btn btn-ghost" style="padding: 6px;">
+                  <i data-lucide="eye"></i>
+                </a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 24px;">
+                <div style="font-weight: 600;">Osaka Regional Cup</div>
+                <div class="text-small">Regional Championship</div>
+              </td>
+              <td style="padding: 12px 24px;">U21 Male Kumite +84kg</td>
+              <td style="padding: 12px 24px;">
+                <span class="status-chip status-upcoming">Upcoming</span>
+              </td>
+              <td style="padding: 12px 24px;" class="data-mono">Mat 03</td>
+              <td style="padding: 12px 24px; text-align: right;">
+                <a href="taikaix-tournament-setup.html" class="btn btn-ghost" style="padding: 6px;">
+                  <i data-lucide="settings"></i>
+                </a>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <style>
+    .hover-aka:hover { color: var(--aka); transition: color 0.2s; }
+  </style>
+
+  <script>
+    lucide.createIcons();
+
+    // GSAP Animations
+    window.addEventListener('load', () => {
+      gsap.from('.bento-reveal', {
+        y: 30,
+        opacity: 0,
+        duration: 0.6,
+        stagger: 0.1,
+        ease: 'power2.out'
+      });
+
+      // Simple number counter effect
+      const stats = [
+        { id: 'stat-total', end: 12 },
+        { id: 'stat-active', end: 3 },
+        { id: 'stat-athletes', end: 1482 },
+        { id: 'stat-upcoming', end: 5 }
+      ];
+
+      stats.forEach(stat => {
+        const el = document.getElementById(stat.id);
+        if (el) {
+          const obj = { val: 0 };
+          gsap.to(obj, {
+            val: stat.end,
+            duration: 1.5,
+            ease: 'power3.out',
+            onUpdate: () => {
+              el.textContent = Math.floor(obj.val).toLocaleString();
+            }
+          });
+        }
+      });
+    });
+  </script>
+</body>
+</html>

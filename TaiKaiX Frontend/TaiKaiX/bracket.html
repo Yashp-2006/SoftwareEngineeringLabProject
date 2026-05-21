@@ -1,0 +1,983 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TaiKaiX — Tiesheet Management</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <style>
+    /* Compact Bracket Layout */
+    .tiesheet-layout {
+      display: flex;
+      height: calc(100vh - 113px);
+    }
+
+    .bracket-viewport {
+      flex: 1;
+      height: 100%;
+      overflow: hidden; 
+      background: var(--neutral-100);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .bracket-scroll-area {
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+      background: oklch(99% 0.002 250); 
+      background-image: 
+        linear-gradient(var(--neutral-100) 1px, transparent 1px),
+        linear-gradient(90deg, var(--neutral-100) 1px, transparent 1px);
+      background-size: 40px 40px;
+      background-position: 0 0;
+    }
+
+    .bracket-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      display: inline-flex;
+      gap: 120px;
+      padding: 80px;
+      align-items: flex-start;
+      transform-origin: 0 0;
+    }
+
+    .bracket-round {
+      display: flex;
+      flex-direction: column;
+      gap: 60px;
+      min-width: 300px;
+    }
+
+    /* Stage Labels - Refined for elegance */
+    .round-header {
+      font-family: var(--font-body);
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--neutral-500);
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      padding: var(--space-3) var(--space-4);
+      border-left: 4px solid var(--aka);
+      margin-bottom: var(--space-5);
+      position: sticky;
+      top: 0;
+      background: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(8px);
+      z-index: 5;
+      border-radius: 0 8px 8px 0;
+    }
+
+    .match-wrapper {
+      position: relative;
+    }
+
+    svg.connector {
+      position: absolute;
+      top: 0;
+      left: 100%;
+      width: 120px;
+      height: 100%;
+      overflow: visible;
+      pointer-events: none;
+    }
+
+    /* Surgical Match Node - Maximum Elegance */
+    .bracket-node {
+      width: 300px;
+      background: var(--shiro);
+      border: 1px solid var(--neutral-200);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 
+        0 4px 6px -1px rgba(0,0,0,0.03),
+        0 2px 4px -2px rgba(0,0,0,0.03);
+      transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+      position: relative;
+    }
+    .bracket-node:hover { 
+      transform: translateY(-4px); 
+      border-color: var(--neutral-300);
+      box-shadow: 
+        0 20px 25px -5px rgba(0,0,0,0.05),
+        0 8px 10px -6px rgba(0,0,0,0.05);
+    }
+    
+    .bracket-node.live { 
+      border: 1px solid var(--status-live); 
+      box-shadow: 0 0 0 3px var(--status-live-bg), 0 10px 15px -3px rgba(0,0,0,0.05);
+    }
+
+    /* Minimalist Live Indicator */
+    .live-indicator {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-body);
+      font-size: 10px;
+      font-weight: 800;
+      color: var(--status-live);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      background: var(--status-live-bg);
+      padding: 4px 8px;
+      border-radius: 99px;
+      z-index: 2;
+    }
+    .live-dot { 
+      width: 6px; 
+      height: 6px; 
+      background: var(--status-live); 
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.5); opacity: 0.5; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .competitor-row {
+      padding: 20px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-left: 6px solid transparent;
+      min-height: 110px;
+      position: relative;
+    }
+    .competitor-row.aka { border-left-color: var(--aka); }
+    .competitor-row.ao { border-left-color: var(--ao); border-top: 1px solid var(--neutral-100); }
+    
+    .comp-info { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+    .comp-name { font-size: 15px; font-weight: 700; color: var(--neutral-900); letter-spacing: -0.01em; }
+    .comp-team { font-size: 10px; color: var(--neutral-500); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+    
+    /* Technical Data Row - High Precision */
+    .metrics-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 12px;
+    }
+    .metric-tag {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: var(--neutral-50);
+      color: var(--neutral-500);
+      border: 1px solid var(--neutral-200);
+      min-width: 22px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .metric-tag:hover { background: var(--neutral-200); color: var(--neutral-900); }
+    .metric-tag.active { 
+      background: var(--aka); 
+      color: var(--shiro); 
+      border-color: var(--aka);
+    }
+    .competitor-row.ao .metric-tag.active { 
+      background: var(--ao); 
+      border-color: var(--ao);
+    }
+    
+    .comp-score-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-left: 16px;
+      gap: 8px;
+    }
+    .comp-score {
+      font-family: var(--font-mono);
+      font-size: 36px;
+      font-weight: 800;
+      color: var(--neutral-900);
+      line-height: 1;
+    }
+    .btn-score-promote {
+      width: 28px;
+      height: 24px;
+      background: var(--neutral-100);
+      color: var(--neutral-400);
+      border: 1px solid transparent;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .btn-score-promote:hover {
+      background: var(--shiro);
+      color: var(--neutral-900);
+      border-color: var(--neutral-300);
+      transform: translateX(2px);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .match-footer {
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--neutral-50);
+      border-top: 1px solid var(--neutral-100);
+      height: 64px;
+    }
+
+    .mat-select-wrapper {
+      flex: 1;
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .mat-select {
+      width: 100%;
+      height: 34px;
+      appearance: none;
+      background: var(--shiro);
+      border: 1px solid var(--neutral-200);
+      border-radius: 8px;
+      padding: 0 28px 0 12px;
+      font-family: var(--font-body);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--neutral-700);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .mat-select:hover { border-color: var(--neutral-300); }
+    .mat-select-icon {
+      position: absolute;
+      right: 10px;
+      width: 14px;
+      pointer-events: none;
+      color: var(--neutral-400);
+    }
+
+    .btn-promote {
+      width: 34px;
+      height: 34px;
+      background: var(--neutral-200);
+      color: var(--neutral-600);
+      border: none;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-promote:hover { 
+      background: var(--aka); 
+      color: var(--shiro);
+    }
+
+    /* Controls Bar */
+    .controls-bar {
+      padding: 12px 24px;
+      background: var(--shiro);
+      border-bottom: 1px solid var(--neutral-200);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 10;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    }
+
+    .zoom-control {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 11px;
+      color: var(--neutral-600);
+      font-weight: 600;
+    }
+
+    input[type="range"] {
+      width: 100px;
+      accent-color: var(--aka);
+      cursor: pointer;
+      height: 4px;
+    }
+
+    .trophy-card {
+      border: 1px dashed var(--neutral-300);
+      background: var(--neutral-50);
+      border-radius: 16px;
+      height: 284px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      opacity: 0.7;
+    }
+
+    /* Elegant Category Sidebar */
+    .category-sidebar {
+      width: 320px;
+      border-right: 1px solid var(--neutral-200);
+      background: var(--shiro);
+      height: calc(100vh - 113px);
+      overflow-y: auto;
+      padding: var(--space-5);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      position: relative;
+      z-index: 20;
+      box-shadow: 4px 0 24px rgba(0,0,0,0.02);
+    }
+
+    .category-sidebar::-webkit-scrollbar { width: 4px; }
+    .category-sidebar::-webkit-scrollbar-track { background: transparent; }
+    .category-sidebar::-webkit-scrollbar-thumb { background: var(--neutral-200); border-radius: 4px; }
+
+    .category-sidebar-title {
+      font-family: var(--font-body);
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--neutral-500);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      margin-bottom: var(--space-4);
+      padding-left: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .category-item {
+      background: var(--shiro);
+      border: 1px solid transparent;
+      border-bottom: 1px solid var(--neutral-100);
+      padding: 16px 16px;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      position: relative;
+      border-radius: 12px;
+    }
+
+    .category-item:hover {
+      background: var(--neutral-50);
+      border-color: var(--neutral-200);
+      transform: translateX(4px);
+    }
+
+    .category-item.active {
+      background: var(--shiro);
+      border: 1px solid var(--neutral-200);
+      box-shadow: 0 8px 16px -4px rgba(0,0,0,0.04), 0 4px 8px -4px rgba(0,0,0,0.02);
+      transform: translateX(8px);
+    }
+    
+    .category-item.active::before {
+      content: '';
+      position: absolute;
+      left: -1px;
+      top: 16px;
+      bottom: 16px;
+      width: 4px;
+      background: var(--aka);
+      border-radius: 0 4px 4px 0;
+    }
+
+    .category-item-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--neutral-900);
+      line-height: 1.3;
+      letter-spacing: -0.01em;
+      transition: color 0.2s;
+    }
+    
+    .category-item.active .category-item-name {
+      color: var(--aka);
+    }
+
+    .category-item-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      color: var(--neutral-600);
+    }
+
+    .category-live-tag {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--status-live);
+      background: var(--status-live-bg);
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+
+    .category-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--status-live);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    .category-no-mat {
+      background: var(--neutral-100);
+      color: var(--neutral-400);
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="nav-logo">TAIKAIX</div>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link">Dashboard</a>
+      <a href="competitions.html" class="nav-link active">Competitions</a>
+      <a href="users.html" class="nav-link">Users</a>
+    </div>
+    <div class="nav-profile">
+      <a href="taikaix-profile.html" class="avatar" style="border: 2px solid transparent; transition: border-color 0.2s;"></a>
+      <i data-lucide="chevron-down" style="width: 16px; color: var(--neutral-500);"></i>
+    </div>
+  </nav>
+
+  <div class="sub-nav">
+    <a href="competition-detail.html" class="sub-nav-link">Overview</a>
+    <a href="categories.html" class="sub-nav-link">Categories</a>
+    <a href="bracket.html" class="sub-nav-link active">Tiesheet</a>
+    <a href="mats-grid.html" class="sub-nav-link">Mats</a>
+    <a href="taikaix-live-staff.html" class="sub-nav-link">Staff</a>
+    <a href="athletes.html" class="sub-nav-link">Athletes</a>
+    <a href="medals.html" class="sub-nav-link">Medals</a>
+    <a href="schedule.html" class="sub-nav-link">Schedule</a>
+    <div style="flex: 1;"></div>
+  </div>
+
+  <div class="tiesheet-layout">
+    <aside class="category-sidebar">
+      <div class="category-sidebar-title">Categories (24)</div>
+      
+      <div class="category-item active">
+        <div class="category-item-name">Senior Male Kumite -75kg</div>
+        <div class="category-item-meta">
+          <div class="category-live-tag"><div class="category-dot"></div> LIVE</div>
+          <div>MAT 01</div>
+        </div>
+      </div>
+      
+      <div class="category-item">
+        <div class="category-item-name">Senior Female Kumite -55kg</div>
+        <div class="category-item-meta">
+          <div style="color: var(--status-upcoming);">UPCOMING</div>
+          <div>MAT 02</div>
+        </div>
+      </div>
+      
+      <div class="category-item">
+        <div class="category-item-name">Senior Male Kata</div>
+        <div class="category-item-meta">
+          <div style="color: var(--neutral-500);">COMPLETED</div>
+          <div>MAT 03</div>
+        </div>
+      </div>
+      
+      <div class="category-item">
+        <div class="category-item-name">Senior Female Kata</div>
+        <div class="category-item-meta">
+          <div style="color: var(--neutral-500);">COMPLETED</div>
+          <div>MAT 04</div>
+        </div>
+      </div>
+      
+      <div class="category-item">
+        <div class="category-item-name">U21 Male Kumite -67kg</div>
+        <div class="category-item-meta">
+          <div style="color: var(--status-upcoming);">UPCOMING</div>
+          <div>MAT 02</div>
+        </div>
+      </div>
+      
+      <div class="category-item">
+        <div class="category-item-name">U21 Female Kumite -61kg</div>
+        <div class="category-item-meta">
+          <div style="color: var(--status-upcoming);">UPCOMING</div>
+          <div>MAT 01</div>
+        </div>
+      </div>
+      
+      <div class="category-item">
+        <div class="category-item-name">Junior Male Kata</div>
+        <div class="category-item-meta">
+          <div style="color: var(--neutral-500);">COMPLETED</div>
+          <div>MAT 05</div>
+        </div>
+      </div>
+      
+      <div class="category-item">
+        <div class="category-item-name">Cadet Female Kumite -47kg</div>
+        <div class="category-item-meta">
+          <div style="color: var(--status-upcoming);">UPCOMING</div>
+          <div class="category-no-mat">NO MAT</div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="bracket-viewport">
+      <div class="controls-bar">
+        <div class="flex-center gap-3">
+          <h2 style="font-size: 18px;">Senior Male Kumite -75kg</h2>
+          <select class="status-chip status-live" style="border: none; appearance: none; cursor: pointer; padding: 4px 12px;">
+            <option>LIVE</option>
+            <option>UPCOMING</option>
+            <option>DONE</option>
+          </select>
+          <div class="mat-pill active">
+            <i data-lucide="target" style="width: 12px;"></i>
+            MAT 01
+          </div>
+        </div>
+        <div class="zoom-control">
+          <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px; height: 28px; display: flex; align-items: center; gap: 4px; margin-right: 4px;" onclick="fitLiveMatch()">
+            <i data-lucide="target" style="width: 12px;"></i>
+            Focus Live
+          </button>
+          <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px; height: 28px; display: flex; align-items: center; gap: 4px; margin-right: 8px;" onclick="fitToScreen()">
+            <i data-lucide="maximize" style="width: 12px;"></i>
+            Fit All
+          </button>
+          <i data-lucide="minus-circle" style="width: 16px; cursor: pointer;" onclick="adjustZoom(-0.1, viewport.clientWidth/2, viewport.clientHeight/2)"></i>
+          <input type="range" id="zoom-range" min="0.3" max="2" step="0.05" value="1">
+          <i data-lucide="plus-circle" style="width: 16px; cursor: pointer;" onclick="adjustZoom(0.1, viewport.clientWidth/2, viewport.clientHeight/2)"></i>
+          <span id="zoom-label" style="min-width: 40px; text-align: right;">100%</span>
+        </div>
+      </div>
+
+      <div class="bracket-scroll-area">
+        <div class="bracket-container" id="bracket-canvas">
+          
+          <!-- Round 1: Quarter-Finals -->
+          <div class="bracket-round">
+            <div class="round-header">Quarter-Finals</div>
+            
+            <!-- Match 1 -->
+            <div class="match-wrapper">
+              <div class="bracket-node live">
+                <div class="live-indicator"><div class="live-dot"></div> LIVE</div>
+                <div class="competitor-row aka">
+                  <div class="comp-info">
+                    <div class="comp-name">TAKUMI SATO</div>
+                    <div class="comp-team">KYOTO BUDOKAN ACADEMY</div>
+                    <div class="metrics-row">
+                      <div class="metric-tag active">S</div>
+                      <div class="metric-tag active">Y</div>
+                      <div class="metric-tag">W</div>
+                      <div class="metric-tag">I</div>
+                      <div class="metric-tag">C1</div>
+                      <div class="metric-tag">C2</div>
+                      <div class="metric-tag">C3</div>
+                      <div class="metric-tag">HC</div>
+                      <div class="metric-tag">H</div>
+                    </div>
+                  </div>
+                  <div class="comp-score-col">
+                    <div class="comp-score">1</div>
+                    <button class="btn-score-promote"><i data-lucide="arrow-right" style="width: 14px;"></i></button>
+                  </div>
+                </div>
+                <div class="competitor-row ao">
+                  <div class="comp-info">
+                    <div class="comp-name">MARCO ROSSI</div>
+                    <div class="comp-team">FIJLKAM ITALY TEAM</div>
+                    <div class="metrics-row">
+                      <div class="metric-tag">S</div>
+                      <div class="metric-tag">Y</div>
+                      <div class="metric-tag">W</div>
+                      <div class="metric-tag">I</div>
+                      <div class="metric-tag active">C1</div>
+                      <div class="metric-tag">C2</div>
+                      <div class="metric-tag">C3</div>
+                      <div class="metric-tag">HC</div>
+                      <div class="metric-tag">H</div>
+                    </div>
+                  </div>
+                  <div class="comp-score-col">
+                    <div class="comp-score">0</div>
+                    <button class="btn-score-promote"><i data-lucide="arrow-right" style="width: 14px;"></i></button>
+                  </div>
+                </div>
+                <div class="match-footer">
+                  <div class="mat-select-wrapper">
+                    <select class="mat-select">
+                      <option selected>MAT 01</option>
+                      <option>MAT 02</option>
+                    </select>
+                    <i data-lucide="chevron-down" class="mat-select-icon"></i>
+                  </div>
+
+                </div>
+              </div>
+              <svg class="connector"><path d="M 0 142 L 60 142 L 60 314 L 120 314" fill="none" stroke="var(--neutral-300)" stroke-width="2" stroke-linecap="round"/></svg>
+            </div>
+
+            <!-- Match 2 -->
+            <div class="match-wrapper">
+              <div class="bracket-node">
+                <div class="competitor-row aka">
+                  <div class="comp-info">
+                    <div class="comp-name">LUCAS SILVA</div>
+                    <div class="comp-team">BRAZIL NATIONAL DOJO</div>
+                    <div class="metrics-row">
+                      <div class="metric-tag">S</div>
+                      <div class="metric-tag">Y</div>
+                      <div class="metric-tag active">W</div>
+                      <div class="metric-tag">I</div>
+                      <div class="metric-tag active">C1</div>
+                      <div class="metric-tag">C2</div>
+                      <div class="metric-tag">C3</div>
+                      <div class="metric-tag">HC</div>
+                      <div class="metric-tag">H</div>
+                    </div>
+                  </div>
+                  <div class="comp-score-col">
+                    <div class="comp-score">0</div>
+                    <button class="btn-score-promote"><i data-lucide="arrow-right" style="width: 14px;"></i></button>
+                  </div>
+                </div>
+                <div class="competitor-row ao">
+                  <div class="comp-info">
+                    <div class="comp-name">JOHN DOE</div>
+                    <div class="comp-team">USA KARATE FEDERATION</div>
+                    <div class="metrics-row">
+                      <div class="metric-tag">S</div>
+                      <div class="metric-tag">Y</div>
+                      <div class="metric-tag">W</div>
+                      <div class="metric-tag">I</div>
+                      <div class="metric-tag">C1</div>
+                      <div class="metric-tag">C2</div>
+                      <div class="metric-tag">C3</div>
+                      <div class="metric-tag">HC</div>
+                      <div class="metric-tag">H</div>
+                    </div>
+                  </div>
+                  <div class="comp-score-col">
+                    <div class="comp-score">0</div>
+                    <button class="btn-score-promote"><i data-lucide="arrow-right" style="width: 14px;"></i></button>
+                  </div>
+                </div>
+                <div class="match-footer">
+                  <div class="mat-select-wrapper">
+                    <select class="mat-select">
+                      <option>MAT 01</option>
+                      <option selected>MAT 02</option>
+                      <option>UNASSIGNED</option>
+                    </select>
+                    <i data-lucide="chevron-down" class="mat-select-icon"></i>
+                  </div>
+
+                </div>
+              </div>
+              <svg class="connector"><path d="M 0 142 L 60 142 L 60 -30 L 120 -30" fill="none" stroke="var(--neutral-300)" stroke-width="2" stroke-linecap="round"/></svg>
+            </div>
+          </div>
+
+          <!-- Round 2: Semi-Finals -->
+          <div class="bracket-round">
+            <div class="round-header">Semi-Finals</div>
+            <div class="match-wrapper" style="margin-top: 172px;">
+              <div class="bracket-node" style="opacity: 0.8; border-style: dashed;">
+                <div class="competitor-row aka" style="border-left-color: var(--neutral-300);">
+                  <div class="comp-info">
+                    <div class="comp-name" style="color: var(--neutral-400);">WINNER M01</div>
+                    <div class="comp-team">—</div>
+                  </div>
+                </div>
+                <div class="competitor-row ao" style="border-left-color: var(--neutral-300);">
+                  <div class="comp-info">
+                    <div class="comp-name" style="color: var(--neutral-400);">WINNER M02</div>
+                    <div class="comp-team">—</div>
+                  </div>
+                </div>
+                <div class="match-footer">
+                  <div class="text-micro" style="flex: 1; color: var(--neutral-400); font-weight: 700; letter-spacing: 0.1em;">PENDING QUALIFICATION</div>
+                </div>
+              </div>
+              <svg class="connector"><path d="M 0 142 L 60 142 L 60 142 L 120 142" fill="none" stroke="var(--neutral-300)" stroke-width="2" stroke-linecap="round"/></svg>
+            </div>
+          </div>
+
+          <!-- Round 3: Finals -->
+          <div class="bracket-round">
+            <div class="round-header">Finals</div>
+            <div class="match-wrapper" style="margin-top: 172px;">
+              <div class="bracket-node trophy-card">
+                <div style="background: var(--status-upcoming-bg); padding: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                  <i data-lucide="trophy" style="width: 56px; height: 56px; color: var(--status-upcoming); opacity: 0.8;"></i>
+                </div>
+                <div class="text-micro" style="font-weight: 800; letter-spacing: 0.15em; color: var(--neutral-500);">CHAMPIONSHIP MATCH</div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    lucide.createIcons();
+
+    let currentZoom = 1;
+    let panX = 0;
+    let panY = 0;
+    const canvas = document.getElementById('bracket-canvas');
+    const zoomRange = document.getElementById('zoom-range');
+    const zoomLabel = document.getElementById('zoom-label');
+    const viewport = document.querySelector('.bracket-scroll-area');
+    function updateTransform(animate = false) {
+      if (animate) {
+        gsap.to(canvas, {
+          x: panX,
+          y: panY,
+          scale: currentZoom,
+          duration: 0.4,
+          ease: "power3.out"
+        });
+        gsap.to(viewport, {
+          backgroundPosition: `${panX}px ${panY}px`,
+          backgroundSize: `${40 * currentZoom}px ${40 * currentZoom}px`,
+          duration: 0.4,
+          ease: "power3.out"
+        });
+      } else {
+        gsap.set(canvas, {
+          x: panX,
+          y: panY,
+          scale: currentZoom
+        });
+        viewport.style.backgroundPosition = `${panX}px ${panY}px`;
+        viewport.style.backgroundSize = `${40 * currentZoom}px ${40 * currentZoom}px`;
+      }
+      
+      if (zoomRange) zoomRange.value = currentZoom;
+      if (zoomLabel) zoomLabel.textContent = `${Math.round(currentZoom * 100)}%`;
+    }
+
+    function setZoom(newZoom, mouseX, mouseY, animate = false) {
+      const oldZoom = currentZoom;
+      currentZoom = Math.max(0.3, Math.min(2, parseFloat(newZoom)));
+      
+      if (mouseX !== undefined && mouseY !== undefined) {
+        const canvasX = (mouseX - panX) / oldZoom;
+        const canvasY = (mouseY - panY) / oldZoom;
+        
+        panX = mouseX - canvasX * currentZoom;
+        panY = mouseY - canvasY * currentZoom;
+      }
+      
+      updateTransform(animate);
+    }
+
+    function adjustZoom(delta, mouseX, mouseY) {
+      let newZoom = currentZoom + delta;
+      setZoom(newZoom, mouseX, mouseY, true);
+    }
+
+    function fitToScreen() {
+      const margin = 80;
+      const vWidth = viewport.clientWidth;
+      const vHeight = viewport.clientHeight;
+      
+      const cWidth = canvas.offsetWidth;
+      const cHeight = canvas.offsetHeight;
+      
+      const scaleX = (vWidth - margin) / cWidth;
+      const scaleY = (vHeight - margin) / cHeight;
+      let scale = Math.min(scaleX, scaleY);
+      scale = Math.max(0.3, Math.min(1.2, scale));
+      
+      currentZoom = scale;
+      
+      panX = (vWidth - cWidth * currentZoom) / 2;
+      panY = (vHeight - cHeight * currentZoom) / 2;
+      
+      updateTransform(true);
+    }
+
+    function fitLiveMatch() {
+      const liveNode = document.querySelector('.bracket-node.live');
+      if (!liveNode) return;
+      
+      const vWidth = viewport.clientWidth;
+      const vHeight = viewport.clientHeight;
+      
+      currentZoom = 1.1;
+      
+      let el = liveNode;
+      let nodeX = 0;
+      let nodeY = 0;
+      while (el && el !== canvas) {
+        nodeX += el.offsetLeft;
+        nodeY += el.offsetTop;
+        el = el.offsetParent;
+      }
+      
+      const nodeW = liveNode.offsetWidth;
+      const nodeH = liveNode.offsetHeight;
+      
+      const nodeCenterX = nodeX + nodeW / 2;
+      const nodeCenterY = nodeY + nodeH / 2;
+      
+      panX = vWidth / 2 - nodeCenterX * currentZoom;
+      panY = vHeight / 2 - nodeCenterY * currentZoom;
+      
+      updateTransform(true);
+    }
+
+    // Scroll wheel for cursor-aware zooming
+    viewport.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      
+      const rect = viewport.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      const delta = e.deltaY * -0.002;
+      setZoom(currentZoom + delta, mouseX, mouseY, false);
+    }, { passive: false });
+
+    // Double click node to focus it
+    document.addEventListener('dblclick', (e) => {
+      const node = e.target.closest('.bracket-node');
+      if (node) {
+        const vWidth = viewport.clientWidth;
+        const vHeight = viewport.clientHeight;
+        
+        currentZoom = 1.2;
+        
+        let el = node;
+        let nodeX = 0;
+        let nodeY = 0;
+        while (el && el !== canvas) {
+          nodeX += el.offsetLeft;
+          nodeY += el.offsetTop;
+          el = el.offsetParent;
+        }
+        
+        const nodeW = node.offsetWidth;
+        const nodeH = node.offsetHeight;
+        
+        const nodeCenterX = nodeX + nodeW / 2;
+        const nodeCenterY = nodeY + nodeH / 2;
+        
+        panX = vWidth / 2 - nodeCenterX * currentZoom;
+        panY = vHeight / 2 - nodeCenterY * currentZoom;
+        
+        updateTransform(true);
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (e.target.classList.contains('metric-tag')) {
+        e.target.classList.toggle('active');
+      }
+    });
+
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        fitToScreen();
+      }, 50);
+    });
+
+    // Drag to pan
+    let isDragging = false;
+    let startX, startY, startPanX, startPanY;
+
+    viewport.addEventListener('mousedown', (e) => {
+      if (e.target.closest('button') || e.target.closest('.metric-tag') || e.target.closest('select')) return;
+      if (e.button !== 0 && e.button !== 1) return; // Allow left or middle click to pan
+      
+      isDragging = true;
+      viewport.style.cursor = 'grabbing';
+      startX = e.clientX;
+      startY = e.clientY;
+      startPanX = panX;
+      startPanY = panY;
+    });
+
+    viewport.addEventListener('mouseleave', () => {
+      isDragging = false;
+      viewport.style.cursor = 'default';
+    });
+
+    viewport.addEventListener('mouseup', () => {
+      isDragging = false;
+      viewport.style.cursor = 'default';
+    });
+
+    viewport.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      e.preventDefault();
+      const walkX = e.clientX - startX;
+      const walkY = e.clientY - startY;
+      panX = startPanX + walkX;
+      panY = startPanY + walkY;
+      updateTransform(false);
+    });
+
+    if (zoomRange) {
+      zoomRange.addEventListener('input', function() {
+        const vWidth = viewport.clientWidth;
+        const vHeight = viewport.clientHeight;
+        setZoom(this.value, vWidth / 2, vHeight / 2, false);
+      });
+    }
+  </script>
+</body>
+</html>se);
+      });
+    }
+  </script>
+</body>
+</html>form(false);
+    });
+
+    if (zoomRange) {
+      zoomRange.addEventListener('input', function() {
+        const vWidth = viewport.clientWidth;
+        const vHeight = viewport.clientHeight;
+        setZoom(this.value, vWidth / 2, vHeight / 2, false);
+      });
+    }
+  </script>
+</body>
+</html>se);
+      });
+    }
+  </script>
+</body>
+</html>

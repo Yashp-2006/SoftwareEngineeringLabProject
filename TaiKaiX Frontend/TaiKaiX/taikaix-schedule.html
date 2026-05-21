@@ -1,0 +1,311 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TaiKaiX — Schedule</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    .schedule-panel {
+      background: var(--shiro);
+      border: 1px solid var(--neutral-300);
+      border-radius: 12px;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+      overflow: hidden;
+    }
+
+    .schedule-header {
+      padding: var(--space-4) var(--space-5);
+      border-bottom: 1px solid var(--neutral-300);
+      background: var(--neutral-50);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-3);
+      flex-wrap: wrap;
+    }
+
+    .schedule-actions {
+      display: flex;
+      gap: var(--space-2);
+      align-items: center;
+    }
+
+    .schedule-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .schedule-table thead th {
+      text-align: left;
+      padding: 12px 24px;
+      background: var(--neutral-50);
+      border-bottom: 1px solid var(--neutral-300);
+    }
+
+    .schedule-table tbody td {
+      padding: 14px 24px;
+      border-bottom: 1px solid var(--neutral-100);
+      vertical-align: middle;
+    }
+
+    .schedule-table tbody tr:hover {
+      background: var(--neutral-50);
+    }
+
+    .schedule-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    .category-cell {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .category-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--neutral-900);
+    }
+
+    .category-meta {
+      font-size: 12px;
+      color: var(--neutral-500);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+    }
+
+    .mat-select {
+      height: 38px;
+      border: 1.5px solid var(--neutral-300);
+      border-radius: 8px;
+      padding: 0 10px;
+      font-size: 13px;
+      font-family: var(--font-body);
+      color: var(--neutral-900);
+      background: var(--shiro);
+      min-width: 120px;
+      outline: none;
+    }
+
+    .mat-select:focus {
+      border-color: var(--ao);
+      box-shadow: 0 0 0 3px rgba(26, 77, 181, 0.12);
+    }
+
+    .time-wrap {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      flex-wrap: wrap;
+    }
+
+    .time-input {
+      height: 38px;
+      border: 1.5px solid var(--neutral-300);
+      border-radius: 8px;
+      padding: 0 10px;
+      font-size: 13px;
+      font-family: var(--font-body);
+      color: var(--neutral-900);
+      background: var(--shiro);
+      outline: none;
+    }
+
+    .time-input:focus {
+      border-color: var(--ao);
+      box-shadow: 0 0 0 3px rgba(26, 77, 181, 0.12);
+    }
+
+    .row-actions {
+      display: flex;
+      gap: var(--space-2);
+      align-items: center;
+      justify-content: flex-end;
+    }
+
+    .saved-tag {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--status-live);
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    .saved-tag.visible {
+      opacity: 1;
+    }
+
+    @media (max-width: 980px) {
+      .schedule-table {
+        display: block;
+        overflow-x: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="nav-logo">TAIKAIX</div>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link">Dashboard</a>
+      <a href="competitions.html" class="nav-link active">Competitions</a>
+    </div>
+    <div class="nav-profile">
+      <a href="taikaix-profile.html" class="avatar" style="border: 2px solid transparent; transition: border-color 0.2s;"></a>
+      <i data-lucide="chevron-down" style="width: 16px; color: var(--neutral-500);"></i>
+    </div>
+  </nav>
+
+  <div class="sub-nav">
+    <a href="competition-detail.html" class="sub-nav-link">Overview</a>
+    <a href="categories.html" class="sub-nav-link">Categories</a>
+    <a href="bracket.html" class="sub-nav-link">Tiesheet</a>
+    <a href="mats-grid.html" class="sub-nav-link">Mats</a>
+    <a href="taikaix-live-staff.html" class="sub-nav-link">Staff</a>
+    <a href="athletes.html" class="sub-nav-link">Athletes</a>
+    <a href="medals.html" class="sub-nav-link">Medals</a>
+    <a href="schedule.html" class="sub-nav-link active">Schedule</a>
+    <div style="flex: 1;"></div>
+    <button class="btn-tab-plus" title="Add New Schedule Row">
+      <i data-lucide="plus" style="width: 20px;"></i>
+    </button>
+  </div>
+
+  <main class="container">
+    <header class="page-header">
+      <div>
+        <div class="breadcrumb">Kyoto 2026 Finals / Operations</div>
+        <h1>Category Schedule</h1>
+      </div>
+    </header>
+
+    <section class="schedule-panel">
+      <div class="schedule-header">
+        <div>
+          <h2 style="margin: 0;">Editable Match Plan</h2>
+          <div class="text-small">Set category, mat, start time, and end time.</div>
+        </div>
+        <div class="schedule-actions">
+          <button id="save-all-btn" class="btn btn-primary">
+            <i data-lucide="save" style="width: 16px;"></i>
+            Save All
+          </button>
+        </div>
+      </div>
+
+      <table class="schedule-table">
+        <thead>
+          <tr>
+            <th class="text-micro">Category Name</th>
+            <th class="text-micro">Mat</th>
+            <th class="text-micro">Time Frame (Start - End)</th>
+            <th class="text-micro" style="text-align: right;">Action</th>
+          </tr>
+        </thead>
+        <tbody id="schedule-body"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <script>
+    const scheduleData = [
+      { id: "SCH-001", category: "Senior Male Kumite -75kg", phase: "Quarter-Finals", mat: "MAT 01", start: "09:00", end: "10:10" },
+      { id: "SCH-002", category: "Senior Female Kumite -55kg", phase: "Quarter-Finals", mat: "MAT 02", start: "09:10", end: "10:15" },
+      { id: "SCH-003", category: "Senior Male Kata", phase: "Semi-Finals", mat: "MAT 03", start: "10:20", end: "11:05" },
+      { id: "SCH-004", category: "Senior Female Kata", phase: "Semi-Finals", mat: "MAT 04", start: "10:30", end: "11:20" },
+      { id: "SCH-005", category: "U21 Male Kumite -67kg", phase: "Finals", mat: "MAT 02", start: "11:30", end: "12:15" }
+    ];
+
+    const scheduleBody = document.getElementById("schedule-body");
+    const saveAllBtn = document.getElementById("save-all-btn");
+
+    function matOptions(selectedMat) {
+      const mats = ["MAT 01", "MAT 02", "MAT 03", "MAT 04", "MAT 05", "MAT 06", "MAT 07", "MAT 08"];
+      return mats.map((mat) => `<option value="${mat}" ${mat === selectedMat ? "selected" : ""}>${mat}</option>`).join("");
+    }
+
+    function renderSchedule() {
+      scheduleBody.innerHTML = scheduleData.map((row) => `
+        <tr data-id="${row.id}">
+          <td>
+            <div class="category-cell">
+              <div class="category-name">${row.category}</div>
+              <div class="category-meta">${row.phase}</div>
+            </div>
+          </td>
+          <td>
+            <select class="mat-select" data-field="mat">
+              ${matOptions(row.mat)}
+            </select>
+          </td>
+          <td>
+            <div class="time-wrap">
+              <input class="time-input" data-field="start" type="time" value="${row.start}">
+              <span class="text-small">to</span>
+              <input class="time-input" data-field="end" type="time" value="${row.end}">
+            </div>
+          </td>
+          <td>
+            <div class="row-actions">
+              <span class="saved-tag">Saved</span>
+              <button class="btn btn-secondary save-row-btn" type="button">
+                <i data-lucide="check" style="width: 14px;"></i>
+                Save
+              </button>
+            </div>
+          </td>
+        </tr>
+      `).join("");
+
+      bindRowHandlers();
+      lucide.createIcons();
+    }
+
+    function readRowValues(tr) {
+      return {
+        mat: tr.querySelector('[data-field="mat"]').value,
+        start: tr.querySelector('[data-field="start"]').value,
+        end: tr.querySelector('[data-field="end"]').value
+      };
+    }
+
+    function setSavedState(tr) {
+      const tag = tr.querySelector(".saved-tag");
+      tag.classList.add("visible");
+      setTimeout(() => tag.classList.remove("visible"), 1200);
+    }
+
+    function saveRow(tr) {
+      const rowId = tr.dataset.id;
+      const next = readRowValues(tr);
+      const target = scheduleData.find((item) => item.id === rowId);
+      target.mat = next.mat;
+      target.start = next.start;
+      target.end = next.end;
+      setSavedState(tr);
+    }
+
+    function bindRowHandlers() {
+      scheduleBody.querySelectorAll(".save-row-btn").forEach((button) => {
+        button.addEventListener("click", () => {
+          const tr = button.closest("tr");
+          saveRow(tr);
+        });
+      });
+    }
+
+    saveAllBtn.addEventListener("click", () => {
+      scheduleBody.querySelectorAll("tr").forEach((tr) => saveRow(tr));
+    });
+
+    renderSchedule();
+  </script>
+</body>
+</html>

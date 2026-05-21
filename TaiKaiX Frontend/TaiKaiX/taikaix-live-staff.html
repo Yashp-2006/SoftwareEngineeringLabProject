@@ -1,0 +1,614 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TaiKaiX — Live Staff</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <style>
+    .staff-stack {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-5);
+    }
+
+    .staff-card {
+      background: var(--shiro);
+      border: 1px solid var(--neutral-300);
+      border-radius: 12px;
+      padding: var(--space-5);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    }
+
+    .staff-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: var(--space-4);
+      gap: var(--space-4);
+      flex-wrap: wrap;
+    }
+
+    .staff-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .staff-table th {
+      text-align: left;
+      padding: 10px 12px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--neutral-500);
+      border-bottom: 1px solid var(--neutral-200);
+    }
+
+    .staff-table td {
+      padding: 12px;
+      border-bottom: 1px solid var(--neutral-100);
+      font-size: 14px;
+      vertical-align: top;
+    }
+
+    .staff-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .staff-meta {
+      font-size: 12px;
+      color: var(--neutral-500);
+    }
+
+    .status-idle {
+      background: var(--neutral-200);
+      color: var(--neutral-600);
+    }
+
+    .scope-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      background: var(--neutral-100);
+      color: var(--neutral-600);
+    }
+
+    .staff-actions {
+      display: flex;
+      gap: var(--space-2);
+      flex-wrap: wrap;
+    }
+
+    .assign-modal {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: var(--space-5);
+      background: rgba(15, 23, 42, 0.45);
+      z-index: 1000;
+    }
+
+    .assign-modal.active {
+      display: flex;
+    }
+
+    .assign-card {
+      width: min(640px, 94vw);
+      background: var(--shiro);
+      border-radius: 16px;
+      border: 1px solid var(--neutral-300);
+      padding: var(--space-6);
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
+    }
+
+    .assign-header {
+      display: flex;
+      justify-content: space-between;
+      gap: var(--space-4);
+      align-items: flex-start;
+      margin-bottom: var(--space-4);
+    }
+
+    .icon-only {
+      width: 36px;
+      height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .assign-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--space-4);
+    }
+
+    .assign-field label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--neutral-500);
+      margin-bottom: 8px;
+    }
+
+    .assign-field input,
+    .assign-field select,
+    .assign-field textarea {
+      width: 100%;
+      height: 42px;
+      border-radius: 10px;
+      border: 1.5px solid var(--neutral-300);
+      padding: 0 12px;
+      font-family: var(--font-body);
+      font-size: 14px;
+      outline: none;
+      background: var(--shiro);
+    }
+
+    .assign-field textarea {
+      min-height: 72px;
+      padding: 10px 12px;
+      resize: vertical;
+    }
+
+    .assign-field input:disabled {
+      background: var(--neutral-100);
+      color: var(--neutral-600);
+    }
+
+    .assign-field.full {
+      grid-column: 1 / -1;
+    }
+
+    .assign-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: var(--space-3);
+      margin-top: var(--space-5);
+    }
+
+    @media (max-width: 900px) {
+      .staff-table thead {
+        display: none;
+      }
+      .staff-table tr {
+        display: block;
+        border-bottom: 1px solid var(--neutral-200);
+        padding-bottom: var(--space-3);
+        margin-bottom: var(--space-3);
+      }
+      .staff-table td {
+        display: flex;
+        justify-content: space-between;
+        gap: var(--space-3);
+        border-bottom: none;
+        padding: 6px 0;
+      }
+      .staff-table td::before {
+        content: attr(data-label);
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--neutral-500);
+      }
+    }
+
+    @media (max-width: 640px) {
+      .assign-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="nav-logo">TAIKAIX</div>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link">Dashboard</a>
+      <a href="competitions.html" class="nav-link active">Competitions</a>
+      <a href="users.html" class="nav-link">Users</a>
+    </div>
+    <div class="nav-profile">
+      <a href="taikaix-profile.html" class="avatar" style="border: 2px solid transparent; transition: border-color 0.2s;"></a>
+      <i data-lucide="chevron-down" style="width: 16px; color: var(--neutral-500);"></i>
+    </div>
+  </nav>
+
+  <div class="sub-nav">
+    <a href="competition-detail.html" class="sub-nav-link">Overview</a>
+    <a href="categories.html" class="sub-nav-link">Categories</a>
+    <a href="bracket.html" class="sub-nav-link">Tiesheet</a>
+    <a href="mats-grid.html" class="sub-nav-link">Mats</a>
+    <a href="taikaix-live-staff.html" class="sub-nav-link active">Staff</a>
+    <a href="athletes.html" class="sub-nav-link">Athletes</a>
+    <a href="medals.html" class="sub-nav-link">Medals</a>
+    <a href="schedule.html" class="sub-nav-link">Schedule</a>
+    <div style="flex: 1;"></div>
+  </div>
+
+  <main class="container">
+    <header class="page-header">
+      <div>
+        <div class="breadcrumb">Competitions / Kyoto 2026 Finals / Staff</div>
+        <div style="display: flex; align-items: center; gap: var(--space-3);">
+          <h1>Live Staff Coverage</h1>
+          <span class="status-chip status-live">Live</span>
+        </div>
+      </div>
+      <div style="display: flex; gap: var(--space-3);">
+        <button class="btn btn-secondary">
+          <i data-lucide="refresh-cw"></i> Sync Roster
+        </button>
+      </div>
+    </header>
+
+    <div class="staff-stack">
+      <section class="staff-card">
+        <div class="staff-header">
+          <div>
+            <h3>Score Operators by Mat</h3>
+            <p class="text-small">Who is running each mat right now and which category they are handling.</p>
+          </div>
+        </div>
+        <table class="staff-table">
+          <thead>
+            <tr>
+              <th>Mat</th>
+              <th>Operator</th>
+              <th>Current Category</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-label="Mat"><strong>MAT 01</strong></td>
+              <td data-label="Operator" class="staff-name">Lucas Rossi<br><span class="staff-meta">Scoreboard Controller</span></td>
+              <td data-label="Current Category">Senior Male Kumite -75kg<br><span class="staff-meta">Semi-Final</span></td>
+              <td data-label="Status" class="staff-status"><span class="status-chip status-live">On Shift</span></td>
+              <td data-label="Actions">
+                <div class="staff-actions">
+                  <button class="btn btn-ghost btn-assign" data-role="Scoreboard Controller" data-scope="MAT 01" data-section="Score Operators">Reassign</button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td data-label="Mat"><strong>MAT 02</strong></td>
+              <td data-label="Operator" class="staff-name">Amina Ndiaye<br><span class="staff-meta">Scoreboard Controller</span></td>
+              <td data-label="Current Category">Senior Female Kata<br><span class="staff-meta">Round of 16</span></td>
+              <td data-label="Status" class="staff-status"><span class="status-chip status-live">On Shift</span></td>
+              <td data-label="Actions">
+                <div class="staff-actions">
+                  <button class="btn btn-ghost btn-assign" data-role="Scoreboard Controller" data-scope="MAT 02" data-section="Score Operators">Reassign</button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td data-label="Mat"><strong>MAT 03</strong></td>
+              <td data-label="Operator" class="staff-name">Unassigned</td>
+              <td data-label="Current Category">U21 Male Kumite +84kg<br><span class="staff-meta">Warm-up</span></td>
+              <td data-label="Status" class="staff-status"><span class="status-chip status-upcoming">Standby</span></td>
+              <td data-label="Actions">
+                <div class="staff-actions">
+                  <button class="btn btn-ghost btn-assign" data-role="Scoreboard Controller" data-scope="MAT 03" data-section="Score Operators">Assign</button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td data-label="Mat"><strong>MAT 04</strong></td>
+              <td data-label="Operator" class="staff-name">Kenji Sato<br><span class="staff-meta">Scoreboard Controller</span></td>
+              <td data-label="Current Category">Junior Female Kumite +59kg<br><span class="staff-meta">Quarter-Final</span></td>
+              <td data-label="Status" class="staff-status"><span class="status-chip status-live">On Shift</span></td>
+              <td data-label="Actions">
+                <div class="staff-actions">
+                  <button class="btn btn-ghost btn-assign" data-role="Scoreboard Controller" data-scope="MAT 04" data-section="Score Operators">Reassign</button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td data-label="Mat"><strong>MAT 05</strong></td>
+              <td data-label="Operator" class="staff-name">Yumi Tanaka<br><span class="staff-meta">Scoreboard Controller</span></td>
+              <td data-label="Current Category">Senior Team Kata<br><span class="staff-meta">Next Match 11:40</span></td>
+              <td data-label="Status" class="staff-status"><span class="status-chip status-upcoming">Standby</span></td>
+              <td data-label="Actions">
+                <div class="staff-actions">
+                  <button class="btn btn-ghost btn-assign" data-role="Scoreboard Controller" data-scope="MAT 05" data-section="Score Operators">Reassign</button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="staff-card">
+        <div class="staff-header">
+          <div>
+            <h3>Attendance Volunteers by Category</h3>
+            <p class="text-small">Volunteer coverage for athlete check-in and readiness by division.</p>
+          </div>
+        </div>
+        <table class="staff-table">
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>Volunteer</th>
+              <th>Check-in</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-label="Category">Senior Male Kumite -75kg</td>
+              <td data-label="Volunteer" class="staff-name">Maria Garcia</td>
+              <td data-label="Check-in"><strong>30 / 32</strong><br><span class="staff-meta">2 pending</span></td>
+              <td data-label="Status" class="staff-status"><span class="status-chip status-live">Ready</span></td>
+              <td data-label="Actions">
+                <div class="staff-actions">
+                  <button class="btn btn-ghost btn-assign" data-role="Attendance Volunteer" data-scope="Senior Male Kumite -75kg" data-section="Attendance Volunteers">Reassign</button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td data-label="Category">Senior Female Kata</td>
+              <td data-label="Volunteer" class="staff-name">Rafael Silva</td>
+              <td data-label="Check-in"><strong>24 / 24</strong><br><span class="staff-meta">All present</span></td>
+              <td data-label="Status" class="staff-status"><span class="status-chip status-live">Ready</span></td>
+              <td data-label="Actions">
+                <div class="staff-actions">
+                  <button class="btn btn-ghost btn-assign" data-role="Attendance Volunteer" data-scope="Senior Female Kata" data-section="Attendance Volunteers">Reassign</button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td data-label="Category">U21 Male Kumite +84kg</td>
+              <td data-label="Volunteer" class="staff-name">Aiko Mori</td>
+              <td data-label="Check-in"><strong>12 / 16</strong><br><span class="staff-meta">4 pending</span></td>
+              <td data-label="Status" class="staff-status"><span class="status-chip status-upcoming">Pending</span></td>
+              <td data-label="Actions">
+                <div class="staff-actions">
+                  <button class="btn btn-ghost btn-assign" data-role="Attendance Volunteer" data-scope="U21 Male Kumite +84kg" data-section="Attendance Volunteers">Reassign</button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td data-label="Category">Junior Female Kumite +59kg</td>
+              <td data-label="Volunteer" class="staff-name">Elena Costa</td>
+              <td data-label="Check-in"><strong>18 / 20</strong><br><span class="staff-meta">2 pending</span></td>
+              <td data-label="Status" class="staff-status"><span class="status-chip status-upcoming">Pending</span></td>
+              <td data-label="Actions">
+                <div class="staff-actions">
+                  <button class="btn btn-ghost btn-assign" data-role="Attendance Volunteer" data-scope="Junior Female Kumite +59kg" data-section="Attendance Volunteers">Reassign</button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td data-label="Category">Senior Team Kata</td>
+              <td data-label="Volunteer" class="staff-name">Unassigned</td>
+              <td data-label="Check-in"><strong>0 / 8</strong><br><span class="staff-meta">Awaiting arrival</span></td>
+              <td data-label="Status" class="staff-status"><span class="status-chip status-idle">Not Ready</span></td>
+              <td data-label="Actions">
+                <div class="staff-actions">
+                  <button class="btn btn-ghost btn-assign" data-role="Attendance Volunteer" data-scope="Senior Team Kata" data-section="Attendance Volunteers">Assign</button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="staff-card">
+        <div class="staff-header">
+          <div>
+            <h3>Medal Distributors</h3>
+            <p class="text-small">Who is assigned to distribute medals and the scope they cover.</p>
+          </div>
+        </div>
+        <table class="staff-table">
+          <thead>
+            <tr>
+              <th>Distributor</th>
+              <th>Scope</th>
+              <th>Coverage</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-label="Distributor" class="staff-name">Yuki Tanaka<br><span class="staff-meta">Lead Distributor</span></td>
+              <td data-label="Scope"><span class="scope-pill">National / State</span><br><span class="staff-meta">Kansai Region</span></td>
+              <td data-label="Coverage">All Senior Categories</td>
+              <td data-label="Status" class="staff-status"><span class="status-chip status-live">Active</span></td>
+              <td data-label="Actions">
+                <div class="staff-actions">
+                  <button class="btn btn-ghost btn-assign" data-role="Medal Distributor" data-scope="National / State — Kansai Region" data-section="Medal Distributors">Reassign</button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td data-label="Distributor" class="staff-name">Rafael Silva</td>
+              <td data-label="Scope"><span class="scope-pill">International / Country</span><br><span class="staff-meta">Global Delegations</span></td>
+              <td data-label="Coverage">Team Kata + Open Divisions</td>
+              <td data-label="Status" class="staff-status"><span class="status-chip status-upcoming">Standby</span></td>
+              <td data-label="Actions">
+                <div class="staff-actions">
+                  <button class="btn btn-ghost btn-assign" data-role="Medal Distributor" data-scope="International / Country — Global Delegations" data-section="Medal Distributors">Reassign</button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td data-label="Distributor" class="staff-name">Unassigned</td>
+              <td data-label="Scope"><span class="scope-pill">Local / Academy</span></td>
+              <td data-label="Coverage">Junior Categories</td>
+              <td data-label="Status" class="staff-status"><span class="status-chip status-idle">Needs Assignment</span></td>
+              <td data-label="Actions">
+                <div class="staff-actions">
+                  <button class="btn btn-ghost btn-assign" data-role="Medal Distributor" data-scope="Local / Academy" data-section="Medal Distributors">Assign</button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    </div>
+  </main>
+
+  <div class="assign-modal" id="assign-modal" aria-hidden="true">
+    <div class="assign-card">
+      <div class="assign-header">
+        <div>
+          <div class="text-micro" id="assign-context">Live roster update</div>
+          <h3 id="assign-title">Reassign staff</h3>
+          <p class="text-small" id="assign-subtitle">Update the assignment immediately and keep coverage active.</p>
+        </div>
+        <button class="btn btn-ghost icon-only" type="button" data-modal-close>
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <form id="assign-form">
+        <div class="assign-grid">
+          <div class="assign-field full">
+            <label>Assignment scope</label>
+            <input type="text" id="assign-scope" disabled>
+          </div>
+          <div class="assign-field">
+            <label>Role</label>
+            <input type="text" id="assign-role" disabled>
+          </div>
+          <div class="assign-field">
+            <label>Assign to</label>
+            <select id="assign-person" required>
+              <option value="">Select staff member</option>
+              <option>Lucas Rossi</option>
+              <option>Amina Ndiaye</option>
+              <option>Kenji Sato</option>
+              <option>Yumi Tanaka</option>
+              <option>Maria Garcia</option>
+              <option>Rafael Silva</option>
+              <option>Aiko Mori</option>
+              <option>Elena Costa</option>
+              <option>Yuki Tanaka</option>
+              <option>Kenji Nakamura</option>
+              <option>Unassigned</option>
+            </select>
+          </div>
+        </div>
+        <div class="assign-footer">
+          <button class="btn btn-secondary" type="button" data-modal-close>Cancel</button>
+          <button class="btn btn-primary" type="submit">Update Assignment</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    lucide.createIcons();
+    gsap.from('.staff-card', {
+      y: 16,
+      opacity: 0,
+      duration: 0.5,
+      stagger: 0.08,
+      ease: 'power2.out'
+    });
+
+    const assignModal = document.getElementById('assign-modal');
+    const assignForm = document.getElementById('assign-form');
+    const assignScope = document.getElementById('assign-scope');
+    const assignRole = document.getElementById('assign-role');
+    const assignPerson = document.getElementById('assign-person');
+    const assignContext = document.getElementById('assign-context');
+    const assignTitle = document.getElementById('assign-title');
+    const assignSubtitle = document.getElementById('assign-subtitle');
+
+    let activeRow = null;
+    let activeNameCell = null;
+    let activeStatusCell = null;
+    let activeRole = '';
+
+    const closeAssignModal = () => {
+      assignModal.classList.remove('active');
+      assignModal.setAttribute('aria-hidden', 'true');
+      assignForm.reset();
+      activeRow = null;
+      activeNameCell = null;
+      activeStatusCell = null;
+    };
+
+    const openAssignModal = (button) => {
+      activeRow = button.closest('tr');
+      activeNameCell = activeRow ? activeRow.querySelector('.staff-name') : null;
+      activeStatusCell = activeRow ? activeRow.querySelector('.staff-status') : null;
+      activeRole = button.dataset.role || 'Staff';
+      const scope = button.dataset.scope || 'Live coverage';
+      const section = button.dataset.section || 'Staff';
+      const currentName = activeNameCell ? activeNameCell.textContent.trim().split('\n')[0] : '';
+
+      assignScope.value = scope;
+      assignRole.value = activeRole;
+      assignPerson.value = '';
+      assignContext.textContent = `${section} • ${scope}`;
+      assignTitle.textContent = `Reassign ${activeRole}`;
+      assignSubtitle.textContent = currentName ? `Currently: ${currentName}` : 'Choose a replacement to keep coverage active.';
+
+      assignModal.classList.add('active');
+      assignModal.setAttribute('aria-hidden', 'false');
+    };
+
+    document.querySelectorAll('.btn-assign').forEach((button) => {
+      button.addEventListener('click', () => openAssignModal(button));
+    });
+
+    assignModal.addEventListener('click', (event) => {
+      if (event.target === assignModal) {
+        closeAssignModal();
+      }
+    });
+
+    assignModal.querySelectorAll('[data-modal-close]').forEach((button) => {
+      button.addEventListener('click', closeAssignModal);
+    });
+
+    assignForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      if (!activeNameCell || !activeStatusCell) {
+        closeAssignModal();
+        return;
+      }
+
+      const newName = assignPerson.value || 'Unassigned';
+      const metaParts = [];
+
+      if (activeRole) {
+        metaParts.push(activeRole);
+      }
+
+      const metaLine = metaParts.length ? `<span class="staff-meta">${metaParts.join(' • ')}</span>` : '';
+      activeNameCell.innerHTML = metaLine ? `${newName}<br>${metaLine}` : newName;
+
+      if (newName === 'Unassigned') {
+        activeStatusCell.innerHTML = '<span class="status-chip status-idle">Needs Assignment</span>';
+      } else {
+        activeStatusCell.innerHTML = '<span class="status-chip status-live">Assigned</span>';
+      }
+
+      closeAssignModal();
+    });
+  </script>
+</body>
+</html>
