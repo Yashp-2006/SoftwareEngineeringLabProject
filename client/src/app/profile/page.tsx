@@ -3,8 +3,11 @@
 import React from 'react';
 import Link from 'next/link';
 import { Mail, MapPin, Calendar, Edit3, ExternalLink, FileText } from 'lucide-react';
+import { useAuth } from '@/components/auth/AuthProvider';
 
 export default function ProfilePage() {
+  const { user, role } = useAuth();
+  
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: `
@@ -74,21 +77,17 @@ export default function ProfilePage() {
         </header>
 
         <section className="profile-header">
-          <div className="profile-avatar-large"></div>
+          <div className="profile-avatar-large" style={{ backgroundImage: user?.photoURL ? `url(${user.photoURL})` : `url('https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email || 'Felix'}')` }}></div>
           <div className="profile-info">
-            <h1>Kenji Sato</h1>
+            <h1>{user?.displayName || 'User Profile'}</h1>
             <div className="profile-meta">
               <div className="profile-meta-item">
                 <Mail size={16} />
-                kenji.sato@example.com
+                {user?.email || 'No email available'}
               </div>
               <div className="profile-meta-item">
                 <MapPin size={16} />
-                Osaka, Japan
-              </div>
-              <div className="profile-meta-item">
-                <Calendar size={16} />
-                Joined March 2024
+                {role ? role.toUpperCase() : 'USER'}
               </div>
             </div>
           </div>
