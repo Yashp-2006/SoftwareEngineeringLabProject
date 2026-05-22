@@ -23,16 +23,12 @@ export default function Sidebar() {
         <div className="nav-logo">TAIKAIX</div>
         
         <div className="nav-links hide-on-mobile">
-          {(role === 'admin' || role === 'guest_viewer') && (
-            <>
-              <Link href="/" className={`nav-link ${pathname === '/' ? 'active' : ''}`}>
-                Dashboard
-              </Link>
-              <Link href="/users" className={`nav-link ${pathname.startsWith('/users') ? 'active' : ''}`}>
-                Users
-              </Link>
-            </>
-          )}
+          <Link href="/" className={`nav-link ${pathname === '/' ? 'active' : ''}`}>
+            Dashboard ({role || 'none'})
+          </Link>
+          <Link href="/users" className={`nav-link ${pathname.startsWith('/users') ? 'active' : ''}`}>
+            Users
+          </Link>
           <Link href="/competitions" className={`nav-link ${pathname.startsWith('/competitions') ? 'active' : ''}`}>
             Competitions
           </Link>
@@ -80,12 +76,8 @@ export default function Sidebar() {
           flexDirection: 'column',
           gap: 'var(--space-4)'
         }}>
-          {(role === 'admin' || role === 'guest_viewer') && (
-            <>
-              <Link href="/" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Dashboard</Link>
-              <Link href="/users" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Users</Link>
-            </>
-          )}
+          <Link href="/" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Dashboard ({role || 'none'})</Link>
+          <Link href="/users" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Users</Link>
           <Link href="/competitions" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Competitions</Link>
           
           <div style={{ height: '1px', background: 'var(--neutral-700)', margin: 'var(--space-2) 0' }} />
