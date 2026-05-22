@@ -402,6 +402,23 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
         .round-ops-strip { padding: 16px 24px; background: var(--neutral-50); border-bottom: 1px solid var(--neutral-200); display: flex; justify-content: space-between; align-items: center; }
         .btn-round { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid var(--neutral-300); background: var(--shiro); }
         .btn-round:hover { background: var(--neutral-100); }
+
+        .mat-detail-grid { display: grid; grid-template-columns: 1fr 360px; gap: 24px; margin-top: 24px; }
+
+        @media (max-width: 1024px) {
+          .mat-detail-grid { grid-template-columns: 1fr; }
+          .fs-body { grid-template-columns: 1fr; padding: 0 20px 20px; overflow-y: auto; }
+          .fs-stat-col { flex-direction: row; }
+        }
+        @media (max-width: 768px) {
+          .ops-display { grid-template-columns: 1fr; }
+          .ops-side.aka { border-right: none; border-bottom: 1px solid var(--neutral-200); }
+          .ops-side.ao { border-left: none; border-top: 1px solid var(--neutral-200); }
+          .ops-score-num { font-size: 80px; }
+          .ops-timer { font-size: 32px; }
+          .control-row { flex-wrap: wrap; }
+          .btn-score { min-width: 45%; }
+        }
       `}} />
 
       <main className="container">
@@ -423,7 +440,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
           </div>
         </header>
         
-        <div className="mat-detail-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: '24px', marginTop: '24px' }}>
+        <div className="mat-detail-grid">
           
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <section className="ops-scoreboard">

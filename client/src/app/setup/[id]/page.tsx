@@ -392,7 +392,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                       )}
                     </div>
                   </div>
-                  <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                  <div className="table-responsive" style={{ maxHeight: '400px', overflowY: 'auto' }}>
                     <table className="cat-table">
                       <thead style={{ position: 'sticky', top: 0, background: 'var(--shiro)', zIndex: 10 }}>
                         <tr>
@@ -448,8 +448,9 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                       <Star size={16} /> Add Special Category
                     </button>
                   </div>
-                  <table className="cat-table">
-                    <thead>
+                  <div className="table-responsive">
+                    <table className="cat-table">
+                      <thead>
                       <tr>
                         <th className="text-micro">Category Name</th>
                         <th className="text-micro">Applied Rules</th>
@@ -486,6 +487,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                       )}
                     </tbody>
                   </table>
+                  </div>
                 </div>
               </div>
             </section>

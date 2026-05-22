@@ -424,6 +424,20 @@ export default function FullscreenBracketModal({
         /* Close button */
         .fsb-close { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: var(--neutral-100); border: none; border-radius: 999px; cursor: pointer; transition: all 0.2s; color: var(--neutral-600); }
         .fsb-close:hover { background: var(--neutral-200); color: var(--neutral-900); }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+          .fsb-body { flex-direction: column; }
+          .fsb-sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--neutral-300); max-height: 220px; padding: var(--space-3); }
+          .fsb-cat-item.active { transform: none; box-shadow: none; border-color: var(--aka); }
+          .fsb-cat-item:hover { transform: none; box-shadow: none; }
+          
+          .bracket-node { width: 280px; }
+          .competitor-row { padding: 16px 16px; min-height: 90px; }
+          .comp-score { font-size: 32px; margin-left: 12px; }
+          .bv-canvas { gap: 60px; padding: var(--space-3); }
+          .bracket-round { gap: 40px; min-width: 280px; }
+        }
       `}} />
 
       <div className="fsb-overlay">

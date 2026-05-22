@@ -404,3 +404,102 @@ nav {
   color: var(--aka);
   border-color: var(--aka);
 }
+
+/* ==================================================
+   RESPONSIVE DESIGN (Tablets & Mobile)
+   ================================================== */
+
+/* Helper Classes */
+.hide-on-mobile { display: block; }
+.show-on-mobile { display: none; }
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Tablet (Max 1024px) */
+@media (max-width: 1024px) {
+  .bento-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .span-2-2 { grid-column: span 2; }
+  
+  .mat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Mobile (Max 768px) */
+@media (max-width: 768px) {
+  .hide-on-mobile { display: none !important; }
+  .show-on-mobile { display: block !important; }
+
+  /* Typography */
+  h1 { font-size: 28px; }
+  h2 { font-size: 20px; }
+  .display-large { font-size: 36px; }
+
+  /* Layout Containers */
+  .container {
+    padding: var(--space-4);
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+  }
+
+  /* Navigation */
+  nav {
+    padding: 0 var(--space-4);
+    height: 56px;
+  }
+  
+  .nav-logo {
+    font-size: 20px;
+    margin-right: var(--space-4);
+  }
+
+  .sub-nav {
+    padding: 0 var(--space-4);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+    scrollbar-width: none; /* Firefox */
+  }
+  .sub-nav::-webkit-scrollbar { display: none; }
+
+  /* Grid / Flex Layouts */
+  .bento-grid {
+    grid-template-columns: 1fr;
+  }
+  .span-2-2 { grid-column: span 1; }
+
+  .mat-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .flex-between {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
+  }
+
+  /* Components */
+  .card {
+    padding: var(--space-4);
+  }
+
+  .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Adjust inputs for touch */
+  input, select, button {
+    min-height: 44px; /* Minimum Apple touch target */
+  }
+}
