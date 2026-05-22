@@ -1,0 +1,402 @@
+'use client';
+
+import React, { useState } from 'react';
+import Link from 'next/link';
+import { Search, Plus, Edit3, Archive, Trash2, ArrowRight, X, Eye, EyeOff } from 'lucide-react';
+import { useAuth } from '@/components/auth/AuthProvider';
+
+export default function CompetitionsPage() {
+  const [filter, setFilter] = useState('all');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '', dates: '', venue: '', type: 'national', rules: 'wkf', mats: '6', password: ''
+  });
+  const { user } = useAuth();
+  
+  const [competitions, setCompetitions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  React.useEffect(() => {
+    let unsubscribe: () => void;
+    
+    const fetchComps = async () => {
+      try {
+        const { collection, onSnapshot, query, orderBy } = await import('firebase/firestore');
+        const { db } = await import('@lib/firebase');
+        const q = query(collection(db, 'competitions'), orderBy('createdAt', 'desc'));
+        
+        unsubscribe = onSnapshot(q, (snapshot) => {
+          const comps: any[] = [];
+          snapshot.forEach((doc) => {
+            comps.push({ id: doc.id, ...doc.data() });
+          });
+          setCompetitions(comps);
+          setLoading(false);
+        });
+      } catch (err) {
+        console.error("Failed to fetch competitions", err);
+        setLoading(false);
+      }
+    };
+
+    fetchComps();
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, []);
+
+  const handleStatusChange = async (compId: string, newStatus: string) => {
+    if (!confirm(`Are you sure you want to change the status to ${newStatus}?`)) return;
+    try {
+      const { doc, updateDoc } = await import('firebase/firestore');
+      const { db } = await import('@lib/firebase');
+      await updateDoc(doc(db, 'competitions', compId), { status: newStatus });
+    } catch (e) {
+      console.error(e);
+      alert('Failed to update status');
+    }
+  };
+
+  const handleDelete = async (compId: string) => {
+    if (!confirm(`Are you sure you want to delete this competition? This cannot be undone.`)) return;
+    try {
+      const { doc, deleteDoc } = await import('firebase/firestore');
+      const { db } = await import('@lib/firebase');
+      await deleteDoc(doc(db, 'competitions', compId));
+    } catch (e) {
+      console.error(e);
+      alert('Failed to delete competition');
+    }
+  };
+
+  return (
+    <>
+      <style dangerouslySetInnerHTML={{__html: `
+        .comp-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+          gap: var(--space-5);
+        }
+        .comp-card {
+          position: relative;
+          border-left: 4px solid var(--neutral-300);
+        }
+        .comp-card.live { border-left-color: var(--aka); }
+        .comp-card.upcoming { border-left-color: var(--status-upcoming); }
+        .comp-card.done { border-left-color: var(--status-done); }
+        
+        .comp-actions {
+          position: absolute;
+          top: var(--space-4);
+          right: var(--space-4);
+          display: flex;
+          gap: var(--space-2);
+          opacity: 0;
+          transition: opacity 0.2s;
+        }
+        .comp-card:hover .comp-actions { opacity: 1; }
+
+        /* Modal Styles */
+        .modal-overlay {
+          position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+          background: rgba(0,0,0,0.5);
+          display: flex; align-items: center; justify-content: center;
+          z-index: 1000;
+          opacity: 0; pointer-events: none; transition: 0.2s;
+        }
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        
+        .modal {
+          background: var(--shiro);
+          width: 500px; max-width: 90%;
+          max-height: 90vh; display: flex; flex-direction: column;
+          border-radius: 12px;
+          box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+          overflow: hidden;
+          transform: translateY(10px); transition: 0.2s;
+        }
+        .modal-overlay.active .modal { transform: translateY(0); }
+        
+        .modal-header {
+          padding: 16px 24px;
+          border-bottom: 1px solid var(--neutral-300);
+          display: flex; justify-content: space-between; align-items: center;
+        }
+        .modal-header h3 { margin: 0; font-size: 16px; font-weight: 600; }
+        .close-btn { background: none; border: none; cursor: pointer; color: var(--neutral-500); padding: 4px; display: flex; }
+        .close-btn:hover { color: var(--neutral-900); }
+        
+        .modal-body { padding: 24px; overflow-y: auto; flex: 1; }
+        .form-group { margin-bottom: 16px; }
+        .form-group:last-child { margin-bottom: 0; }
+        .form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; color: var(--neutral-700); }
+        .input-field {
+          width: 100%; height: 40px;
+          border: 1.5px solid var(--neutral-300); border-radius: 8px;
+          padding: 0 12px; font-size: 14px; font-family: var(--font-body); outline: none;
+        }
+        .input-field:focus { border-color: var(--ao); box-shadow: 0 0 0 3px rgba(26, 77, 181, 0.12); }
+        
+        .modal-footer {
+          padding: 16px 24px; border-top: 1px solid var(--neutral-300);
+          background: var(--neutral-50); display: flex; justify-content: flex-end; gap: 12px;
+        }
+      `}} />
+
+      <div className="sub-nav">
+        <button className={`sub-nav-link ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')} style={{background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: '14px', fontWeight: 600}}>All Competitions</button>
+        <button className={`sub-nav-link ${filter === 'live' ? 'active' : ''}`} onClick={() => setFilter('live')} style={{background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: '14px', fontWeight: 600}}>Live</button>
+        <button className={`sub-nav-link ${filter === 'upcoming' ? 'active' : ''}`} onClick={() => setFilter('upcoming')} style={{background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: '14px', fontWeight: 600}}>Upcoming</button>
+        <button className={`sub-nav-link ${filter === 'done' ? 'active' : ''}`} onClick={() => setFilter('done')} style={{background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: '14px', fontWeight: 600}}>Archives</button>
+      </div>
+
+      <main className="container">
+        <header className="page-header">
+          <div>
+            <div className="breadcrumb">TaiKaiX / Competitions</div>
+            <h1>Competition Directory</h1>
+          </div>
+          <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+            <div style={{ position: 'relative' }}>
+              <input type="text" placeholder="Search events..." id="comp-search" style={{ height: '40px', borderRadius: '6px', border: '1.5px solid var(--neutral-300)', padding: '0 var(--space-7) 0 var(--space-4)', fontFamily: 'var(--font-body)' }} />
+              <Search style={{ position: 'absolute', right: '12px', top: '11px', width: '18px', color: 'var(--neutral-500)' }} />
+            </div>
+            {user && (
+              <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
+                <Plus style={{ width: '18px', marginRight: '6px' }} /> Create New
+              </button>
+            )}
+          </div>
+        </header>
+
+        <div className="comp-grid" id="competitions-grid">
+          {loading ? (
+             <div style={{ gridColumn: '1 / -1', padding: 'var(--space-8)', textAlign: 'center' }}>Loading...</div>
+          ) : competitions.filter(c => filter === 'all' ? true : c.status === filter).length === 0 ? (
+            <div style={{ gridColumn: '1 / -1', padding: 'var(--space-8)', textAlign: 'center', background: 'var(--shiro)', borderRadius: '16px', border: '1px dashed var(--neutral-300)' }}>
+              <h3 style={{ color: 'var(--neutral-900)', marginBottom: '8px' }}>No Competitions Found</h3>
+              <p style={{ color: 'var(--neutral-500)' }}>There are currently no events matching your criteria.</p>
+              {user && (
+                <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '16px' }}>
+                  <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
+                    Create the first competition
+                  </button>
+                  <button 
+                    className="btn btn-secondary"
+                    onClick={async () => {
+                      if (!confirm("Add 3 dummy competitions to the database?")) return;
+                      const dummyComps = [
+                        { id: 'KYO-2026', name: 'Kyoto 2026 Finals', dates: 'May 15-18, 2026', venue: 'Kyoto Imperial Arena', type: 'international', rules: 'wkf', mats: 8, status: 'live', athletesCount: 420, categoriesCount: 24, createdAt: new Date().toISOString() },
+                        { id: 'OSA-2026', name: 'Osaka Regional Cup', dates: 'June 02-04, 2026', venue: 'Osaka Prefectural Gym', type: 'national', rules: 'wkf', mats: 4, status: 'upcoming', athletesCount: 185, categoriesCount: 0, createdAt: new Date().toISOString() },
+                        { id: 'TOK-2026', name: 'Tokyo Masters', dates: 'April 10-12, 2026', venue: 'Nippon Budokan', type: 'national', rules: 'wkf', mats: 6, status: 'done', athletesCount: 512, categoriesCount: 32, createdAt: new Date().toISOString() }
+                      ];
+                      try {
+                        const { setDoc, doc } = await import('firebase/firestore');
+                        const { db } = await import('@lib/firebase');
+                        for (const c of dummyComps) {
+                          await setDoc(doc(db, 'competitions', c.id), c);
+                        }
+                      } catch (e) {
+                        console.error(e);
+                        alert("Failed to add dummy competitions.");
+                      }
+                    }}
+                  >
+                    Seed Dummy Data
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            competitions.filter(c => filter === 'all' ? true : c.status === filter).map(comp => (
+              <div key={comp.id} className={`card comp-card ${comp.status} card-interactive`}>
+                <div className="comp-actions">
+                  {comp.status === 'upcoming' && (
+                    <button className="btn btn-primary" style={{ padding: '6px 12px', height: 'auto', fontSize: '12px' }} onClick={() => handleStatusChange(comp.id, 'live')}>
+                      Go Live
+                    </button>
+                  )}
+                  {comp.status === 'live' && (
+                    <button className="btn btn-secondary" style={{ padding: '6px 12px', height: 'auto', fontSize: '12px', background: 'var(--status-done)', borderColor: 'var(--status-done)', color: 'white' }} onClick={() => handleStatusChange(comp.id, 'done')}>
+                      Finish & Archive
+                    </button>
+                  )}
+                  <button className="btn btn-ghost" style={{ padding: '6px', color: 'var(--aka)' }} onClick={() => handleDelete(comp.id)}>
+                    <Trash2 style={{ width: '16px' }} />
+                  </button>
+                </div>
+                <div className="flex-between mb-2">
+                  <span className={`status-chip status-${comp.status}`}>
+                    {comp.status === 'live' ? 'Live Now' : comp.status === 'upcoming' ? 'Upcoming' : 'Completed'}
+                  </span>
+                  <span className="text-micro" style={{ color: 'var(--neutral-500)' }}>ID: {comp.id}</span>
+                </div>
+                <h3 style={{ fontSize: '22px', marginBottom: 'var(--space-1)' }}>{comp.name}</h3>
+                <div className="text-small mb-2">{comp.dates} • {comp.venue}</div>
+                <div style={{ display: 'flex', gap: 'var(--space-4)', marginTop: 'var(--space-4)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--neutral-100)' }}>
+                  {comp.status === 'done' ? (
+                    <>
+                      <div>
+                        <div className="text-micro" style={{ color: 'var(--neutral-500)' }}>Total Entries</div>
+                        <div style={{ fontWeight: 600 }}>{comp.athletesCount || 0}</div>
+                      </div>
+                      <div>
+                        <div className="text-micro" style={{ color: 'var(--neutral-500)' }}>Winners</div>
+                        <div style={{ fontWeight: 600 }}>{comp.categoriesCount || 0}</div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {comp.status === 'live' && (
+                        <div>
+                          <div className="text-micro" style={{ color: 'var(--neutral-500)' }}>Athletes</div>
+                          <div style={{ fontWeight: 600 }}>{comp.athletesCount || 0}</div>
+                        </div>
+                      )}
+                      {comp.status === 'upcoming' && (
+                        <div>
+                          <div className="text-micro" style={{ color: 'var(--neutral-500)' }}>Registered</div>
+                          <div style={{ fontWeight: 600 }}>{comp.athletesCount || 0}</div>
+                        </div>
+                      )}
+                      {comp.status === 'live' && (
+                        <div>
+                          <div className="text-micro" style={{ color: 'var(--neutral-500)' }}>Categories</div>
+                          <div style={{ fontWeight: 600 }}>{comp.categoriesCount || 0}</div>
+                        </div>
+                      )}
+                      <div>
+                        <div className="text-micro" style={{ color: 'var(--neutral-500)' }}>Mats</div>
+                        <div style={{ fontWeight: 600 }}>{comp.mats || 0}</div>
+                      </div>
+                    </>
+                  )}
+                </div>
+                <div className="mt-4">
+                  {comp.status === 'live' && (
+                    <Link href={`/competitions/${comp.id}`} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', textDecoration: 'none' }}>
+                      Manage Operations <ArrowRight style={{ width: '16px', marginLeft: '6px' }} />
+                    </Link>
+                  )}
+                  {comp.status === 'upcoming' && (
+                    <Link href={`/setup/${comp.id}`} className="btn btn-secondary" style={{ width: '100%', justifyContent: 'center', textDecoration: 'none' }}>
+                      Setup Tournament
+                    </Link>
+                  )}
+                  {comp.status === 'done' && (
+                    <Link href={`/archives/${comp.id}`} className="btn btn-ghost" style={{ width: '100%', justifyContent: 'center', background: 'var(--neutral-50)', textDecoration: 'none' }}>
+                      View Archives
+                    </Link>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </main>
+
+      {/* Create Competition Modal */}
+      <div className={`modal-overlay ${isModalOpen ? 'active' : ''}`}>
+        <div className="modal">
+          <div className="modal-header">
+            <h3>Create New Competition</h3>
+            <button className="close-btn" onClick={() => setIsModalOpen(false)}><X style={{width: '20px'}} /></button>
+          </div>
+          <div className="modal-body">
+            <div className="form-group">
+              <label>Competition Name</label>
+              <input type="text" id="new-comp-name" className="input-field" placeholder="e.g. Kyoto 2026 Finals" value={formData.name} onChange={e => setFormData(p => ({ ...p, name: e.target.value }))} />
+            </div>
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+              <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                <label>Dates</label>
+                <input type="text" id="new-comp-dates" className="input-field" placeholder="e.g. May 15-18, 2026" value={formData.dates} onChange={e => setFormData(p => ({ ...p, dates: e.target.value }))} />
+              </div>
+              <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                <label>Venue</label>
+                <input type="text" id="new-comp-venue" className="input-field" placeholder="e.g. Nippon Budokan" value={formData.venue} onChange={e => setFormData(p => ({ ...p, venue: e.target.value }))} />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+              <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                <label>Tournament Type</label>
+                <select id="new-comp-type" className="input-field" style={{ background: 'white' }} value={formData.type} onChange={e => setFormData(p => ({ ...p, type: e.target.value }))}>
+                  <option value="national">National Tournament</option>
+                  <option value="international">International Tournament</option>
+                </select>
+              </div>
+              <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                <label>Rule Settings</label>
+                <select id="new-comp-rules" className="input-field" style={{ background: 'white' }} value={formData.rules} onChange={e => setFormData(p => ({ ...p, rules: e.target.value }))}>
+                  <option value="wkf">WKF Settings</option>
+                  <option value="custom">Custom Settings</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label>Number of Mats</label>
+              <input type="number" id="new-comp-mats" className="input-field" placeholder="e.g. 6" min="1" max="20" style={{ width: '120px' }} value={formData.mats} onChange={e => setFormData(p => ({ ...p, mats: e.target.value }))} />
+            </div>
+
+            <div className="form-group" style={{ borderTop: '1px solid var(--neutral-200)', paddingTop: '16px', marginTop: '4px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                Competition Password
+                <span style={{ fontSize: '11px', fontWeight: 500, color: 'var(--neutral-500)', background: 'var(--neutral-100)', padding: '2px 8px', borderRadius: '4px' }}>Required to access this competition</span>
+              </label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  className="input-field"
+                  placeholder="Set a strong password..."
+                  value={formData.password}
+                  onChange={e => setFormData(p => ({ ...p, password: e.target.value }))}
+                  style={{ paddingRight: '44px' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(s => !s)}
+                  style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--neutral-500)', display: 'flex', alignItems: 'center' }}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              <p style={{ fontSize: '12px', color: 'var(--neutral-500)', marginTop: '6px' }}>⚠️ Password will be hashed before storage. Share only with authorized staff.</p>
+            </div>
+          </div>
+          <div className="modal-footer">
+            <button className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>Cancel</button>
+            <button className="btn btn-primary" onClick={async () => {
+              const { name, dates, venue, mats, type, rules, password } = formData;
+              if (!name.trim()) { alert('Competition name is required'); return; }
+              if (!password.trim()) { alert('A password is required to protect this competition'); return; }
+              const id = name.trim().toUpperCase().replace(/\s+/g, '-').slice(0, 12) + '-' + new Date().getFullYear();
+
+              try {
+                const { setDoc, doc } = await import('firebase/firestore');
+                const { db } = await import('@lib/firebase');
+                await setDoc(doc(db, 'competitions', id), {
+                  name, dates, venue, mats: Number(mats), type, rules,
+                  // TODO: hash password server-side before storing
+                  password,
+                  status: 'upcoming',
+                  athletesCount: 0,
+                  categoriesCount: 0,
+                  createdAt: new Date().toISOString()
+                });
+                setFormData({ name: '', dates: '', venue: '', type: 'national', rules: 'wkf', mats: '6', password: '' });
+                setIsModalOpen(false);
+              } catch (e) {
+                console.error(e);
+                alert('Failed to create competition');
+              }
+            }}>Create Competition</button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
