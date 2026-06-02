@@ -85,8 +85,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       const allCatsSnap = await categoriesRef.where('isSpecial', '==', false).get();
 
       const allCategoryDocs: CategoryDoc[] = allCatsSnap.docs
-        .filter(d => d.id !== specialCategoryId)
-        .map(d => ({ id: d.id, ...d.data() } as CategoryDoc));
+        .filter((d: any) => d.id !== specialCategoryId)
+        .map((d: any) => ({ id: d.id, ...d.data() } as CategoryDoc));
 
       const eligibleAthletes = seedSpecialCategory(allCategoryDocs, rule);
 
