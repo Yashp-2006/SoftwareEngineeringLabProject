@@ -343,6 +343,7 @@ export default function DashboardPage() {
           </div>
           
           <div className="table-container">
+            <div className="table-responsive">
             <table className="modern-table">
               <thead>
                 <tr>
@@ -407,6 +408,7 @@ export default function DashboardPage() {
                 )}
               </tbody>
             </table>
+            </div>
           </div>
         </section>
       </main>

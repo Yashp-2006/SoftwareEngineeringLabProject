@@ -215,6 +215,7 @@ export default function UsersPage() {
             </select>
           </div>
 
+          <div className="table-responsive">
           <table className="users-table">
             <colgroup>
               <col style={{ width: '20%' }} />
@@ -271,6 +272,7 @@ export default function UsersPage() {
               )}
             </tbody>
           </table>
+          </div>
         </section>
       </main>
     </>

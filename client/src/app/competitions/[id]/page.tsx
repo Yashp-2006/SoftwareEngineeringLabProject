@@ -129,6 +129,7 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
           <button className="btn btn-ghost">View All</button>
         </div>
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div className="table-responsive">
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead style={{ background: 'var(--neutral-50)', borderBottom: '1px solid var(--neutral-300)' }}>
               <tr>
@@ -147,6 +148,7 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
               </tr>
             </tbody>
           </table>
+          </div>
         </div>
       </section>
     </main>

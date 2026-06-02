@@ -509,6 +509,7 @@ export default function FullscreenBracketModal({
   const activeCategory = categories.find(c => c.id === activeCatId);
 
   const [modalHighlight, setModalHighlight] = useState<string | null>(highlightMatchId || null);
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
 
   // Sync with prop if it changes externally
   useEffect(() => {
@@ -734,8 +735,42 @@ export default function FullscreenBracketModal({
 
         /* Responsive */
         @media (max-width: 768px) {
-          .fsb-body { flex-direction: column; }
-          .fsb-sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--neutral-300); max-height: 220px; padding: var(--space-3); }
+          .fsb-body { position: relative; }
+          .fsb-sidebar { 
+            position: absolute; 
+            top: 0; left: 0; bottom: 0; 
+            width: 300px; 
+            max-width: 85%;
+            border-right: 1px solid var(--neutral-300); 
+            transform: translateX(-100%); 
+            transition: transform 0.3s ease;
+            z-index: 1002;
+          }
+          .fsb-sidebar.open {
+            transform: translateX(0);
+          }
+          .fsb-sidebar-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1001;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+          }
+          .fsb-sidebar-backdrop.open {
+            opacity: 1;
+            pointer-events: auto;
+          }
+          .fsb-mobile-toggle {
+            display: flex !important;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            color: var(--neutral-700);
+          }
           .fsb-cat-item.active { transform: none; box-shadow: none; border-color: var(--aka); }
           .fsb-cat-item:hover { transform: none; box-shadow: none; }
           
@@ -751,6 +786,9 @@ export default function FullscreenBracketModal({
         {/* Modal Header */}
         <div className="fsb-header">
           <div className="fsb-title" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <button className="fsb-mobile-toggle" style={{ display: 'none' }} onClick={() => setShowMobileSidebar(!showMobileSidebar)}>
+              {showMobileSidebar ? <X size={20} /> : <Target size={20} />}
+            </button>
             Tiesheet — {activeCategory?.name || 'Select Category'}
             {activeCategory && onAssignMat && (
               <select 
@@ -775,8 +813,9 @@ export default function FullscreenBracketModal({
 
         {/* Modal Body: Sidebar + Bracket */}
         <div className="fsb-body">
+          <div className={`fsb-sidebar-backdrop ${showMobileSidebar ? 'open' : ''}`} onClick={() => setShowMobileSidebar(false)}></div>
           {/* Category Sidebar */}
-          <aside className="fsb-sidebar">
+          <aside className={`fsb-sidebar ${showMobileSidebar ? 'open' : ''}`}>
             <div className="fsb-sidebar-header">Categories ({categories.length})</div>
             <div className="fsb-cat-list">
               {categories.map(cat => (

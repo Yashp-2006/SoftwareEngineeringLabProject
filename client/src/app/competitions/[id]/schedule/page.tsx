@@ -356,6 +356,7 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
           </div>
 
           <div className="schedule-table-wrap">
+            <div className="table-responsive">
             <table className="schedule-table">
               <thead>
                 <tr>
@@ -390,6 +391,7 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
                 )}
               </tbody>
             </table>
+            </div>
           </div>
           <div className="schedule-header" style={{ borderTop: '1px solid var(--neutral-200)', borderBottom: 'none', paddingTop: '10px', paddingBottom: '10px' }}>
             <div className="last-sync">Last sync: {lastSync}</div>

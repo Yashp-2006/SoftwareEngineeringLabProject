@@ -1020,35 +1020,37 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                       <p className="text-small">Assign volunteers to manage athlete attendance per category.</p>
                     </div>
                   </div>
-                  <table className="cat-table">
-                    <thead>
-                      <tr>
-                        <th className="text-micro">Category</th>
-                        <th className="text-micro">Assigned Volunteer</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[...filteredCategories, ...specialCategories].map((cat, idx) => (
-                        <tr key={cat.id || idx}>
-                          <td style={{ fontWeight: 500 }}>{cat.name}</td>
-                          <td>
-                            <select className="input-field" style={{ height: '36px', marginBottom: 0 }}>
-                              <option value="">Unassigned</option>
-                              <option value="john">John Doe</option>
-                              <option value="jane">Jane Smith</option>
-                            </select>
-                          </td>
-                        </tr>
-                      ))}
-                      {[...filteredCategories, ...specialCategories].length === 0 && (
+                  <div className="table-responsive">
+                    <table className="cat-table">
+                      <thead>
                         <tr>
-                          <td colSpan={2} style={{ textAlign: 'center', color: 'var(--neutral-500)', padding: 'var(--space-6)' }}>
-                            No categories defined.
-                          </td>
+                          <th className="text-micro">Category</th>
+                          <th className="text-micro">Assigned Volunteer</th>
                         </tr>
-                      )}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {[...filteredCategories, ...specialCategories].map((cat, idx) => (
+                          <tr key={cat.id || idx}>
+                            <td style={{ fontWeight: 500 }}>{cat.name}</td>
+                            <td>
+                              <select className="input-field" style={{ height: '36px', marginBottom: 0 }}>
+                                <option value="">Unassigned</option>
+                                <option value="john">John Doe</option>
+                                <option value="jane">Jane Smith</option>
+                              </select>
+                            </td>
+                          </tr>
+                        ))}
+                        {[...filteredCategories, ...specialCategories].length === 0 && (
+                          <tr>
+                            <td colSpan={2} style={{ textAlign: 'center', color: 'var(--neutral-500)', padding: 'var(--space-6)' }}>
+                              No categories defined.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             </section>

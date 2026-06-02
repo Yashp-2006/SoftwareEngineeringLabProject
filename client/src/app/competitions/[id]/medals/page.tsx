@@ -506,6 +506,7 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
                 </div>
               </div>
 
+              <div className="table-responsive">
               <table className="medal-table">
                 <thead>
                   <tr>
@@ -551,6 +552,7 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
                   )}
                 </tbody>
               </table>
+              </div>
             </div>
           </section>
         )}

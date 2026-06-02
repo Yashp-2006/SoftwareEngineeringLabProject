@@ -186,6 +186,7 @@ export default function ArchiveDetail({ params }: { params: Promise<{ id: string
                 </div>
               </div>
               <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                <div className="table-responsive">
                 <table className="data-table">
                   <thead>
                     <tr>
@@ -225,6 +226,7 @@ export default function ArchiveDetail({ params }: { params: Promise<{ id: string
                     </tr>
                   </tbody>
                 </table>
+                </div>
               </div>
             </div>
 
@@ -236,6 +238,7 @@ export default function ArchiveDetail({ params }: { params: Promise<{ id: string
                 </button>
               </div>
               <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                <div className="table-responsive">
                 <table className="data-table">
                   <thead>
                     <tr>
@@ -267,6 +270,7 @@ export default function ArchiveDetail({ params }: { params: Promise<{ id: string
                     </tr>
                   </tbody>
                 </table>
+                </div>
               </div>
             </div>
           </>

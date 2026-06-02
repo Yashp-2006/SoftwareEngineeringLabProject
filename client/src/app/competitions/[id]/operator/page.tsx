@@ -980,6 +980,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                 </div>
               </div>
               <div style={{ background: 'var(--shiro)', border: '1px solid var(--neutral-200)', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
+                <div className="table-responsive">
                 <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
                   <thead style={{ background: 'var(--neutral-50)', borderBottom: '1px solid var(--neutral-200)' }}>
                     <tr>
@@ -1051,6 +1052,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                     )}
                   </tbody>
                 </table>
+                </div>
               </div>
             </section>
           </div>
@@ -1160,6 +1162,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
               <button className="close-btn" onClick={() => setShowEditModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--neutral-500)' }}><span style={{fontSize:'20px'}}>×</span></button>
             </div>
             <div className="modal-body" style={{ overflowY: 'auto', flex: 1 }}>
+              <div className="table-responsive">
               <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
                 <thead style={{ background: 'var(--neutral-50)', position: 'sticky', top: 0, zIndex: 1 }}>
                   <tr>
@@ -1213,6 +1216,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
             <div className="modal-footer" style={{ padding: '24px', borderTop: '1px solid var(--neutral-200)', display: 'flex', justifyContent: 'flex-end', gap: '12px', background: 'var(--neutral-50)' }}>
               <button className="btn btn-secondary" onClick={() => setShowEditModal(false)} style={{ fontSize: '13px', fontWeight: 600 }}>Cancel</button>

@@ -257,6 +257,7 @@ export default function ArchiveDetailPage({ params }: { params: Promise<{ id: st
               </div>
             </div>
             <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+              <div className="table-responsive">
               <table className="data-table">
                 <thead>
                   <tr>
@@ -292,6 +293,7 @@ export default function ArchiveDetailPage({ params }: { params: Promise<{ id: st
                   </tbody>
                 )}
               </table>
+              </div>
             </div>
           </div>
         )}
@@ -305,6 +307,7 @@ export default function ArchiveDetailPage({ params }: { params: Promise<{ id: st
               </button>
             </div>
             <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+              <div className="table-responsive">
               <table className="data-table">
                 <thead>
                   <tr>
@@ -335,6 +338,7 @@ export default function ArchiveDetailPage({ params }: { params: Promise<{ id: st
                   </tr>
                 </tbody>
               </table>
+              </div>
             </div>
           </div>
         )}

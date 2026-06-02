@@ -383,6 +383,7 @@ export default function StaffPage({ params }: { params: Promise<{ id: string }> 
                     <p className="text-small">Who is running each mat right now and which category they are handling.</p>
                   </div>
                 </div>
+                <div className="table-responsive">
                 <table className="staff-table">
                   <thead>
                     <tr>
@@ -419,6 +420,7 @@ export default function StaffPage({ params }: { params: Promise<{ id: string }> 
                     ))}
                   </tbody>
                 </table>
+                </div>
               </section>
             )}
 
@@ -431,6 +433,7 @@ export default function StaffPage({ params }: { params: Promise<{ id: string }> 
                     <p className="text-small">Volunteer coverage for athlete check-in and readiness by division.</p>
                   </div>
                 </div>
+                <div className="table-responsive">
                 <table className="staff-table">
                   <thead>
                     <tr>
@@ -467,6 +470,7 @@ export default function StaffPage({ params }: { params: Promise<{ id: string }> 
                     ))}
                   </tbody>
                 </table>
+                </div>
               </section>
             )}
 
@@ -479,6 +483,7 @@ export default function StaffPage({ params }: { params: Promise<{ id: string }> 
                     <p className="text-small">Who is assigned to distribute medals and the scope they cover.</p>
                   </div>
                 </div>
+                <div className="table-responsive">
                 <table className="staff-table">
                   <thead>
                     <tr>
@@ -515,6 +520,7 @@ export default function StaffPage({ params }: { params: Promise<{ id: string }> 
                     ))}
                   </tbody>
                 </table>
+                </div>
               </section>
             )}
           </div>

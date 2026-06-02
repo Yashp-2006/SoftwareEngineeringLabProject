@@ -427,6 +427,8 @@ nav {
   width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  margin-bottom: var(--space-4);
+  border-radius: 8px; /* Optional: smooth edges on mobile */
 }
 
 /* Tablet (Max 1024px) */

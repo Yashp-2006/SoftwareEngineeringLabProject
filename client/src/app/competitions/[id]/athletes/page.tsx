@@ -459,6 +459,7 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
                 </div>
               </div>
 
+              <div className="table-responsive">
               <table className="athlete-table">
                 <thead>
                   <tr>
@@ -522,6 +523,7 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
                   )}
                 </tbody>
               </table>
+              </div>
             </div>
           </section>
         )}
