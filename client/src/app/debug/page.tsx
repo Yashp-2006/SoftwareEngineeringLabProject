@@ -2,8 +2,12 @@
 
 import React from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { redirect } from 'next/navigation';
 
 export default function DebugPage() {
+  if (process.env.NODE_ENV === 'production') {
+    redirect('/');
+  }
   const { user, role, loading } = useAuth();
 
   return (

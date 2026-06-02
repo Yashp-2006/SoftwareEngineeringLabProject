@@ -13,15 +13,54 @@ interface CategorySchedule {
   status: string;
 }
 
-
-
 export default function SchedulePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
   
   const [scheduleData, setScheduleData] = useState<CategorySchedule[]>([]);
+  const [compData, setCompData] = useState<{ name: string; dates: string; deployedAt?: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [matFilter, setMatFilter] = useState("all");
+  const [syncing, setSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<string>("--:--");
+
+  // Fetch competition metadata
+  useEffect(() => {
+    const fetchComp = async () => {
+      const { db } = await import('@lib/firebase');
+      const { doc, getDoc } = await import('firebase/firestore');
+      const d = await getDoc(doc(db, 'competitions', id));
+      if (d.exists()) setCompData(d.data() as any);
+    };
+    fetchComp();
+  }, [id]);
+
+  const fetchSchedule = async () => {
+    setSyncing(true);
+    try {
+      const { db } = await import('@lib/firebase');
+      const { collection, getDocs, query, orderBy } = await import('firebase/firestore');
+      
+      const q = query(collection(db, 'competitions', id, 'categories'), orderBy('order'));
+      const snapshot = await getDocs(q);
+      const cats = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          category: data.name,
+          mat: data.mat,
+          start: data.scheduledStartTime,
+          end: data.scheduledEndTime,
+          status: data.status
+        } as CategorySchedule;
+      });
+      setScheduleData(cats);
+      setLastSync(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   useEffect(() => {
     let unsubscribe = () => {};
@@ -257,6 +296,21 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
               <Link href="/competitions" style={{ color: 'inherit', textDecoration: 'none' }}>Competitions</Link> / {id} / Operations
             </div>
             <h1>Category Schedule</h1>
+            {compData && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px' }}>
+                <span style={{ fontSize: '14px', color: 'var(--neutral-700)', fontWeight: 600 }}>{compData.name}</span>
+                {compData.dates && (
+                  <span style={{ fontSize: '13px', color: 'var(--neutral-500)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    📅 {compData.dates}
+                  </span>
+                )}
+                {compData.deployedAt && (
+                  <span style={{ fontSize: '11px', color: 'var(--neutral-400)' }}>
+                    Deployed {new Date(compData.deployedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </header>
 

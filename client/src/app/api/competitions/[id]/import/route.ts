@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
-import { parseExcel, determineCategory, generateBracket } from '@lib/tiesheet-generator';
+import { parseExcelIntoCategories, generateBracket, PoolSize } from '@lib/tiesheet-generator';
 import { rateLimiter } from '@lib/rate-limiter';
+import { adminDb } from '@lib/firebase-admin';
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const ip = req.headers.get('x-forwarded-for') || '127.0.0.1';
-    
-    // Apply Rate Limiting
+
     const { success, limit, reset, remaining } = await rateLimiter.limit(`import_${ip}`);
     if (!success) {
       return NextResponse.json(
@@ -18,43 +18,125 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     const formData = await req.formData();
     const file = formData.get('file') as File;
-    const compType = formData.get('compType') as string || 'international';
+    const compType = (formData.get('compType') as string) || 'international';
+    const rawPoolSize = parseInt(formData.get('poolSize') as string) || 8;
+    const poolSize = ([4, 8, 16, 32].includes(rawPoolSize) ? rawPoolSize : 8) as PoolSize;
+
     if (!file) {
       return NextResponse.json({ success: false, error: 'No file uploaded' }, { status: 400 });
     }
 
     const specialCategoriesStr = formData.get('specialCategories') as string;
     let specialCategories: any[] = [];
-    if (specialCategoriesStr) {
-      try {
-        specialCategories = JSON.parse(specialCategoriesStr);
-      } catch (e) {}
-    }
+    try { specialCategories = JSON.parse(specialCategoriesStr || '[]'); } catch {}
+
+    const customCategoriesStr = formData.get('customCategories') as string;
+    let customCategories: any[] = [];
+    try { customCategories = JSON.parse(customCategoriesStr || '[]'); } catch {}
+
+    const wkfMode = (formData.get('wkfMode') as string) || 'standard';
 
     const buffer = await file.arrayBuffer();
-    const athletes = parseExcel(buffer);
+    const categoryMap = parseExcelIntoCategories(buffer, specialCategories, wkfMode, customCategories);
 
-    // Group by category
-    const categoriesMap: Record<string, any[]> = {};
-    for (const ath of athletes) {
-      const cat = ath.interestSpecial || determineCategory(ath, specialCategories);
-      if (!categoriesMap[cat]) categoriesMap[cat] = [];
-      categoriesMap[cat].push(ath);
+    let categoriesCreated = 0;
+    let athletesImported = 0;
+
+    const competitionRef = adminDb.collection('competitions').doc(id);
+    const categoriesRef = competitionRef.collection('categories');
+    
+    const entries = Array.from(categoryMap.entries());
+    const chunkSize = 25; // Process in chunks to avoid overwhelming the database
+
+    for (let i = 0; i < entries.length; i += chunkSize) {
+      const chunk = entries.slice(i, i + chunkSize);
+
+      await Promise.all(chunk.map(async ([catName, catAthletes]) => {
+        if (catAthletes.length === 0) return;
+
+        const matches = generateBracket(catAthletes, compType, poolSize);
+
+        // Upsert: find existing category by name, or create new one
+        const existingQuery = await categoriesRef.where('name', '==', catName).limit(1).get();
+
+        const categoryData = {
+          name: catName,
+          competitionId: id,
+          status: 'upcoming',
+          athletes: catAthletes.map(a => ({
+            playerId: a.playerId,
+            name: a.name,
+            gender: a.gender,
+            weight: a.weight,
+            age: a.age,
+            country: a.country,
+            state: a.state,
+            district: a.district,
+            academy: a.academy,
+            interestSpecial: a.interestSpecial,
+          })),
+          matches: matches.map(m => ({
+            id: m.id,
+            round: m.round,
+            matchNumber: m.matchNumber,
+            aka: m.aka ? {
+              playerId: m.aka.playerId,
+              name: m.aka.name,
+              academy: m.aka.academy || null,
+              state: m.aka.state || m.aka.country || null,
+            } : null,
+            ao: m.ao ? {
+              playerId: m.ao.playerId,
+              name: m.ao.name,
+              academy: m.ao.academy || null,
+              state: m.ao.state || m.ao.country || null,
+            } : null,
+            akaFromMatchId: m.akaFromMatchId || null,
+            aoFromMatchId: m.aoFromMatchId || null,
+            akaScore: 0,
+            aoScore: 0,
+            winnerId: m.winnerId || null,
+            nextMatchId: m.nextMatchId || null,
+            status: m.status,
+            mat: null,
+          })),
+          entries: catAthletes.length,
+          updatedAt: new Date().toISOString(),
+        };
+
+        if (!existingQuery.empty) {
+          await existingQuery.docs[0].ref.update(categoryData);
+        } else {
+          await categoriesRef.add({ ...categoryData, createdAt: new Date().toISOString() });
+          categoriesCreated++;
+        }
+
+        athletesImported += catAthletes.length;
+      }));
     }
 
-    const results = [];
-    for (const [catName, catAthletes] of Object.entries(categoriesMap)) {
-      const matches = generateBracket(catAthletes, compType);
-      results.push({
-        categoryName: catName,
-        athletes: catAthletes,
-        matches
-      });
-    }
+    const returnedCategories = Array.from(categoryMap.entries()).map(([name, athletes]) => ({
+      id: name,
+      name,
+      entries: athletes.length
+    }));
 
-    return NextResponse.json({ success: true, data: results });
+    await competitionRef.update({
+      athletesCount: athletesImported,
+      categoriesCount: categoryMap.size,
+      updatedAt: new Date().toISOString()
+    });
+
+    return NextResponse.json({
+      success: true,
+      categoriesCreated,
+      categoriesTotal: categoryMap.size,
+      athletesImported,
+      poolSize,
+      categories: returnedCategories,
+    });
   } catch (error: any) {
-    console.error(error);
+    console.error('[import/route]', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

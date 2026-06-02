@@ -4,18 +4,26 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { Search, Plus, Edit3, Archive, Trash2, ArrowRight, X, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { toast } from 'react-hot-toast';
+import ConfirmModal from '@/components/ConfirmModal';
 
 export default function CompetitionsPage() {
   const [filter, setFilter] = useState('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
-    name: '', dates: '', venue: '', type: 'national', rules: 'wkf', mats: '6', password: ''
+    name: '', dates: '', venue: '', type: 'national', rules: 'wkf', mats: '6', password: '',
+    startTime: '09:00', endTime: '18:00', estMinsPerCategory: '60'
   });
   const { user } = useAuth();
   
   const [competitions, setCompetitions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean; title: string; message: string; isDestructive: boolean; onConfirm: () => void;
+  }>({ isOpen: false, title: '', message: '', isDestructive: false, onConfirm: () => {} });
+
+  const closeConfirm = () => setConfirmState(prev => ({ ...prev, isOpen: false }));
 
   React.useEffect(() => {
     let unsubscribe: () => void;
@@ -47,32 +55,58 @@ export default function CompetitionsPage() {
     };
   }, []);
 
-  const handleStatusChange = async (compId: string, newStatus: string) => {
-    if (!confirm(`Are you sure you want to change the status to ${newStatus}?`)) return;
-    try {
-      const { doc, updateDoc } = await import('firebase/firestore');
-      const { db } = await import('@lib/firebase');
-      await updateDoc(doc(db, 'competitions', compId), { status: newStatus });
-    } catch (e) {
-      console.error(e);
-      alert('Failed to update status');
-    }
+  const handleStatusChange = (compId: string, newStatus: string) => {
+    setConfirmState({
+      isOpen: true,
+      title: 'Change Status',
+      message: `Are you sure you want to change the status to ${newStatus}?`,
+      isDestructive: false,
+      onConfirm: async () => {
+        closeConfirm();
+        try {
+          const { doc, updateDoc } = await import('firebase/firestore');
+          const { db } = await import('@lib/firebase');
+          await updateDoc(doc(db, 'competitions', compId), { status: newStatus });
+          toast.success('Status updated');
+        } catch (e) {
+          console.error(e);
+          toast.error('Failed to update status');
+        }
+      }
+    });
   };
 
-  const handleDelete = async (compId: string) => {
-    if (!confirm(`Are you sure you want to delete this competition? This cannot be undone.`)) return;
-    try {
-      const { doc, deleteDoc } = await import('firebase/firestore');
-      const { db } = await import('@lib/firebase');
-      await deleteDoc(doc(db, 'competitions', compId));
-    } catch (e) {
-      console.error(e);
-      alert('Failed to delete competition');
-    }
+  const handleDelete = (compId: string) => {
+    setConfirmState({
+      isOpen: true,
+      title: 'Delete Competition',
+      message: 'Are you sure you want to delete this competition? This cannot be undone.',
+      isDestructive: true,
+      onConfirm: async () => {
+        closeConfirm();
+        try {
+          const { doc, deleteDoc } = await import('firebase/firestore');
+          const { db } = await import('@lib/firebase');
+          await deleteDoc(doc(db, 'competitions', compId));
+          toast.success('Competition deleted');
+        } catch (e) {
+          console.error(e);
+          toast.error('Failed to delete competition');
+        }
+      }
+    });
   };
 
   return (
     <>
+      <ConfirmModal
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        isDestructive={confirmState.isDestructive}
+        onConfirm={confirmState.onConfirm}
+        onCancel={closeConfirm}
+      />
       <style dangerouslySetInnerHTML={{__html: `
         .comp-grid {
           display: grid;
@@ -110,7 +144,7 @@ export default function CompetitionsPage() {
         
         .modal {
           background: var(--shiro);
-          width: 500px; max-width: 90%;
+          width: 520px; max-width: 90%;
           max-height: 90vh; display: flex; flex-direction: column;
           border-radius: 12px;
           box-shadow: 0 10px 25px rgba(0,0,0,0.15);
@@ -142,6 +176,21 @@ export default function CompetitionsPage() {
         .modal-footer {
           padding: 16px 24px; border-top: 1px solid var(--neutral-300);
           background: var(--neutral-50); display: flex; justify-content: flex-end; gap: 12px;
+        }
+        .timing-section {
+          background: var(--neutral-50);
+          border: 1px solid var(--neutral-200);
+          border-radius: 8px;
+          padding: 14px;
+          margin-bottom: 16px;
+        }
+        .timing-section-title {
+          font-size: 11px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          color: var(--neutral-500);
+          margin-bottom: 12px;
         }
       `}} />
 
@@ -185,26 +234,37 @@ export default function CompetitionsPage() {
                   </button>
                   <button 
                     className="btn btn-secondary"
-                    onClick={async () => {
-                      if (!confirm("Add 3 dummy competitions to the database?")) return;
-                      const dummyComps = [
-                        { id: 'KYO-2026', name: 'Kyoto 2026 Finals', dates: 'May 15-18, 2026', venue: 'Kyoto Imperial Arena', type: 'international', rules: 'wkf', mats: 8, status: 'live', athletesCount: 420, categoriesCount: 24, createdAt: new Date().toISOString() },
-                        { id: 'OSA-2026', name: 'Osaka Regional Cup', dates: 'June 02-04, 2026', venue: 'Osaka Prefectural Gym', type: 'national', rules: 'wkf', mats: 4, status: 'upcoming', athletesCount: 185, categoriesCount: 0, createdAt: new Date().toISOString() },
-                        { id: 'TOK-2026', name: 'Tokyo Masters', dates: 'April 10-12, 2026', venue: 'Nippon Budokan', type: 'national', rules: 'wkf', mats: 6, status: 'done', athletesCount: 512, categoriesCount: 32, createdAt: new Date().toISOString() }
-                      ];
-                      try {
-                        const { setDoc, doc } = await import('firebase/firestore');
-                        const { db } = await import('@lib/firebase');
-                        for (const c of dummyComps) {
-                          await setDoc(doc(db, 'competitions', c.id), c);
+                    onClick={() => {
+                      setConfirmState({
+                        isOpen: true,
+                        title: 'Add Dummy Competitions',
+                        message: 'Add 3 dummy competitions to the database for testing?',
+                        isDestructive: false,
+                        onConfirm: async () => {
+                          closeConfirm();
+                          try {
+                            const { collection, addDoc } = await import('firebase/firestore');
+                            const { db } = await import('@lib/firebase');
+                            
+                            const dummies = [
+                              { name: "Tokyo Open 2026", type: "international", rules: "wkf", status: "upcoming", mats: 4, createdAt: new Date().toISOString() },
+                              { name: "Kyoto Nationals", type: "national", rules: "wkf", status: "upcoming", mats: 6, createdAt: new Date().toISOString() },
+                              { name: "Osaka Regional Qualifier", type: "regional", rules: "wkf", status: "upcoming", mats: 2, createdAt: new Date().toISOString() }
+                            ];
+                            
+                            for (const d of dummies) {
+                              await addDoc(collection(db, 'competitions'), d);
+                            }
+                            toast.success('Added dummy competitions');
+                          } catch (err) {
+                            console.error(err);
+                            toast.error("Failed to add dummy competitions.");
+                          }
                         }
-                      } catch (e) {
-                        console.error(e);
-                        alert("Failed to add dummy competitions.");
-                      }
+                      });
                     }}
                   >
-                    Seed Dummy Data
+                    Populate with Demo Data
                   </button>
                 </div>
               )}
@@ -235,6 +295,12 @@ export default function CompetitionsPage() {
                 </div>
                 <h3 style={{ fontSize: '22px', marginBottom: 'var(--space-1)' }}>{comp.name}</h3>
                 <div className="text-small mb-2">{comp.dates} • {comp.venue}</div>
+                {(comp.startTime || comp.estMinsPerCategory) && (
+                  <div style={{ display: 'flex', gap: '16px', marginBottom: '8px', fontSize: '12px', color: 'var(--neutral-500)' }}>
+                    {comp.startTime && <span>🕘 {comp.startTime} – {comp.endTime || '?'}</span>}
+                    {comp.estMinsPerCategory && <span>⏱ {comp.estMinsPerCategory} min/category</span>}
+                  </div>
+                )}
                 <div style={{ display: 'flex', gap: 'var(--space-4)', marginTop: 'var(--space-4)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--neutral-100)' }}>
                   {comp.status === 'done' ? (
                     <>
@@ -342,6 +408,28 @@ export default function CompetitionsPage() {
               <input type="number" id="new-comp-mats" className="input-field" placeholder="e.g. 6" min="1" max="20" style={{ width: '120px' }} value={formData.mats} onChange={e => setFormData(p => ({ ...p, mats: e.target.value }))} />
             </div>
 
+            {/* Timing Section */}
+            <div className="timing-section">
+              <div className="timing-section-title">⏱ Schedule Settings</div>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px', color: 'var(--neutral-700)' }}>Start Time</label>
+                  <input type="time" id="new-comp-start" className="input-field" value={formData.startTime} onChange={e => setFormData(p => ({ ...p, startTime: e.target.value }))} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px', color: 'var(--neutral-700)' }}>End Time</label>
+                  <input type="time" id="new-comp-end" className="input-field" value={formData.endTime} onChange={e => setFormData(p => ({ ...p, endTime: e.target.value }))} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px', color: 'var(--neutral-700)' }}>Est. Min / Category</label>
+                  <input type="number" id="new-comp-est" className="input-field" placeholder="60" min="5" max="240" value={formData.estMinsPerCategory} onChange={e => setFormData(p => ({ ...p, estMinsPerCategory: e.target.value }))} />
+                </div>
+              </div>
+              <p style={{ fontSize: '11px', color: 'var(--neutral-500)', marginTop: '8px', marginBottom: 0 }}>
+                These are used to auto-generate the competition schedule on deploy. Timings adapt automatically when categories finish early or late.
+              </p>
+            </div>
+
             <div className="form-group" style={{ borderTop: '1px solid var(--neutral-200)', paddingTop: '16px', marginTop: '4px' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 Competition Password
@@ -364,34 +452,37 @@ export default function CompetitionsPage() {
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
-              <p style={{ fontSize: '12px', color: 'var(--neutral-500)', marginTop: '6px' }}>⚠️ Password will be hashed before storage. Share only with authorized staff.</p>
+              <p style={{ fontSize: '12px', color: 'var(--neutral-500)', marginTop: '6px' }}>⚠️ Share only with authorized staff.</p>
             </div>
           </div>
           <div className="modal-footer">
             <button className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>Cancel</button>
             <button className="btn btn-primary" onClick={async () => {
-              const { name, dates, venue, mats, type, rules, password } = formData;
-              if (!name.trim()) { alert('Competition name is required'); return; }
-              if (!password.trim()) { alert('A password is required to protect this competition'); return; }
-              const id = name.trim().toUpperCase().replace(/\s+/g, '-').slice(0, 12) + '-' + new Date().getFullYear();
-
+              const { name, dates, venue, type, rules, mats, password, startTime, endTime, estMinsPerCategory } = formData;
+              if (!name.trim()) { toast.error('Competition name is required'); return; }
+              if (!password.trim()) { toast.error('A password is required to protect this competition'); return; }
+              
               try {
-                const { setDoc, doc } = await import('firebase/firestore');
+                const { collection, addDoc } = await import('firebase/firestore');
                 const { db } = await import('@lib/firebase');
-                await setDoc(doc(db, 'competitions', id), {
-                  name, dates, venue, mats: Number(mats), type, rules,
-                  // TODO: hash password server-side before storing
+                
+                const compData = {
+                  name, dates, venue, type, rules, mats: parseInt(mats),
                   password,
+                  startTime: startTime || '09:00',
+                  endTime: endTime || '18:00',
+                  estMinsPerCategory: parseInt(estMinsPerCategory) || 60,
                   status: 'upcoming',
-                  athletesCount: 0,
-                  categoriesCount: 0,
                   createdAt: new Date().toISOString()
-                });
-                setFormData({ name: '', dates: '', venue: '', type: 'national', rules: 'wkf', mats: '6', password: '' });
+                };
+                
+                await addDoc(collection(db, 'competitions'), compData);
+                toast.success('Competition created successfully!');
                 setIsModalOpen(false);
-              } catch (e) {
-                console.error(e);
-                alert('Failed to create competition');
+                setFormData({ name: '', dates: '', venue: '', type: 'national', rules: 'wkf', mats: '6', password: '', startTime: '09:00', endTime: '18:00', estMinsPerCategory: '60' });
+              } catch (err) {
+                console.error(err);
+                toast.error('Failed to create competition');
               }
             }}>Create Competition</button>
           </div>

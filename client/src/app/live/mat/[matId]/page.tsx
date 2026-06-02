@@ -13,30 +13,55 @@ export default function LiveMatPage({ params }: { params: Promise<{ matId: strin
 
   useEffect(() => {
     let unsubscribeMat: () => void;
-    let unsubscribeMatch: () => void;
 
     const setupListeners = async () => {
       try {
         const { ref, onValue } = await import('firebase/database');
         const { rtdb } = await import('@lib/firebase');
         
-        // Listen to mat status
-        const matRef = ref(rtdb, `matStatus/${matId}`);
+        // Get competitionId from URL search params e.g. /live/mat/1?competition=abc123
+        const params = new URLSearchParams(window.location.search);
+        const competitionId = params.get('competition') || 'default';
+        
+        // Read from the same path the operator page writes to
+        const matRef = ref(rtdb, `live_scores/${competitionId}/mats/${matId}`);
+        
         unsubscribeMat = onValue(matRef, (snapshot) => {
-          const matVal = snapshot.val();
-          if (matVal && matVal.currentMatchId) {
-            // Unsubscribe previous match if any
-            if (unsubscribeMatch) unsubscribeMatch();
-            
-            // Listen to current live match
-            const matchRef = ref(rtdb, `liveMatches/${matVal.currentMatchId}`);
-            unsubscribeMatch = onValue(matchRef, (matchSnap) => {
-              const val = matchSnap.val();
-              if (val) {
-                setMatchData(val);
-                setTime(val.timerSeconds || 0);
-              }
+          const val = snapshot.val();
+          if (val) {
+            // Map from operator's enriched payload to local matchData shape
+            setMatchData({
+              aka: {
+                name: val.akaName || 'AKA',
+                country: val.akaCountry || '',
+                academy: val.akaAcademy || '',
+                score: val.scores?.aka ?? 0,
+                penalties: {
+                  C1: val.akaPenalties?.c1 ?? false,
+                  C2: val.akaPenalties?.c2 ?? false,
+                  C3: val.akaPenalties?.c3 ?? false,
+                  HC: val.akaPenalties?.hc ?? false,
+                  H:  val.akaPenalties?.h  ?? false,
+                },
+              },
+              ao: {
+                name: val.aoName || 'AO',
+                country: val.aoCountry || '',
+                academy: val.aoAcademy || '',
+                score: val.scores?.ao ?? 0,
+                penalties: {
+                  C1: val.aoPenalties?.c1 ?? false,
+                  C2: val.aoPenalties?.c2 ?? false,
+                  C3: val.aoPenalties?.c3 ?? false,
+                  HC: val.aoPenalties?.hc ?? false,
+                  H:  val.aoPenalties?.h  ?? false,
+                },
+              },
+              status: val.status || 'standby',
+              timerSeconds: val.timerSeconds ?? 0,
+              timerRunning: val.timerRunning ?? false,
             });
+            setTime(val.timerSeconds ?? 0);
           } else {
             setMatchData(null);
           }
@@ -52,9 +77,9 @@ export default function LiveMatPage({ params }: { params: Promise<{ matId: strin
 
     return () => {
       if (unsubscribeMat) unsubscribeMat();
-      if (unsubscribeMatch) unsubscribeMatch();
     };
   }, [matId]);
+
 
   // Local timer fallback just to look alive if timerRunning is true
   useEffect(() => {
@@ -163,29 +188,10 @@ export default function LiveMatPage({ params }: { params: Promise<{ matId: strin
         @keyframes popIn { to { opacity: 1; transform: scale(1); } }
       `}} />
 
-      <nav style={{ backgroundColor: 'var(--shiro)' }}>
-        <div className="nav-logo" style={{ color: 'var(--kuro)' }}>TAIKAIX</div>
-        <div className="nav-links">
-          <Link href="/" className="nav-link">Dashboard</Link>
-          <Link href="/competitions" className="nav-link active">Competitions</Link>
-          <Link href="/users" className="nav-link">Users</Link>
-        </div>
-        <div className="nav-profile">
-          <Link href="/profile" className="avatar" style={{ border: '2px solid transparent', transition: 'border-color 0.2s' }}></Link>
-          <ChevronDown size={16} style={{ color: 'var(--neutral-500)' }} />
-        </div>
-      </nav>
-
-      <div className="sub-nav" style={{ backgroundColor: 'var(--neutral-50)' }}>
-        <Link href="#" className="sub-nav-link">Overview</Link>
-        <Link href="#" className="sub-nav-link">Categories</Link>
-        <Link href="#" className="sub-nav-link">Tiesheet</Link>
-        <Link href="#" className="sub-nav-link active">Mats</Link>
-        <Link href="#" className="sub-nav-link">Staff</Link>
-        <Link href="#" className="sub-nav-link">Athletes</Link>
-        <Link href="#" className="sub-nav-link">Medals</Link>
-        <Link href="#" className="sub-nav-link">Schedule</Link>
-        <div style={{ flex: 1 }}></div>
+      {/* Scoreboard-specific minimal nav strip */}
+      <div style={{ height: '48px', background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', padding: '0 var(--space-6)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+        <div className="nav-logo" style={{ color: 'var(--shiro)', fontSize: '18px', letterSpacing: '0.1em', marginRight: 'auto' }}>TAIKAIX LIVE</div>
+        <Link href="/competitions" style={{ color: 'var(--neutral-400)', fontSize: '13px', textDecoration: 'none', transition: 'color 0.2s' }}>← Back to Operations</Link>
       </div>
 
       <div className="mat-container">
@@ -208,7 +214,9 @@ export default function LiveMatPage({ params }: { params: Promise<{ matId: strin
               <div className="competitor-side aka mat-reveal-aka">
                 <div className="score-value">{matchData.aka?.score || 0}</div>
                 <div className="competitor-name">{matchData.aka?.name || 'AKA'}</div>
-                <div className="text-micro" style={{ color: 'rgba(255,255,255,0.8)' }}>{matchData.aka?.country || 'COUNTRY'}</div>
+                <div className="text-micro" style={{ color: 'rgba(255,255,255,0.8)' }}>
+                  {[matchData.aka?.academy, matchData.aka?.country].filter(Boolean).join(' • ').toUpperCase() || 'COUNTRY'}
+                </div>
                 <div className="penalty-row">
                   {[...Array(4)].map((_, i) => (
                     <div key={i} className={`penalty-dot ${i < calculatePenalties(matchData.aka?.penalties) ? 'active' : ''}`}></div>
@@ -222,7 +230,7 @@ export default function LiveMatPage({ params }: { params: Promise<{ matId: strin
                 <div className="timer-value" style={{ color: time < 10 ? 'var(--aka)' : 'var(--status-live)' }}>
                   {formatTime(time)}
                 </div>
-                <div className="status-chip status-live">{matchData.status === 'ongoing' ? 'Match Live' : 'Paused'}</div>
+                <div className="status-chip status-live">{matchData.status === 'live' ? 'Match Live' : 'Paused'}</div>
                 <div style={{ marginTop: 'var(--space-8)', textAlign: 'center' }}>
                   <div className="text-micro" style={{ color: 'var(--neutral-500)', marginBottom: '8px' }}>NEXT UP</div>
                   <div className="text-small" style={{ color: 'var(--shiro)' }}>PENDING</div>
@@ -233,7 +241,9 @@ export default function LiveMatPage({ params }: { params: Promise<{ matId: strin
               <div className="competitor-side ao mat-reveal-ao">
                 <div className="score-value">{matchData.ao?.score || 0}</div>
                 <div className="competitor-name">{matchData.ao?.name || 'AO'}</div>
-                <div className="text-micro" style={{ color: 'rgba(255,255,255,0.8)' }}>{matchData.ao?.country || 'COUNTRY'}</div>
+                <div className="text-micro" style={{ color: 'rgba(255,255,255,0.8)' }}>
+                  {[matchData.ao?.academy, matchData.ao?.country].filter(Boolean).join(' • ').toUpperCase() || 'COUNTRY'}
+                </div>
                 <div className="penalty-row">
                   {[...Array(4)].map((_, i) => (
                     <div key={i} className={`penalty-dot ${i < calculatePenalties(matchData.ao?.penalties) ? 'active' : ''}`}></div>

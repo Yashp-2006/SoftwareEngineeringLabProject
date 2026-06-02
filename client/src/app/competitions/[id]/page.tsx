@@ -12,12 +12,30 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState('');
 
+  const [compData, setCompData] = useState<any>(null);
+
   // Admins bypass passcode automatically
   useEffect(() => {
     if (user) {
       setIsAuthenticated(true);
     }
   }, [user]);
+
+  useEffect(() => {
+    const fetchComp = async () => {
+      try {
+        const { db } = await import('@lib/firebase');
+        const { doc, getDoc } = await import('firebase/firestore');
+        const d = await getDoc(doc(db, 'competitions', id));
+        if (d.exists()) {
+          setCompData(d.data());
+        }
+      } catch (err) {
+        console.error("Failed to load competition", err);
+      }
+    };
+    fetchComp();
+  }, [id]);
 
   const handlePasscodeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,8 +84,10 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
             <Link href="/competitions" style={{ color: 'inherit', textDecoration: 'none' }}>Competitions</Link> / {id} / Overview
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-            <h1>{id}</h1>
-            <span className="status-chip status-live">Live</span>
+            <h1>{compData?.name || id}</h1>
+            <span className={`status-chip status-${compData?.status || 'live'}`}>
+              {compData?.status === 'done' ? 'Completed' : compData?.status === 'upcoming' ? 'Upcoming' : 'Live'}
+            </span>
           </div>
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
@@ -83,23 +103,23 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
       <div className="bento-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--space-5)', marginBottom: 'var(--space-6)' }}>
         <div className="card bento-tile">
           <div className="text-micro">Total Entries</div>
-          <div className="display-large">342</div>
-          <div className="text-small">28 categories</div>
+          <div className="display-large">{compData?.athletesCount || 'N/A'}</div>
+          <div className="text-small">{compData?.categoriesCount || 0} categories</div>
         </div>
         <div className="card bento-tile">
           <div className="text-micro">Active Mats</div>
-          <div className="display-large" style={{ color: 'var(--aka)' }}>4 / 6</div>
-          <div className="text-small">Mats 05, 06 on standby</div>
+          <div className="display-large" style={{ color: 'var(--aka)' }}>{compData?.mats || 'N/A'}</div>
+          <div className="text-small">Configured capacity</div>
         </div>
         <div className="card bento-tile">
           <div className="text-micro">Matches Completed</div>
-          <div className="display-large">184</div>
-          <div className="text-small">54% of tournament</div>
+          <div className="display-large">0</div>
+          <div className="text-small">0% of tournament</div>
         </div>
         <div className="card bento-tile">
           <div className="text-micro">Est. Finish Time</div>
-          <div className="display-large">18:30</div>
-          <div className="text-small">On schedule</div>
+          <div className="display-large">N/A</div>
+          <div className="text-small">Not started</div>
         </div>
       </div>
 
@@ -120,19 +140,10 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
               </tr>
             </thead>
             <tbody>
-              <tr style={{ borderBottom: '1px solid var(--neutral-100)' }}>
-                <td style={{ padding: '12px 24px', fontSize: '13px' }}>Male Kumite -75kg</td>
-                <td style={{ padding: '12px 24px', fontWeight: 500 }}>Tanaka (JPN)</td>
-                <td style={{ padding: '12px 24px', fontWeight: 500 }}>Smith (USA)</td>
-                <td style={{ padding: '12px 24px', textAlign: 'center' }} className="data-mono">4 - 2</td>
-                <td style={{ padding: '12px 24px', textAlign: 'right', color: 'var(--aka)', fontWeight: 600 }}>AKA</td>
-              </tr>
-              <tr style={{ borderBottom: '1px solid var(--neutral-100)' }}>
-                <td style={{ padding: '12px 24px', fontSize: '13px' }}>Female Kata</td>
-                <td style={{ padding: '12px 24px', fontWeight: 500 }}>Sato (JPN)</td>
-                <td style={{ padding: '12px 24px', fontWeight: 500 }}>Garcia (ESP)</td>
-                <td style={{ padding: '12px 24px', textAlign: 'center' }} className="data-mono">24.6 - 24.2</td>
-                <td style={{ padding: '12px 24px', textAlign: 'right', color: 'var(--aka)', fontWeight: 600 }}>AKA</td>
+              <tr>
+                <td colSpan={5} style={{ padding: '24px', textAlign: 'center', color: 'var(--neutral-500)' }}>
+                  No matches completed yet.
+                </td>
               </tr>
             </tbody>
           </table>

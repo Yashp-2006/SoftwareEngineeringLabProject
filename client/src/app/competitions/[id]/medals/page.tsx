@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Search, Plus, X, Trash2 } from 'lucide-react';
 
@@ -8,11 +8,8 @@ interface Athlete {
   id: string;
   name: string;
   academy: string;
-}
-
-interface MedalWinner extends Athlete {
-  medalName: 'Gold' | 'Silver' | 'Bronze';
-  medal: 'received' | 'not-received';
+  medalName?: 'Gold' | 'Silver' | 'Bronze';
+  medal?: 'received' | 'not-received';
 }
 
 interface Category {
@@ -20,72 +17,17 @@ interface Category {
   name: string;
   mat: string;
   status: string;
-  allAthletes: Athlete[];
-  winners: MedalWinner[];
+  order: number;
+  athletes: Athlete[];
 }
-
-const INITIAL_DATA: Category[] = [
-  {
-    id: "smk-75",
-    name: "Senior Male Kumite -75kg",
-    mat: "MAT 01",
-    status: "LIVE",
-    allAthletes: [
-      { id: "A001", name: "Takumi Sato", academy: "Kyoto Shotokan Club" },
-      { id: "A002", name: "Miguel Rossi", academy: "Roma Karate Dojo" },
-      { id: "A003", name: "Jaden Smith", academy: "LA Combat Academy" },
-      { id: "A004", name: "Leon Silva", academy: "Sao Paulo Kumite Lab" },
-      { id: "A005", name: "Kenji Moto", academy: "Tokyo Budo" }
-    ],
-    winners: [
-      { id: "A001", name: "Takumi Sato", academy: "Kyoto Shotokan Club", medalName: "Gold", medal: "received" },
-      { id: "A002", name: "Miguel Rossi", academy: "Roma Karate Dojo", medalName: "Silver", medal: "received" },
-      { id: "A004", name: "Leon Silva", academy: "Sao Paulo Kumite Lab", medalName: "Bronze", medal: "not-received" }
-    ]
-  },
-  {
-    id: "sfk-55",
-    name: "Senior Female Kumite -55kg",
-    mat: "MAT 02",
-    status: "LIVE",
-    allAthletes: [
-      { id: "B011", name: "Aiko Tanaka", academy: "Osaka Elite Dojo" },
-      { id: "B012", name: "Maria Garcia", academy: "Madrid Kensei Club" },
-      { id: "B013", name: "Elena Costa", academy: "Lisbon Karate Center" },
-      { id: "B014", name: "Sarah Jones", academy: "UK National Team" }
-    ],
-    winners: [
-      { id: "B011", name: "Aiko Tanaka", academy: "Osaka Elite Dojo", medalName: "Gold", medal: "received" },
-      { id: "B012", name: "Maria Garcia", academy: "Madrid Kensei Club", medalName: "Silver", medal: "received" },
-      { id: "B013", name: "Elena Costa", academy: "Lisbon Karate Center", medalName: "Bronze", medal: "not-received" }
-    ]
-  },
-  {
-    id: "smk-67",
-    name: "U21 Male Kumite -67kg",
-    mat: "UNASSIGNED",
-    status: "UPCOMING",
-    allAthletes: [
-      { id: "C031", name: "Ren Kobayashi", academy: "Nagoya Budo Academy" },
-      { id: "C032", name: "Arjun Mehta", academy: "Delhi Fighting Arts" },
-      { id: "C033", name: "Noah Kim", academy: "Seoul Kumite Studio" },
-      { id: "C034", name: "Luca Bruno", academy: "Torino Kata Works" },
-      { id: "C035", name: "Alex Chen", academy: "Vancouver Combat" }
-    ],
-    winners: [
-      { id: "C031", name: "Ren Kobayashi", academy: "Nagoya Budo Academy", medalName: "Gold", medal: "not-received" },
-      { id: "C032", name: "Arjun Mehta", academy: "Delhi Fighting Arts", medalName: "Silver", medal: "not-received" },
-      { id: "C034", name: "Luca Bruno", academy: "Torino Kata Works", medalName: "Bronze", medal: "not-received" }
-    ]
-  }
-];
 
 export default function MedalsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
   
-  const [categories, setCategories] = useState<Category[]>(INITIAL_DATA);
-  const [activeCategoryId, setActiveCategoryId] = useState<string>(INITIAL_DATA[0].id);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [loading, setLoading] = useState(true);
   
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [modalSearch, setModalSearch] = useState("");
@@ -95,22 +37,111 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [athleteToDelete, setAthleteToDelete] = useState<string | null>(null);
 
+  useEffect(() => {
+    let unsubCats: () => void;
+    const athleteUnsubs: Record<string, () => void> = {};
+
+    const setup = async () => {
+      const { db } = await import('@lib/firebase');
+      const { collection, onSnapshot, query, orderBy } = await import('firebase/firestore');
+
+      const catQ = query(collection(db, 'competitions', id, 'categories'), orderBy('order'));
+      unsubCats = onSnapshot(catQ, (catSnap) => {
+        const catList = catSnap.docs.map(d => ({
+          id: d.id,
+          name: d.data().name || '',
+          mat: d.data().mat || 'UNASSIGNED',
+          status: d.data().status || 'upcoming',
+          order: d.data().order || 0,
+          athletes: []
+        }));
+
+        setActiveCategoryId(prev => prev ?? catList[0]?.id ?? null);
+
+        catList.forEach(cat => {
+          if (athleteUnsubs[cat.id]) return;
+
+          const athQ = query(collection(db, 'competitions', id, 'categories', cat.id, 'athletes'));
+          athleteUnsubs[cat.id] = onSnapshot(athQ, (athSnap) => {
+            const athletes: Athlete[] = athSnap.docs.map(d => ({
+              id: d.id,
+              name: d.data().name || '',
+              academy: d.data().academy || '',
+              medalName: d.data().medalName,
+              medal: d.data().medal
+            }));
+
+            setCategories(prev => {
+              const existing = prev.find(c => c.id === cat.id);
+              if (existing) {
+                return prev.map(c => c.id === cat.id ? { ...c, athletes } : c);
+              }
+              return [...prev, { ...cat, athletes }];
+            });
+          });
+        });
+
+        setCategories(prev => {
+          const updated = catList.map(cat => {
+            const existing = prev.find(c => c.id === cat.id);
+            return { ...cat, athletes: existing?.athletes ?? [] };
+          });
+          return updated;
+        });
+
+        setLoading(false);
+      });
+    };
+
+    setup();
+
+    return () => {
+      if (unsubCats) unsubCats();
+      Object.values(athleteUnsubs).forEach(u => u());
+    };
+  }, [id]);
+
   const activeCategory = categories.find(c => c.id === activeCategoryId);
 
-  const filteredWinners = activeCategory?.winners.filter(a => {
+  const winners = activeCategory?.athletes.filter(a => a.medalName) || [];
+  
+  const filteredWinners = winners.filter(a => {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     return a.name.toLowerCase().includes(q) || a.academy.toLowerCase().includes(q);
-  }) || [];
+  });
 
-  const handleMedalStatusChange = (athleteId: string, status: 'received' | 'not-received') => {
+  const updateAthleteMedal = async (athleteId: string, updates: Partial<Athlete>) => {
+    // Optimistic
     setCategories(prev => prev.map(cat => {
       if (cat.id !== activeCategoryId) return cat;
       return {
         ...cat,
-        winners: cat.winners.map(w => w.id === athleteId ? { ...w, medal: status } : w)
+        athletes: cat.athletes.map(a => a.id === athleteId ? { ...a, ...updates } : a)
       };
     }));
+
+    try {
+      const { db } = await import('@lib/firebase');
+      const { doc, updateDoc, deleteField } = await import('firebase/firestore');
+      const athRef = doc(db, 'competitions', id, 'categories', activeCategoryId!, 'athletes', athleteId);
+      
+      const firestoreUpdates: any = { ...updates };
+      if (updates.medalName === undefined && Object.keys(updates).includes('medalName')) {
+          firestoreUpdates.medalName = deleteField();
+      }
+      if (updates.medal === undefined && Object.keys(updates).includes('medal')) {
+          firestoreUpdates.medal = deleteField();
+      }
+      
+      await updateDoc(athRef, firestoreUpdates);
+    } catch (err) {
+      console.error('Failed to update medal', err);
+    }
+  };
+
+  const handleMedalStatusChange = (athleteId: string, status: 'received' | 'not-received') => {
+    updateAthleteMedal(athleteId, { medal: status });
   };
 
   const openDeleteModal = (athleteId: string) => {
@@ -120,38 +151,19 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
 
   const confirmDelete = () => {
     if (!athleteToDelete) return;
-    setCategories(prev => prev.map(cat => {
-      if (cat.id !== activeCategoryId) return cat;
-      return {
-        ...cat,
-        winners: cat.winners.filter(w => w.id !== athleteToDelete)
-      };
-    }));
+    updateAthleteMedal(athleteToDelete, { medalName: undefined, medal: undefined });
     setDeleteModalOpen(false);
     setAthleteToDelete(null);
   };
 
-  const availableAthletesForModal = activeCategory?.allAthletes.filter(a => 
-    !activeCategory.winners.some(w => w.id === a.id) &&
+  const availableAthletesForModal = activeCategory?.athletes.filter(a => 
+    !a.medalName &&
     (a.name.toLowerCase().includes(modalSearch.toLowerCase()) || a.academy.toLowerCase().includes(modalSearch.toLowerCase()))
   ) || [];
 
   const addMedalist = () => {
     if (!selectedAthleteForModal) return;
-    setCategories(prev => prev.map(cat => {
-      if (cat.id !== activeCategoryId) return cat;
-      return {
-        ...cat,
-        winners: [
-          ...cat.winners,
-          {
-            ...selectedAthleteForModal,
-            medalName: modalMedal,
-            medal: 'not-received'
-          }
-        ]
-      };
-    }));
+    updateAthleteMedal(selectedAthleteForModal.id, { medalName: modalMedal, medal: 'not-received' });
     setAddModalOpen(false);
   };
 
@@ -441,96 +453,107 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
           </div>
         </header>
 
-        <section className="medals-layout">
-          <aside className="category-panel">
-            {categories.map((cat) => (
-              <button 
-                key={cat.id} 
-                className={`category-button ${cat.id === activeCategoryId ? 'active' : ''}`}
-                onClick={() => {
-                  setActiveCategoryId(cat.id);
-                  setSearchQuery("");
-                }}
-              >
-                <div className="category-name">{cat.name}</div>
-                <div className="category-meta">
-                  <span>{cat.mat}</span>
-                  <span>{cat.status}</span>
-                </div>
-              </button>
-            ))}
-          </aside>
-
-          <div className="medals-panel">
-            <div className="medals-panel-header">
-              <div>
-                <h2>{activeCategory?.name}</h2>
-                <div className="text-small">{activeCategory?.mat} • {activeCategory?.status} • {filteredWinners.length} medal winners</div>
-              </div>
-              <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-                <div className="search-wrap">
-                  <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--neutral-500)' }} />
-                  <input 
-                    className="search-input" 
-                    type="text" 
-                    placeholder="Search athlete or academy..."
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                  />
-                </div>
-                <button className="add-btn" onClick={openAddModal}>
-                  <Plus size={16} /> Add Medalist
-                </button>
-              </div>
-            </div>
-
-            <table className="medal-table">
-              <thead>
-                <tr>
-                  <th className="text-micro">Athlete Name</th>
-                  <th className="text-micro">Academy</th>
-                  <th className="text-micro">Medal Name</th>
-                  <th className="text-micro">Medal Received</th>
-                  <th className="text-micro" style={{ width: '40px' }}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredWinners.length === 0 ? (
-                  <tr><td colSpan={5} className="empty-state">No medal winners found for this filter.</td></tr>
-                ) : (
-                  filteredWinners.map(athlete => (
-                    <tr key={athlete.id}>
-                      <td>{athlete.name}</td>
-                      <td className="academy-name">{athlete.academy}</td>
-                      <td className={`medal-name ${athlete.medalName.toLowerCase()}`}>{athlete.medalName}</td>
-                      <td>
-                        <div className="medal-control">
-                          <button 
-                            className={`medal-btn received ${athlete.medal === 'received' ? 'active' : ''}`}
-                            onClick={() => handleMedalStatusChange(athlete.id, 'received')}
-                          >
-                            Received
-                          </button>
-                          <button 
-                            className={`medal-btn not-received ${athlete.medal === 'not-received' ? 'active' : ''}`}
-                            onClick={() => handleMedalStatusChange(athlete.id, 'not-received')}
-                          >
-                            Not Received
-                          </button>
-                        </div>
-                      </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <button className="remove-btn" title="Remove Medalist" onClick={() => openDeleteModal(athlete.id)}>
-                          <Trash2 size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+        {loading ? (
+          <div style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--neutral-500)' }}>
+            Loading categories and medals...
           </div>
-        </section>
+        ) : categories.length === 0 ? (
+          <div className="card" style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
+            <h3 style={{ color: 'var(--neutral-900)', marginBottom: '8px' }}>No Categories Found</h3>
+            <p style={{ color: 'var(--neutral-500)' }}>Deploy the tournament setup to generate categories and track medals.</p>
+          </div>
+        ) : (
+          <section className="medals-layout">
+            <aside className="category-panel">
+              {categories.map((cat) => (
+                <button 
+                  key={cat.id} 
+                  className={`category-button ${cat.id === activeCategoryId ? 'active' : ''}`}
+                  onClick={() => {
+                    setActiveCategoryId(cat.id);
+                    setSearchQuery("");
+                  }}
+                >
+                  <div className="category-name">{cat.name}</div>
+                  <div className="category-meta">
+                    <span>{cat.mat}</span>
+                    <span>{cat.status}</span>
+                  </div>
+                </button>
+              ))}
+            </aside>
+
+            <div className="medals-panel">
+              <div className="medals-panel-header">
+                <div>
+                  <h2>{activeCategory?.name}</h2>
+                  <div className="text-small">{activeCategory?.mat} • {activeCategory?.status} • {filteredWinners.length} medal winners</div>
+                </div>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <div className="search-wrap">
+                    <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--neutral-500)' }} />
+                    <input 
+                      className="search-input" 
+                      type="text" 
+                      placeholder="Search athlete or academy..."
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                    />
+                  </div>
+                  <button className="add-btn" onClick={openAddModal}>
+                    <Plus size={16} /> Add Medalist
+                  </button>
+                </div>
+              </div>
+
+              <table className="medal-table">
+                <thead>
+                  <tr>
+                    <th className="text-micro">Athlete Name</th>
+                    <th className="text-micro">Academy</th>
+                    <th className="text-micro">Medal Name</th>
+                    <th className="text-micro">Medal Received</th>
+                    <th className="text-micro" style={{ width: '40px' }}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredWinners.length === 0 ? (
+                    <tr><td colSpan={5} className="empty-state">No medal winners found for this filter.</td></tr>
+                  ) : (
+                    filteredWinners.map(athlete => (
+                      <tr key={athlete.id}>
+                        <td>{athlete.name}</td>
+                        <td className="academy-name">{athlete.academy}</td>
+                        <td className={`medal-name ${athlete.medalName?.toLowerCase()}`}>{athlete.medalName}</td>
+                        <td>
+                          <div className="medal-control">
+                            <button 
+                              className={`medal-btn received ${athlete.medal === 'received' ? 'active' : ''}`}
+                              onClick={() => handleMedalStatusChange(athlete.id, 'received')}
+                            >
+                              Received
+                            </button>
+                            <button 
+                              className={`medal-btn not-received ${athlete.medal === 'not-received' ? 'active' : ''}`}
+                              onClick={() => handleMedalStatusChange(athlete.id, 'not-received')}
+                            >
+                              Not Received
+                            </button>
+                          </div>
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          <button className="remove-btn" title="Remove Medalist" onClick={() => openDeleteModal(athlete.id)}>
+                            <Trash2 size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
       </main>
 
       {/* Delete Confirmation Modal */}

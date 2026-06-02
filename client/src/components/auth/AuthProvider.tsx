@@ -100,8 +100,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        // TEMP FIX: Disabled all restrictive routing so user can freely click around
-        /*
         // Restrict Admin-only routes
         const isAdminRoute = pathname === '/' || pathname.startsWith('/setup') || pathname.startsWith('/users');
         if (isAdminRoute && role !== 'admin' && role !== 'guest_viewer') {
@@ -119,7 +117,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (pathname.includes('/medals') && role !== 'medal_distributor' && role !== 'admin' && role !== 'guest_viewer') {
           router.push('/competitions');
         }
-        */
       }
     }
   }, [user, role, loading, pathname, router]);

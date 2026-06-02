@@ -68,3 +68,39 @@ export const WKF_CATEGORIES = [
   "U8 (6-7) Male / Female +25 kg",
   "Toddler / Preschool (3-5) Mixed Gender Kata Only (No Weight Divisions)"
 ];
+
+export function generateWkfCategories(mode: string = 'standard'): string[] {
+  if (mode === 'standard') return [...WKF_CATEGORIES];
+
+  const unique = new Set<string>();
+
+  for (const cat of WKF_CATEGORIES) {
+    if (cat.includes('Toddler')) {
+      unique.add(cat);
+      continue;
+    }
+
+    const isMale = cat.includes('Male');
+    const genderSplit = isMale ? 'Male' : 'Female';
+    
+    // Some categories like U8 have "Male / Female"
+    if (cat.includes('Male / Female')) {
+      const parts = cat.split('Male / Female');
+      if (mode === 'age') unique.add(parts[0].trim() + ' Male / Female');
+      else if (mode === 'weight') unique.add('Male / Female ' + parts[1].trim());
+      continue;
+    }
+
+    const parts = cat.split(genderSplit);
+    const agePart = parts[0].trim();
+    const weightPart = parts[1].trim();
+
+    if (mode === 'age') {
+      unique.add(`${agePart} ${genderSplit}`.trim());
+    } else if (mode === 'weight') {
+      unique.add(`${genderSplit} ${weightPart}`.trim());
+    }
+  }
+
+  return Array.from(unique);
+}

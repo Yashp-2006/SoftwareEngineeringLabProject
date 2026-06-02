@@ -4,18 +4,16 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/components/auth/AuthProvider';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, ChevronDown } from 'lucide-react';
 
 export default function Sidebar() {
   const pathname = usePathname();
   const { user, role, loading } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  if (pathname.startsWith('/login')) {
+  if (pathname.startsWith('/login') || pathname.startsWith('/live')) {
     return null;
   }
-
-  if (loading) return null;
 
   return (
     <>
@@ -24,26 +22,35 @@ export default function Sidebar() {
         
         <div className="nav-links hide-on-mobile">
           <Link href="/" className={`nav-link ${pathname === '/' ? 'active' : ''}`}>
-            Dashboard ({role || 'none'})
+            Dashboard
           </Link>
-          <Link href="/users" className={`nav-link ${pathname.startsWith('/users') ? 'active' : ''}`}>
-            Users
-          </Link>
-          <Link href="/competitions" className={`nav-link ${pathname.startsWith('/competitions') ? 'active' : ''}`}>
+          <Link href="/competitions" className={`nav-link ${pathname.startsWith('/competitions') || pathname.startsWith('/setup') || pathname.startsWith('/live') || pathname.startsWith('/archives') ? 'active' : ''}`}>
             Competitions
           </Link>
+          {(!loading && (role === 'admin' || role === 'guest_viewer')) && (
+            <Link href="/users" className={`nav-link ${pathname.startsWith('/users') ? 'active' : ''}`}>
+              Users
+            </Link>
+          )}
         </div>
 
         <div className="nav-profile hide-on-mobile">
-          {user ? (
-            <Link 
-              href="/profile"
-              className="avatar" 
-              style={{ border: '2px solid transparent', transition: 'border-color 0.2s', padding: 0, background: 'var(--neutral-200)', color: 'var(--neutral-600)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '14px', cursor: 'pointer', width: '36px', height: '36px', borderRadius: '50%', textDecoration: 'none' }}
-              title="Go to Profile"
-            >
-              {(user.email || '?').charAt(0).toUpperCase()}
-            </Link>
+          {loading ? (
+             <div className="avatar" style={{ background: 'var(--neutral-300)' }}></div>
+          ) : user ? (
+            <>
+              <Link
+                href="/profile"
+                className="avatar"
+                style={{
+                  border: '2px solid transparent',
+                  transition: 'border-color 0.2s',
+                  background: user?.photoURL ? `url(${user.photoURL}) center/cover` : `var(--neutral-200) url('https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email || 'Felix'}') center/cover`,
+                }}
+                title="Go to Profile"
+              />
+              <ChevronDown size={16} style={{ color: 'var(--neutral-500)' }} />
+            </>
           ) : (
             <Link href="/login" className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '14px', textDecoration: 'none' }}>
               Sign In
@@ -52,7 +59,7 @@ export default function Sidebar() {
         </div>
 
         <div className="show-on-mobile" style={{ marginLeft: 'auto' }}>
-          <button 
+          <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             style={{ background: 'transparent', border: 'none', color: 'var(--shiro)', cursor: 'pointer', padding: '8px' }}
           >
@@ -63,25 +70,28 @@ export default function Sidebar() {
 
       {/* Mobile Menu Dropdown */}
       {mobileMenuOpen && (
-        <div className="mobile-menu show-on-mobile" style={{
-          position: 'fixed',
-          top: '56px',
-          left: 0,
-          right: 0,
-          background: 'var(--kuro)',
-          padding: 'var(--space-4)',
-          zIndex: 99,
-          borderBottom: '1px solid var(--neutral-700)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 'var(--space-4)'
-        }}>
-          <Link href="/" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Dashboard ({role || 'none'})</Link>
-          <Link href="/users" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Users</Link>
+        <div
+          className="show-on-mobile"
+          style={{
+            position: 'fixed',
+            top: '56px',
+            left: 0,
+            right: 0,
+            background: 'var(--kuro)',
+            padding: 'var(--space-4)',
+            zIndex: 99,
+            borderBottom: '1px solid rgba(255,255,255,0.1)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 'var(--space-4)',
+          }}
+        >
+          <Link href="/" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Dashboard</Link>
           <Link href="/competitions" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Competitions</Link>
-          
-          <div style={{ height: '1px', background: 'var(--neutral-700)', margin: 'var(--space-2) 0' }} />
-          
+          {(role === 'admin' || role === 'guest_viewer') && (
+            <Link href="/users" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Users</Link>
+          )}
+          <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', margin: 'var(--space-2) 0' }} />
           {user ? (
             <Link href="/profile" className="nav-link" onClick={() => setMobileMenuOpen(false)}>
               Profile ({(user.email || '').split('@')[0]})

@@ -1,26 +1,29 @@
 import * as xlsx from 'xlsx';
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+
 export interface AthleteRow {
   playerId: string;
   name: string;
   gender: string;
-  weight: number | string;
+  weight: number;
   age: number;
   country: string;
   state: string;
   district: string;
   academy: string;
   interestSpecial: string;
+  events?: string[];
+  medal?: 'gold' | 'silver' | 'bronze' | null;
+  sourceCategory?: string;
 }
 
 export interface MatchNode {
   id: string;
   round: number;
   matchNumber: number;
-  // round 1 — actual athletes assigned
   aka: Partial<AthleteRow> | null;
   ao: Partial<AthleteRow> | null;
-  // round 2+ — winner references (set when round 1 finishes)
   akaFromMatchId: string | null;
   aoFromMatchId: string | null;
   akaScore: number;
@@ -28,199 +31,457 @@ export interface MatchNode {
   winnerId: string | null;
   nextMatchId: string | null;
   status: 'upcoming' | 'live' | 'completed';
+  mat?: string | null;
 }
 
+export interface SpecialCategoryRule {
+  id?: string;
+  name: string;
+  gender?: string;
+  medal?: 'Gold Only' | 'Silver or Above' | 'Any Medal' | '';
+  minAge?: number;
+  maxAge?: number;
+  minWeight?: number;
+  maxWeight?: number;
+}
+
+export interface CategoryDoc {
+  id: string;
+  name: string;
+  athletes?: AthleteRow[];
+  matches?: MatchNode[];
+  status?: string;
+}
+
+export type PoolSize = 4 | 8 | 16 | 32;
+
+// ─── Excel Parsing ─────────────────────────────────────────────────────────────
+
+/**
+ * Parses an Excel/CSV file and returns a flat list of athletes.
+ * Reads the first sheet. Athletes are returned sorted A-Z by name.
+ */
 export function parseExcel(buffer: ArrayBuffer): AthleteRow[] {
   const workbook = xlsx.read(buffer, { type: 'array' });
-  const firstSheetName = workbook.SheetNames[0];
-  const worksheet = workbook.Sheets[firstSheetName];
-  const rawData = xlsx.utils.sheet_to_json(worksheet) as any[];
+  const allAthletes: AthleteRow[] = [];
 
-  return rawData.map(row => ({
-    playerId: row['Player ID'] || row['playerId'] || Math.random().toString(36).substring(7),
-    name: row['Name'] || row['name'] || 'Unknown',
-    gender: (row['Gender'] || row['gender'] || 'Male').toString().toLowerCase(),
-    weight: row['Weight'] || row['weight'] || 0,
-    age: parseInt(row['Age'] || row['age'] || '18', 10),
-    country: row['Country'] || row['country'] || 'Unknown',
-    state: row['State'] || row['state'] || 'Unknown',
-    district: row['District'] || row['district'] || 'Unknown',
-    academy: row['Academy'] || row['academy'] || row['Club'] || row['club'] || 'Unknown',
-    interestSpecial: row['Interest for Special Categories'] || row['interestSpecial'] || row['Special Category'] || ''
-  }));
+  // Read all sheets (some tournaments export one sheet per category)
+  for (const sheetName of workbook.SheetNames) {
+    const worksheet = workbook.Sheets[sheetName];
+    const rawData = xlsx.utils.sheet_to_json(worksheet, { defval: "" }) as any[];
+
+    for (const rawRow of rawData) {
+      const row: any = {};
+      for (const key in rawRow) {
+        row[key.trim().toLowerCase()] = rawRow[key];
+      }
+      
+      const rawWeight = row['weight'] ?? row['weight (kg)'] ?? row['weight(kg)'] ?? 0;
+      
+      let parsedName = '';
+      let parsedAcademy = '';
+      let parsedFirst = '';
+      let parsedLast = '';
+
+      for (const k of Object.keys(row)) {
+        if (!parsedAcademy && (k.includes('academy') || k.includes('club') || k.includes('team') || k.includes('dojo') || k.includes('school') || k.includes('organization') || k.includes('association') || k.includes('dojo/organization')) && !k.includes('id')) {
+          parsedAcademy = String(row[k]);
+        } else if (k.includes('first name') || k === 'first') {
+          parsedFirst = String(row[k]);
+        } else if (k.includes('last name') || k === 'last' || k === 'surname') {
+          parsedLast = String(row[k]);
+        } else if (!parsedName && (k.includes('name') || k.includes('athlete') || k.includes('player') || k.includes('participant') || k.includes('competitor'))) {
+          parsedName = String(row[k]);
+        }
+      }
+
+      if (!parsedName && (parsedFirst || parsedLast)) {
+        parsedName = `${parsedFirst} ${parsedLast}`.trim();
+      }
+      
+      parsedName = parsedName.trim() || 'Unknown';
+      parsedAcademy = parsedAcademy.trim() || 'Unknown';
+
+      // ... age parsing remains the same ...
+      let parsedAge = parseInt(String(row['age'] ?? ''), 10);
+      if (isNaN(parsedAge) || !row['age']) {
+        let dobVal: any = null;
+        for (const k of Object.keys(row)) {
+          if (k.includes('dob') || k.includes('date of birth') || k.includes('birth')) {
+            dobVal = row[k];
+            break;
+          }
+        }
+        if (dobVal) {
+          if (!isNaN(Number(dobVal)) && Number(dobVal) > 1900 && Number(dobVal) <= new Date().getFullYear()) {
+            parsedAge = new Date().getFullYear() - Number(dobVal); // Year string
+          } else if (!isNaN(Number(dobVal))) {
+             const excelEpoch = new Date(1899, 11, 30);
+             const actualDate = new Date(excelEpoch.getTime() + Number(dobVal) * 86400000);
+             parsedAge = new Date().getFullYear() - actualDate.getFullYear(); // Excel serial date
+          } else {
+            const d = new Date(String(dobVal));
+            if (!isNaN(d.getTime())) {
+              parsedAge = new Date().getFullYear() - d.getFullYear(); // Parsable date string
+            }
+          }
+        }
+      }
+      parsedAge = isNaN(parsedAge) ? 18 : parsedAge; // fallback
+
+      const events: string[] = [];
+      
+      for (const k of Object.keys(row)) {
+        if (!k) continue;
+        const val = String(row[k]).toLowerCase().trim();
+        if (val === 'yes' || val === 'y' || val === 'true' || val === '1' || val === 'x' || val === 'checked') {
+          events.push(k.toLowerCase().trim());
+        }
+      }
+
+      allAthletes.push({
+        playerId: String(row['player id'] ?? row['playerid'] ?? row['id'] ?? row['athlete id'] ?? '').trim() ||
+          `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        name: parsedName,
+        gender: String(row['gender'] ?? row['sex'] ?? 'male').trim().toLowerCase(),
+        weight: parseFloat(String(rawWeight)) || 0,
+        age: parsedAge,
+        country: String(row['country'] ?? 'Unknown').trim(),
+        state: String(row['state'] ?? 'Unknown').trim(),
+        district: String(row['district'] ?? 'Unknown').trim(),
+        academy: parsedAcademy,
+        interestSpecial: String(row['interest for special categories'] ?? row['special category'] ?? row['interestspecial'] ?? '').trim(),
+        events,
+      });
+    }
+  }
+
+  // Sort A-Z by name within each parsed batch
+  allAthletes.sort((a, b) => a.name.localeCompare(b.name));
+  return allAthletes;
 }
 
 /**
- * Determines WKF weight category for an athlete.
- * Returns null if the athlete explicitly registered for a special/custom category.
+ * Parses an Excel file and buckets athletes into category groups.
+ * Athletes with a non-empty `interestSpecial` field are placed in that
+ * bucket instead of their standard age/weight category.
  */
-export function determineCategory(athlete: AthleteRow, specialCategories: any[] = []): string {
-  // If athlete explicitly registered for a special/custom category, use it
-  if (athlete.interestSpecial && athlete.interestSpecial.trim()) {
-    return athlete.interestSpecial.trim();
+export function parseExcelIntoCategories(
+  buffer: ArrayBuffer,
+  specialCategories: SpecialCategoryRule[] = [],
+  wkfMode: string = 'standard',
+  customCategories: SpecialCategoryRule[] = []
+): Map<string, AthleteRow[]> {
+  const athletes = parseExcel(buffer);
+  const categoryMap = new Map<string, AthleteRow[]>();
+
+  const addToCategory = (catName: string, athlete: AthleteRow) => {
+    if (!categoryMap.has(catName)) categoryMap.set(catName, []);
+    categoryMap.get(catName)!.push({ ...athlete });
+  };
+
+  for (const athlete of athletes) {
+    let addedToAny = false;
+    const events = athlete.events || [];
+
+    // 1. Check for registered events
+    for (const event of events) {
+      const matchedSpecial = specialCategories.find(sc => sc.name.toLowerCase() === event);
+      
+      if (matchedSpecial) {
+        addToCategory(matchedSpecial.name, athlete);
+        addedToAny = true;
+      } else if (event === 'kata') {
+        const base = determineCategory(athlete, specialCategories, 'age');
+        addToCategory(`${base} Kata`, athlete);
+        addedToAny = true;
+      } else if (event === 'kumite') {
+        addToCategory(determineCategory(athlete, specialCategories, wkfMode), athlete);
+        addedToAny = true;
+      }
+    }
+
+    // 2. Legacy interestSpecial check
+    if (!addedToAny && athlete.interestSpecial) {
+      addToCategory(athlete.interestSpecial, athlete);
+      addedToAny = true;
+    }
+
+    // 3. Fallback to standard Kumite or Custom Categories
+    if (!addedToAny) {
+      if (customCategories.length > 0) {
+        const match = customCategories.find(c => {
+          if (c.gender && c.gender !== 'Any' && athlete.gender.charAt(0).toLowerCase() !== c.gender.charAt(0).toLowerCase()) return false;
+          if (c.minAge !== undefined && athlete.age < c.minAge) return false;
+          if (c.maxAge !== undefined && athlete.age > c.maxAge) return false;
+          if (c.minWeight !== undefined && athlete.weight < c.minWeight) return false;
+          if (c.maxWeight !== undefined && athlete.weight > c.maxWeight) return false;
+          return true;
+        });
+        if (match) {
+          addToCategory(match.name, athlete);
+        } else {
+          addToCategory('Uncategorized', athlete);
+        }
+      } else {
+        addToCategory(determineCategory(athlete, specialCategories, wkfMode), athlete);
+      }
+    }
   }
 
-  // Check if athlete matches any special/custom category constraints
-  for (const cat of specialCategories) {
-    let matches = true;
-    
-    // Check age range
-    if (athlete.age < (cat.minAge || 0) || athlete.age > (cat.maxAge || 99)) {
-      matches = false;
-    }
-    
-    // Check weight range
-    const weight = typeof athlete.weight === 'number' ? athlete.weight : parseFloat(String(athlete.weight) || '0');
-    if (weight < (cat.minWeight || 0) || weight > (cat.maxWeight || 300)) {
-      matches = false;
-    }
-    
-    // In real life we could check medal reqs here, but for now age & weight are the filters
-    if (matches) {
-      return cat.name;
-    }
+  // Sort each category's athletes A-Z by name
+  for (const athletes of categoryMap.values()) {
+    athletes.sort((a, b) => a.name.localeCompare(b.name));
   }
 
-  const genderGroup = athlete.gender.startsWith('f') ? 'Female' : 'Male';
+  return categoryMap;
+}
+
+// ─── Category Determination ────────────────────────────────────────────────────
+
+/**
+ * Determines the standard WKF weight/age category for an athlete.
+ */
+export function determineCategory(athlete: AthleteRow, specialCategories: SpecialCategoryRule[] = [], wkfMode: string = 'standard'): string {
+  let genderGroup = athlete.gender.startsWith('f') ? 'Female' : 'Male';
   const age = athlete.age;
-  let ageGroup = '';
+  const w = athlete.weight;
 
-  // WKF age groups
-  if (age >= 18) ageGroup = 'Senior';
-  else if (age >= 16) ageGroup = 'Junior';
-  else if (age >= 14) ageGroup = 'Cadet';
-  else if (age >= 12) ageGroup = 'U14';
-  else if (age >= 10) ageGroup = 'U10';
-  else if (age >= 8) ageGroup = 'U8';
-  else ageGroup = 'U8';
+  let ageGroup = '';
+  if (age >= 18) ageGroup = 'Senior (18+)';
+  else if (age >= 16) ageGroup = 'Junior / U18 (16-17)';
+  else if (age >= 14) ageGroup = 'Cadet / U16 (14-15)';
+  else if (age >= 12) ageGroup = 'U14 (12-13)';
+  else if (age >= 10) ageGroup = 'U12 (10-11)';
+  else if (age >= 8) ageGroup = 'U10 (8-9)';
+  else ageGroup = 'U8 (6-7)';
 
   let weightGroup = '';
-  const w = typeof athlete.weight === 'number' ? athlete.weight : parseFloat(String(athlete.weight) || '0');
 
-  // WKF weight divisions by age group and gender
-  if (ageGroup === 'Senior') {
+  if (ageGroup === 'Senior (18+)') {
     if (genderGroup === 'Male') {
-      if (w <= 60) weightGroup = '-60kg';
-      else if (w <= 67) weightGroup = '-67kg';
-      else if (w <= 75) weightGroup = '-75kg';
-      else if (w <= 84) weightGroup = '-84kg';
-      else weightGroup = '+84kg';
+      if (w <= 60) weightGroup = '-60 kg';
+      else if (w <= 67) weightGroup = '-67 kg';
+      else if (w <= 75) weightGroup = '-75 kg';
+      else if (w <= 84) weightGroup = '-84 kg';
+      else weightGroup = '+84 kg';
     } else {
-      if (w <= 50) weightGroup = '-50kg';
-      else if (w <= 55) weightGroup = '-55kg';
-      else if (w <= 61) weightGroup = '-61kg';
-      else if (w <= 68) weightGroup = '-68kg';
-      else weightGroup = '+68kg';
+      if (w <= 50) weightGroup = '-50 kg';
+      else if (w <= 55) weightGroup = '-55 kg';
+      else if (w <= 61) weightGroup = '-61 kg';
+      else if (w <= 68) weightGroup = '-68 kg';
+      else weightGroup = '+68 kg';
     }
-  } else if (ageGroup === 'Junior') {
+  } else if (ageGroup === 'Junior / U18 (16-17)') {
     if (genderGroup === 'Male') {
-      if (w <= 55) weightGroup = '-55kg';
-      else if (w <= 61) weightGroup = '-61kg';
-      else if (w <= 68) weightGroup = '-68kg';
-      else if (w <= 76) weightGroup = '-76kg';
-      else weightGroup = '+76kg';
+      if (w <= 55) weightGroup = '-55 kg';
+      else if (w <= 61) weightGroup = '-61 kg';
+      else if (w <= 68) weightGroup = '-68 kg';
+      else if (w <= 76) weightGroup = '-76 kg';
+      else weightGroup = '+76 kg';
     } else {
-      if (w <= 48) weightGroup = '-48kg';
-      else if (w <= 53) weightGroup = '-53kg';
-      else if (w <= 59) weightGroup = '-59kg';
-      else if (w <= 66) weightGroup = '-66kg';
-      else weightGroup = '+66kg';
+      if (w <= 48) weightGroup = '-48 kg';
+      else if (w <= 53) weightGroup = '-53 kg';
+      else if (w <= 59) weightGroup = '-59 kg';
+      else if (w <= 66) weightGroup = '-66 kg';
+      else weightGroup = '+66 kg';
     }
-  } else if (ageGroup === 'Cadet') {
+  } else if (ageGroup === 'Cadet / U16 (14-15)') {
     if (genderGroup === 'Male') {
-      if (w <= 52) weightGroup = '-52kg';
-      else if (w <= 57) weightGroup = '-57kg';
-      else if (w <= 63) weightGroup = '-63kg';
-      else if (w <= 70) weightGroup = '-70kg';
-      else weightGroup = '+70kg';
+      if (w <= 52) weightGroup = '-52 kg';
+      else if (w <= 57) weightGroup = '-57 kg';
+      else if (w <= 63) weightGroup = '-63 kg';
+      else if (w <= 70) weightGroup = '-70 kg';
+      else weightGroup = '+70 kg';
     } else {
-      if (w <= 47) weightGroup = '-47kg';
-      else if (w <= 54) weightGroup = '-54kg';
-      else if (w <= 61) weightGroup = '-61kg';
-      else weightGroup = '+61kg';
+      if (w <= 47) weightGroup = '-47 kg';
+      else if (w <= 54) weightGroup = '-54 kg';
+      else if (w <= 61) weightGroup = '-61 kg';
+      else weightGroup = '+61 kg';
     }
   } else {
-    // U14, U12, U10, U8 — simplified groupings
-    if (w <= 30) weightGroup = '-30kg';
-    else if (w <= 40) weightGroup = '-40kg';
-    else if (w <= 50) weightGroup = '-50kg';
-    else weightGroup = '+50kg';
+    // U14, U12, U10, U8
+    if (ageGroup === 'U14 (12-13)') {
+      if (genderGroup === 'Male') {
+        if (w <= 40) weightGroup = '-40 kg';
+        else if (w <= 45) weightGroup = '-45 kg';
+        else if (w <= 50) weightGroup = '-50 kg';
+        else if (w <= 55) weightGroup = '-55 kg';
+        else weightGroup = '+55 kg';
+      } else {
+        if (w <= 42) weightGroup = '-42 kg';
+        else if (w <= 47) weightGroup = '-47 kg';
+        else if (w <= 52) weightGroup = '-52 kg';
+        else weightGroup = '+52 kg';
+      }
+    } else if (ageGroup === 'U12 (10-11)') {
+      if (genderGroup === 'Male') {
+        if (w <= 30) weightGroup = '-30 kg';
+        else if (w <= 35) weightGroup = '-35 kg';
+        else if (w <= 40) weightGroup = '-40 kg';
+        else if (w <= 45) weightGroup = '-45 kg';
+        else weightGroup = '+45 kg';
+      } else {
+        if (w <= 30) weightGroup = '-30 kg';
+        else if (w <= 35) weightGroup = '-35 kg';
+        else if (w <= 40) weightGroup = '-40 kg';
+        else weightGroup = '+40 kg';
+      }
+    } else if (ageGroup === 'U10 (8-9)') {
+      if (genderGroup === 'Male') {
+        if (w <= 25) weightGroup = '-25 kg';
+        else if (w <= 30) weightGroup = '-30 kg';
+        else if (w <= 35) weightGroup = '-35 kg';
+        else weightGroup = '+35 kg';
+      } else {
+        if (w <= 25) weightGroup = '-25 kg';
+        else if (w <= 30) weightGroup = '-30 kg';
+        else weightGroup = '+30 kg';
+      }
+    } else { // U8
+      if (w <= 20) weightGroup = '-20 kg';
+      else if (w <= 25) weightGroup = '-25 kg';
+      else weightGroup = '+25 kg';
+      genderGroup = 'Male / Female';
+    }
   }
 
+  if (wkfMode === 'age') {
+    return `${ageGroup} ${genderGroup}`.trim();
+  } else if (wkfMode === 'weight') {
+    return `${genderGroup} ${weightGroup}`.trim();
+  }
   return `${ageGroup} ${genderGroup} ${weightGroup}`.trim();
 }
 
+// ─── Regional Separation Algorithm ─────────────────────────────────────────────
+
 /**
- * WKF Separation Algorithm.
- * 
- * For NATIONAL tournaments:   sort by State > District > Academy
- * For INTERNATIONAL tournaments: sort by Country > State > Academy
- * 
- * Then "card-deal" into two halves and re-interleave to ensure maximum separation.
- * The result: index%2==0 → AKA position, index%2==1 → AO position.
+ * Standard tournament seeding pattern generator.
+ * For N=2: [0, 1]
+ * For N=4: [0, 3, 1, 2]
+ * For N=8: [0, 7, 3, 4, 1, 6, 2, 5]
  */
-export function separateAthletes(athletes: AthleteRow[], compType: string = 'international'): AthleteRow[] {
-  const sorted = [...athletes].sort((a, b) => {
-    if (compType === 'national') {
-      // National: separate by state first, then district, then academy
-      if (a.state !== b.state) return a.state.localeCompare(b.state);
-      if (a.district !== b.district) return a.district.localeCompare(b.district);
-    } else {
-      // International: separate by country first, then state, then academy
-      if (a.country !== b.country) return a.country.localeCompare(b.country);
-      if (a.state !== b.state) return a.state.localeCompare(b.state);
+function getSeedingSequence(size: number): number[] {
+  if (size <= 1) return [0];
+  let seq = [0, 1];
+  while (seq.length < size) {
+    const nextSeq = [];
+    const currentSize = seq.length * 2;
+    for (const val of seq) {
+      nextSeq.push(val);
+      nextSeq.push(currentSize - 1 - val);
     }
-    return a.academy.localeCompare(b.academy);
-  });
-
-  // WKF card-deal: split sorted list into two halves, then re-interleave
-  // This ensures athletes from same region are placed on OPPOSITE sides of the bracket
-  const half1: AthleteRow[] = [];
-  const half2: AthleteRow[] = [];
-  
-  sorted.forEach((athlete, index) => {
-    if (index % 2 === 0) half1.push(athlete);
-    else half2.push(athlete);
-  });
-
-  // Interleave for final bracket array
-  // Even indices (0, 2, 4...) → AKA position
-  // Odd indices (1, 3, 5...)  → AO position
-  const finalArray: AthleteRow[] = [];
-  const maxLength = Math.max(half1.length, half2.length);
-  for (let i = 0; i < maxLength; i++) {
-    if (i < half1.length) finalArray.push(half1[i]);
-    if (i < half2.length) finalArray.push(half2[i]);
+    seq = nextSeq;
   }
+  return seq;
+}
 
-  return finalArray;
+export function sortAthletesByRegion(athletes: AthleteRow[], compType: string): AthleteRow[] {
+  return [...athletes].sort((a, b) => {
+    // 1. Academy (Strongest separation: same dojo shouldn't fight early, even across state lines)
+    const acA = (a.academy || '').toLowerCase();
+    const acB = (b.academy || '').toLowerCase();
+    if (acA !== acB) return acA.localeCompare(acB);
+
+    // 2. State
+    const sA = (a.state || '').toLowerCase();
+    const sB = (b.state || '').toLowerCase();
+    if (sA !== sB) return sA.localeCompare(sB);
+
+    // 3. District
+    const dA = (a.district || '').toLowerCase();
+    const dB = (b.district || '').toLowerCase();
+    if (dA !== dB) return dA.localeCompare(dB);
+
+    // 4. Country
+    if (compType === 'international') {
+      const cA = (a.country || '').toLowerCase();
+      const cB = (b.country || '').toLowerCase();
+      if (cA !== cB) return cA.localeCompare(cB);
+    }
+
+    return (a.name || '').localeCompare(b.name || '');
+  });
 }
 
 /**
- * Generates a WKF-compliant elimination bracket.
+ * Distributes athletes into the bracket to maximize separation between teammates.
  * 
- * Rules:
- * - ≤ 2 athletes: single match
- * - 3-5 athletes: Round Robin
- * - 6+ athletes: Single Elimination with byes to next power of 2
- * 
- * AKA/AO assignment: index%2==0 → AKA, index%2==1 → AO (WKF convention)
- * 
- * Later rounds are generated with null aka/ao but with akaFromMatchId/aoFromMatchId
- * references so the UI can show "WINNER M01" placeholders.
+ * 1. Sorts athletes by Country -> State -> District -> Academy.
+ * 2. Maps the sorted list into a standard bracket seeding sequence.
+ * This mathematically guarantees that athletes from the same regions/academies
+ * are placed in opposite halves/quarters of the tiesheet.
  */
-export function generateBracket(athletes: AthleteRow[], compType: string = 'international'): MatchNode[] {
+export function separateAthletes(athletes: AthleteRow[], compType: string = 'international', poolSize: number = 8): AthleteRow[] {
+  if (athletes.length <= 1) return [...athletes];
+
+  // 1. Sort athletes so teammates are adjacent
+  const sorted = sortAthletesByRegion(athletes, compType);
+
+  // 2. Determine required bracket size (next power of 2)
+  let bracketSize = 2;
+  while (bracketSize < sorted.length) {
+    bracketSize *= 2;
+  }
+  // If poolSize forces a larger bracket, use it
+  if (bracketSize < poolSize) bracketSize = poolSize;
+
+  const sequence = getSeedingSequence(bracketSize);
+  
+  // 3. Map sorted athletes into the bracket slots based on sequence
+  const slots: (AthleteRow | null)[] = Array(bracketSize).fill(null);
+  for (let i = 0; i < sorted.length; i++) {
+    slots[sequence[i]] = sorted[i];
+  }
+
+  // Flatten the slots to remove nulls, creating the final interleaved list for R1 matches.
+  // Wait, buildSingleElimination relies on index mapping, so we should just return the compact array
+  // mapped back to the sequence, OR we can let buildSingleElimination handle the nulls!
+  // But wait, the existing code expects a compacted array and handles byes internally.
+  // So we just return the athletes ordered by their slot sequence appearance!
+  const seededAthletes: AthleteRow[] = [];
+  for (let i = 0; i < bracketSize; i++) {
+    if (slots[i] !== null) {
+      seededAthletes.push(slots[i]!);
+    }
+  }
+
+  return seededAthletes;
+}
+
+// ─── Bracket Generation ─────────────────────────────────────────────────────────
+
+/**
+ * Generates a WKF-compliant elimination bracket.
+ *
+ * @param athletes   - List of athletes to seed into the bracket
+ * @param compType   - 'international' | 'national' — governs separation priority
+ * @param poolSize   - Forces bracket to this slot count (4 | 8 | 16 | 32).
+ *                     Actual athlete count may be less → filled with byes.
+ *                     Actual athlete count may exceed poolSize → multiple pools.
+ *
+ * Rules:
+ *   ≤ 2 athletes         → single match
+ *   3–5 athletes         → round robin
+ *   ≥ 6 athletes         → single elimination, padded to poolSize with byes
+ */
+export function generateBracket(
+  athletes: AthleteRow[],
+  compType: string = 'international',
+  poolSize: PoolSize = 8
+): MatchNode[] {
   if (athletes.length === 0) return [];
 
   // Single match
   if (athletes.length === 2) {
-    const separated = separateAthletes(athletes, compType);
+    const sep = separateAthletes(athletes, compType);
     return [{
       id: 'R1-M1',
       round: 1,
       matchNumber: 1,
-      aka: separated[0],
-      ao: separated[1],
+      aka: sep[0],
+      ao: sep[1],
       akaFromMatchId: null,
       aoFromMatchId: null,
       akaScore: 0,
@@ -228,51 +489,70 @@ export function generateBracket(athletes: AthleteRow[], compType: string = 'inte
       winnerId: null,
       nextMatchId: null,
       status: 'upcoming',
+      mat: null,
     }];
   }
 
-  const separated = separateAthletes(athletes, compType);
-
-  // Round Robin for 3-5 athletes
-  if (separated.length >= 3 && separated.length <= 5) {
-    const matches: MatchNode[] = [];
-    let matchCounter = 1;
-    for (let i = 0; i < separated.length; i++) {
-      for (let j = i + 1; j < separated.length; j++) {
-        matches.push({
-          id: `RR-M${matchCounter}`,
-          round: 1,
-          matchNumber: matchCounter++,
-          aka: separated[i],
-          ao: separated[j],
-          akaFromMatchId: null,
-          aoFromMatchId: null,
-          akaScore: 0,
-          aoScore: 0,
-          winnerId: null,
-          nextMatchId: null,
-          status: 'upcoming',
-        });
-      }
-    }
-    return matches;
+  // Round Robin for 3–5 athletes
+  if (athletes.length >= 3 && athletes.length <= 5) {
+    return buildRoundRobin(athletes, compType);
   }
 
-  // Single Elimination for 6+ athletes
-  const nextPowerOf2 = Math.pow(2, Math.ceil(Math.log2(separated.length)));
-  const totalR1Matches = nextPowerOf2 / 2;
-  
+  // For 6+ athletes — single elimination with pool-size padding
+  // If athlete count exceeds poolSize, split into multiple pools
+  if (athletes.length > poolSize) {
+    return buildMultiPool(athletes, compType, poolSize);
+  }
+
+  return buildSingleElimination(athletes, compType, poolSize);
+}
+
+function buildRoundRobin(athletes: AthleteRow[], compType: string): MatchNode[] {
+  const sep = separateAthletes(athletes, compType);
   const matches: MatchNode[] = [];
   let matchCounter = 1;
 
-  // Round 1: assign real athletes, handle byes
+  for (let i = 0; i < sep.length; i++) {
+    for (let j = i + 1; j < sep.length; j++) {
+      matches.push({
+        id: `RR-M${matchCounter}`,
+        round: 1,
+        matchNumber: matchCounter++,
+        aka: sep[i],
+        ao: sep[j],
+        akaFromMatchId: null,
+        aoFromMatchId: null,
+        akaScore: 0,
+        aoScore: 0,
+        winnerId: null,
+        nextMatchId: null,
+        status: 'upcoming',
+        mat: null,
+      });
+    }
+  }
+  return matches;
+}
+
+function buildSingleElimination(athletes: AthleteRow[], compType: string, poolSize: PoolSize): MatchNode[] {
+  const separated = separateAthletes(athletes, compType, poolSize);
+  const totalR1Slots = poolSize;   // e.g. 8 pool size → 4 R1 matches
+  const totalR1Matches = totalR1Slots / 2;
+
+  const matches: MatchNode[] = [];
+  let matchCounter = 1;
   const round1Matches: MatchNode[] = [];
+
   for (let i = 0; i < totalR1Matches; i++) {
-    const akaIndex = i * 2;      // even index → AKA (WKF rule)
-    const aoIndex = i * 2 + 1;  // odd index  → AO  (WKF rule)
-    
-    const akaAthlete = akaIndex < separated.length ? separated[akaIndex] : null;
-    const aoAthlete = aoIndex < separated.length ? separated[aoIndex] : null;
+    const akaIdx = i * 2;
+    const aoIdx = i * 2 + 1;
+
+    const akaAthlete = akaIdx < separated.length ? separated[akaIdx] : null;
+    const aoAthlete = aoIdx < separated.length ? separated[aoIdx] : null;
+
+    // Auto-advance bye
+    const autoWinner = (akaAthlete && !aoAthlete) ? akaAthlete.playerId :
+                       (!akaAthlete && aoAthlete) ? aoAthlete.playerId : null;
 
     const match: MatchNode = {
       id: `R1-M${i + 1}`,
@@ -284,55 +564,167 @@ export function generateBracket(athletes: AthleteRow[], compType: string = 'inte
       aoFromMatchId: null,
       akaScore: 0,
       aoScore: 0,
-      // Auto-advance on bye (only aka present, ao is null)
-      winnerId: (akaAthlete && !aoAthlete) ? akaAthlete.playerId : null,
+      winnerId: autoWinner,
       nextMatchId: null,
       status: 'upcoming',
+      mat: null,
     };
-    
+
     round1Matches.push(match);
     matches.push(match);
   }
 
-  // Build subsequent rounds with winner-reference placeholders
-  let currentRoundMatches = round1Matches;
+  // Build subsequent rounds
+  let currentRound = round1Matches;
   let roundNum = 2;
 
-  while (currentRoundMatches.length > 1) {
-    const nextRoundMatches: MatchNode[] = [];
-    
-    for (let i = 0; i < currentRoundMatches.length; i += 2) {
-      const match1 = currentRoundMatches[i];
-      const match2 = currentRoundMatches[i + 1];
-      
+  while (currentRound.length > 1) {
+    const nextRound: MatchNode[] = [];
+
+    for (let i = 0; i < currentRound.length; i += 2) {
+      const m1 = currentRound[i];
+      const m2 = currentRound[i + 1];
+
       const newMatch: MatchNode = {
         id: `R${roundNum}-M${Math.floor(i / 2) + 1}`,
         round: roundNum,
         matchNumber: matchCounter++,
-        // Future rounds start with no athletes — they'll be filled when matches complete
         aka: null,
         ao: null,
-        // But we store which match their winner will come from (for UI placeholder labels)
-        akaFromMatchId: match1.id,
-        aoFromMatchId: match2 ? match2.id : null,
+        akaFromMatchId: m1.id,
+        aoFromMatchId: m2 ? m2.id : null,
         akaScore: 0,
         aoScore: 0,
         winnerId: null,
         nextMatchId: null,
         status: 'upcoming',
+        mat: null,
       };
-      
-      // Link previous matches to this one
-      match1.nextMatchId = newMatch.id;
-      if (match2) match2.nextMatchId = newMatch.id;
-      
-      nextRoundMatches.push(newMatch);
+
+      m1.nextMatchId = newMatch.id;
+      if (m2) m2.nextMatchId = newMatch.id;
+
+      nextRound.push(newMatch);
       matches.push(newMatch);
     }
-    
-    currentRoundMatches = nextRoundMatches;
+
+    currentRound = nextRound;
     roundNum++;
   }
 
   return matches;
+}
+
+/** When athlete count > poolSize, split into labelled pools (Pool A, Pool B, ...) */
+function buildMultiPool(athletes: AthleteRow[], compType: string, poolSize: PoolSize): MatchNode[] {
+  const poolCount = Math.ceil(athletes.length / poolSize);
+  const allMatches: MatchNode[] = [];
+
+  // Distribute athletes round-robin across pools for fairness
+  const pools: AthleteRow[][] = Array.from({ length: poolCount }, () => []);
+  // Use sortAthletesByRegion so teammates are strictly adjacent in the list.
+  // When we distribute round-robin, teammates are guaranteed to fall into DIFFERENT pools!
+  const sorted = sortAthletesByRegion(athletes, compType);
+  sorted.forEach((ath, idx) => {
+    pools[idx % poolCount].push(ath);
+  });
+
+  for (let p = 0; p < pools.length; p++) {
+    const poolLabel = `${p + 1}`;
+    const poolMatches = buildSingleElimination(pools[p], compType, poolSize);
+
+    // Re-ID all matches to include pool label
+    for (const m of poolMatches) {
+      m.id = `Pool${poolLabel}-${m.id}`;
+      if (m.akaFromMatchId) m.akaFromMatchId = `Pool${poolLabel}-${m.akaFromMatchId}`;
+      if (m.aoFromMatchId) m.aoFromMatchId = `Pool${poolLabel}-${m.aoFromMatchId}`;
+      if (m.nextMatchId) m.nextMatchId = `Pool${poolLabel}-${m.nextMatchId}`;
+      allMatches.push(m);
+    }
+  }
+
+  return allMatches;
+}
+
+// ─── Special Category Seeding ──────────────────────────────────────────────────
+
+/**
+ * Seeds a special category bracket by extracting eligible athletes from
+ * completed standard categories.
+ *
+ * Medal filtering:
+ *   'Gold Only'       → only the Finals match winner of each category
+ *   'Silver or Above' → Finals winner + Finals loser of each category
+ *   'Any Medal' / ''  → all athletes who won at least one match
+ *
+ * @param allCategoryDocs  All standard category docs from Firestore
+ * @param rule             The special category rules
+ */
+export function seedSpecialCategory(
+  allCategoryDocs: CategoryDoc[],
+  rule: SpecialCategoryRule
+): AthleteRow[] {
+  const eligible: AthleteRow[] = [];
+  const seen = new Set<string>();
+
+  for (const catDoc of allCategoryDocs) {
+    const matches = catDoc.matches || [];
+    if (matches.length === 0) continue;
+
+    // Find the final match (highest round number, first match in that round)
+    const maxRound = Math.max(...matches.map(m => m.round));
+    const finalsMatches = matches.filter(m => m.round === maxRound);
+
+    for (const finalMatch of finalsMatches) {
+      const goldWinnerId = finalMatch.winnerId;
+      const goldAthlete = goldWinnerId
+        ? (finalMatch.aka?.playerId === goldWinnerId ? finalMatch.aka : finalMatch.ao) as AthleteRow | null
+        : null;
+      const silverAthlete = goldWinnerId
+        ? (finalMatch.aka?.playerId === goldWinnerId ? finalMatch.ao : finalMatch.aka) as AthleteRow | null
+        : null;
+
+      const addIfEligible = (ath: AthleteRow | null, medal: 'gold' | 'silver' | 'bronze') => {
+        if (!ath || !ath.playerId || seen.has(ath.playerId)) return;
+
+        const age = ath.age || 0;
+        const weight = ath.weight || 0;
+
+        if (rule.minAge !== undefined && age < rule.minAge) return;
+        if (rule.maxAge !== undefined && age > rule.maxAge) return;
+        if (rule.minWeight !== undefined && weight < rule.minWeight) return;
+        if (rule.maxWeight !== undefined && weight > rule.maxWeight) return;
+
+        seen.add(ath.playerId);
+        eligible.push({ ...ath, medal, sourceCategory: catDoc.name });
+      };
+
+      const medalFilter = rule.medal || 'Any Medal';
+
+      if (medalFilter === 'Gold Only') {
+        addIfEligible(goldAthlete, 'gold');
+      } else if (medalFilter === 'Silver or Above') {
+        addIfEligible(goldAthlete, 'gold');
+        addIfEligible(silverAthlete, 'silver');
+      } else {
+        // 'Any Medal' — include anyone who won at least one match
+        addIfEligible(goldAthlete, 'gold');
+        addIfEligible(silverAthlete, 'silver');
+
+        // Find semi-final losers (bronze)
+        const semiRound = maxRound - 1;
+        if (semiRound >= 1) {
+          const semiMatches = matches.filter(m => m.round === semiRound);
+          for (const semi of semiMatches) {
+            const loser = semi.winnerId
+              ? (semi.aka?.playerId === semi.winnerId ? semi.ao : semi.aka) as AthleteRow | null
+              : null;
+            addIfEligible(loser, 'bronze');
+          }
+        }
+      }
+    }
+  }
+
+  return eligible;
 }

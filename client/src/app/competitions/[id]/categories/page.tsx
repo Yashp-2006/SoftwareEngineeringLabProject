@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Save, Check } from 'lucide-react';
 import gsap from 'gsap';
+import { toast } from 'react-hot-toast';
 
 interface CategoryRow {
   id: string;
@@ -56,7 +57,7 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
           return {
             id: doc.id,
             name: data.name,
-            entries: data.entries,
+            entries: data.entries ?? (data.athletes?.length || 0),
             status: data.status,
             mat: data.mat,
             start: data.scheduledStartTime,
@@ -174,7 +175,7 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
 
   const handleSaveAll = async () => {
     // Manually force an update sync if needed (optional)
-    alert("Categories are saved automatically in real-time to Firestore!");
+    toast.success("Categories are saved automatically in real-time to Firestore!");
   };
 
   return (

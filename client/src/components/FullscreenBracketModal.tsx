@@ -18,17 +18,44 @@ const MetricTag = ({ label, isAo, isActive = false }: { label: string; isAo: boo
 const BracketNode = ({
   match,
   mats,
+  isHighlighted = false,
   onPromote,
 }: {
   match: any;
   mats: string[];
-  onPromote?: (matchId: string, winnerId: string, nextMatchId: string | null) => void;
+  isHighlighted?: boolean;
+  onPromote?: (matchId: string, winnerId: string, nextMatchId: string | null, byeFor?: 'aka' | 'ao') => void;
 }) => {
+  const [showPromoteMenu, setShowPromoteMenu] = useState(false);
   const isLive = match.status === 'live';
+  const isCompleted = match.status === 'completed';
   const isPending = !match.aka && !match.ao;
 
+  const akaId = match.aka?.playerId;
+  const aoId = match.ao?.playerId;
+  const hasAka = !!match.aka;
+  const hasAo = !!match.ao;
+
+  // Auto-detect: if only one side has a player, they win by BYE automatically
+  const onlyAka = hasAka && !hasAo;
+  const onlyAo = !hasAka && hasAo;
+
+  const handlePromoteClick = () => {
+    if (!onPromote) return;
+    // If match already has a computed winner (from scoreboard), promote directly
+    if (match.winnerId) {
+      onPromote(match.id, match.winnerId, match.nextMatchId);
+      return;
+    }
+    // If only one competitor (BYE match), auto-promote
+    if (onlyAka) { onPromote(match.id, akaId, match.nextMatchId, 'ao'); return; }
+    if (onlyAo) { onPromote(match.id, aoId, match.nextMatchId, 'aka'); return; }
+    // Otherwise show picker
+    setShowPromoteMenu(v => !v);
+  };
+
   return (
-    <div className={`bracket-node${isLive ? ' live' : ''}${isPending ? ' pending' : ''}`}>
+    <div className={`bracket-node${isLive ? ' live' : ''}${isCompleted ? ' completed' : ''}${isPending ? ' pending' : ''}${isHighlighted ? ' is-highlighted' : ''}`}>
       {isLive && (
         <div className="live-indicator">
           <div className="live-dot" />
@@ -37,7 +64,7 @@ const BracketNode = ({
       )}
 
       {/* AKA Row */}
-      <div className={`competitor-row aka${match.winnerId && match.winnerId !== (match.aka?.playerId) ? ' loser' : ''}`}>
+      <div className={`competitor-row aka${isCompleted && match.winnerId && match.winnerId !== akaId ? ' loser' : ''}${isCompleted && match.winnerId && match.winnerId === akaId ? ' winner' : ''}`}>
         <div className="comp-info">
           <div className="comp-name">
             {match.aka ? match.aka.name.toUpperCase() : (
@@ -51,7 +78,12 @@ const BracketNode = ({
           )}
           {match.aka && (
             <div className="metrics-row">
-              {METRICS.map(m => <MetricTag key={m} label={m} isAo={false} />)}
+              {METRICS.map(m => (
+                <React.Fragment key={m}>
+                  <MetricTag label={m} isAo={false} />
+                  {m === 'I' && <div style={{ width: 24 }} />}
+                </React.Fragment>
+              ))}
             </div>
           )}
         </div>
@@ -59,7 +91,7 @@ const BracketNode = ({
       </div>
 
       {/* AO Row */}
-      <div className={`competitor-row ao${match.winnerId && match.winnerId !== (match.ao?.playerId) ? ' loser' : ''}`}>
+      <div className={`competitor-row ao${isCompleted && match.winnerId && match.winnerId !== aoId ? ' loser' : ''}${isCompleted && match.winnerId && match.winnerId === aoId ? ' winner' : ''}`}>
         <div className="comp-info">
           <div className="comp-name">
             {match.ao ? match.ao.name.toUpperCase() : (
@@ -73,7 +105,12 @@ const BracketNode = ({
           )}
           {match.ao && (
             <div className="metrics-row">
-              {METRICS.map(m => <MetricTag key={m} label={m} isAo={true} />)}
+              {METRICS.map(m => (
+                <React.Fragment key={m}>
+                  <MetricTag label={m} isAo={true} />
+                  {m === 'I' && <div style={{ width: 24 }} />}
+                </React.Fragment>
+              ))}
             </div>
           )}
         </div>
@@ -81,28 +118,90 @@ const BracketNode = ({
       </div>
 
       {/* Match Footer */}
-      <div className="match-footer">
+      <div className="match-footer" style={{ position: 'relative' }}>
         {isPending ? (
           <div className="text-micro" style={{ flex: 1, color: 'var(--neutral-400)', fontWeight: 700, letterSpacing: '0.1em' }}>
             PENDING QUALIFICATION
           </div>
         ) : (
           <>
-            <div className="mat-select-wrapper">
-              <select className="mat-select" defaultValue={match.mat || ''}>
-                <option value="">-- Select Mat --</option>
-                {mats.map(m => <option key={m} value={m}>{m}</option>)}
-              </select>
-              <ChevronDown className="mat-select-icon" size={12} />
+            <div className="text-micro" style={{ flex: 1, color: 'var(--neutral-400)', fontWeight: 700, letterSpacing: '0.1em' }}>
+              {isCompleted ? (
+                <span style={{ color: 'var(--status-live)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <Check size={11} /> COMPLETED {match.byeFor ? `(${match.byeFor.toUpperCase()} BYE)` : ''}
+                </span>
+              ) : `MATCH ${match.matchNumber}`}
             </div>
-            {onPromote && (
-              <button
-                className="btn-promote"
-                title="Promote winner"
-                onClick={() => onPromote(match.id, match.winnerId, match.nextMatchId)}
-              >
-                <ArrowRight size={18} />
-              </button>
+            {onPromote && !isCompleted && (
+              <div style={{ position: 'relative' }}>
+                <button
+                  className="btn-promote"
+                  title="Promote winner"
+                  onClick={handlePromoteClick}
+                >
+                  <ArrowRight size={18} />
+                </button>
+                {showPromoteMenu && (
+                  <div style={{
+                    position: 'absolute', bottom: '110%', right: 0,
+                    background: 'var(--shiro)', border: '1px solid var(--neutral-200)',
+                    borderRadius: '10px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                    zIndex: 200, minWidth: '200px', overflow: 'hidden'
+                  }}>
+                    <div style={{ padding: '8px 12px', fontSize: '10px', fontWeight: 800, color: 'var(--neutral-400)', textTransform: 'uppercase', letterSpacing: '0.1em', borderBottom: '1px solid var(--neutral-100)' }}>
+                      Promote to Next Round
+                    </div>
+                    {hasAka && (
+                      <button
+                        onClick={() => { onPromote(match.id, akaId, match.nextMatchId); setShowPromoteMenu(false); }}
+                        style={{ width: '100%', padding: '10px 12px', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: 700, color: 'var(--aka)', textAlign: 'left' }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--aka-light)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--aka)', display: 'inline-block', flexShrink: 0 }} />
+                        AKA — {match.aka?.name}
+                      </button>
+                    )}
+                    {hasAo && (
+                      <button
+                        onClick={() => { onPromote(match.id, aoId, match.nextMatchId); setShowPromoteMenu(false); }}
+                        style={{ width: '100%', padding: '10px 12px', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: 700, color: 'var(--ao)', textAlign: 'left' }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--ao-light)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--ao)', display: 'inline-block', flexShrink: 0 }} />
+                        AO — {match.ao?.name}
+                      </button>
+                    )}
+                    {(hasAka || hasAo) && <div style={{ height: '1px', background: 'var(--neutral-100)' }} />}
+                    {hasAka && (
+                      <button
+                        onClick={() => { onPromote(match.id, akaId, match.nextMatchId, 'ao'); setShowPromoteMenu(false); }}
+                        style={{ width: '100%', padding: '8px 12px', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', fontWeight: 600, color: 'var(--neutral-500)', textAlign: 'left' }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--neutral-50)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        AKA wins by BYE (AO absent/DQ)
+                      </button>
+                    )}
+                    {hasAo && (
+                      <button
+                        onClick={() => { onPromote(match.id, aoId, match.nextMatchId, 'aka'); setShowPromoteMenu(false); }}
+                        style={{ width: '100%', padding: '8px 12px', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', fontWeight: 600, color: 'var(--neutral-500)', textAlign: 'left' }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--neutral-50)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        AO wins by BYE (AKA absent/DQ)
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+            {isCompleted && onPromote && match.winnerId && (
+              <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--status-live)' }}>
+                ✓ Advanced
+              </span>
             )}
           </>
         )}
@@ -116,13 +215,90 @@ export function BracketViewer({
   matches,
   categoryName,
   mats = [],
+  firstRoundOnly = false,
+  highlightMatchId,
+  allCategories,
+  onNavigateToMatch,
   onPromote,
 }: {
   matches: any[];
   categoryName?: string;
   mats?: string[];
-  onPromote?: (matchId: string, winnerId: string, nextMatchId: string | null) => void;
+  firstRoundOnly?: boolean;
+  highlightMatchId?: string | null;
+  allCategories?: any[];
+  onNavigateToMatch?: (categoryId: string, matchId: string) => void;
+  onPromote?: (matchId: string, winnerId: string, nextMatchId: string | null, byeFor?: 'aka' | 'ao') => void;
 }) {
+  const availablePools = Array.from(new Set((matches || []).filter(m => m.id.startsWith('Pool')).map(m => m.id.split('-')[0].replace('Pool', '')))).sort();
+  const [selectedPool, setSelectedPool] = useState<string | null>(null);
+
+  const [localSearch, setLocalSearch] = useState('');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [localHighlightMatchId, setLocalHighlightMatchId] = useState<string | null>(null);
+  const activeHighlight = localHighlightMatchId || highlightMatchId;
+
+  const searchResults = React.useMemo(() => {
+    if (!localSearch || localSearch.trim().length < 2 || !isDropdownOpen) return [];
+    const q = localSearch.toLowerCase().trim();
+    const results: any[] = [];
+    
+    const catsToSearch = allCategories && allCategories.length > 0 ? allCategories : [{ id: 'current', name: categoryName, matches }];
+    
+    for (const cat of catsToSearch) {
+      const catMatch = (cat.name || '').toLowerCase().includes(q);
+      for (const m of (cat.matches || [])) {
+        const akaName = m.aka?.name || '';
+        const aoName = m.ao?.name || '';
+        
+        const akaMatch = akaName.toLowerCase().includes(q);
+        const aoMatch = aoName.toLowerCase().includes(q);
+        
+        if (akaMatch || aoMatch || catMatch) {
+          results.push({
+            categoryId: cat.id,
+            categoryName: cat.name,
+            matchId: m.id,
+            athleteName: akaMatch ? akaName : (aoMatch ? aoName : (akaName || aoName || 'BYE')),
+            teamName: akaMatch ? m.aka?.academy : (aoMatch ? m.ao?.academy : ''),
+            pool: m.id.split('-')[0].replace('Pool', ''),
+          });
+        }
+        if (results.length >= 50) break;
+      }
+      if (results.length >= 50) break;
+    }
+    
+    return results;
+  }, [allCategories, categoryName, matches, localSearch, isDropdownOpen]);
+
+  const handleSearchResultClick = (result: any) => {
+    onNavigateToMatch?.(result.categoryId, result.matchId);
+    setLocalSearch(`${result.athleteName} - ${result.categoryName}`);
+    setIsDropdownOpen(false);
+  };
+
+  // Set default pool if not set, prioritize activeHighlight's pool
+  useEffect(() => {
+    if (availablePools.length > 0) {
+      if (activeHighlight && activeHighlight.startsWith('Pool')) {
+        const highlightPool = activeHighlight.split('-')[0].replace('Pool', '');
+        if (availablePools.includes(highlightPool)) {
+          setSelectedPool(highlightPool);
+          return;
+        }
+      }
+      
+      if (!selectedPool || !availablePools.includes(selectedPool)) {
+        setSelectedPool(availablePools[0]);
+      }
+    }
+  }, [availablePools, selectedPool, activeHighlight]);
+
+  const filteredMatches = (availablePools.length > 0 && selectedPool)
+    ? (matches || []).filter(m => m.id.startsWith(`Pool${selectedPool}-`))
+    : (matches || []);
+
   const [zoom, setZoom] = useState(1);
   const canvasRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -145,11 +321,11 @@ export function BracketViewer({
     const t = setTimeout(fitToScreen, 200);
     window.addEventListener('resize', fitToScreen);
     return () => { clearTimeout(t); window.removeEventListener('resize', fitToScreen); };
-  }, [matches, fitToScreen]);
+  }, [filteredMatches, fitToScreen]);
 
-  // Group matches by round — only include rounds where at least one match has actual athletes
+  // Group matches by round
   const roundMap = new Map<number, any[]>();
-  (matches || []).forEach(m => {
+  filteredMatches.forEach(m => {
     if (!roundMap.has(m.round)) roundMap.set(m.round, []);
     roundMap.get(m.round)!.push(m);
   });
@@ -158,11 +334,10 @@ export function BracketViewer({
     .map(([, ms]) => ms.sort((a: any, b: any) => a.matchNumber - b.matchNumber));
 
   const getRoundName = (rIdx: number, total: number) => {
-    if (rIdx === total - 1) return 'Finals';
-    if (rIdx === total - 2) return 'Semi-Finals';
-    if (rIdx === total - 3) return 'Quarter-Finals';
     return `Round ${rIdx + 1}`;
   };
+
+  const visibleRounds = firstRoundOnly ? (rounds.length > 0 ? [rounds[0]] : []) : rounds;
 
   if (!matches || matches.length === 0) {
     return (
@@ -179,11 +354,107 @@ export function BracketViewer({
       <div className="bv-controls">
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <h2 style={{ fontSize: '18px', margin: 0 }}>{categoryName || 'Tiesheet'}</h2>
+          
+          {availablePools.length > 0 && (
+            <select
+              value={selectedPool || ''}
+              onChange={(e) => setSelectedPool(e.target.value)}
+              className="pool-select"
+              style={{
+                padding: '4px 8px',
+                borderRadius: '6px',
+                border: '1px solid var(--neutral-300)',
+                background: 'var(--shiro)',
+                fontSize: '13px',
+                fontWeight: 600,
+                color: 'var(--neutral-800)',
+                cursor: 'pointer'
+              }}
+            >
+              {availablePools.map(p => (
+                <option key={p} value={p}>Pool {p}</option>
+              ))}
+            </select>
+          )}
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--neutral-100)', color: 'var(--neutral-600)', padding: '3px 10px', borderRadius: '999px', fontSize: '11px', fontWeight: 800 }}>
-            {matches.length} Matches
+            {filteredMatches.length} Matches
           </div>
         </div>
         <div className="bv-zoom">
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <input 
+              type="text" 
+              placeholder="Find athlete..." 
+              value={localSearch}
+              onChange={e => {
+                setLocalSearch(e.target.value);
+                setIsDropdownOpen(true);
+              }}
+              onFocus={() => setIsDropdownOpen(true)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && searchResults.length > 0) {
+                  handleSearchResultClick(searchResults[0]);
+                }
+              }}
+              style={{
+                width: '180px',
+                padding: '4px 30px 4px 10px',
+                borderRadius: '6px',
+                border: '1px solid var(--neutral-300)',
+                background: 'var(--shiro)',
+                fontSize: '11px',
+                color: 'var(--neutral-900)',
+                outline: 'none'
+              }}
+            />
+            {localSearch && (
+              <button 
+                onClick={() => { setLocalSearch(''); setIsDropdownOpen(false); }}
+                style={{ position: 'absolute', right: '8px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--neutral-400)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+              >
+                <X size={14} />
+              </button>
+            )}
+            {searchResults.length > 0 && (
+              <div style={{
+                position: 'absolute',
+                top: 'calc(100% + 4px)',
+                right: 0,
+                width: '260px',
+                background: 'var(--shiro)',
+                border: '1px solid var(--neutral-200)',
+                borderRadius: '8px',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
+                zIndex: 100,
+                maxHeight: '300px',
+                overflowY: 'auto'
+              }}>
+                {searchResults.map((res, idx) => (
+                  <div 
+                    key={idx} 
+                    onClick={() => handleSearchResultClick(res)}
+                    style={{
+                      padding: '8px 12px',
+                      borderBottom: '1px solid var(--neutral-100)',
+                      cursor: 'pointer',
+                      fontSize: '11px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                      <div style={{ fontWeight: 700, color: 'var(--neutral-900)' }}>{res.athleteName}</div>
+                      {res.teamName && (
+                        <div style={{ fontSize: '9px', fontWeight: 600, color: 'var(--neutral-500)', textTransform: 'uppercase', textAlign: 'right', maxWidth: '120px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {res.teamName}
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ color: 'var(--neutral-500)', fontSize: '10px' }}>{res.categoryName} • Pool {res.pool}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
           <button className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '11px', height: '28px', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={fitToScreen}>
             <Maximize size={12} /> Fit
           </button>
@@ -197,12 +468,12 @@ export function BracketViewer({
       {/* Bracket Scroll Area */}
       <div className="bv-scroll" ref={viewportRef}>
         <div className="bv-canvas" ref={canvasRef} style={{ transform: `scale(${zoom})` }}>
-          {rounds.map((roundMatches, rIdx) => (
+          {visibleRounds.map((roundMatches, rIdx) => (
             <div key={rIdx} className="bracket-round">
               <div className="round-header">{getRoundName(rIdx, rounds.length)}</div>
               {roundMatches.map((m: any) => (
                 <div key={m.id} className="match-wrapper">
-                  <BracketNode match={m} mats={mats} onPromote={onPromote} />
+                  <BracketNode match={m} mats={mats} onPromote={onPromote} isHighlighted={m.id === activeHighlight} />
                 </div>
               ))}
             </div>
@@ -217,18 +488,32 @@ export function BracketViewer({
 export default function FullscreenBracketModal({
   categories,
   initialCategoryId,
+  highlightMatchId,
   onClose,
   mats = [],
+  firstRoundOnly = false,
   onPromote,
+  onAssignMat,
 }: {
   categories: Array<{ id: string; name: string; matches: any[]; athletes?: any[]; status?: string; mat?: string }>;
   initialCategoryId?: string;
+  highlightMatchId?: string | null;
   onClose: () => void;
   mats?: string[];
-  onPromote?: (matchId: string, winnerId: string, nextMatchId: string | null) => void;
+  firstRoundOnly?: boolean;
+  onPromote?: (matchId: string, winnerId: string, nextMatchId: string | null, byeFor?: 'aka' | 'ao') => void;
+  onAssignMat?: (categoryId: string, mat: string) => void;
 }) {
   const [activeCatId, setActiveCatId] = useState(initialCategoryId || (categories[0]?.id ?? null));
+  const activeCatFirstRoundOnly = firstRoundOnly ?? false;
   const activeCategory = categories.find(c => c.id === activeCatId);
+
+  const [modalHighlight, setModalHighlight] = useState<string | null>(highlightMatchId || null);
+
+  // Sync with prop if it changes externally
+  useEffect(() => {
+    if (highlightMatchId) setModalHighlight(highlightMatchId);
+  }, [highlightMatchId]);
 
   // Close on Escape key
   useEffect(() => {
@@ -266,63 +551,83 @@ export default function FullscreenBracketModal({
           text-transform: uppercase;
           color: var(--neutral-900);
         }
+        .fsb-close {
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          background: var(--neutral-100);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          color: var(--neutral-600);
+          transition: 0.2s;
+        }
+        .fsb-close:hover { background: var(--neutral-200); color: var(--aka); }
+        
         .fsb-body {
           flex: 1;
           display: flex;
           overflow: hidden;
         }
+        
+        /* Sidebar */
         .fsb-sidebar {
-          width: 280px;
-          flex-shrink: 0;
-          border-right: 1px solid var(--neutral-300);
+          width: 320px;
           background: var(--shiro);
-          overflow-y: auto;
-          padding: var(--space-4);
+          border-right: 1px solid var(--neutral-300);
           display: flex;
           flex-direction: column;
-          gap: var(--space-1);
+          box-shadow: 2px 0 12px rgba(0,0,0,0.03);
+          z-index: 10;
         }
-        .fsb-sidebar-title {
-          font-family: var(--font-display);
-          font-size: 13px;
+        .fsb-sidebar-header {
+          padding: 16px 20px;
+          border-bottom: 1px solid var(--neutral-200);
+          font-size: 11px;
+          font-weight: 700;
           color: var(--neutral-500);
-          letter-spacing: 0.15em;
           text-transform: uppercase;
-          margin-bottom: var(--space-3);
-          padding-left: var(--space-1);
+          letter-spacing: 0.1em;
+        }
+        .fsb-cat-list {
+          flex: 1;
+          overflow-y: auto;
+          padding: 12px;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
         }
         .fsb-cat-item {
-          background: var(--shiro);
+          padding: 12px 16px;
           border: 1px solid var(--neutral-200);
           border-radius: 12px;
-          padding: 10px 14px;
           cursor: pointer;
-          transition: all 0.25s cubic-bezier(0.23, 1, 0.32, 1);
-          display: flex;
-          flex-direction: column;
-          gap: 3px;
-          box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+          transition: all 0.2s cubic-bezier(0.23, 1, 0.32, 1);
+          background: var(--shiro);
         }
         .fsb-cat-item:hover {
-          border-color: var(--neutral-400);
-          transform: translateX(4px);
-          box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+          border-color: var(--neutral-300);
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         }
         .fsb-cat-item.active {
-          background: var(--aka-light);
           border-color: var(--aka);
-          transform: translateX(8px);
-          box-shadow: 0 8px 20px rgba(217, 38, 44, 0.12);
+          background: var(--neutral-50);
+          box-shadow: 0 0 0 1px var(--aka);
         }
         .fsb-cat-name {
-          font-size: 13px;
           font-weight: 700;
+          font-size: 13px;
           color: var(--neutral-900);
-          line-height: 1.3;
+          margin-bottom: 6px;
         }
-        .fsb-cat-item.active .fsb-cat-name { color: var(--aka); }
+        .fsb-cat-item.active .fsb-cat-name {
+          color: var(--aka);
+        }
         .fsb-cat-meta {
           display: flex;
+          align-items: center;
           justify-content: space-between;
           font-size: 10px;
           font-weight: 600;
@@ -377,7 +682,7 @@ export default function FullscreenBracketModal({
         }
         .match-wrapper { position: relative; }
 
-        /* Bracket node — matches taikaix-bracket-final-2-2-2-2.html exactly */
+        /* Bracket node */
         .bracket-node {
           width: 300px;
           background: var(--shiro);
@@ -392,25 +697,27 @@ export default function FullscreenBracketModal({
         .bracket-node.live { border: 1px solid var(--status-live); box-shadow: 0 0 0 4px var(--status-live-bg), 0 12px 32px -8px rgba(0,0,0,0.05); }
         .bracket-node.pending { opacity: 0.7; border-style: dashed; background: var(--neutral-50); }
         .bracket-node.pending:hover { transform: none; }
+        .bracket-node.completed { border-color: var(--neutral-200); background: oklch(98% 0.005 145); }
+        .bracket-node.completed:hover { transform: none; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
 
         .live-indicator { position: absolute; top: 14px; right: 18px; display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 800; color: var(--status-live); text-transform: uppercase; letter-spacing: 0.12em; }
         .live-dot { width: 10px; height: 10px; background: var(--status-live); border-radius: 50%; box-shadow: 0 0 12px var(--status-live); animation: pulse 2s infinite; }
-        @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.4); opacity: 0.4; } 100% { transform: scale(1); opacity: 1; } }
-
-        .competitor-row { padding: 20px 24px; display: flex; justify-content: space-between; align-items: flex-start; border-left: 8px solid transparent; min-height: 110px; position: relative; }
-        .competitor-row.aka { border-left-color: var(--aka); }
-        .competitor-row.ao { border-left-color: var(--ao); border-top: 1px solid var(--neutral-100); }
-        .competitor-row.loser { opacity: 0.5; }
-        .comp-info { flex: 1; display: flex; flex-direction: column; gap: 4px; }
-        .comp-name { font-size: 16px; font-weight: 800; color: var(--neutral-900); letter-spacing: -0.02em; }
-        .comp-team { font-size: 11px; color: var(--neutral-400); font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; }
-        .comp-score { font-family: var(--font-mono); font-size: 42px; font-weight: 900; color: var(--neutral-900); line-height: 1; margin-left: 24px; margin-top: 4px; }
-
-        /* Metric tags */
-        .metrics-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 16px; }
-        .metric-tag { font-family: var(--font-mono); font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; background: var(--neutral-50); color: var(--neutral-500); border: 1px solid var(--neutral-200); min-width: 24px; text-align: center; user-select: none; }
-        .metric-tag.active-aka { background: var(--aka); color: var(--shiro); border-color: var(--aka); box-shadow: 0 4px 8px rgba(217,38,44,0.2); }
-        .metric-tag.active-ao { background: var(--ao); color: var(--shiro); border-color: var(--ao); box-shadow: 0 4px 8px rgba(26,77,181,0.2); }
+        
+        .competitor-row { display: flex; justify-content: space-between; align-items: stretch; padding: 16px 20px; border-bottom: 1px solid var(--neutral-200); position: relative; background: var(--shiro); }
+        .competitor-row.loser { background: var(--neutral-100); }
+        .competitor-row.loser .comp-name, .competitor-row.loser .comp-team, .competitor-row.loser .comp-score, .competitor-row.loser .metric-tag { color: var(--neutral-400); }
+        .competitor-row.winner { background: rgba(16, 185, 129, 0.1); }
+        .competitor-row::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 6px; }
+        .competitor-row.aka::before { background: var(--aka); }
+        .competitor-row.ao::before { background: var(--ao); }
+        .comp-info { display: flex; flex-direction: column; gap: 4px; }
+        .comp-name { font-family: var(--font-display); font-size: 14px; font-weight: 800; color: var(--neutral-900); letter-spacing: 0.05em; }
+        .comp-team { font-size: 9px; font-weight: 700; color: var(--neutral-500); text-transform: uppercase; letter-spacing: 0.1em; }
+        .metrics-row { display: flex; gap: 4px; margin-top: 6px; }
+        .metric-tag { padding: 2px 6px; border-radius: 4px; background: var(--neutral-100); color: var(--neutral-500); font-size: 9px; font-weight: 800; }
+        .metric-tag.active-aka { background: var(--aka); color: var(--shiro); }
+        .metric-tag.active-ao { background: var(--ao); color: var(--shiro); }
+        .comp-score { font-family: var(--font-display); font-size: 24px; font-weight: 800; color: var(--neutral-900); display: flex; align-items: center; padding-left: 16px; }
 
         /* Match footer */
         .match-footer { padding: 14px 24px; display: flex; align-items: center; gap: 16px; background: oklch(98% 0.002 250); border-top: 1px solid var(--neutral-100); height: 64px; }
@@ -443,7 +750,24 @@ export default function FullscreenBracketModal({
       <div className="fsb-overlay">
         {/* Modal Header */}
         <div className="fsb-header">
-          <div className="fsb-title">Tiesheet — {activeCategory?.name || 'Select Category'}</div>
+          <div className="fsb-title" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            Tiesheet — {activeCategory?.name || 'Select Category'}
+            {activeCategory && onAssignMat && (
+              <select 
+                value={activeCategory.mat || ''}
+                onChange={(e) => onAssignMat(activeCategory.id, e.target.value)}
+                style={{
+                  fontSize: '14px', padding: '4px 12px', borderRadius: '8px',
+                  border: '1px solid var(--neutral-300)', fontFamily: 'var(--font-body)',
+                  letterSpacing: 'normal', textTransform: 'none', background: 'var(--shiro)',
+                  color: 'var(--neutral-900)'
+                }}
+              >
+                <option value="">-- Assign Mat --</option>
+                {mats.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            )}
+          </div>
           <button className="fsb-close" onClick={onClose} title="Close (Esc)">
             <X size={18} />
           </button>
@@ -453,29 +777,31 @@ export default function FullscreenBracketModal({
         <div className="fsb-body">
           {/* Category Sidebar */}
           <aside className="fsb-sidebar">
-            <div className="fsb-sidebar-title">Categories ({categories.length})</div>
-            {categories.map(cat => (
-              <div
-                key={cat.id}
-                className={`fsb-cat-item${activeCatId === cat.id ? ' active' : ''}`}
-                onClick={() => setActiveCatId(cat.id)}
-              >
-                <div className="fsb-cat-name">{cat.name}</div>
-                <div className="fsb-cat-meta">
-                  {cat.status === 'live' ? (
-                    <div className="fsb-live-tag">
-                      <div className="fsb-live-dot" />
-                      {cat.mat ? `MAT ${cat.mat.padStart(2, '0')}` : 'LIVE'}
-                    </div>
-                  ) : (
-                    <div style={{ color: cat.status === 'completed' ? 'var(--neutral-400)' : 'var(--status-upcoming)' }}>
-                      {cat.status === 'completed' ? 'COMPLETED' : (cat.mat ? `MAT ${cat.mat.padStart(2, '0')}` : 'NOT ASSIGNED')}
-                    </div>
-                  )}
-                  <div>{(cat.athletes?.length || cat.matches?.filter((m: any) => m.round === 1 && (m.aka || m.ao)).length * 2 || 0)} ATH</div>
+            <div className="fsb-sidebar-header">Categories ({categories.length})</div>
+            <div className="fsb-cat-list">
+              {categories.map(cat => (
+                <div
+                  key={cat.id}
+                  className={`fsb-cat-item${activeCatId === cat.id ? ' active' : ''}`}
+                  onClick={() => setActiveCatId(cat.id)}
+                >
+                  <div className="fsb-cat-name">{cat.name}</div>
+                  <div className="fsb-cat-meta">
+                    {cat.status === 'live' ? (
+                      <div className="fsb-live-tag">
+                        <div className="fsb-live-dot" />
+                        {cat.mat ? `MAT ${cat.mat.padStart(2, '0')}` : 'LIVE'}
+                      </div>
+                    ) : (
+                      <div style={{ color: cat.status === 'completed' ? 'var(--neutral-400)' : 'var(--status-upcoming)' }}>
+                        {cat.status === 'completed' ? 'COMPLETED' : (cat.mat ? `MAT ${cat.mat.padStart(2, '0')}` : 'NOT ASSIGNED')}
+                      </div>
+                    )}
+                    <div>{(cat.athletes?.length || cat.matches?.filter((m: any) => m.round === 1 && (m.aka || m.ao)).length * 2 || 0)} ATH</div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </aside>
 
           {/* Bracket Content */}
@@ -485,6 +811,13 @@ export default function FullscreenBracketModal({
                 matches={activeCategory.matches || []}
                 categoryName={activeCategory.name}
                 mats={mats}
+                firstRoundOnly={activeCatFirstRoundOnly}
+                highlightMatchId={modalHighlight}
+                allCategories={categories}
+                onNavigateToMatch={(catId, matchId) => {
+                  setActiveCatId(catId);
+                  setModalHighlight(matchId);
+                }}
                 onPromote={onPromote}
               />
             ) : (

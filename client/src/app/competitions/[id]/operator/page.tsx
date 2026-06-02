@@ -4,31 +4,214 @@ import React, { useState, useEffect } from 'react';
 import { Maximize, ArrowLeft, Play, Pause, Flag, RotateCw } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import PasswordGateway from '@/components/auth/PasswordGateway';
+import { toast } from 'react-hot-toast';
 
 export default function OperatorPortal({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
   const [isFullscreen, setIsFullscreen] = useState(false);
   
   // State
-  const [aka, setAka] = useState({ name: 'SATO', country: 'JPN', academy: 'Kyoto Martial Academy', score: 3, yuko: 1, waza: 1, ippon: 0, c1: 1, c2: 1, c3: 0, hc: 0, h: 0, senshu: true });
-  const [ao, setAo] = useState({ name: 'DOE', country: 'USA', academy: 'Pacific Dojo Union', score: 1, yuko: 1, waza: 0, ippon: 0, c1: 1, c2: 0, c3: 0, hc: 0, h: 0, senshu: false });
-  const [timer, setTimer] = useState(102);
+  const [aka, setAka] = useState({ name: 'AKA', country: '', academy: '', score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false });
+  const [ao, setAo] = useState({ name: 'AO', country: '', academy: '', score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false });
+  const [timer, setTimer] = useState(180);
+  const [matchDuration, setMatchDuration] = useState(180); // configurable
   const [running, setRunning] = useState(false);
   const [status, setStatus] = useState<'upcoming' | 'ongoing' | 'paused' | 'finished'>('ongoing');
   const [round, setRound] = useState(1);
 
-  const [queue, setQueue] = useState([
-    { id: 'M06', aka: 'Tanaka (JPN)', ao: 'Muller (GER)', category: 'Male Kumite -75kg', akaReady: true, aoReady: true },
-    { id: 'M07', aka: 'Chen (CHN)', ao: 'Ali (EGY)', category: 'Male Kumite -75kg', akaReady: true, aoReady: false },
-    { id: 'M08', aka: 'Rossi (ITA)', ao: 'Kim (KOR)', category: 'Male Kumite -75kg', akaReady: false, aoReady: false },
-    { id: 'M09', aka: 'Silva (BRA)', ao: 'Jones (USA)', category: 'Male Kumite -75kg', akaReady: false, aoReady: false },
-    { id: 'M10', aka: 'Lopez (ESP)', ao: 'Gomez (MEX)', category: 'Male Kumite -75kg', akaReady: false, aoReady: false },
-    { id: 'M11', aka: 'Singh (IND)', ao: 'Wong (SGP)', category: 'Male Kumite -75kg', akaReady: false, aoReady: false },
-  ]);
+  const [queue, setQueue] = useState<any[]>([]);
+  const [allCompletedMatches, setAllCompletedMatches] = useState<any[]>([]);
+  const [recentMatches, setRecentMatches] = useState<any[]>([]);
+  const [leaderboardFilter, setLeaderboardFilter] = useState<'academy' | 'state' | 'country'>('academy');
+  const [leaderboardIsFullscreen, setLeaderboardIsFullscreen] = useState(false);
+  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
+  const [activeCategoryName, setActiveCategoryName] = useState('');
+  const [compData, setCompData] = useState<any>(null);
+  const [activeMatchId, setActiveMatchId] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [tempQueue, setTempQueue] = useState([...queue]);
-  const visibleQueue = queue.slice(0, 3);
+  const [tempQueue, setTempQueue] = useState<any[]>([]);
+  
+  const [queueSearchQuery, setQueueSearchQuery] = useState('');
+  const [queueFilterCategory, setQueueFilterCategory] = useState('');
+  const [queueFilterPool, setQueueFilterPool] = useState('');
+  
+  const filteredQueue = queue.filter(match => {
+    let matchFullName = `${match.aka} ${match.ao}`.toLowerCase();
+    let matchesSearch = queueSearchQuery ? matchFullName.includes(queueSearchQuery.toLowerCase()) : true;
+    let matchesCat = queueFilterCategory ? match.category === queueFilterCategory : true;
+    let matchesPool = queueFilterPool ? String(match.pool) === queueFilterPool : true;
+    return matchesSearch && matchesCat && matchesPool;
+  });
+  const visibleQueue = filteredQueue;
+  
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
+
+  const leaderboard = React.useMemo(() => {
+    const counts: Record<string, { name: string, country: string, wins: number }> = {};
+    allCompletedMatches.forEach(m => {
+      const isAka = m.winnerId === m.aka?.playerId || m.winnerId === m.aka?.name;
+      const winnerData = isAka ? m.aka : m.ao;
+      if (winnerData) {
+        const key = winnerData[leaderboardFilter] || 'Unattached';
+        if (!counts[key]) {
+          counts[key] = { name: key, country: winnerData.country || winnerData.state || 'Unknown', wins: 0 };
+        }
+        counts[key].wins++;
+      }
+    });
+    return Object.values(counts).sort((a, b) => b.wins - a.wins).slice(0, leaderboardIsFullscreen ? 20 : 3);
+  }, [allCompletedMatches, leaderboardFilter, leaderboardIsFullscreen]);
+
+  // RTDB sync — writes to live_scores/{id}/mats/{matId} on every state change
+  useEffect(() => {
+    const updateRTDB = async () => {
+      try {
+        const { rtdb } = await import('@lib/firebase');
+        const { ref, set } = await import('firebase/database');
+        
+        // Mat ID from URL query param e.g. /operator?mat=mat-1
+        const params = new URLSearchParams(window.location.search);
+        const matId = params.get('mat') || 'mat-1';
+        
+        const matRef = ref(rtdb, `live_scores/${id}/mats/${matId}`);
+        
+        const mm = Math.floor(timer / 60).toString().padStart(2, '0');
+        const ss = (timer % 60).toString().padStart(2, '0');
+        
+        const payload = {
+          status: status === 'finished' ? 'standby' : (status === 'upcoming' ? 'upcoming' : (running ? 'live' : 'paused')),
+          currentCategory: activeCategoryName || 'No Active Category',
+          currentMatch: queue[0]?.displayId || 'Standby',
+          // Competitor identifiers (read by live/mat/[matId] display)
+          akaName: aka.name,
+          akaCountry: aka.country,
+          akaAcademy: aka.academy,
+          aoName: ao.name,
+          aoCountry: ao.country,
+          aoAcademy: ao.academy,
+          // Scores
+          scores: {
+            aka: aka.score,
+            ao: ao.score,
+          },
+          // Individual penalties (read by live display for penalty dots)
+          akaPenalties: { c1: aka.c1, c2: aka.c2, c3: aka.c3, hc: aka.hc, h: aka.h },
+          aoPenalties:  { c1: ao.c1,  c2: ao.c2,  c3: ao.c3,  hc: ao.hc,  h: ao.h  },
+          // Timer
+          timerSeconds: timer,
+          timerRunning: running,
+          timeRemaining: `${mm}:${ss}`,
+        };
+        
+        await set(matRef, payload);
+      } catch (err) {
+        console.error('Failed to sync RTDB', err);
+      }
+    };
+
+    updateRTDB();
+  }, [id, aka, ao, timer, status, running]);
+
+
+  useEffect(() => {
+    let unsubscribe = () => {};
+    const setupQueue = async () => {
+      const { db } = await import('@lib/firebase');
+      const { collection, onSnapshot, query, where, doc, getDoc } = await import('firebase/firestore');
+
+      const params = new URLSearchParams(window.location.search);
+      const matId = params.get('mat') || 'mat-1';
+      const matNumberStr = matId.replace('mat-', '');
+      const matName = `MAT ${matNumberStr.padStart(2, '0')}`;
+      
+      const compRef = doc(db, 'competitions', id);
+      const compSnap = await getDoc(compRef);
+      if (compSnap.exists()) {
+        setCompData(compSnap.data());
+      }
+
+      const qMat = query(
+        collection(db, 'competitions', id, 'categories'),
+        where('mat', '==', matName)
+      );
+
+      unsubscribe = onSnapshot(qMat, (snap) => {
+        let cats = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+        
+        let completed: any[] = [];
+        cats.forEach(cat => {
+          (cat.matches || []).forEach((m: any) => {
+            if (m.status === 'completed' && m.winnerId) {
+              completed.push(m);
+            }
+          });
+        });
+        setAllCompletedMatches(completed);
+
+        cats = cats.filter(c => c.status === 'live' || c.status === 'upcoming');
+        cats.sort((a, b) => (a.order || 0) - (b.order || 0));
+
+        if (cats.length > 0) {
+          const activeCat = cats[0];
+          setActiveCategoryId(activeCat.id);
+          setActiveCategoryName(activeCat.name);
+          const matches = activeCat.matches || [];
+          
+          const pendingMatches = matches.filter((m: any) => m.status !== 'completed');
+          const completedMatches = matches.filter((m: any) => m.status === 'completed').reverse().slice(0, 3);
+          setRecentMatches(completedMatches);
+          
+          const mappedQueue = pendingMatches.map((m: any) => ({
+            id: m.id,
+            displayId: m.matchNumber ? `M${String(m.matchNumber).padStart(2, '0')}` : m.id,
+            aka: m.aka?.name || (m.akaFromMatchId ? `Winner M${m.akaFromMatchId}` : 'BYE'),
+            akaId: m.aka?.playerId || m.aka?.name,
+            akaAcademy: m.aka?.academy || '',
+            akaCountry: m.aka?.country || m.aka?.state || '',
+            ao: m.ao?.name || (m.aoFromMatchId ? `Winner M${m.aoFromMatchId}` : 'BYE'),
+            aoId: m.ao?.playerId || m.ao?.name,
+            aoAcademy: m.ao?.academy || '',
+            aoCountry: m.ao?.country || m.ao?.state || '',
+            category: activeCat.name,
+            pool: m.pool || (m.id && m.id.includes('Pool') ? m.id.split('-')[0].replace('Pool', '') : null),
+            akaReady: m.aka?.readiness === 'ready',
+            aoReady: m.ao?.readiness === 'ready',
+          })).filter((m: any) => !m.aka.startsWith('Winner M') && !m.ao.startsWith('Winner M'));
+          setQueue(mappedQueue);
+        } else {
+          setQueue([]);
+          setRecentMatches([]);
+          setActiveCategoryId(null);
+          setActiveCategoryName('');
+        }
+      });
+    };
+    setupQueue();
+    return () => unsubscribe();
+  }, [id]);
+
+  const loadMatch = (m: any) => {
+    setActiveMatchId(m.id);
+    setAka({ name: m.aka, country: m.akaCountry, academy: m.akaAcademy, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false });
+    setAo({ name: m.ao, country: m.aoCountry, academy: m.aoAcademy, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false });
+    setTimer(matchDuration);
+    setStatus('upcoming');
+    setRound(1);
+    setWinnerState(null);
+  };
+
+  useEffect(() => {
+    if (queue.length > 0 && !activeMatchId) {
+      loadMatch(queue[0]);
+    } else if (queue.length > 0 && activeMatchId) {
+       // Keep names in sync if edited externally
+       const m = queue.find(q => q.id === activeMatchId);
+       if (m) {
+         setAka(p => ({ ...p, name: m.aka, country: m.akaCountry, academy: m.akaAcademy }));
+         setAo(p => ({ ...p, name: m.ao, country: m.aoCountry, academy: m.aoAcademy }));
+       }
+    }
+  }, [queue, activeMatchId]);
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
     setDraggedIdx(index);
@@ -39,6 +222,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
     e.preventDefault();
     if (draggedIdx === null || draggedIdx === targetIdx) return;
     
+    // In a real app we'd save this order to Firestore
     const newQueue = [...queue];
     const [draggedItem] = newQueue.splice(draggedIdx, 1);
     newQueue.splice(targetIdx, 0, draggedItem);
@@ -65,7 +249,6 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
       interval = setInterval(() => setTimer(t => t - 1), 1000);
     } else if (timer === 0 && running) {
       setRunning(false);
-      setStatus('finished');
     }
     return () => clearInterval(interval);
   }, [running, timer]);
@@ -112,29 +295,143 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
   const mins = Math.floor(timer / 60).toString().padStart(2, '0');
   const secs = (timer % 60).toString().padStart(2, '0');
 
-  // Fullscreen UI (The design matching the user's screenshot)
+  const [winnerState, setWinnerState] = useState<{ color: 'aka'|'ao', name: string, academy: string, points: number } | null>(null);
+
+  const handleNextMatch = () => {
+    const currentIdx = queue.findIndex(m => m.id === activeMatchId);
+    if (currentIdx !== -1 && queue.length > currentIdx + 1) {
+      loadMatch(queue[currentIdx + 1]);
+    } else if (currentIdx === -1 && queue.length > 0) {
+      loadMatch(queue[0]);
+    } else {
+      toast.error("No pending matches in queue");
+    }
+  };
+
+  const handleStartCategory = async () => {
+    if (!activeCategoryId) return;
+    try {
+      const { db } = await import('@lib/firebase');
+      const { doc, updateDoc } = await import('firebase/firestore');
+      const catRef = doc(db, 'competitions', id, 'categories', activeCategoryId);
+      await updateDoc(catRef, { status: 'live' });
+      toast.success('Category started!');
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to start category.');
+    }
+  };
+
+  const handleNextCategory = async () => {
+    if (!activeCategoryId) return;
+    try {
+      const { db } = await import('@lib/firebase');
+      const { doc, updateDoc } = await import('firebase/firestore');
+      const catRef = doc(db, 'competitions', id, 'categories', activeCategoryId);
+      await updateDoc(catRef, { status: 'skipped' });
+      toast.success('Skipped to next category');
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to skip category.');
+    }
+  };
+
+  const handleFinishMatch = async () => {
+    const currentMatch = queue.find(m => m.id === activeMatchId);
+    if (!currentMatch || !activeCategoryId) {
+      toast.error('No active match to finish');
+      return;
+    }
+    setRunning(false);
+    setStatus('finished');
+    
+    let winnerId = null;
+    let winningColor: 'aka' | 'ao' | null = null;
+    if (aka.score > ao.score) {
+      winnerId = activeMatchId; // Wait, we need the actual competitor ID if possible. But we have aka.name
+      winningColor = 'aka';
+    } else if (ao.score > aka.score) {
+      winnerId = activeMatchId; // Just for API patching
+      winningColor = 'ao';
+    } else if (aka.senshu) {
+      winnerId = activeMatchId;
+      winningColor = 'aka';
+    } else if (ao.senshu) {
+      winnerId = activeMatchId;
+      winningColor = 'ao';
+    }
+    
+    if (!winningColor) {
+      toast.error('Tie! Please assign Senshu or resolve before finishing.');
+      return;
+    }
+
+    try {
+      // Find the match in queue to get the real winnerId
+      const currentMatch = queue.find(m => m.id === activeMatchId);
+      const realWinnerId = winningColor === 'aka' ? currentMatch?.akaId : currentMatch?.aoId;
+
+      setWinnerState({
+        color: winningColor,
+        name: winningColor === 'aka' ? aka.name : ao.name,
+        academy: winningColor === 'aka' ? aka.academy : ao.academy,
+        points: winningColor === 'aka' ? aka.score : ao.score
+      });
+
+      // Optimistic UI update for instant feedback
+      if (currentMatch) {
+        setRecentMatches(prev => [{
+          ...currentMatch,
+          status: 'completed',
+          winnerId: realWinnerId || winnerId,
+          akaScore: aka.score,
+          aoScore: ao.score,
+        }, ...prev].slice(0, 3));
+        setQueue(prev => prev.filter(m => m.id !== activeMatchId));
+      }
+
+      const res = await fetch(`/api/competitions/${id}/brackets/${activeCategoryId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ matchId: activeMatchId, winnerId: realWinnerId || winnerId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Match finished and winner advanced!');
+      } else {
+        toast.error('Failed to advance winner: ' + data.error);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to finish match.');
+    }
+  };
+
   const handleFinishCategory = async () => {
     try {
       const { db } = await import('@lib/firebase');
       const { collection, getDocs, query, where, updateDoc, doc } = await import('firebase/firestore');
       
-      // Find the first live or upcoming category for MAT 01
+      const params = new URLSearchParams(window.location.search);
+      const matId = params.get('mat') || 'mat-1';
+      const matNumberStr = matId.replace('mat-', '');
+      const matName = `MAT ${matNumberStr.padStart(2, '0')}`;
+      
       const q = query(
         collection(db, 'competitions', id, 'categories'),
-        where('mat', '==', 'MAT 01'),
+        where('mat', '==', matName),
         where('status', 'in', ['live', 'upcoming'])
       );
       
       const snaps = await getDocs(q);
       if (snaps.empty) {
-        alert("No active categories found on MAT 01 to finish.");
+        toast.error(`No active categories found on ${matName} to finish.`);
         return;
       }
       
       const targetDoc = snaps.docs[0];
       const catRef = doc(db, 'competitions', id, 'categories', targetDoc.id);
       
-      // Helper functions for time shift
       const addMinutesToTime = (timeStr: string, minutes: number) => {
         if (!timeStr) return '';
         const [h, m] = timeStr.split(':').map(Number);
@@ -159,7 +456,6 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
       
       await updateDoc(catRef, { status: 'done', actualEndTime: actualEndStr });
 
-      // Shift subsequent categories
       const targetData = targetDoc.data();
       const diffMins = getTimeDiffMins(targetData.scheduledEndTime, actualEndStr);
       
@@ -167,7 +463,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
         const { writeBatch } = await import('firebase/firestore');
         const upcomingQ = query(
           collection(db, 'competitions', id, 'categories'),
-          where('mat', '==', 'MAT 01'),
+          where('mat', '==', matName),
           where('status', '==', 'upcoming')
         );
         const upcomingSnaps = await getDocs(upcomingQ);
@@ -190,10 +486,10 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
         }
       }
       
-      alert(`Category ${targetData.name} marked as DONE! Check the Schedule page to see the preemptive shift.`);
+      toast.success(`Category ${targetData.name} marked as DONE! Check the Schedule page to see the preemptive shift.`);
     } catch (err) {
       console.error(err);
-      alert("Error finishing category.");
+      toast.error("Error finishing category.");
     }
   };
 
@@ -212,10 +508,9 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
           .overlay-btn.return { background: var(--neutral-900); color: var(--shiro); border-color: var(--neutral-900); }
           .overlay-btn.return:hover { background: var(--neutral-800); }
 
-          .fs-body { display: grid; grid-template-columns: 80px 1fr 180px 1fr 80px; gap: 24px; padding: 0 40px 40px; flex: 1; min-height: 0; }
-          
-          .fs-stat-col { display: flex; flex-direction: column; gap: 12px; }
-          .fs-stat-card { background: var(--shiro); border: 1px solid var(--neutral-200); border-radius: 12px; padding: 16px 8px; text-align: center; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.02); }
+          .fs-body { display: grid; grid-template-columns: 140px 1fr 200px 1fr 140px; gap: 24px; padding: 0 40px 40px; flex: 1; min-height: 0; }
+          .fs-stat-col { width: 140px; display: flex; flex-direction: column; gap: 16px; flex-shrink: 0; }
+          .fs-stat-card { flex: 1; background: var(--shiro); border: 1px solid var(--neutral-200); border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.02); }
           .fs-stat-label { font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--neutral-900); letter-spacing: 0.05em; margin-bottom: 8px; }
           .fs-stat-value { font-family: var(--font-display); font-size: 32px; font-weight: 800; color: var(--ao); }
           .fs-stat-value.aka { color: var(--aka); }
@@ -245,6 +540,14 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
           .fs-pen-dot.ao.active { border-color: var(--ao); background: var(--ao); }
           .fs-academy { font-size: 14px; font-weight: 700; color: var(--neutral-900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+          .fs-winner-showcase { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; border-radius: 24px; padding: 48px; text-align: center; }
+          .fs-winner-showcase.aka { background: var(--aka); color: #fff; }
+          .fs-winner-showcase.ao { background: var(--ao); color: #fff; }
+          .fs-winner-title { font-size: clamp(40px, 5vw, 60px); font-weight: 800; letter-spacing: 0.1em; margin-bottom: 24px; text-transform: uppercase; }
+          .fs-winner-name { font-family: var(--font-display); font-size: clamp(60px, 8vw, 120px); font-weight: 800; line-height: 1; text-transform: uppercase; margin-bottom: 16px; color: #fff; }
+          .fs-winner-points { font-family: var(--font-display); font-size: clamp(140px, 20vw, 320px); font-weight: 800; line-height: 1; margin-bottom: 24px; color: #fff; }
+          @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-16px); } 100% { transform: translateY(0px); } }
+
           .fs-mid { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
           .fs-round-pill { border: 1px solid var(--neutral-300); background: var(--shiro); padding: 4px 16px; border-radius: 999px; font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
           .fs-timer-label { font-size: 12px; font-weight: 800; color: var(--neutral-900); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; margin-top: auto; }
@@ -272,79 +575,91 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
           </div>
         </div>
 
-        <div className="fs-body">
-          {/* AKA STATS */}
-          <div className="fs-stat-col">
-            <div className="fs-stat-card"><div className="fs-stat-label">Yuko</div><div className="fs-stat-value aka">{aka.yuko}</div></div>
-            <div className="fs-stat-card"><div className="fs-stat-label">Waza</div><div className="fs-stat-value aka">{aka.waza}</div></div>
-            <div className="fs-stat-card"><div className="fs-stat-label">Ippon</div><div className="fs-stat-value aka">{aka.ippon}</div></div>
-            <div className={`fs-stat-card ${aka.senshu ? 'active-senshu aka' : ''}`}><div className="fs-stat-label" style={{margin:0, color: aka.senshu ? '#fff' : 'inherit'}}>Senshu</div></div>
-          </div>
-
-          {/* AKA CARD */}
-          <article className="fs-fighter">
-            <div className="fs-fighter-head aka">
-              <div className="fs-lane">AKA</div>
-              <div className="fs-name">{aka.name}</div>
-            </div>
-            <div className="fs-score-stage">
-              <div className="fs-main-score aka">{aka.score}</div>
-            </div>
-            <div className="fs-fighter-foot">
-              <div className="fs-pen-title">Penalties</div>
-              <div className="fs-penalties">
-                {['c1', 'c2', 'c3', 'hc', 'h'].map((p) => (
-                  <span className="fs-pen-slot" key={p}>
-                    <span className="fs-pen-code">{p.toUpperCase()}</span>
-                    <span className={`fs-pen-dot aka ${(aka as any)[p] ? 'active' : ''}`}></span>
-                  </span>
-                ))}
+        <div className="fs-body" style={{ display: winnerState ? 'flex' : 'grid', height: winnerState ? '100%' : 'auto' }}>
+          {winnerState ? (
+            <div style={{ flex: 1, padding: '24px 0', display: 'flex', flexDirection: 'column' }}>
+              <div className={`fs-winner-showcase ${winnerState.color}`}>
+                <div className="fs-winner-title">{winnerState.color === 'aka' ? 'AKA WINS' : 'AO WINS'}</div>
+                <div className="fs-winner-points">{winnerState.points}</div>
+                <div className="fs-winner-name">{winnerState.name}</div>
               </div>
-              <div className="fs-academy">{aka.academy}</div>
             </div>
-          </article>
-
-          {/* MIDDLE */}
-          <div className="fs-mid">
-            <span className="fs-round-pill">Round {round}</span>
-            <div className="fs-timer-label">Time Remaining</div>
-            <div className="fs-timer" style={{ color: timer <= 10 ? 'var(--aka)' : 'inherit' }}>{mins}:{secs}</div>
-            <div className="fs-status-wrap">
-              <div className="fs-status-label">Match Status</div>
-              <span className="fs-status-pill">{status}</span>
-            </div>
-          </div>
-
-          {/* AO CARD */}
-          <article className="fs-fighter">
-            <div className="fs-fighter-head ao">
-              <div className="fs-lane">AO</div>
-              <div className="fs-name">{ao.name}</div>
-            </div>
-            <div className="fs-score-stage">
-              <div className="fs-main-score ao">{ao.score}</div>
-            </div>
-            <div className="fs-fighter-foot">
-              <div className="fs-pen-title">Penalties</div>
-              <div className="fs-penalties">
-                {['c1', 'c2', 'c3', 'hc', 'h'].map((p) => (
-                  <span className="fs-pen-slot" key={p}>
-                    <span className="fs-pen-code">{p.toUpperCase()}</span>
-                    <span className={`fs-pen-dot ao ${(ao as any)[p] ? 'active' : ''}`}></span>
-                  </span>
-                ))}
+          ) : (
+            <>
+              {/* AKA STATS */}
+              <div className="fs-stat-col">
+                <div className="fs-stat-card"><div className="fs-stat-label">Yuko</div><div className="fs-stat-value aka">{aka.yuko}</div></div>
+                <div className="fs-stat-card"><div className="fs-stat-label">Waza</div><div className="fs-stat-value aka">{aka.waza}</div></div>
+                <div className="fs-stat-card"><div className="fs-stat-label">Ippon</div><div className="fs-stat-value aka">{aka.ippon}</div></div>
+                <div className={`fs-stat-card ${aka.senshu ? 'active-senshu aka' : ''}`}><div className="fs-stat-label" style={{margin:0, color: aka.senshu ? '#fff' : 'inherit'}}>Senshu</div></div>
               </div>
-              <div className="fs-academy">{ao.academy}</div>
-            </div>
-          </article>
 
-          {/* AO STATS */}
-          <div className="fs-stat-col">
-            <div className="fs-stat-card"><div className="fs-stat-label">Yuko</div><div className="fs-stat-value">{ao.yuko}</div></div>
-            <div className="fs-stat-card"><div className="fs-stat-label">Waza</div><div className="fs-stat-value">{ao.waza}</div></div>
-            <div className="fs-stat-card"><div className="fs-stat-label">Ippon</div><div className="fs-stat-value">{ao.ippon}</div></div>
-            <div className={`fs-stat-card ${ao.senshu ? 'active-senshu ao' : ''}`}><div className="fs-stat-label" style={{margin:0, color: ao.senshu ? '#fff' : 'inherit'}}>Senshu</div></div>
-          </div>
+              {/* AKA CARD */}
+              <article className="fs-fighter">
+                <div className="fs-fighter-head aka">
+                  <div className="fs-lane">AKA</div>
+                  <div className="fs-name">{aka.name}</div>
+                </div>
+                <div className="fs-score-stage">
+                  <div className="fs-main-score aka">{aka.score}</div>
+                </div>
+                <div className="fs-fighter-foot">
+                  <div className="fs-pen-title">Penalties</div>
+                  <div className="fs-penalties">
+                    {['c1', 'c2', 'c3', 'hc', 'h'].map((p) => (
+                      <span className="fs-pen-slot" key={p}>
+                        <span className="fs-pen-code">{p.toUpperCase()}</span>
+                        <span className={`fs-pen-dot aka ${(aka as any)[p] ? 'active' : ''}`}></span>
+                      </span>
+                    ))}
+                  </div>
+                  <div className="fs-academy">{aka.academy}</div>
+                </div>
+              </article>
+
+              {/* MIDDLE */}
+              <div className="fs-mid">
+                <span className="fs-round-pill">Round {round}</span>
+                <div className="fs-timer-label">Time Remaining</div>
+                <div className="fs-timer" style={{ color: timer <= 10 ? 'var(--aka)' : 'inherit' }}>{mins}:{secs}</div>
+                <div className="fs-status-wrap">
+                  <div className="fs-status-label">Match Status</div>
+                  <span className="fs-status-pill">{status}</span>
+                </div>
+              </div>
+
+              {/* AO CARD */}
+              <article className="fs-fighter">
+                <div className="fs-fighter-head ao">
+                  <div className="fs-lane">AO</div>
+                  <div className="fs-name">{ao.name}</div>
+                </div>
+                <div className="fs-score-stage">
+                  <div className="fs-main-score ao">{ao.score}</div>
+                </div>
+                <div className="fs-fighter-foot">
+                  <div className="fs-pen-title">Penalties</div>
+                  <div className="fs-penalties">
+                    {['c1', 'c2', 'c3', 'hc', 'h'].map((p) => (
+                      <span className="fs-pen-slot" key={p}>
+                        <span className="fs-pen-code">{p.toUpperCase()}</span>
+                        <span className={`fs-pen-dot ao ${(ao as any)[p] ? 'active' : ''}`}></span>
+                      </span>
+                    ))}
+                  </div>
+                  <div className="fs-academy">{ao.academy}</div>
+                </div>
+              </article>
+
+              {/* AO STATS */}
+              <div className="fs-stat-col">
+                <div className="fs-stat-card"><div className="fs-stat-label">Yuko</div><div className="fs-stat-value">{ao.yuko}</div></div>
+                <div className="fs-stat-card"><div className="fs-stat-label">Waza</div><div className="fs-stat-value">{ao.waza}</div></div>
+                <div className="fs-stat-card"><div className="fs-stat-label">Ippon</div><div className="fs-stat-value">{ao.ippon}</div></div>
+                <div className={`fs-stat-card ${ao.senshu ? 'active-senshu ao' : ''}`}><div className="fs-stat-label" style={{margin:0, color: ao.senshu ? '#fff' : 'inherit'}}>Senshu</div></div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </PasswordGateway>
@@ -424,16 +739,23 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
       <main className="container">
         <header className="page-header">
           <div>
-            <div className="breadcrumb">Kyoto 2026 Finals / Mat 01 / Operations</div>
+            <div className="breadcrumb" style={{ fontSize: '13px', fontWeight: 800, color: 'var(--neutral-500)', letterSpacing: '0.1em' }}>
+              {compData?.name ? compData.name.toUpperCase() : 'TOURNAMENT'} • {activeCategoryName ? activeCategoryName.toUpperCase() : 'NO CATEGORY'}
+            </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px' }}>
-              <h1 style={{ fontSize: '40px', margin: 0 }}>Mat 01</h1>
+              <h1 style={{ fontSize: '40px', margin: 0 }}>{new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('mat') ? `Mat ${new URLSearchParams(window.location.search).get('mat')?.replace('mat-', '').padStart(2, '0')}` : 'Mat 01'}</h1>
               <span className="status-chip status-live">Live</span>
+              {activeCategoryName && (
+                <span style={{ fontSize: '16px', fontWeight: 700, color: 'var(--neutral-500)', marginLeft: '12px' }}>
+                  {activeCategoryName} {queue.find(m => m.id === activeMatchId)?.pool ? `(Pool ${queue.find(m => m.id === activeMatchId)?.pool})` : ''}
+                </span>
+              )}
             </div>
           </div>
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-            <button className="btn btn-primary" onClick={() => { setRunning(true); setStatus('ongoing'); }} disabled={status !== 'upcoming' && status !== 'paused'}><Play size={16} /> Start Match</button>
-            <button className="btn btn-danger" onClick={() => { setRunning(false); setStatus('finished'); }} disabled={status !== 'ongoing' && status !== 'paused'}><Flag size={16} /> Match Over</button>
+            <button className="btn btn-primary" onClick={handleStartCategory}><Play size={16} /> Start Category</button>
             <button className="btn btn-secondary" onClick={handleFinishCategory}><Flag size={16} /> Finish Category</button>
+            <button className="btn btn-secondary" onClick={handleNextCategory}>Next Category</button>
             <button className="btn btn-primary" onClick={() => setIsFullscreen(true)}>
               <Maximize size={16} /> View Scoreboard Fullscreen
             </button>
@@ -500,20 +822,71 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
               </div>
 
               <div className="ops-controls">
-                <div className="round-ops-strip">
+                <div className="round-ops-strip" style={{ borderBottom: '1px solid var(--neutral-200)', background: 'var(--shiro)' }}>
                   <div style={{ fontWeight: 700, fontSize: '14px' }}>Round Operations</div>
                   <div style={{ display: 'flex', gap: '8px' }}>
-                    <button className="btn-round" onClick={() => { setRunning(true); setStatus('ongoing'); }}><Play size={14} /> Start Round</button>
-                    <button className="btn-round" onClick={() => { setRunning(false); setStatus('paused'); }}><Pause size={14} /> Pause Round</button>
-                    <button className="btn-round" onClick={() => { setRunning(false); setStatus('finished'); }}><Flag size={14} /> Finish Round</button>
-                    <button className="btn-round" onClick={() => { setRound(r => r + 1); setTimer(102); setRunning(false); setStatus('upcoming'); }}><RotateCw size={14} /> New Round</button>
+                    <button className="btn-round" onClick={() => setRunning(true)}><Play size={14} /> Start Round</button>
+                    <button className="btn-round" onClick={() => setRunning(false)}><Pause size={14} /> Stop Round</button>
+                    <button className="btn-round" onClick={() => {
+                       setRound(r => r + 1);
+                       setAka(p => ({ ...p, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false }));
+                       setAo(p => ({ ...p, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false }));
+                       setTimer(matchDuration);
+                       setRunning(false);
+                    }}>New Round</button>
                     <button className="btn-round" style={{ color: 'var(--aka)', borderColor: 'rgba(225,29,72,0.3)' }} onClick={() => {
-                      setAka({ name: 'SATO', country: 'JPN', academy: 'Kyoto Martial Academy', score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false });
-                      setAo({ name: 'DOE', country: 'USA', academy: 'Pacific Dojo Union', score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false });
-                      setTimer(102);
+                      setAka(p => ({ ...p, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false }));
+                      setAo(p => ({ ...p, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false }));
+                      setTimer(matchDuration);
+                      setRunning(false);
+                    }}>↺ Reset Round</button>
+                  </div>
+                </div>
+                <div className="round-ops-strip" style={{ flexWrap: 'wrap', gap: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontWeight: 700, fontSize: '14px' }}>
+                    Match Operations
+                    <span style={{ fontWeight: 500, fontSize: '12px', color: 'var(--neutral-500)', borderLeft: '1px solid var(--neutral-200)', paddingLeft: '10px' }}>Timer:</span>
+                    <input
+                      type="number"
+                      min="1" max="99"
+                      value={Math.floor(matchDuration / 60)}
+                      onChange={e => {
+                        const mins = Math.max(0, parseInt(e.target.value) || 0);
+                        const secs = matchDuration % 60;
+                        const newDur = mins * 60 + secs;
+                        setMatchDuration(newDur);
+                        setTimer(newDur);
+                      }}
+                      style={{ width: '52px', padding: '4px 8px', border: '1px solid var(--neutral-300)', borderRadius: '6px', fontSize: '13px', fontWeight: 700, textAlign: 'center' }}
+                    />
+                    <span style={{ fontSize: '12px', color: 'var(--neutral-500)' }}>min</span>
+                    <input
+                      type="number"
+                      min="0" max="59"
+                      value={matchDuration % 60}
+                      onChange={e => {
+                        const secs = Math.min(59, Math.max(0, parseInt(e.target.value) || 0));
+                        const mins = Math.floor(matchDuration / 60);
+                        const newDur = mins * 60 + secs;
+                        setMatchDuration(newDur);
+                        setTimer(newDur);
+                      }}
+                      style={{ width: '52px', padding: '4px 8px', border: '1px solid var(--neutral-300)', borderRadius: '6px', fontSize: '13px', fontWeight: 700, textAlign: 'center' }}
+                    />
+                    <span style={{ fontSize: '12px', color: 'var(--neutral-500)' }}>sec</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button className="btn-round" onClick={handleNextMatch}>Next Match</button>
+                    <button className="btn-round" onClick={handleFinishMatch}><Flag size={14} /> Finish Match</button>
+                    <button className="btn-round" style={{ color: 'var(--aka)', borderColor: 'rgba(225,29,72,0.3)' }} onClick={() => {
+                      setRound(1);
+                      setAka(p => ({ ...p, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false }));
+                      setAo(p => ({ ...p, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false }));
+                      setTimer(matchDuration);
                       setRunning(false);
                       setStatus('upcoming');
-                    }}>↺ Reset Round</button>
+                      setWinnerState(null);
+                    }}>↺ Reset Match</button>
                   </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', padding: '24px', borderBottom: '1px solid var(--neutral-200)' }}>
@@ -567,15 +940,44 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
             </section>
 
             <section style={{ marginTop: '32px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '16px' }}>
                 <h2 style={{ fontSize: '20px', fontWeight: 800 }}>Match Queue</h2>
-                <button 
-                  className="btn btn-secondary" 
-                  onClick={() => { setTempQueue([...queue]); setShowEditModal(true); }}
-                  style={{ fontSize: '13px', padding: '6px 16px', background: 'var(--shiro)' }}
-                >
-                  Edit Queue
-                </button>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <input 
+                    type="text" 
+                    placeholder="Search athletes..."
+                    value={queueSearchQuery}
+                    onChange={(e) => setQueueSearchQuery(e.target.value)}
+                    style={{ padding: '6px 12px', fontSize: '13px', border: '1px solid var(--neutral-300)', borderRadius: '6px' }}
+                  />
+                  <select 
+                    value={queueFilterCategory} 
+                    onChange={(e) => setQueueFilterCategory(e.target.value)}
+                    style={{ padding: '6px 12px', fontSize: '13px', border: '1px solid var(--neutral-300)', borderRadius: '6px' }}
+                  >
+                    <option value="">All Categories</option>
+                    {Array.from(new Set(queue.map(m => m.category))).map(c => (
+                      <option key={c as string} value={c as string}>{c as string}</option>
+                    ))}
+                  </select>
+                  <select 
+                    value={queueFilterPool} 
+                    onChange={(e) => setQueueFilterPool(e.target.value)}
+                    style={{ padding: '6px 12px', fontSize: '13px', border: '1px solid var(--neutral-300)', borderRadius: '6px' }}
+                  >
+                    <option value="">All Pools</option>
+                    {Array.from(new Set(queue.map(m => m.pool).filter(Boolean))).map(p => (
+                      <option key={String(p)} value={String(p)}>Pool {String(p)}</option>
+                    ))}
+                  </select>
+                  <button 
+                    className="btn btn-secondary" 
+                    onClick={() => { setTempQueue([...queue]); setShowEditModal(true); }}
+                    style={{ fontSize: '13px', padding: '6px 16px', background: 'var(--shiro)' }}
+                  >
+                    Edit Queue
+                  </button>
+                </div>
               </div>
               <div style={{ background: 'var(--shiro)', border: '1px solid var(--neutral-200)', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
                 <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
@@ -588,47 +990,65 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                     </tr>
                   </thead>
                   <tbody>
-                    {visibleQueue.map((match, idx) => (
-                      <tr 
-                        key={match.id}
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, idx)}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={(e) => handleDropQueue(e, idx)}
-                        style={{ 
-                          borderBottom: '1px solid var(--neutral-100)',
-                          cursor: 'grab',
-                          backgroundColor: draggedIdx === idx ? 'var(--neutral-50)' : 'transparent',
-                          opacity: draggedIdx === idx ? 0.5 : 1
-                        }}
-                      >
-                        <td style={{ padding: '16px 20px', fontFamily: 'var(--font-mono)', fontWeight: 700, color: idx === 0 ? 'inherit' : 'var(--neutral-500)' }}>{match.id}</td>
-                        <td style={{ padding: '16px 20px', fontWeight: idx === 0 ? 800 : 700, fontSize: '14px' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <div>{match.aka.split(' ')[0]} <span style={{ color: 'var(--neutral-400)', margin: '0 8px', fontWeight: 500 }}>vs</span> {match.ao.split(' ')[0]}</div>
-                            <div style={{ display: 'flex', gap: '8px', fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                              <span style={{ color: match.akaReady ? '#10b981' : '#ef4444', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: match.akaReady ? '#10b981' : '#ef4444' }}></div>
-                                AKA {match.akaReady ? 'READY' : 'NOT READY'}
-                              </span>
-                              <span style={{ color: 'var(--neutral-300)' }}>•</span>
-                              <span style={{ color: match.aoReady ? '#10b981' : '#ef4444', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: match.aoReady ? '#10b981' : '#ef4444' }}></div>
-                                AO {match.aoReady ? 'READY' : 'NOT READY'}
-                              </span>
-                            </div>
-                          </div>
-                        </td>
-                        <td style={{ padding: '16px 20px', color: 'var(--neutral-600)', fontSize: '14px' }}>{match.category}</td>
-                        <td style={{ padding: '16px 20px', textAlign: 'right' }}>
-                          {idx === 0 ? (
-                            <span style={{ background: '#fef3c7', color: '#b45309', padding: '4px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 800, letterSpacing: '0.05em' }}>NEXT</span>
-                          ) : (
-                            <span style={{ background: 'var(--neutral-100)', color: 'var(--neutral-600)', padding: '4px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 800, letterSpacing: '0.05em' }}>STANDBY</span>
-                          )}
+                    {visibleQueue.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} style={{ padding: '32px 20px', textAlign: 'center', color: 'var(--neutral-500)' }}>
+                          No matches in queue for {activeCategoryName || 'this mat'}.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      visibleQueue.map((match, idx) => (
+                        <tr 
+                          key={match.id}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, idx)}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={(e) => handleDropQueue(e, idx)}
+                          style={{ 
+                            borderBottom: '1px solid var(--neutral-100)',
+                            cursor: 'grab',
+                            backgroundColor: draggedIdx === idx ? 'var(--neutral-50)' : 'transparent',
+                            opacity: draggedIdx === idx ? 0.5 : 1
+                          }}
+                        >
+                          <td style={{ padding: '16px 20px', fontFamily: 'var(--font-mono)', fontWeight: 700, color: idx === 0 ? 'inherit' : 'var(--neutral-500)' }}>{match.displayId}</td>
+                          <td style={{ padding: '16px 20px', fontWeight: idx === 0 ? 800 : 700, fontSize: '14px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                  <span>{match.aka}</span>
+                                  <span style={{ fontSize: '11px', color: 'var(--neutral-500)', fontWeight: 500 }}>{match.akaAcademy || 'Unattached'}</span>
+                                </div>
+                                <span style={{ color: 'var(--neutral-400)', margin: '0 8px', fontWeight: 500 }}>vs</span> 
+                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                  <span>{match.ao}</span>
+                                  <span style={{ fontSize: '11px', color: 'var(--neutral-500)', fontWeight: 500 }}>{match.aoAcademy || 'Unattached'}</span>
+                                </div>
+                              </div>
+                              <div style={{ display: 'flex', gap: '8px', fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                <span style={{ color: match.akaReady ? '#10b981' : '#ef4444', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: match.akaReady ? '#10b981' : '#ef4444' }}></div>
+                                  AKA {match.akaReady ? 'READY' : 'NOT READY'}
+                                </span>
+                                <span style={{ color: 'var(--neutral-300)' }}>•</span>
+                                <span style={{ color: match.aoReady ? '#10b981' : '#ef4444', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: match.aoReady ? '#10b981' : '#ef4444' }}></div>
+                                  AO {match.aoReady ? 'READY' : 'NOT READY'}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+                          <td style={{ padding: '16px 20px', color: 'var(--neutral-600)', fontSize: '14px' }}>{match.category}</td>
+                          <td style={{ padding: '16px 20px', textAlign: 'right' }}>
+                            {idx === 0 ? (
+                              <span style={{ background: '#fef3c7', color: '#b45309', padding: '4px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 800, letterSpacing: '0.05em' }}>NEXT</span>
+                            ) : (
+                              <span style={{ background: 'var(--neutral-100)', color: 'var(--neutral-600)', padding: '4px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 800, letterSpacing: '0.05em' }}>STANDBY</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -638,78 +1058,99 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
           <aside>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <h2 style={{ fontSize: '20px', fontWeight: 800 }}>Leaderboard</h2>
-              <button className="btn btn-secondary" style={{ fontSize: '13px', padding: '6px 12px', display: 'flex', gap: '6px', alignItems: 'center', background: 'var(--shiro)' }}>
+              <button onClick={() => setLeaderboardIsFullscreen(true)} className="btn btn-secondary" style={{ fontSize: '13px', padding: '6px 12px', display: 'flex', gap: '6px', alignItems: 'center', background: 'var(--shiro)' }}>
                 <Maximize size={14} /> View Fullscreen
               </button>
             </div>
             
             <div style={{ background: 'var(--shiro)', borderRadius: '16px', padding: '24px', border: '1px solid var(--neutral-200)', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
               <div style={{ display: 'flex', background: 'var(--neutral-100)', borderRadius: '999px', padding: '4px', marginBottom: '24px' }}>
-                <button style={{ flex: 1, padding: '8px 12px', background: 'var(--shiro)', borderRadius: '999px', border: '1px solid var(--neutral-200)', fontSize: '11px', fontWeight: 800, boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>ACADEMY</button>
-                <button style={{ flex: 1, padding: '8px 12px', background: 'transparent', border: 'none', fontSize: '11px', fontWeight: 700, color: 'var(--neutral-500)' }}>STATE</button>
-                <button style={{ flex: 1, padding: '8px 12px', background: 'transparent', border: 'none', fontSize: '11px', fontWeight: 700, color: 'var(--neutral-500)' }}>COUNTRY</button>
+                <button onClick={() => setLeaderboardFilter('academy')} style={{ flex: 1, padding: '8px 12px', background: leaderboardFilter === 'academy' ? 'var(--shiro)' : 'transparent', borderRadius: '999px', border: leaderboardFilter === 'academy' ? '1px solid var(--neutral-200)' : 'none', fontSize: '11px', fontWeight: leaderboardFilter === 'academy' ? 800 : 700, color: leaderboardFilter === 'academy' ? 'var(--neutral-900)' : 'var(--neutral-500)', boxShadow: leaderboardFilter === 'academy' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none' }}>ACADEMY</button>
+                <button onClick={() => setLeaderboardFilter('state')} style={{ flex: 1, padding: '8px 12px', background: leaderboardFilter === 'state' ? 'var(--shiro)' : 'transparent', borderRadius: '999px', border: leaderboardFilter === 'state' ? '1px solid var(--neutral-200)' : 'none', fontSize: '11px', fontWeight: leaderboardFilter === 'state' ? 800 : 700, color: leaderboardFilter === 'state' ? 'var(--neutral-900)' : 'var(--neutral-500)', boxShadow: leaderboardFilter === 'state' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none' }}>STATE</button>
+                <button onClick={() => setLeaderboardFilter('country')} style={{ flex: 1, padding: '8px 12px', background: leaderboardFilter === 'country' ? 'var(--shiro)' : 'transparent', borderRadius: '999px', border: leaderboardFilter === 'country' ? '1px solid var(--neutral-200)' : 'none', fontSize: '11px', fontWeight: leaderboardFilter === 'country' ? 800 : 700, color: leaderboardFilter === 'country' ? 'var(--neutral-900)' : 'var(--neutral-500)', boxShadow: leaderboardFilter === 'country' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none' }}>COUNTRY</button>
               </div>
               
-              <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--neutral-500)', textTransform: 'uppercase', marginBottom: '20px', letterSpacing: '0.05em' }}>Top 3 Academies</div>
+              <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--neutral-500)', textTransform: 'uppercase', marginBottom: '20px', letterSpacing: '0.05em' }}>Top 3 {leaderboardFilter === 'academy' ? 'Academies' : leaderboardFilter === 'state' ? 'States' : 'Countries'} (Matches Won)</div>
               
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
-                  <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'var(--aka)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '13px' }}>1</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 800, fontSize: '14px', marginBottom: '2px' }}>Kyoto Martial Academy</div>
-                    <div style={{ fontSize: '12px', color: 'var(--neutral-500)', fontWeight: 500 }}>Japan • 18 medals</div>
+              {leaderboard.length === 0 ? (
+                <div style={{ color: 'var(--neutral-500)', fontSize: '13px' }}>No matches completed yet.</div>
+              ) : (
+                leaderboard.map((item, i) => (
+                  <div key={item.name} style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: i < leaderboard.length - 1 ? '20px' : '0' }}>
+                    <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: i === 0 ? 'var(--aka)' : i === 1 ? 'rgba(225,29,72,0.1)' : 'rgba(26,77,181,0.1)', color: i === 0 ? 'white' : i === 1 ? 'var(--aka)' : 'var(--ao)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '13px' }}>{i + 1}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 800, fontSize: '14px', marginBottom: '2px' }}>{item.name}</div>
+                      <div style={{ fontSize: '12px', color: 'var(--neutral-500)', fontWeight: 500 }}>{item.country}</div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      <span style={{ fontSize: '10px', fontWeight: 800, border: '1px solid var(--neutral-200)', padding: '4px 6px', borderRadius: '4px' }}>{item.wins} WINS</span>
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', gap: '4px' }}>
-                    <span style={{ fontSize: '10px', fontWeight: 800, background: 'rgba(225,29,72,0.1)', color: 'var(--aka)', padding: '4px 6px', borderRadius: '4px' }}>G 8</span>
-                    <span style={{ fontSize: '10px', fontWeight: 800, background: 'var(--neutral-100)', color: 'var(--neutral-600)', padding: '4px 6px', borderRadius: '4px' }}>S 6</span>
-                    <span style={{ fontSize: '10px', fontWeight: 800, background: 'rgba(26,77,181,0.1)', color: 'var(--ao)', padding: '4px 6px', borderRadius: '4px' }}>B 4</span>
-                    <span style={{ fontSize: '10px', fontWeight: 800, border: '1px solid var(--neutral-200)', padding: '4px 6px', borderRadius: '4px' }}>T 18</span>
-                  </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
-                  <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(225,29,72,0.1)', color: 'var(--aka)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '13px' }}>2</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 800, fontSize: '14px', marginBottom: '2px' }}>Pacific Dojo Union</div>
-                    <div style={{ fontSize: '12px', color: 'var(--neutral-500)', fontWeight: 500 }}>USA • 14 medals</div>
-                  </div>
-                  <div style={{ display: 'flex', gap: '4px' }}>
-                    <span style={{ fontSize: '10px', fontWeight: 800, background: 'rgba(225,29,72,0.1)', color: 'var(--aka)', padding: '4px 6px', borderRadius: '4px' }}>G 6</span>
-                    <span style={{ fontSize: '10px', fontWeight: 800, background: 'var(--neutral-100)', color: 'var(--neutral-600)', padding: '4px 6px', borderRadius: '4px' }}>S 5</span>
-                    <span style={{ fontSize: '10px', fontWeight: 800, background: 'rgba(26,77,181,0.1)', color: 'var(--ao)', padding: '4px 6px', borderRadius: '4px' }}>B 3</span>
-                    <span style={{ fontSize: '10px', fontWeight: 800, border: '1px solid var(--neutral-200)', padding: '4px 6px', borderRadius: '4px' }}>T 14</span>
-                  </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(26,77,181,0.1)', color: 'var(--ao)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '13px' }}>3</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 800, fontSize: '14px', marginBottom: '2px' }}>Roma Karatedo Center</div>
-                    <div style={{ fontSize: '12px', color: 'var(--neutral-500)', fontWeight: 500 }}>Italy • 12 medals</div>
-                  </div>
-                  <div style={{ display: 'flex', gap: '4px' }}>
-                    <span style={{ fontSize: '10px', fontWeight: 800, background: 'rgba(225,29,72,0.1)', color: 'var(--aka)', padding: '4px 6px', borderRadius: '4px' }}>G 5</span>
-                    <span style={{ fontSize: '10px', fontWeight: 800, background: 'var(--neutral-100)', color: 'var(--neutral-600)', padding: '4px 6px', borderRadius: '4px' }}>S 4</span>
-                    <span style={{ fontSize: '10px', fontWeight: 800, background: 'rgba(26,77,181,0.1)', color: 'var(--ao)', padding: '4px 6px', borderRadius: '4px' }}>B 3</span>
-                    <span style={{ fontSize: '10px', fontWeight: 800, border: '1px solid var(--neutral-200)', padding: '4px 6px', borderRadius: '4px' }}>T 12</span>
-                  </div>
-              </div>
+                ))
+              )}
             </div>
             
             <div style={{ background: 'var(--neutral-50)', border: '1px dashed var(--neutral-300)', borderRadius: '16px', padding: '24px', marginTop: '24px' }}>
-              <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--neutral-500)', textTransform: 'uppercase', marginBottom: '16px', letterSpacing: '0.05em' }}>Recent Results (Mat 01)</div>
+              <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--neutral-500)', textTransform: 'uppercase', marginBottom: '16px', letterSpacing: '0.05em' }}>Recent Results ({activeCategoryName || 'No Active Category'})</div>
               
-              <div style={{ fontSize: '13px', borderBottom: '1px solid var(--neutral-200)', paddingBottom: '16px', marginBottom: '16px' }}>
-                <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, marginRight: '12px', color: 'var(--neutral-500)' }}>M04</span> <span style={{ fontWeight: 700 }}>Sato (JPN)</span> def. Rossi (ITA) <span style={{ fontWeight: 800, marginLeft: '8px' }}>3-1</span>
-              </div>
-              <div style={{ fontSize: '13px', borderBottom: '1px solid var(--neutral-200)', paddingBottom: '16px', marginBottom: '16px' }}>
-                <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, marginRight: '12px', color: 'var(--neutral-500)' }}>M03</span> <span style={{ fontWeight: 700 }}>Doe (USA)</span> def. Silva (BRA) <span style={{ fontWeight: 800, marginLeft: '8px' }}>2-0</span>
-              </div>
-              <div style={{ fontSize: '13px' }}>
-                <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, marginRight: '12px', color: 'var(--neutral-500)' }}>M02</span> <span style={{ fontWeight: 700 }}>Muller (GER)</span> def. Smith (ENG) <span style={{ fontWeight: 800, marginLeft: '8px' }}>1-0</span>
-              </div>
+              {recentMatches.length === 0 ? (
+                <div style={{ color: 'var(--neutral-500)', fontSize: '13px' }}>Category yet to begin</div>
+              ) : (
+                recentMatches.map((m, i) => {
+                  const akaName = m.aka?.name || 'BYE';
+                  const aoName = m.ao?.name || 'BYE';
+                  const akaWon = m.winnerId === m.aka?.playerId || m.winnerId === m.aka?.name;
+                  const aoWon = m.winnerId === m.ao?.playerId || m.winnerId === m.ao?.name;
+                  
+                  return (
+                    <div key={m.id} style={{ fontSize: '13px', borderBottom: i < recentMatches.length - 1 ? '1px solid var(--neutral-200)' : 'none', paddingBottom: i < recentMatches.length - 1 ? '16px' : '0', marginBottom: i < recentMatches.length - 1 ? '16px' : '0' }}>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, marginRight: '12px', color: 'var(--neutral-500)' }}>{m.matchNumber ? `M${String(m.matchNumber).padStart(2, '0')}` : m.id}</span> 
+                      {akaWon ? (
+                        <><span style={{ fontWeight: 700, color: 'var(--aka)' }}>{akaName}</span> def. {aoName}</>
+                      ) : aoWon ? (
+                        <><span style={{ fontWeight: 700, color: 'var(--ao)' }}>{aoName}</span> def. {akaName}</>
+                      ) : (
+                        <>{akaName} vs {aoName} (Completed)</>
+                      )}
+                    </div>
+                  )
+                })
+              )}
             </div>
           </aside>
 
         </div>
       </main>
+
+      {leaderboardIsFullscreen && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'var(--shiro)', zIndex: 10000, overflowY: 'auto', padding: '40px' }}>
+          <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
+              <h1 style={{ fontSize: '40px', fontWeight: 800, margin: 0 }}>Tournament Leaderboard</h1>
+              <button className="btn btn-secondary" onClick={() => setLeaderboardIsFullscreen(false)}>Close Fullscreen</button>
+            </div>
+            
+            <div style={{ display: 'flex', background: 'var(--neutral-100)', borderRadius: '999px', padding: '4px', marginBottom: '40px', maxWidth: '400px' }}>
+              <button onClick={() => setLeaderboardFilter('academy')} style={{ flex: 1, padding: '12px 24px', background: leaderboardFilter === 'academy' ? 'var(--shiro)' : 'transparent', borderRadius: '999px', border: leaderboardFilter === 'academy' ? '1px solid var(--neutral-200)' : 'none', fontSize: '13px', fontWeight: leaderboardFilter === 'academy' ? 800 : 700, color: leaderboardFilter === 'academy' ? 'var(--neutral-900)' : 'var(--neutral-500)', boxShadow: leaderboardFilter === 'academy' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none' }}>ACADEMY</button>
+              <button onClick={() => setLeaderboardFilter('state')} style={{ flex: 1, padding: '12px 24px', background: leaderboardFilter === 'state' ? 'var(--shiro)' : 'transparent', borderRadius: '999px', border: leaderboardFilter === 'state' ? '1px solid var(--neutral-200)' : 'none', fontSize: '13px', fontWeight: leaderboardFilter === 'state' ? 800 : 700, color: leaderboardFilter === 'state' ? 'var(--neutral-900)' : 'var(--neutral-500)', boxShadow: leaderboardFilter === 'state' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none' }}>STATE</button>
+              <button onClick={() => setLeaderboardFilter('country')} style={{ flex: 1, padding: '12px 24px', background: leaderboardFilter === 'country' ? 'var(--shiro)' : 'transparent', borderRadius: '999px', border: leaderboardFilter === 'country' ? '1px solid var(--neutral-200)' : 'none', fontSize: '13px', fontWeight: leaderboardFilter === 'country' ? 800 : 700, color: leaderboardFilter === 'country' ? 'var(--neutral-900)' : 'var(--neutral-500)', boxShadow: leaderboardFilter === 'country' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none' }}>COUNTRY</button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {leaderboard.map((item, i) => (
+                <div key={item.name} style={{ display: 'flex', alignItems: 'center', gap: '24px', padding: '24px', background: 'var(--shiro)', border: '1px solid var(--neutral-200)', borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
+                  <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: i === 0 ? 'var(--aka)' : i === 1 ? 'rgba(225,29,72,0.1)' : 'rgba(26,77,181,0.1)', color: i === 0 ? 'white' : i === 1 ? 'var(--aka)' : 'var(--ao)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '20px' }}>{i + 1}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 800, fontSize: '24px', marginBottom: '4px' }}>{item.name}</div>
+                    <div style={{ fontSize: '14px', color: 'var(--neutral-500)', fontWeight: 500 }}>{item.country}</div>
+                  </div>
+                  <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--neutral-900)' }}>{item.wins} WINS</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {showEditModal && (
         <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

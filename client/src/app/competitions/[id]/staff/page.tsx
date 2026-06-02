@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { RefreshCw, X } from 'lucide-react';
+import { RefreshCw, X, Plus } from 'lucide-react';
 import gsap from 'gsap';
 
 interface StaffAssignment {
@@ -41,27 +41,52 @@ const INITIAL_DATA: StaffAssignment[] = [
 
 export default function StaffPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
-  const [staffData, setStaffData] = useState<StaffAssignment[]>(INITIAL_DATA);
+  const [staffData, setStaffData] = useState<StaffAssignment[]>([]);
+  const [loading, setLoading] = useState(true);
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [selectedAssignmentId, setSelectedAssignmentId] = useState<string | null>(null);
   const [selectedPerson, setSelectedPerson] = useState('');
+  const [isSeeding, setIsSeeding] = useState(false);
 
   useEffect(() => {
-    gsap.from('.staff-card', {
-      y: 16,
-      opacity: 0,
-      duration: 0.5,
-      stagger: 0.08,
-      ease: 'power2.out'
-    });
-  }, []);
+    let unsub: () => void;
+    const setup = async () => {
+      const { db } = await import('@lib/firebase');
+      const { collection, onSnapshot, query, orderBy } = await import('firebase/firestore');
+
+      const staffQ = query(collection(db, 'competitions', id, 'staff'));
+      unsub = onSnapshot(staffQ, (snap) => {
+        const staff = snap.docs.map(d => ({
+          id: d.id,
+          ...d.data()
+        })) as StaffAssignment[];
+        setStaffData(staff);
+        setLoading(false);
+      });
+    };
+
+    setup();
+    return () => { if (unsub) unsub(); };
+  }, [id]);
+
+  useEffect(() => {
+    if (!loading && staffData.length > 0) {
+      gsap.from('.staff-card', {
+        y: 16,
+        opacity: 0,
+        duration: 0.5,
+        stagger: 0.08,
+        ease: 'power2.out'
+      });
+    }
+  }, [loading, staffData.length]);
 
   const scoreStaff = staffData.filter(s => s.type === 'score');
   const attendanceStaff = staffData.filter(s => s.type === 'attendance');
   const medalStaff = staffData.filter(s => s.type === 'medal');
 
-  const openModal = (id: string) => {
-    setSelectedAssignmentId(id);
+  const openModal = (assignId: string) => {
+    setSelectedAssignmentId(assignId);
     setSelectedPerson('');
     setAssignModalOpen(true);
   };
@@ -71,24 +96,54 @@ export default function StaffPage({ params }: { params: Promise<{ id: string }> 
     setSelectedAssignmentId(null);
   };
 
-  const handleAssignSubmit = (e: React.FormEvent) => {
+  const handleAssignSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedAssignmentId) return;
 
     const newName = selectedPerson || 'Unassigned';
+    const assignment = staffData.find(s => s.id === selectedAssignmentId);
+    if (!assignment) return;
 
-    setStaffData(prev => prev.map(s => {
-      if (s.id !== selectedAssignmentId) return s;
-      return {
-        ...s,
-        operator: newName,
-        statusCode: newName === 'Unassigned' ? 'idle' : 'live',
-        statusText: newName === 'Unassigned' ? 'Needs Assignment' : 'Assigned',
-        operatorSubtitle: newName !== 'Unassigned' ? s.role : undefined
-      };
-    }));
+    const updates = {
+      operator: newName,
+      statusCode: newName === 'Unassigned' ? 'idle' : 'live',
+      statusText: newName === 'Unassigned' ? 'Needs Assignment' : 'Assigned',
+      operatorSubtitle: newName !== 'Unassigned' ? assignment.role : null
+    };
 
+    // Optimistic
+    setStaffData(prev => prev.map(s => s.id === selectedAssignmentId ? { ...s, ...updates } as StaffAssignment : s));
     closeModal();
+
+    // Persist
+    try {
+      const { db } = await import('@lib/firebase');
+      const { doc, updateDoc } = await import('firebase/firestore');
+      const staffRef = doc(db, 'competitions', id, 'staff', selectedAssignmentId);
+      await updateDoc(staffRef, updates);
+    } catch (err) {
+      console.error('Failed to update assignment', err);
+    }
+  };
+
+  const handleSeedStaff = async () => {
+    setIsSeeding(true);
+    try {
+      const { db } = await import('@lib/firebase');
+      const { writeBatch, doc } = await import('firebase/firestore');
+      const batch = writeBatch(db);
+      
+      INITIAL_DATA.forEach(staff => {
+        const staffRef = doc(db, 'competitions', id, 'staff', staff.id);
+        batch.set(staffRef, staff);
+      });
+      
+      await batch.commit();
+    } catch (err) {
+      console.error('Failed to seed staff', err);
+    } finally {
+      setIsSeeding(false);
+    }
   };
 
   const activeAssignment = staffData.find(s => s.id === selectedAssignmentId);
@@ -245,6 +300,14 @@ export default function StaffPage({ params }: { params: Promise<{ id: string }> 
           gap: var(--space-3);
           margin-top: var(--space-5);
         }
+        .empty-state {
+          padding: var(--space-10);
+          text-align: center;
+          background: var(--shiro);
+          border: 1px solid var(--neutral-300);
+          border-radius: 12px;
+          box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+        }
         @media (max-width: 900px) {
           .staff-table thead {
             display: none;
@@ -296,145 +359,166 @@ export default function StaffPage({ params }: { params: Promise<{ id: string }> 
           </div>
         </header>
 
-        <div className="staff-stack">
-          {/* Score Operators */}
-          <section className="staff-card">
-            <div className="staff-header">
-              <div>
-                <h3>Score Operators by Mat</h3>
-                <p className="text-small">Who is running each mat right now and which category they are handling.</p>
-              </div>
-            </div>
-            <table className="staff-table">
-              <thead>
-                <tr>
-                  <th>Mat</th>
-                  <th>Operator</th>
-                  <th>Current Category</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {scoreStaff.map(s => (
-                  <tr key={s.id}>
-                    <td data-label="Mat"><strong>{s.scope}</strong></td>
-                    <td data-label="Operator" className="staff-name">
-                      {s.operator}
-                      {s.operatorSubtitle && <><br /><span className="staff-meta">{s.operatorSubtitle}</span></>}
-                    </td>
-                    <td data-label="Current Category">
-                      {s.coverage}
-                      {s.scopeSubtitle && <><br /><span className="staff-meta">{s.scopeSubtitle}</span></>}
-                    </td>
-                    <td data-label="Status" className="staff-status">
-                      <span className={`status-chip status-${s.statusCode}`}>{s.statusText}</span>
-                    </td>
-                    <td data-label="Actions">
-                      <div className="staff-actions">
-                        <button className="btn btn-ghost" onClick={() => openModal(s.id)}>
-                          {s.operator === 'Unassigned' ? 'Assign' : 'Reassign'}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </section>
+        {loading ? (
+          <div style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--neutral-500)' }}>
+            Loading staff roster...
+          </div>
+        ) : staffData.length === 0 ? (
+          <div className="empty-state">
+            <h3 style={{ marginBottom: '8px' }}>No Staff Assignments Found</h3>
+            <p style={{ color: 'var(--neutral-500)', marginBottom: '24px' }}>There are no staff roles seeded for this competition yet.</p>
+            <button className="btn btn-primary" onClick={handleSeedStaff} disabled={isSeeding}>
+              <Plus size={16} style={{ marginRight: '6px' }} />
+              {isSeeding ? 'Seeding...' : 'Seed Initial Staff Data'}
+            </button>
+          </div>
+        ) : (
+          <div className="staff-stack">
+            {/* Score Operators */}
+            {scoreStaff.length > 0 && (
+              <section className="staff-card">
+                <div className="staff-header">
+                  <div>
+                    <h3>Score Operators by Mat</h3>
+                    <p className="text-small">Who is running each mat right now and which category they are handling.</p>
+                  </div>
+                </div>
+                <table className="staff-table">
+                  <thead>
+                    <tr>
+                      <th>Mat</th>
+                      <th>Operator</th>
+                      <th>Current Category</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {scoreStaff.map(s => (
+                      <tr key={s.id}>
+                        <td data-label="Mat"><strong>{s.scope}</strong></td>
+                        <td data-label="Operator" className="staff-name">
+                          {s.operator}
+                          {s.operatorSubtitle && <><br /><span className="staff-meta">{s.operatorSubtitle}</span></>}
+                        </td>
+                        <td data-label="Current Category">
+                          {s.coverage}
+                          {s.scopeSubtitle && <><br /><span className="staff-meta">{s.scopeSubtitle}</span></>}
+                        </td>
+                        <td data-label="Status" className="staff-status">
+                          <span className={`status-chip status-${s.statusCode}`}>{s.statusText}</span>
+                        </td>
+                        <td data-label="Actions">
+                          <div className="staff-actions">
+                            <button className="btn btn-ghost" onClick={() => openModal(s.id)}>
+                              {s.operator === 'Unassigned' ? 'Assign' : 'Reassign'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </section>
+            )}
 
-          {/* Attendance Volunteers */}
-          <section className="staff-card">
-            <div className="staff-header">
-              <div>
-                <h3>Attendance Volunteers by Category</h3>
-                <p className="text-small">Volunteer coverage for athlete check-in and readiness by division.</p>
-              </div>
-            </div>
-            <table className="staff-table">
-              <thead>
-                <tr>
-                  <th>Category</th>
-                  <th>Volunteer</th>
-                  <th>Check-in</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {attendanceStaff.map(s => (
-                  <tr key={s.id}>
-                    <td data-label="Category">{s.scope}</td>
-                    <td data-label="Volunteer" className="staff-name">
-                      {s.operator}
-                      {s.operatorSubtitle && <><br /><span className="staff-meta">{s.operatorSubtitle}</span></>}
-                    </td>
-                    <td data-label="Check-in">
-                      <strong>{s.coverage}</strong>
-                      {s.scopeSubtitle && <><br /><span className="staff-meta">{s.scopeSubtitle}</span></>}
-                    </td>
-                    <td data-label="Status" className="staff-status">
-                      <span className={`status-chip status-${s.statusCode}`}>{s.statusText}</span>
-                    </td>
-                    <td data-label="Actions">
-                      <div className="staff-actions">
-                        <button className="btn btn-ghost" onClick={() => openModal(s.id)}>
-                          {s.operator === 'Unassigned' ? 'Assign' : 'Reassign'}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </section>
+            {/* Attendance Volunteers */}
+            {attendanceStaff.length > 0 && (
+              <section className="staff-card">
+                <div className="staff-header">
+                  <div>
+                    <h3>Attendance Volunteers by Category</h3>
+                    <p className="text-small">Volunteer coverage for athlete check-in and readiness by division.</p>
+                  </div>
+                </div>
+                <table className="staff-table">
+                  <thead>
+                    <tr>
+                      <th>Category</th>
+                      <th>Volunteer</th>
+                      <th>Check-in</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {attendanceStaff.map(s => (
+                      <tr key={s.id}>
+                        <td data-label="Category">{s.scope}</td>
+                        <td data-label="Volunteer" className="staff-name">
+                          {s.operator}
+                          {s.operatorSubtitle && <><br /><span className="staff-meta">{s.operatorSubtitle}</span></>}
+                        </td>
+                        <td data-label="Check-in">
+                          <strong>{s.coverage}</strong>
+                          {s.scopeSubtitle && <><br /><span className="staff-meta">{s.scopeSubtitle}</span></>}
+                        </td>
+                        <td data-label="Status" className="staff-status">
+                          <span className={`status-chip status-${s.statusCode}`}>{s.statusText}</span>
+                        </td>
+                        <td data-label="Actions">
+                          <div className="staff-actions">
+                            <button className="btn btn-ghost" onClick={() => openModal(s.id)}>
+                              {s.operator === 'Unassigned' ? 'Assign' : 'Reassign'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </section>
+            )}
 
-          {/* Medal Distributors */}
-          <section className="staff-card">
-            <div className="staff-header">
-              <div>
-                <h3>Medal Distributors</h3>
-                <p className="text-small">Who is assigned to distribute medals and the scope they cover.</p>
-              </div>
-            </div>
-            <table className="staff-table">
-              <thead>
-                <tr>
-                  <th>Distributor</th>
-                  <th>Scope</th>
-                  <th>Coverage</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {medalStaff.map(s => (
-                  <tr key={s.id}>
-                    <td data-label="Distributor" className="staff-name">
-                      {s.operator}
-                      {s.operatorSubtitle && <><br /><span className="staff-meta">{s.operatorSubtitle}</span></>}
-                    </td>
-                    <td data-label="Scope">
-                      <span className="scope-pill">{s.scope}</span>
-                      {s.scopeSubtitle && <><br /><span className="staff-meta">{s.scopeSubtitle}</span></>}
-                    </td>
-                    <td data-label="Coverage">{s.coverage}</td>
-                    <td data-label="Status" className="staff-status">
-                      <span className={`status-chip status-${s.statusCode}`}>{s.statusText}</span>
-                    </td>
-                    <td data-label="Actions">
-                      <div className="staff-actions">
-                        <button className="btn btn-ghost" onClick={() => openModal(s.id)}>
-                          {s.operator === 'Unassigned' ? 'Assign' : 'Reassign'}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </section>
-        </div>
+            {/* Medal Distributors */}
+            {medalStaff.length > 0 && (
+              <section className="staff-card">
+                <div className="staff-header">
+                  <div>
+                    <h3>Medal Distributors</h3>
+                    <p className="text-small">Who is assigned to distribute medals and the scope they cover.</p>
+                  </div>
+                </div>
+                <table className="staff-table">
+                  <thead>
+                    <tr>
+                      <th>Distributor</th>
+                      <th>Scope</th>
+                      <th>Coverage</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {medalStaff.map(s => (
+                      <tr key={s.id}>
+                        <td data-label="Distributor" className="staff-name">
+                          {s.operator}
+                          {s.operatorSubtitle && <><br /><span className="staff-meta">{s.operatorSubtitle}</span></>}
+                        </td>
+                        <td data-label="Scope">
+                          <span className="scope-pill">{s.scope}</span>
+                          {s.scopeSubtitle && <><br /><span className="staff-meta">{s.scopeSubtitle}</span></>}
+                        </td>
+                        <td data-label="Coverage">{s.coverage}</td>
+                        <td data-label="Status" className="staff-status">
+                          <span className={`status-chip status-${s.statusCode}`}>{s.statusText}</span>
+                        </td>
+                        <td data-label="Actions">
+                          <div className="staff-actions">
+                            <button className="btn btn-ghost" onClick={() => openModal(s.id)}>
+                              {s.operator === 'Unassigned' ? 'Assign' : 'Reassign'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </section>
+            )}
+          </div>
+        )}
       </main>
 
       {/* Assign Modal */}

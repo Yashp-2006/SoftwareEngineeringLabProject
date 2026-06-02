@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Search } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 interface Athlete {
   id: string;
@@ -11,6 +12,7 @@ interface Athlete {
   attendance: 'present' | 'absent';
   readiness: 'ready' | 'not-ready';
   disqualified: boolean;
+  pool: string;
 }
 
 interface Category {
@@ -21,66 +23,183 @@ interface Category {
   athletes: Athlete[];
 }
 
-const INITIAL_DATA: Category[] = [
-  {
-    id: "smk-75",
-    name: "Senior Male Kumite -75kg",
-    mat: "MAT 01",
-    status: "LIVE",
-    athletes: [
-      { id: "A001", name: "Takumi Sato", academy: "Kyoto Shotokan Club", attendance: "present", readiness: "ready", disqualified: false },
-      { id: "A002", name: "Miguel Rossi", academy: "Roma Karate Dojo", attendance: "present", readiness: "not-ready", disqualified: true },
-      { id: "A003", name: "Jaden Smith", academy: "LA Combat Academy", attendance: "absent", readiness: "not-ready", disqualified: false },
-      { id: "A004", name: "Leon Silva", academy: "Sao Paulo Kumite Lab", attendance: "present", readiness: "ready", disqualified: false }
-    ]
-  },
-  {
-    id: "sfk-55",
-    name: "Senior Female Kumite -55kg",
-    mat: "MAT 02",
-    status: "LIVE",
-    athletes: [
-      { id: "B011", name: "Aiko Tanaka", academy: "Osaka Elite Dojo", attendance: "present", readiness: "ready", disqualified: false },
-      { id: "B012", name: "Maria Garcia", academy: "Madrid Kensei Club", attendance: "present", readiness: "not-ready", disqualified: false },
-      { id: "B013", name: "Elena Costa", academy: "Lisbon Karate Center", attendance: "absent", readiness: "not-ready", disqualified: false }
-    ]
-  },
-  {
-    id: "smk-67",
-    name: "U21 Male Kumite -67kg",
-    mat: "UNASSIGNED",
-    status: "UPCOMING",
-    athletes: [
-      { id: "C031", name: "Ren Kobayashi", academy: "Nagoya Budo Academy", attendance: "present", readiness: "not-ready", disqualified: false },
-      { id: "C032", name: "Arjun Mehta", academy: "Delhi Fighting Arts", attendance: "present", readiness: "ready", disqualified: false },
-      { id: "C033", name: "Noah Kim", academy: "Seoul Kumite Studio", attendance: "present", readiness: "not-ready", disqualified: true },
-      { id: "C034", name: "Luca Bruno", academy: "Torino Kata Works", attendance: "absent", readiness: "not-ready", disqualified: false }
-    ]
-  }
-];
-
 export default function AthletesPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
-  const [categories, setCategories] = useState<Category[]>(INITIAL_DATA);
-  const [activeCategoryId, setActiveCategoryId] = useState<string>(INITIAL_DATA[0].id);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [poolFilter, setPoolFilter] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [addingAthlete, setAddingAthlete] = useState(false);
+  const [addForm, setAddForm] = useState({
+    name: '', academy: '', age: '', weight: '', gender: 'Male', categoryId: '', interestSpecial: ''
+  });
+
+  // Load categories from Firestore — extract athletes from matches
+  useEffect(() => {
+    let unsubscribe: () => void = () => {};
+
+    const setup = async () => {
+      const { db } = await import('@lib/firebase');
+      const { collection, onSnapshot, query, orderBy } = await import('firebase/firestore');
+
+      const catQ = query(collection(db, 'competitions', id, 'categories'), orderBy('order'));
+      unsubscribe = onSnapshot(catQ, (catSnap) => {
+        const catList: Category[] = catSnap.docs.map(d => {
+          const data = d.data();
+          const rawAthletes: any[] = data.athletes || [];
+          const matches: any[] = data.matches || [];
+
+          const poolMap: Record<string, string> = {};
+          matches.forEach((m: any) => {
+            const p = m.pool || (m.id && m.id.includes('Pool') ? m.id.split('-')[0].replace('Pool', '') : '');
+            if (p) {
+              if (m.aka?.playerId) poolMap[m.aka.playerId] = p;
+              else if (m.aka?.name) poolMap[m.aka.name] = p;
+              if (m.ao?.playerId) poolMap[m.ao.playerId] = p;
+              else if (m.ao?.name) poolMap[m.ao.name] = p;
+            }
+          });
+
+          return {
+            id: d.id,
+            name: data.name || '',
+            mat: data.mat || 'UNASSIGNED',
+            status: data.status || 'upcoming',
+            athletes: rawAthletes.map(a => ({
+              id: a.playerId || a.name,
+              name: a.name,
+              academy: a.academy || '',
+              attendance: a.attendance || 'present',
+              readiness: a.readiness || 'not-ready',
+              disqualified: a.disqualified || false,
+              pool: poolMap[a.playerId || a.name] || '',
+            })).sort((a, b) => a.name.localeCompare(b.name)),
+          };
+        });
+
+        setCategories(catList);
+        setActiveCategoryId(prev => prev ?? catList[0]?.id ?? null);
+        setLoading(false);
+      });
+    };
+
+    setup();
+    return () => unsubscribe();
+  }, [id]);
 
   const activeCategory = categories.find(c => c.id === activeCategoryId);
 
   const filteredAthletes = activeCategory?.athletes.filter(a => {
+    if (poolFilter && a.pool !== poolFilter) return false;
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     return a.name.toLowerCase().includes(q) || a.academy.toLowerCase().includes(q);
   }) || [];
 
-  const handleUpdate = (athleteId: string, field: keyof Athlete, value: string | boolean) => {
-    setCategories(prev => prev.map(cat => {
-      if (cat.id !== activeCategoryId) return cat;
-      return {
-        ...cat,
-        athletes: cat.athletes.map(a => a.id === athleteId ? { ...a, [field]: value } : a)
-      };
-    }));
+  const handleUpdate = async (
+    athleteId: string,
+    field: keyof Athlete,
+    value: string | boolean
+  ) => {
+    // Optimistic UI
+    setCategories(prev =>
+      prev.map(cat => {
+        if (cat.id !== activeCategoryId) return cat;
+        return {
+          ...cat,
+          athletes: cat.athletes.map(a => a.id === athleteId ? { ...a, [field]: value } : a),
+        };
+      })
+    );
+
+    // Persist to Firestore — update both athletes array and matches array
+    try {
+      const { db } = await import('@lib/firebase');
+      const { doc, getDoc, updateDoc } = await import('firebase/firestore');
+      const catRef = doc(db, 'competitions', id, 'categories', activeCategoryId!);
+      const catSnap = await getDoc(catRef);
+      if (!catSnap.exists()) return;
+
+      const data = catSnap.data();
+      
+      const updatedAthletes = (data.athletes || []).map((a: any) => {
+        if (a.playerId === athleteId || a.name === athleteId) {
+          return { ...a, [field]: value };
+        }
+        return a;
+      });
+
+      const updatedMatches = (data.matches || []).map((m: any) => {
+        const newM = { ...m };
+        if (m.aka && (m.aka.playerId === athleteId || m.aka.name === athleteId)) {
+          newM.aka = { ...m.aka, [field]: value };
+        }
+        if (m.ao && (m.ao.playerId === athleteId || m.ao.name === athleteId)) {
+          newM.ao = { ...m.ao, [field]: value };
+        }
+        return newM;
+      });
+
+      await updateDoc(catRef, { athletes: updatedAthletes, matches: updatedMatches });
+
+      // AUTO-PROMOTE: if athlete is disqualified, find their first incomplete match and promote opponent
+      if (field === 'disqualified' && value === true) {
+        const dqMatch = updatedMatches.find((m: any) =>
+          m.status !== 'completed' &&
+          ((m.aka?.playerId === athleteId || m.aka?.name === athleteId) ||
+           (m.ao?.playerId === athleteId || m.ao?.name === athleteId))
+        );
+
+        if (dqMatch) {
+          const isAkaDq = dqMatch.aka?.playerId === athleteId || dqMatch.aka?.name === athleteId;
+          const winnerId = isAkaDq ? (dqMatch.ao?.playerId || dqMatch.ao?.name) : (dqMatch.aka?.playerId || dqMatch.aka?.name);
+          const byeFor: 'aka' | 'ao' = isAkaDq ? 'aka' : 'ao';
+
+          if (winnerId) {
+            await fetch(`/api/competitions/${id}/brackets/${activeCategoryId}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ matchId: dqMatch.id, winnerId, byeFor }),
+            });
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Failed to update athlete field', err);
+    }
+  };
+
+  const handleAddAthlete = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAddingAthlete(true);
+    try {
+      const res = await fetch(`/api/competitions/${id}/athletes/add`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          categoryId: addForm.categoryId,
+          athleteData: {
+            name: addForm.name,
+            academy: addForm.academy,
+            age: parseInt(addForm.age),
+            weight: parseFloat(addForm.weight),
+            gender: addForm.gender,
+            interestSpecial: addForm.interestSpecial,
+          }
+        }),
+      });
+      const result = await res.json();
+      if (!result.success) throw new Error(result.error);
+      setIsAddModalOpen(false);
+      setAddForm({ name: '', academy: '', age: '', weight: '', gender: 'Male', categoryId: '', interestSpecial: '' });
+      toast.success('Athlete added successfully!');
+    } catch (err: any) {
+      toast.error(`Failed to add athlete: ${err.message}`);
+    } finally {
+      setAddingAthlete(false);
+    }
   };
 
   return (
@@ -100,6 +219,8 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
           box-shadow: 0 1px 4px rgba(0,0,0,0.06);
           position: sticky;
           top: 130px;
+          max-height: calc(100vh - 150px);
+          overflow-y: auto;
         }
         .category-button {
           width: 100%;
@@ -159,14 +280,6 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
           position: relative;
           width: 320px;
           max-width: 100%;
-        }
-        .search-wrap i {
-          position: absolute;
-          left: 10px;
-          top: 50%;
-          transform: translateY(-50%);
-          color: var(--neutral-500);
-          width: 14px;
         }
         .search-input {
           width: 100%;
@@ -244,6 +357,18 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
           color: var(--neutral-500);
           font-size: 14px;
         }
+        .modal-overlay {
+          position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+          background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+          display: flex; align-items: center; justify-content: center; z-index: 1000;
+        }
+        .modal {
+          background: white; border-radius: 12px; width: 100%; max-width: 500px;
+          padding: var(--space-6); box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+        }
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+        .form-input { width: 100%; padding: 10px; border: 1px solid var(--neutral-300); border-radius: 6px; }
         @media (max-width: 1100px) {
           .athletes-layout { grid-template-columns: 1fr; }
           .category-panel {
@@ -257,122 +382,201 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
       `}} />
 
       <main className="container">
-        <header className="page-header">
+        <header className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <div className="breadcrumb">
               <Link href="/competitions" style={{ color: 'inherit', textDecoration: 'none' }}>Competitions</Link> / {id} / Operations
             </div>
             <h1>Athletes Attendance</h1>
           </div>
+          <button className="btn btn-primary" onClick={() => {
+            setAddForm(p => ({ ...p, categoryId: activeCategoryId || '' }));
+            setIsAddModalOpen(true);
+          }}>
+            Add On-Spot Entry
+          </button>
         </header>
 
-        <section className="athletes-layout">
-          <aside className="category-panel">
-            {categories.map((cat) => (
-              <button 
-                key={cat.id} 
-                className={`category-button ${cat.id === activeCategoryId ? 'active' : ''}`}
-                onClick={() => {
-                  setActiveCategoryId(cat.id);
-                  setSearchQuery("");
-                }}
-              >
-                <div className="category-name">{cat.name}</div>
-                <div className="category-meta">
-                  <span>{cat.mat}</span>
-                  <span>{cat.status}</span>
+        {loading ? (
+          <div style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--neutral-500)' }}>
+            Loading categories and athletes...
+          </div>
+        ) : categories.length === 0 ? (
+          <div className="card" style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
+            <h3 style={{ color: 'var(--neutral-900)', marginBottom: '8px' }}>No Categories Found</h3>
+            <p style={{ color: 'var(--neutral-500)' }}>Deploy the tournament setup to generate categories and athlete rosters.</p>
+          </div>
+        ) : (
+          <section className="athletes-layout">
+            <aside className="category-panel">
+              {categories.map(cat => (
+                <button
+                  key={cat.id}
+                  className={`category-button ${cat.id === activeCategoryId ? 'active' : ''}`}
+                  onClick={() => {
+                    setActiveCategoryId(cat.id);
+                    setSearchQuery('');
+                  }}
+                >
+                  <div className="category-name">{cat.name}</div>
+                  <div className="category-meta">
+                    <span>{cat.mat}</span>
+                    <span>{cat.status.toUpperCase()}</span>
+                  </div>
+                </button>
+              ))}
+            </aside>
+
+            <div className="athletes-panel">
+              <div className="athletes-panel-header">
+                <div>
+                  <h2>{activeCategory?.name}</h2>
+                  <div className="text-small">
+                    {activeCategory?.mat} • {activeCategory?.status.toUpperCase()} • {filteredAthletes.length} athletes
+                  </div>
                 </div>
-              </button>
-            ))}
-          </aside>
-
-          <div className="athletes-panel">
-            <div className="athletes-panel-header">
-              <div>
-                <h2>{activeCategory?.name}</h2>
-                <div className="text-small">{activeCategory?.mat} • {activeCategory?.status} • {filteredAthletes.length} athletes</div>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                  <select 
+                    value={poolFilter}
+                    onChange={e => setPoolFilter(e.target.value)}
+                    style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--neutral-300)', fontSize: '13px', background: 'white' }}
+                  >
+                    <option value="">All Pools</option>
+                    {Array.from(new Set(activeCategory?.athletes.map(a => a.pool).filter(Boolean))).sort().map(p => (
+                      <option key={String(p)} value={String(p)}>Pool {String(p)}</option>
+                    ))}
+                  </select>
+                  <div className="search-wrap">
+                    <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--neutral-500)' }} />
+                    <input
+                      className="search-input"
+                      type="text"
+                      placeholder="Search athlete or academy..."
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                    />
+                  </div>
+                </div>
               </div>
-              <div className="search-wrap">
-                <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--neutral-500)' }} />
-                <input 
-                  className="search-input" 
-                  type="text" 
-                  placeholder="Search athlete or academy..." 
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-            </div>
 
-            <table className="athlete-table">
-              <thead>
-                <tr>
-                  <th className="text-micro">Athlete Name</th>
-                  <th className="text-micro">Academy</th>
-                  <th className="text-micro">Present / Absent</th>
-                  <th className="text-micro">Ready / Not Ready</th>
-                  <th className="text-micro">Disqualify</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredAthletes.length === 0 ? (
+              <table className="athlete-table">
+                <thead>
                   <tr>
-                    <td colSpan={5} className="empty-state">No athletes found for this filter.</td>
+                    <th className="text-micro">Athlete Name</th>
+                    <th className="text-micro">Academy</th>
+                    <th className="text-micro">Present / Absent</th>
+                    <th className="text-micro">Ready / Not Ready</th>
+                    <th className="text-micro">Disqualify</th>
                   </tr>
-                ) : (
-                  filteredAthletes.map((athlete) => (
-                    <tr key={athlete.id}>
-                      <td>{athlete.name}</td>
-                      <td className="academy-name">{athlete.academy}</td>
-                      <td>
-                        <div className="attendance-control">
-                          <button 
-                            className={`attendance-btn present ${athlete.attendance === 'present' ? 'active' : ''}`}
-                            onClick={() => handleUpdate(athlete.id, 'attendance', 'present')}
-                          >
-                            Present
-                          </button>
-                          <button 
-                            className={`attendance-btn absent ${athlete.attendance === 'absent' ? 'active' : ''}`}
-                            onClick={() => handleUpdate(athlete.id, 'attendance', 'absent')}
-                          >
-                            Absent
-                          </button>
-                        </div>
-                      </td>
-                      <td>
-                        <div className="attendance-control">
-                          <button 
-                            className={`attendance-btn present ${athlete.readiness === 'ready' ? 'active' : ''}`}
-                            onClick={() => handleUpdate(athlete.id, 'readiness', 'ready')}
-                          >
-                            Ready
-                          </button>
-                          <button 
-                            className={`attendance-btn neutral ${athlete.readiness === 'not-ready' ? 'active' : ''}`}
-                            onClick={() => handleUpdate(athlete.id, 'readiness', 'not-ready')}
-                          >
-                            Not Ready
-                          </button>
-                        </div>
-                      </td>
-                      <td>
-                        <div className="attendance-control">
-                          <button 
-                            className={`attendance-btn absent ${athlete.disqualified ? 'active' : ''}`}
-                            onClick={() => handleUpdate(athlete.id, 'disqualified', !athlete.disqualified)}
-                          >
-                            {athlete.disqualified ? 'Disqualified' : 'Disqualify'}
-                          </button>
-                        </div>
+                </thead>
+                <tbody>
+                  {filteredAthletes.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="empty-state">
+                        {activeCategory?.athletes.length === 0
+                          ? 'No athletes registered for this category yet.'
+                          : 'No athletes match your search.'}
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    filteredAthletes.map(athlete => (
+                      <tr key={athlete.id}>
+                        <td>{athlete.name}</td>
+                        <td className="academy-name">{athlete.academy}</td>
+                        <td>
+                          <div className="attendance-control">
+                            <button
+                              className={`attendance-btn present ${athlete.attendance === 'present' ? 'active' : ''}`}
+                              onClick={() => handleUpdate(athlete.id, 'attendance', 'present')}
+                            >Present</button>
+                            <button
+                              className={`attendance-btn absent ${athlete.attendance === 'absent' ? 'active' : ''}`}
+                              onClick={() => handleUpdate(athlete.id, 'attendance', 'absent')}
+                            >Absent</button>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="attendance-control">
+                            <button
+                              className={`attendance-btn present ${athlete.readiness === 'ready' ? 'active' : ''}`}
+                              onClick={() => handleUpdate(athlete.id, 'readiness', 'ready')}
+                            >Ready</button>
+                            <button
+                              className={`attendance-btn neutral ${athlete.readiness === 'not-ready' ? 'active' : ''}`}
+                              onClick={() => handleUpdate(athlete.id, 'readiness', 'not-ready')}
+                            >Not Ready</button>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="attendance-control">
+                            <button
+                              className={`attendance-btn absent ${athlete.disqualified ? 'active' : ''}`}
+                              onClick={() => handleUpdate(athlete.id, 'disqualified', !athlete.disqualified)}
+                            >
+                              {athlete.disqualified ? 'Disqualified' : 'Disqualify'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
+        {isAddModalOpen && (
+          <div className="modal-overlay" onClick={() => !addingAthlete && setIsAddModalOpen(false)}>
+            <div className="modal" onClick={e => e.stopPropagation()}>
+              <h2 style={{ marginBottom: '20px' }}>Add On-Spot Entry</h2>
+              <form onSubmit={handleAddAthlete}>
+                <div className="form-group">
+                  <label>Full Name</label>
+                  <input required className="form-input" value={addForm.name} onChange={e => setAddForm(p => ({...p, name: e.target.value}))} />
+                </div>
+                <div className="form-group">
+                  <label>Academy / Dojo</label>
+                  <input required className="form-input" value={addForm.academy} onChange={e => setAddForm(p => ({...p, academy: e.target.value}))} />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+                  <div className="form-group">
+                    <label>Age</label>
+                    <input required type="number" className="form-input" value={addForm.age} onChange={e => setAddForm(p => ({...p, age: e.target.value}))} />
+                  </div>
+                  <div className="form-group">
+                    <label>Weight (kg)</label>
+                    <input required type="number" step="0.1" className="form-input" value={addForm.weight} onChange={e => setAddForm(p => ({...p, weight: e.target.value}))} />
+                  </div>
+                  <div className="form-group">
+                    <label>Gender</label>
+                    <select className="form-input" value={addForm.gender} onChange={e => setAddForm(p => ({...p, gender: e.target.value}))}>
+                      <option>Male</option>
+                      <option>Female</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label>Category</label>
+                  <select required className="form-input" value={addForm.categoryId} onChange={e => setAddForm(p => ({...p, categoryId: e.target.value}))}>
+                    <option value="" disabled>Select Category</option>
+                    {categories.map(c => <option key={c.id} value={c.id}>{c.name} ({c.athletes.length} athletes)</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Interest in Special Categories</label>
+                  <input className="form-input" placeholder="e.g. Open Kata, Team Kumite" value={addForm.interestSpecial} onChange={e => setAddForm(p => ({...p, interestSpecial: e.target.value}))} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
+                  <button type="button" className="btn btn-secondary" onClick={() => setIsAddModalOpen(false)} disabled={addingAthlete}>Cancel</button>
+                  <button type="submit" className="btn btn-primary" disabled={addingAthlete}>
+                    {addingAthlete ? 'Adding...' : 'Add Athlete'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </section>
+        )}
       </main>
     </>
   );

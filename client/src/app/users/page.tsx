@@ -1,23 +1,35 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Search } from 'lucide-react';
 
-const ROLES = [
-  "Admin",
-  "Scoreboard Controller",
-  "Attendance Volunteer",
-  "Medal Distributor",
-  "Viewer"
-];
+const ROLE_MAP: Record<string, string> = {
+  'admin': 'Admin',
+  'mat_operator': 'Scoreboard Controller',
+  'attendance_volunteer': 'Attendance Volunteer',
+  'medal_distributor': 'Medal Distributor',
+  'guest_viewer': 'Viewer'
+};
+
+const ROLES = Object.keys(ROLE_MAP);
 
 const ROLE_DESCRIPTIONS: Record<string, string> = {
-  "Admin": "Full control (Read/Write)",
-  "Scoreboard Controller": "Score mat, manage tiesheet, points",
-  "Attendance Volunteer": "Athlete page, ready status, disqualify",
-  "Medal Distributor": "Filter state/country, distribute",
-  "Viewer": "Read-only access"
+  "admin": "Full control (Read/Write)",
+  "mat_operator": "Score mat, manage tiesheet, points",
+  "attendance_volunteer": "Athlete page, ready status, disqualify",
+  "medal_distributor": "Filter state/country, distribute",
+  "guest_viewer": "Read-only access"
+};
+
+const getNormalizedRole = (role: string) => {
+  if (!role) return 'guest_viewer';
+  if (role === 'Viewer') return 'guest_viewer';
+  if (role === 'Admin') return 'admin';
+  if (role === 'Scoreboard Controller') return 'mat_operator';
+  if (role === 'Attendance Volunteer') return 'attendance_volunteer';
+  if (role === 'Medal Distributor') return 'medal_distributor';
+  return role;
 };
 
 const ACADEMIES = [
@@ -34,39 +46,44 @@ const ACADEMIES = [
   "USA National Dev Team"
 ];
 
-const INITIAL_USERS = [
-  { id: "U001", name: "Naoki Tanaka", email: "naoki.admin@gmail.com", role: "Admin", academy: "Kyoto Shotokan Club" },
-  { id: "U002", name: "Aiko Matsuda", email: "aiko.director@gmail.com", role: "Medal Distributor", academy: "Osaka Budokan Academy" },
-  { id: "U003", name: "Ren Fujimoto", email: "ren.referee@gmail.com", role: "Scoreboard Controller", academy: "Tokyo Seido Dojo" },
-  { id: "U004", name: "Mei Kuroda", email: "mei.operator@gmail.com", role: "Attendance Volunteer", academy: "Nara Combat Academy" },
-  { id: "U005", name: "Takeshi Ono", email: "takeshi.coach@gmail.com", role: "Scoreboard Controller", academy: "Kyoto Shotokan Club" },
-  { id: "U006", name: "Hana Watanabe", email: "hana.viewer@gmail.com", role: "Viewer", academy: "No Academy" },
-  { id: "U007", name: "Sora Kimura", email: "sora.operator@gmail.com", role: "Attendance Volunteer", academy: "Kobe Wadoryu Center" },
-  { id: "U008", name: "Emma Ricci", email: "emma.referee@gmail.com", role: "Viewer", academy: "International Guest Team" },
-  { id: "U009", name: "Kenji Sato", email: "kenji.sato@example.com", role: "Scoreboard Controller", academy: "No Academy" },
-  { id: "U010", name: "Maria Garcia", email: "maria.garcia@madridelite.es", role: "Viewer", academy: "Madrid Elite Karate" },
-  { id: "U011", name: "Lucas Rossi", email: "lucas.r@gmail.com", role: "Viewer", academy: "International Guest Team" },
-  { id: "U012", name: "Amina Ndiaye", email: "amina.ndiaye@cairochampions.eg", role: "Attendance Volunteer", academy: "Cairo Champions Club" },
-  { id: "U013", name: "Rafael Silva", email: "rafa.silva@saopaulo.br", role: "Medal Distributor", academy: "São Paulo Strikers" },
-  { id: "U014", name: "John Smith", email: "jsmith@usanational.org", role: "Admin", academy: "USA National Dev Team" },
-  { id: "U015", name: "Yuki Takahashi", email: "yuki.t@gmail.com", role: "Scoreboard Controller", academy: "Tokyo Seido Dojo" },
-  { id: "U016", name: "Chloe Dupont", email: "chloe.dupont@guest.fr", role: "Viewer", academy: "International Guest Team" },
-  { id: "U017", name: "Hiroshi Nakamura", email: "hiroshi.nakamura@kyoto.jp", role: "Scoreboard Controller", academy: "Kyoto Shotokan Club" },
-  { id: "U018", name: "Sakura Ito", email: "sakura.ito@osaka.jp", role: "Medal Distributor", academy: "Osaka Budokan Academy" },
-  { id: "U019", name: "Daiki Kobayashi", email: "daiki.k@gmail.com", role: "Attendance Volunteer", academy: "Nara Combat Academy" },
-  { id: "U020", name: "Yui Yamamoto", email: "yui.yamamoto@kobe.jp", role: "Scoreboard Controller", academy: "Kobe Wadoryu Center" },
-  { id: "U021", name: "Carlos Mendez", email: "carlos.m@madridelite.es", role: "Attendance Volunteer", academy: "Madrid Elite Karate" },
-  { id: "U022", name: "Isabella Costa", email: "isabella.c@saopaulo.br", role: "Viewer", academy: "São Paulo Strikers" },
-  { id: "U023", name: "Omar Hassan", email: "omar.hassan@cairochampions.eg", role: "Attendance Volunteer", academy: "Cairo Champions Club" },
-  { id: "U024", name: "Sarah Johnson", email: "sarah.j@usanational.org", role: "Scoreboard Controller", academy: "USA National Dev Team" },
-  { id: "U025", name: "Kaito Suzuki", email: "kaito.suzuki@gmail.com", role: "Viewer", academy: "No Academy" }
-];
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  academy: string;
+}
 
 export default function UsersPage() {
-  const [users, setUsers] = useState(INITIAL_USERS);
+  const [users, setUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [academyFilter, setAcademyFilter] = useState("all");
+  const [loading, setLoading] = useState(true);
+  const [savedStatus, setSavedStatus] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    let unsub: () => void;
+    const setup = async () => {
+      const { db } = await import('@lib/firebase');
+      const { collection, onSnapshot, query } = await import('firebase/firestore');
+
+      const q = query(collection(db, 'users'));
+      unsub = onSnapshot(q, (snap) => {
+        const data = snap.docs.map(d => ({
+          id: d.id,
+          name: d.data().name || 'Unknown User',
+          email: d.data().email || 'No email',
+          role: getNormalizedRole(d.data().role),
+          academy: d.data().academy || 'No Academy'
+        })) as User[];
+        setUsers(data);
+        setLoading(false);
+      });
+    };
+    setup();
+    return () => { if (unsub) unsub(); };
+  }, []);
 
   const filteredUsers = users.filter((user) => {
     const query = searchQuery.toLowerCase();
@@ -79,8 +96,25 @@ export default function UsersPage() {
     return textMatch && roleMatch && academyMatch;
   });
 
-  const updateUserField = (id: string, field: 'role' | 'academy', value: string) => {
+  const updateUserField = async (id: string, field: 'role' | 'academy', value: string) => {
+    // Optimistic
     setUsers(prev => prev.map(u => u.id === id ? { ...u, [field]: value } : u));
+    
+    // Persist
+    try {
+      const { db } = await import('@lib/firebase');
+      const { doc, updateDoc } = await import('firebase/firestore');
+      const userRef = doc(db, 'users', id);
+      await updateDoc(userRef, { [field]: value });
+      
+      // Flash saved
+      setSavedStatus(prev => ({ ...prev, [id]: true }));
+      setTimeout(() => {
+        setSavedStatus(prev => ({ ...prev, [id]: false }));
+      }, 1000);
+    } catch (err) {
+      console.error('Failed to update user', err);
+    }
   };
 
   return (
@@ -134,6 +168,12 @@ export default function UsersPage() {
         }
         .role-select, .academy-select { min-width: 0; }
         .empty-state { padding: var(--space-6); text-align: center; color: var(--neutral-500); font-size: 14px; }
+        .saved-chip {
+          font-size: 11px; font-weight: 700; color: var(--status-live);
+          text-transform: uppercase; letter-spacing: 0.04em;
+          opacity: 0; transition: opacity 0.2s ease;
+        }
+        .saved-chip.visible { opacity: 1; }
         @media (max-width: 1100px) {
           .users-header { grid-template-columns: 1fr; }
           .users-panel { overflow-x: auto; }
@@ -164,7 +204,7 @@ export default function UsersPage() {
             <select className="filter-select" value={roleFilter} onChange={e => setRoleFilter(e.target.value)}>
               <option value="all">Filter by Role (All)</option>
               {ROLES.map(role => (
-                <option key={role} value={role}>{role}</option>
+                <option key={role} value={role}>{ROLE_MAP[role]}</option>
               ))}
             </select>
             <select className="filter-select" value={academyFilter} onChange={e => setAcademyFilter(e.target.value)}>
@@ -177,10 +217,11 @@ export default function UsersPage() {
 
           <table className="users-table">
             <colgroup>
-              <col style={{ width: '24%' }} />
-              <col style={{ width: '31%' }} />
+              <col style={{ width: '20%' }} />
+              <col style={{ width: '27%' }} />
               <col style={{ width: '22.5%' }} />
               <col style={{ width: '22.5%' }} />
+              <col style={{ width: '8%' }} />
             </colgroup>
             <thead>
               <tr>
@@ -188,10 +229,13 @@ export default function UsersPage() {
                 <th className="text-micro">User Email / Gmail</th>
                 <th className="text-micro">Role</th>
                 <th className="text-micro">Academy</th>
+                <th className="text-micro">Status</th>
               </tr>
             </thead>
             <tbody>
-              {filteredUsers.length === 0 ? (
+              {loading ? (
+                <tr><td colSpan={4} className="empty-state">Loading users...</td></tr>
+              ) : filteredUsers.length === 0 ? (
                 <tr><td colSpan={4} className="empty-state">No users match the selected filters.</td></tr>
               ) : (
                 filteredUsers.map(user => (
@@ -204,7 +248,7 @@ export default function UsersPage() {
                         value={user.role} 
                         onChange={e => updateUserField(user.id, 'role', e.target.value)}
                       >
-                        {ROLES.map(role => <option key={role} value={role}>{role}</option>)}
+                        {ROLES.map(role => <option key={role} value={role}>{ROLE_MAP[role]}</option>)}
                       </select>
                       <div style={{ fontSize: '11px', color: 'var(--neutral-500)', marginTop: '6px', lineHeight: 1.3 }}>
                         {ROLE_DESCRIPTIONS[user.role]}
@@ -218,6 +262,9 @@ export default function UsersPage() {
                       >
                         {ACADEMIES.map(academy => <option key={academy} value={academy}>{academy}</option>)}
                       </select>
+                    </td>
+                    <td>
+                      <span className={`saved-chip ${savedStatus[user.id] ? 'visible' : ''}`}>Saved</span>
                     </td>
                   </tr>
                 ))

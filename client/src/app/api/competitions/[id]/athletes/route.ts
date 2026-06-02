@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { db } from '@lib/firebase';
+import { doc, setDoc } from 'firebase/firestore';
 
 export async function POST(
   request: Request,
@@ -9,7 +11,6 @@ export async function POST(
     const body = await request.json();
     const { name, gender, age, weight, categoryId, academy } = body;
 
-    // Validate simple required fields for late on-the-spot registration
     if (!name || !categoryId) {
       return NextResponse.json(
         { success: false, error: { code: 'bad_request', message: 'Name and Category ID are required' } },
@@ -17,16 +18,9 @@ export async function POST(
       );
     }
 
-    // In a real implementation:
-    // 1. Generate a UUID for the new athlete.
-    // 2. Save the athlete to the 'athletes' subcollection in Firestore.
-    // 3. Return the newly created athlete.
-    
-    // Once this returns success to the client, the UI will display a prompt: 
-    // "Athlete added. The Tiesheet for this category must be re-generated. [Re-generate Now]"
-
+    const athleteId = `late-${Date.now()}`;
     const newAthlete = {
-      id: `late-${Date.now()}`,
+      id: athleteId,
       competitionId,
       categoryId,
       name,
@@ -41,6 +35,9 @@ export async function POST(
       readiness: 'ready',
       disqualified: false
     };
+
+    const athleteRef = doc(db, 'competitions', competitionId, 'categories', categoryId, 'athletes', athleteId);
+    await setDoc(athleteRef, newAthlete);
 
     return NextResponse.json({
       success: true,

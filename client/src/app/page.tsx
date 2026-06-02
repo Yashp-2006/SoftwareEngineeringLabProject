@@ -4,9 +4,54 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 
 export default function DashboardPage() {
-  const [stats, setStats] = useState({ active: 3, upcoming: 5, athletes: 1482, total: 12 });
+  const [stats, setStats] = useState({ active: 0, upcoming: 0, athletes: 1482, total: 0 });
   const [loading, setLoading] = useState(true);
   const [chartType, setChartType] = useState('bar');
+  const [liveCompetitions, setLiveCompetitions] = useState<any[]>([]);
+
+  useEffect(() => {
+    const loadStats = async () => {
+      try {
+        const { db } = await import('@lib/firebase');
+        const { collection, getDocs } = await import('firebase/firestore');
+        const snap = await getDocs(collection(db, 'competitions'));
+        
+        let active = 0, upcoming = 0, total = 0;
+        snap.forEach(doc => {
+          const s = doc.data().status;
+          if (s === 'live') active++;
+          else if (s === 'upcoming') upcoming++;
+          total++;
+        });
+        
+        setStats({ active, upcoming, athletes: 1482, total });
+      } catch (err) {
+        console.error('Failed to load stats', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadStats();
+  }, []);
+
+  useEffect(() => {
+    const loadLive = async () => {
+      try {
+        const { db } = await import('@lib/firebase');
+        const { collection, query, where, onSnapshot } = await import('firebase/firestore');
+        const q = query(collection(db, 'competitions'), where('status', 'in', ['live', 'upcoming']));
+        return onSnapshot(q, (snap) => {
+          setLiveCompetitions(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        });
+      } catch (err) {
+        console.error(err);
+        return () => {};
+      }
+    };
+    let unsub: any;
+    loadLive().then(u => { unsub = u; });
+    return () => { if (typeof unsub === 'function') unsub(); };
+  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && (window as any).lucide) {
@@ -309,72 +354,57 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                <tr>
-                  <td>
-                    <Link href="/setup/123" style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
-                      <div className="event-title">Kyoto 2026 Finals</div>
-                      <div className="text-small">International Open</div>
-                    </Link>
-                  </td>
-                  <td><span style={{ fontWeight: 500 }}>Senior Male Kumite -75kg</span></td>
-                  <td><span className="status-chip status-live">Live</span></td>
-                  <td>
-                    <div className="mat-pill active" style={{ display: 'inline-flex', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: 700, alignItems: 'center', gap: '6px', background: 'var(--aka-light)', color: 'var(--aka)', border: '1px solid var(--aka)' }}>
-                      <span style={{ display: 'inline-block', width: '6px', height: '6px', background: 'var(--aka)', borderRadius: '50%' }}></span>
-                      Mat 01
-                    </div>
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <div style={{ display: 'inline-flex', gap: '8px' }}>
-                      <button className="btn btn-ghost" style={{ padding: '8px', borderRadius: '8px', background: 'var(--neutral-50)' }}><i data-lucide="layout-grid" style={{ width: '18px' }}></i></button>
-                      <button className="btn btn-primary" style={{ padding: '8px', borderRadius: '8px' }}><i data-lucide="monitor" style={{ width: '18px' }}></i></button>
-                    </div>
-                  </td>
-                </tr>
-
-                <tr>
-                  <td>
-                    <Link href="/setup/124" style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
-                      <div className="event-title">Tokyo Masters</div>
-                      <div className="text-small">National Championship</div>
-                    </Link>
-                  </td>
-                  <td><span style={{ fontWeight: 500 }}>U21 Female Kata</span></td>
-                  <td><span className="status-chip status-live">Live</span></td>
-                  <td>
-                    <div className="mat-pill active" style={{ display: 'inline-flex', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: 700, alignItems: 'center', gap: '6px', background: 'var(--aka-light)', color: 'var(--aka)', border: '1px solid var(--aka)' }}>
-                      <span style={{ display: 'inline-block', width: '6px', height: '6px', background: 'var(--aka)', borderRadius: '50%' }}></span>
-                      Mat 02
-                    </div>
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <div style={{ display: 'inline-flex', gap: '8px' }}>
-                      <button className="btn btn-ghost" style={{ padding: '8px', borderRadius: '8px', background: 'var(--neutral-50)' }}><i data-lucide="layout-grid" style={{ width: '18px' }}></i></button>
-                      <button className="btn btn-primary" style={{ padding: '8px', borderRadius: '8px' }}><i data-lucide="monitor" style={{ width: '18px' }}></i></button>
-                    </div>
-                  </td>
-                </tr>
-
-                <tr>
-                  <td>
-                    <Link href="/setup/new" style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
-                      <div className="event-title">Osaka Regional Cup</div>
-                      <div className="text-small">Regional Selection</div>
-                    </Link>
-                  </td>
-                  <td><span style={{ fontWeight: 500, color: 'var(--neutral-500)' }}>Awaiting Categories...</span></td>
-                  <td><span className="status-chip status-upcoming">Upcoming</span></td>
-                  <td>
-                    <div className="mat-pill" style={{ display: 'inline-flex', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: 700, alignItems: 'center', gap: '6px', background: 'var(--neutral-100)', color: 'var(--neutral-500)', border: '1px solid var(--neutral-300)' }}>
-                      Mat 03
-                    </div>
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <Link href="/setup/new" className="btn btn-secondary" style={{ padding: '8px 16px', borderRadius: '8px', textDecoration: 'none' }}>
-                      <i data-lucide="settings" style={{ width: '16px' }}></i> Setup
-                    </Link>
-                  </td>
-                </tr>
+                {liveCompetitions.map(comp => (
+                  <tr key={comp.id}>
+                    <td>
+                      <Link href={`/competitions/${comp.id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
+                        <div className="event-title">{comp.name || 'Unnamed Competition'}</div>
+                        <div className="text-small">{comp.type || 'Tournament'}</div>
+                      </Link>
+                    </td>
+                    <td>
+                      {comp.status === 'live' ? (
+                        <span style={{ fontWeight: 500 }}>Live Categories Active</span>
+                      ) : (
+                        <span style={{ fontWeight: 500, color: 'var(--neutral-500)' }}>Awaiting Categories...</span>
+                      )}
+                    </td>
+                    <td>
+                      <span className={`status-chip status-${comp.status}`}>{comp.status === 'live' ? 'Live' : 'Upcoming'}</span>
+                    </td>
+                    <td>
+                      {comp.status === 'live' ? (
+                        <div className="mat-pill active" style={{ display: 'inline-flex', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: 700, alignItems: 'center', gap: '6px', background: 'var(--aka-light)', color: 'var(--aka)', border: '1px solid var(--aka)' }}>
+                          <span style={{ display: 'inline-block', width: '6px', height: '6px', background: 'var(--aka)', borderRadius: '50%' }}></span>
+                          Active Mats
+                        </div>
+                      ) : (
+                        <div className="mat-pill" style={{ display: 'inline-flex', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: 700, alignItems: 'center', gap: '6px', background: 'var(--neutral-100)', color: 'var(--neutral-500)', border: '1px solid var(--neutral-300)' }}>
+                          Standby
+                        </div>
+                      )}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      {comp.status === 'live' ? (
+                        <div style={{ display: 'inline-flex', gap: '8px' }}>
+                          <Link href={`/competitions/${comp.id}/mats`} className="btn btn-ghost" style={{ padding: '8px', borderRadius: '8px', background: 'var(--neutral-50)' }}><i data-lucide="layout-grid" style={{ width: '18px' }}></i></Link>
+                          <Link href={`/competitions/${comp.id}`} className="btn btn-primary" style={{ padding: '8px', borderRadius: '8px' }}><i data-lucide="monitor" style={{ width: '18px' }}></i></Link>
+                        </div>
+                      ) : (
+                        <Link href={`/competitions/${comp.id}`} className="btn btn-secondary" style={{ padding: '8px 16px', borderRadius: '8px', textDecoration: 'none' }}>
+                          <i data-lucide="settings" style={{ width: '16px' }}></i> Setup
+                        </Link>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {liveCompetitions.length === 0 && !loading && (
+                  <tr>
+                    <td colSpan={5} style={{ textAlign: 'center', padding: '32px', color: 'var(--neutral-500)' }}>
+                      No active or upcoming competitions.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

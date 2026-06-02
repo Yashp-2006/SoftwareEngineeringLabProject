@@ -2,9 +2,12 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Maximize2, X, Play, Pause, RotateCcw } from 'lucide-react';
+import ConfirmModal from '@/components/ConfirmModal';
 
 type FighterState = {
   name: string;
+  country: string;
+  academy: string;
   score: number;
   ippon: number;
   wazaari: number;
@@ -17,12 +20,12 @@ type FighterState = {
 export default function ScoreboardPage({ params }: { params: Promise<{ matchId: string }> }) {
   const { matchId } = React.use(params);
 
-  const initialFighterState = (name: string): FighterState => ({
-    name, score: 0, ippon: 0, wazaari: 0, yuko: 0, c1: 0, c2: 0, senshu: false
+  const initialFighterState = (name: string, country: string = 'JAPAN', academy: string = ''): FighterState => ({
+    name, country, academy, score: 0, ippon: 0, wazaari: 0, yuko: 0, c1: 0, c2: 0, senshu: false
   });
 
-  const [aka, setAka] = useState<FighterState>(initialFighterState('SATO'));
-  const [ao, setAo] = useState<FighterState>(initialFighterState('MULLER'));
+  const [aka, setAka] = useState<FighterState>(initialFighterState('SATO', 'JPN', 'Kyoto Martial Academy'));
+  const [ao, setAo] = useState<FighterState>(initialFighterState('MULLER', 'GER', 'Berlin Karate Club'));
   
   const [timer, setTimer] = useState(180);
   const [running, setRunning] = useState(false);
@@ -31,6 +34,12 @@ export default function ScoreboardPage({ params }: { params: Promise<{ matchId: 
   const [winnerOverlay, setWinnerOverlay] = useState<{ active: boolean, winner: string, classMode: string }>({
     active: false, winner: '', classMode: ''
   });
+  
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean; title: string; message: string; isDestructive: boolean; onConfirm: () => void;
+  }>({ isOpen: false, title: '', message: '', isDestructive: false, onConfirm: () => {} });
+
+  const closeConfirm = () => setConfirmState(prev => ({ ...prev, isOpen: false }));
 
   // Timer Effect
   useEffect(() => {
@@ -105,14 +114,21 @@ export default function ScoreboardPage({ params }: { params: Promise<{ matchId: 
   }, [aka, ao]);
 
   const resetAll = useCallback(() => {
-    if (confirm('Reset scoreboard?')) {
-      setAka(initialFighterState('SATO'));
-      setAo(initialFighterState('MULLER'));
-      setTimer(180);
-      setRunning(false);
-      setSenshuClaimed(false);
-      setWinnerOverlay({ active: false, winner: '', classMode: '' });
-    }
+    setConfirmState({
+      isOpen: true,
+      title: 'Reset Scoreboard',
+      message: 'Reset scoreboard?',
+      isDestructive: true,
+      onConfirm: () => {
+        closeConfirm();
+        setAka(initialFighterState('SATO', 'JPN', 'Kyoto Martial Academy'));
+        setAo(initialFighterState('MULLER', 'GER', 'Berlin Karate Club'));
+        setTimer(180);
+        setRunning(false);
+        setSenshuClaimed(false);
+        setWinnerOverlay({ active: false, winner: '', classMode: '' });
+      }
+    });
   }, []);
 
   const toggleFullscreen = useCallback(() => {
@@ -214,6 +230,15 @@ export default function ScoreboardPage({ params }: { params: Promise<{ matchId: 
         .winner-ao .winner-name { color: var(--ao); }
       `}} />
 
+      <ConfirmModal
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        isDestructive={confirmState.isDestructive}
+        onConfirm={confirmState.onConfirm}
+        onCancel={closeConfirm}
+      />
+
       <button className="fullscreen-btn" onClick={toggleFullscreen} title="Toggle Fullscreen (F)">
         <Maximize2 size={16} />
       </button>
@@ -231,7 +256,7 @@ export default function ScoreboardPage({ params }: { params: Promise<{ matchId: 
         <div className="side aka">
           <div className={`senshu ${aka.senshu ? 'active' : ''}`}>SENSHU</div>
           <div className="athlete-name">{aka.name}</div>
-          <div className="athlete-country">JAPAN</div>
+          <div className="athlete-country">{[aka.academy, aka.country || 'JAPAN'].filter(Boolean).join(' • ').toUpperCase()}</div>
           
           <div className="score-wrap">
             <div className="score">{aka.score}</div>
@@ -291,7 +316,7 @@ export default function ScoreboardPage({ params }: { params: Promise<{ matchId: 
         <div className="side ao">
           <div className={`senshu ${ao.senshu ? 'active' : ''}`}>SENSHU</div>
           <div className="athlete-name">{ao.name}</div>
-          <div className="athlete-country">GERMANY</div>
+          <div className="athlete-country">{[ao.academy, ao.country || 'JAPAN'].filter(Boolean).join(' • ').toUpperCase()}</div>
           
           <div className="score-wrap">
             <div className="score">{ao.score}</div>

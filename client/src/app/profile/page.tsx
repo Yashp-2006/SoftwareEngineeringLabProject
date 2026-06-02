@@ -77,7 +77,7 @@ export default function ProfilePage() {
         </header>
 
         <section className="profile-header">
-          <div className="profile-avatar-large" style={{ backgroundImage: user?.photoURL ? `url(${user.photoURL})` : `url('https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email || 'Felix'}')` }}></div>
+          <div className="profile-avatar-large" style={{ background: user?.photoURL ? `url(${user.photoURL}) center/cover` : `url('https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email || 'Felix'}') center/cover` }}></div>
           <div className="profile-info">
             <h1>{user?.displayName || 'User Profile'}</h1>
             <div className="profile-meta">

@@ -1,22 +1,138 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { LayoutGrid, Plus, Timer, Activity, Coffee, CalendarPlus } from 'lucide-react';
 import gsap from 'gsap';
 
+interface MatData {
+  id: string; // e.g. 'mat-1'
+  name: string; // e.g. 'MAT 01'
+  order: number;
+}
+
+interface RTDBMatState {
+  status: 'live' | 'standby' | 'paused' | 'upcoming';
+  currentCategory?: string;
+  currentMatch?: string; // e.g. "Semi-Final"
+  scores?: {
+    aka: number;
+    ao: number;
+    akaPen: number;
+    aoPen: number;
+  };
+  timeRemaining?: string; // e.g. "01:42"
+}
+
 export default function MatsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
 
+  const [mats, setMats] = useState<MatData[]>([]);
+  const [liveStates, setLiveStates] = useState<Record<string, RTDBMatState>>({});
+  const [categoryByMat, setCategoryByMat] = useState<Record<string, { name: string; status: string; entries: number }[]>>({});
+  const [loading, setLoading] = useState(true);
+  const [isSeeding, setIsSeeding] = useState(false);
+  const [compMatsCount, setCompMatsCount] = useState<number>(6);
+
   useEffect(() => {
-    gsap.from('.bento-reveal', {
-      y: 30,
-      opacity: 0,
-      duration: 0.6,
-      stagger: 0.08,
-      ease: 'power3.out'
-    });
-  }, []);
+    let unsubFirestore: () => void;
+    let unsubCats: () => void;
+    let rtdbUnsubs: Record<string, () => void> = {};
+
+    const setup = async () => {
+      const { db, rtdb } = await import('@lib/firebase');
+      const { collection, onSnapshot, query, orderBy, getDoc, doc } = await import('firebase/firestore');
+      const { ref, onValue, off } = await import('firebase/database');
+
+      // Load competition mats count
+      const compSnap = await getDoc(doc(db, 'competitions', id));
+      if (compSnap.exists() && compSnap.data().mats) {
+        setCompMatsCount(compSnap.data().mats);
+      }
+
+      // Listen to categories to know which mat each is assigned to
+      const catsQ = query(collection(db, 'competitions', id, 'categories'), orderBy('order'));
+      unsubCats = onSnapshot(catsQ, (snap) => {
+        const byMat: Record<string, { name: string; status: string; entries: number }[]> = {};
+        snap.docs.forEach(d => {
+          const data = d.data();
+          const matName = (data.mat || '').toUpperCase();
+          if (!byMat[matName]) byMat[matName] = [];
+          byMat[matName].push({ name: data.name, status: data.status || 'upcoming', entries: data.entries || 0 });
+        });
+        setCategoryByMat(byMat);
+      });
+
+      const matsQ = query(collection(db, 'competitions', id, 'mats'), orderBy('order'));
+      
+      unsubFirestore = onSnapshot(matsQ, (snap) => {
+        const matsList = snap.docs.map(d => ({ id: d.id, ...d.data() } as MatData));
+        setMats(matsList);
+        setLoading(false);
+
+        // Listen to RTDB for each mat
+        matsList.forEach(mat => {
+          if (!rtdbUnsubs[mat.id]) {
+            const matRef = ref(rtdb, `live_scores/${id}/mats/${mat.id}`);
+            const listener = onValue(matRef, (snapshot) => {
+              const data = snapshot.val();
+              setLiveStates(prev => ({
+                ...prev,
+                [mat.id]: data || { status: 'standby' }
+              }));
+            });
+            rtdbUnsubs[mat.id] = () => off(matRef, 'value', listener);
+          }
+        });
+      });
+    };
+
+    setup();
+
+    return () => {
+      if (unsubFirestore) unsubFirestore();
+      if (unsubCats) unsubCats();
+      Object.values(rtdbUnsubs).forEach(unsub => unsub());
+    };
+  }, [id]);
+
+  useEffect(() => {
+    if (!loading && mats.length > 0) {
+      gsap.from('.bento-reveal', {
+        y: 30,
+        opacity: 0,
+        duration: 0.6,
+        stagger: 0.08,
+        ease: 'power3.out'
+      });
+    }
+  }, [loading, mats.length]);
+
+  const handleSeedMats = async () => {
+    setIsSeeding(true);
+    try {
+      const { db } = await import('@lib/firebase');
+      const { writeBatch, doc } = await import('firebase/firestore');
+      const batch = writeBatch(db);
+      
+      for (let i = 1; i <= compMatsCount; i++) {
+        const matRef = doc(db, 'competitions', id, 'mats', `mat-${i}`);
+        batch.set(matRef, {
+          name: `MAT ${String(i).padStart(2, '0')}`,
+          order: i
+        });
+      }
+      
+      await batch.commit();
+    } catch (err) {
+      console.error('Failed to seed mats', err);
+    } finally {
+      setIsSeeding(false);
+    }
+  };
+
+  const activeCount = Object.values(liveStates).filter(s => s.status === 'live').length;
+  const standbyCount = mats.length - activeCount;
 
   return (
     <>
@@ -28,7 +144,7 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
           margin-top: var(--space-5);
         }
         .mat-card {
-          background: var(--shiro);
+          background-color: var(--shiro);
           border: 1px solid var(--neutral-200);
           border-radius: 12px;
           padding: var(--space-5);
@@ -47,9 +163,12 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
         }
         .mat-card.live {
           border-top: 4px solid var(--status-live);
+          border-color: var(--status-live-bg);
+          box-shadow: 0 8px 24px rgba(22, 163, 74, 0.1);
         }
         .mat-card.standby {
           border-top: 4px solid var(--neutral-300);
+          background-color: var(--neutral-50);
         }
         .mat-number {
           font-family: var(--font-display);
@@ -285,6 +404,16 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
           display: flex;
           gap: var(--space-3);
         }
+        
+        .empty-state {
+          padding: var(--space-10);
+          text-align: center;
+          background: var(--shiro);
+          border: 1px solid var(--neutral-300);
+          border-radius: 12px;
+          box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+          margin-top: var(--space-5);
+        }
       `}} />
 
       <main className="container">
@@ -300,169 +429,139 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
               <button className="btn btn-secondary">
                 <LayoutGrid style={{ width: '16px', marginRight: '6px' }} /> Grid View
               </button>
-              <button className="btn btn-primary">
-                <Plus style={{ width: '16px', marginRight: '6px' }} /> Add Mat
+              <button className="btn btn-primary" onClick={handleSeedMats} disabled={isSeeding}>
+                <Plus style={{ width: '16px', marginRight: '6px' }} /> 
+                {isSeeding ? 'Adding...' : 'Add Mats'}
               </button>
             </div>
             <div className="filters">
-              <button className="filter-btn active">All Mats (6)</button>
-              <button className="filter-btn">Live (3)</button>
-              <button className="filter-btn">Standby (3)</button>
+              <button className="filter-btn active">All Mats ({mats.length})</button>
+              <button className="filter-btn">Live ({activeCount})</button>
+              <button className="filter-btn">Standby ({standbyCount})</button>
             </div>
           </div>
         </header>
 
-        <div className="mat-grid">
-          {/* Mat 01 */}
-          <Link href={`/competitions/${id}/operator`} className="mat-card live bento-reveal">
-            <div className="mat-header">
-              <span className="mat-number">MAT 01</span>
-              <span className="status-chip status-live">Live</span>
-            </div>
-            <div className="category-label">Current Category</div>
-            <div className="category-title">Senior Male Kumite -75kg<br /><span style={{ color: 'var(--neutral-500)', fontWeight: 500, fontSize: '14px' }}>Semi-Final</span></div>
-            
-            <div className="score-board">
-              <div className="score-side aka">
-                <div className="score-label aka">AKA</div>
-                <div className="score-value aka">3</div>
-                <div className="score-pen">PEN 2</div>
-              </div>
-              <div className="score-divider">PTS</div>
-              <div className="score-side ao">
-                <div className="score-label ao">AO</div>
-                <div className="score-value ao">1</div>
-                <div className="score-pen">PEN 1</div>
-              </div>
-            </div>
-            
-            <div className="mat-footer">
-              <div className="time-remaining">
-                <Timer size={14} style={{ color: 'var(--status-live)' }} /> 01:42
-              </div>
-              <button className="btn-action">Manage</button>
-            </div>
-          </Link>
-
-          {/* Mat 02 */}
-          <Link href={`/competitions/${id}/operator`} className="mat-card live bento-reveal">
-            <div className="mat-header">
-              <span className="mat-number">MAT 02</span>
-              <span className="status-chip status-live">Live</span>
-            </div>
-            <div className="category-label">Current Category</div>
-            <div className="category-title">Senior Female Kata<br /><span style={{ color: 'var(--neutral-500)', fontWeight: 500, fontSize: '14px' }}>Final</span></div>
-            
-            <div className="score-board">
-              <div className="score-side aka">
-                <div className="score-label aka">AKA</div>
-                <div className="score-value aka">24.6</div>
-                <div className="score-pen">PEN 0</div>
-              </div>
-              <div className="score-divider">SCORE</div>
-              <div className="score-side ao">
-                <div className="score-label ao">AO</div>
-                <div className="score-value ao">24.2</div>
-                <div className="score-pen">PEN 0</div>
-              </div>
-            </div>
-            
-            <div className="mat-footer">
-              <div className="time-remaining" style={{ color: 'var(--neutral-500)' }}>
-                <Activity size={14} style={{ color: 'var(--neutral-400)' }} /> Kata in Progress
-              </div>
-              <button className="btn-action">Manage</button>
-            </div>
-          </Link>
-
-          {/* Mat 03 */}
-          <Link href={`/competitions/${id}/operator`} className="mat-card live bento-reveal">
-            <div className="mat-header">
-              <span className="mat-number">MAT 03</span>
-              <span className="status-chip status-live">Live</span>
-            </div>
-            <div className="category-label">Current Category</div>
-            <div className="category-title">U21 Male Kumite +84kg<br /><span style={{ color: 'var(--neutral-500)', fontWeight: 500, fontSize: '14px' }}>Elimination</span></div>
-            
-            <div className="score-board">
-              <div className="score-side aka">
-                <div className="score-label aka">AKA</div>
-                <div className="score-value aka">0</div>
-                <div className="score-pen">PEN 0</div>
-              </div>
-              <div className="score-divider">PTS</div>
-              <div className="score-side ao">
-                <div className="score-label ao">AO</div>
-                <div className="score-value ao">0</div>
-                <div className="score-pen">PEN 0</div>
-              </div>
-            </div>
-            
-            <div className="mat-footer">
-              <div className="time-remaining">
-                <Timer size={14} style={{ color: 'var(--status-live)' }} /> 03:00
-              </div>
-              <button className="btn-action">Manage</button>
-            </div>
-          </Link>
-
-          {/* Mat 04 */}
-          <div className="mat-card standby bento-reveal">
-            <div className="mat-header">
-              <span className="mat-number">MAT 04</span>
-              <span className="status-chip status-done">Standby</span>
-            </div>
-            
-            <div className="standby-state">
-              <Coffee size={28} style={{ color: 'var(--neutral-400)', marginBottom: 'var(--space-2)' }} />
-              <span>No Active Event</span>
-            </div>
-            
-            <div className="mat-footer" style={{ justifyContent: 'center' }}>
-              <button className="btn-action primary" style={{ width: '100%', justifyContent: 'center' }}>
-                <CalendarPlus size={16} style={{ marginRight: '6px' }} /> Assign Event
-              </button>
-            </div>
+        {loading ? (
+          <div style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--neutral-500)' }}>
+            Loading mats...
           </div>
-
-          {/* Mat 05 */}
-          <div className="mat-card standby bento-reveal">
-            <div className="mat-header">
-              <span className="mat-number">MAT 05</span>
-              <span className="status-chip status-done">Standby</span>
-            </div>
-            
-            <div className="standby-state">
-              <Coffee size={28} style={{ color: 'var(--neutral-400)', marginBottom: 'var(--space-2)' }} />
-              <span>No Active Event</span>
-            </div>
-            
-            <div className="mat-footer" style={{ justifyContent: 'center' }}>
-              <button className="btn-action primary" style={{ width: '100%', justifyContent: 'center' }}>
-                <CalendarPlus size={16} style={{ marginRight: '6px' }} /> Assign Event
-              </button>
-            </div>
+        ) : mats.length === 0 ? (
+          <div className="empty-state">
+            <h3 style={{ marginBottom: '8px' }}>No Mats Configured</h3>
+            <p style={{ color: 'var(--neutral-500)', marginBottom: '24px' }}>Click 'Add Mats' to generate the {compMatsCount} mats for this tournament.</p>
+            <button className="btn btn-primary" onClick={handleSeedMats} disabled={isSeeding}>
+              <Plus size={16} style={{ marginRight: '6px' }} />
+              {isSeeding ? 'Seeding...' : 'Add Mats'}
+            </button>
           </div>
+        ) : (
+          <div className="mat-grid">
+            {mats.map(mat => {
+              const liveState = liveStates[mat.id] || { status: 'standby' };
+              const isLive = liveState.status === 'live' || liveState.status === 'paused';
+              const assignedCats = categoryByMat[mat.name] || [];
+              const liveCat = assignedCats.find(c => c.status === 'live');
+              const upcomingCats = assignedCats.filter(c => c.status === 'upcoming');
+              const doneCats = assignedCats.filter(c => c.status === 'done');
 
-          {/* Mat 06 */}
-          <div className="mat-card standby bento-reveal">
-            <div className="mat-header">
-              <span className="mat-number">MAT 06</span>
-              <span className="status-chip status-done">Standby</span>
-            </div>
-            
-            <div className="standby-state">
-              <Coffee size={28} style={{ color: 'var(--neutral-400)', marginBottom: 'var(--space-2)' }} />
-              <span>No Active Event</span>
-            </div>
-            
-            <div className="mat-footer" style={{ justifyContent: 'center' }}>
-              <button className="btn-action primary" style={{ width: '100%', justifyContent: 'center' }}>
-                <CalendarPlus size={16} style={{ marginRight: '6px' }} /> Assign Event
-              </button>
-            </div>
+              return (
+                <a key={mat.id} href={`/competitions/${id}/operator?mat=${mat.id}`} className={`mat-card ${isLive || liveCat ? 'live' : 'standby'} bento-reveal`}>
+                  <div className="mat-header">
+                    <span className="mat-number">{mat.name}</span>
+                    {isLive || liveCat ? (
+                      <span className="status-chip status-live">Live</span>
+                    ) : upcomingCats.length > 0 ? (
+                      <span className="status-chip" style={{ background: 'var(--ao-light)', color: 'var(--ao)' }}>
+                        {upcomingCats.length} Upcoming
+                      </span>
+                    ) : (
+                      <span className="status-chip status-done">Idle</span>
+                    )}
+                  </div>
+
+                  {isLive ? (
+                    <>
+                      <div className="category-label">Current Category</div>
+                      <div className="category-title">
+                        {liveState.currentCategory || liveCat?.name || 'Unknown Category'}
+                        <br />
+                        <span style={{ color: 'var(--neutral-500)', fontWeight: 500, fontSize: '14px' }}>
+                          {liveState.currentMatch || 'Match'}
+                        </span>
+                      </div>
+                      
+                      <div className="score-board">
+                        <div className="score-side aka">
+                          <div className="score-label aka">AKA</div>
+                          <div className="score-value aka">{liveState.scores?.aka || 0}</div>
+                          <div className="score-pen">PEN {liveState.scores?.akaPen || 0}</div>
+                        </div>
+                        <div className="score-divider">PTS</div>
+                        <div className="score-side ao">
+                          <div className="score-label ao">AO</div>
+                          <div className="score-value ao">{liveState.scores?.ao || 0}</div>
+                          <div className="score-pen">PEN {liveState.scores?.aoPen || 0}</div>
+                        </div>
+                      </div>
+                      
+                      <div className="mat-footer">
+                        <div className="time-remaining">
+                          <Timer size={14} style={{ color: 'var(--status-live)' }} /> 
+                          {liveState.timeRemaining || '00:00'}
+                        </div>
+                        <button className="btn-action">Manage</button>
+                      </div>
+                    </>
+                  ) : assignedCats.length > 0 ? (
+                    <>
+                      <div style={{ flex: 1, overflowY: 'auto', marginBottom: 'var(--space-3)' }}>
+                        {liveCat && (
+                          <div style={{ padding: '8px 10px', background: 'var(--status-live-bg)', borderRadius: '6px', marginBottom: '6px', fontSize: '12px', fontWeight: 700, color: 'var(--status-live)' }}>
+                            🔴 {liveCat.name}
+                          </div>
+                        )}
+                        {upcomingCats.slice(0, 4).map((c, i) => (
+                          <div key={i} style={{ padding: '6px 10px', background: 'var(--neutral-50)', borderRadius: '6px', marginBottom: '4px', fontSize: '11px', fontWeight: 600, color: 'var(--neutral-700)', display: 'flex', justifyContent: 'space-between' }}>
+                            <span>{c.name}</span>
+                            <span style={{ color: 'var(--neutral-400)', fontSize: '10px' }}>{c.entries} ATH</span>
+                          </div>
+                        ))}
+                        {upcomingCats.length > 4 && (
+                          <div style={{ fontSize: '10px', color: 'var(--neutral-400)', textAlign: 'center', padding: '4px' }}>+{upcomingCats.length - 4} more categories</div>
+                        )}
+                        {upcomingCats.length === 0 && doneCats.length > 0 && (
+                          <div style={{ padding: '8px 10px', background: 'var(--neutral-50)', borderRadius: '6px', fontSize: '12px', color: 'var(--neutral-500)', textAlign: 'center' }}>
+                            ✅ All categories completed
+                          </div>
+                        )}
+                      </div>
+                      <div className="mat-footer" style={{ justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '11px', color: 'var(--neutral-500)' }}>{doneCats.length}/{assignedCats.length} done</span>
+                        <button className="btn-action primary">
+                          <CalendarPlus size={16} style={{ marginRight: '6px' }} /> Open Mat
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="standby-state">
+                        <Coffee size={28} style={{ color: 'var(--neutral-400)', marginBottom: 'var(--space-2)' }} />
+                        <span>No Categories Assigned</span>
+                      </div>
+                      
+                      <div className="mat-footer" style={{ justifyContent: 'center' }}>
+                        <button className="btn-action primary" style={{ width: '100%', justifyContent: 'center' }}>
+                          <CalendarPlus size={16} style={{ marginRight: '6px' }} /> Assign Event
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </a>
+              );
+            })}
           </div>
-        </div>
+        )}
       </main>
     </>
   );

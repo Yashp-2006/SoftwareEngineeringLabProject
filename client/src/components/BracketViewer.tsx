@@ -65,9 +65,6 @@ export default function BracketViewer({ matches, categoryName }: { matches: any[
   }
 
   const getRoundName = (rIndex: number, totalRounds: number) => {
-    if (rIndex === totalRounds - 1) return "Finals";
-    if (rIndex === totalRounds - 2) return "Semi-Finals";
-    if (rIndex === totalRounds - 3) return "Quarter-Finals";
     return `Round ${rIndex + 1}`;
   };
 
@@ -251,11 +248,6 @@ export default function BracketViewer({ matches, categoryName }: { matches: any[
                           <div className="text-micro" style={{ flex: 1, color: 'var(--neutral-400)', fontWeight: 700, letterSpacing: '0.1em' }}>
                             MATCH {m.matchNumber}
                           </div>
-                          {m.mat && (
-                            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--neutral-600)' }}>
-                              MAT {m.mat}
-                            </div>
-                          )}
                         </div>
                       </div>
                     </div>
