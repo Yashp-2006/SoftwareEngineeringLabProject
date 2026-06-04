@@ -45,11 +45,14 @@
   - Operator page (`/competitions/[id]/operator`) is implemented and writes real-time scores to Firebase RTDB.
   - Connected to the Live Mat broadcast view (`/live/mat/[matId]`).
 - **Entity Management**: CRUD UI for Competitions, Categories, Athletes, and Medals is implemented and wired to Firestore.
+- **User Roles & Academy Assignment**:
+  - The `/users` directory is functional with real-time Firestore updates.
+  - Added the ability to completely remove/delete a user's account from the system.
+  - Simplified UX by removing the academy filter.
 
 ## 2. What's Not Done
 - **RTDB Read/Write Mismatches**: While the operator writes to RTDB and the live mat reads from it, there may still be minor path sync issues or missing subscriptions for specific features (like the fullscreen scoreboard view).
 - **Staff and Schedule CRUD**: The UI for Staff (`/competitions/[id]/staff`) and Schedule (`/competitions/[id]/schedule`) exists, but the Firestore wiring for direct CRUD operations is not fully completed or verified.
-- **User Roles & Academy Assignment**: The `/users` directory exists but role/academy assignments need firmer integration with the Firebase `users` collection.
 - **Analytics & Archiving Aggregations**: The `/archives/[id]` page has Chart.js UI, but the Firestore aggregations to feed those charts real data are pending.
 - **GSAP Animations**: Some of the more complex GSAP animations from the HTML prototype were dialed back or omitted due to Next.js SSR constraints.
 

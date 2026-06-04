@@ -58,7 +58,6 @@ export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
-  const [academyFilter, setAcademyFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [savedStatus, setSavedStatus] = useState<Record<string, boolean>>({});
 
@@ -92,11 +91,24 @@ export default function UsersPage() {
       user.email.toLowerCase().includes(query) || 
       user.academy.toLowerCase().includes(query);
     const roleMatch = roleFilter === "all" || user.role === roleFilter;
-    const academyMatch = academyFilter === "all" || user.academy === academyFilter;
-    return textMatch && roleMatch && academyMatch;
+    return textMatch && roleMatch;
   });
 
   const updateUserField = async (id: string, field: 'role' | 'academy', value: string) => {
+    if (field === 'role' && value === 'remove_user') {
+      const confirmDelete = window.confirm("Are you sure you want to completely remove this user? This cannot be undone.");
+      if (!confirmDelete) return;
+      
+      try {
+        const { db } = await import('@lib/firebase');
+        const { doc, deleteDoc } = await import('firebase/firestore');
+        await deleteDoc(doc(db, 'users', id));
+      } catch (err) {
+        console.error('Failed to delete user', err);
+      }
+      return;
+    }
+
     // Optimistic
     setUsers(prev => prev.map(u => u.id === id ? { ...u, [field]: value } : u));
     
@@ -133,7 +145,7 @@ export default function UsersPage() {
           background: var(--neutral-50);
           display: grid;
           gap: var(--space-3);
-          grid-template-columns: minmax(320px, 1fr) 220px 220px;
+          grid-template-columns: minmax(320px, 1fr) 220px;
           align-items: center;
         }
         .search-wrap { position: relative; }
@@ -207,12 +219,6 @@ export default function UsersPage() {
                 <option key={role} value={role}>{ROLE_MAP[role]}</option>
               ))}
             </select>
-            <select className="filter-select" value={academyFilter} onChange={e => setAcademyFilter(e.target.value)}>
-              <option value="all">Filter by Academy (All)</option>
-              {ACADEMIES.map(academy => (
-                <option key={academy} value={academy}>{academy}</option>
-              ))}
-            </select>
           </div>
 
           <div className="table-responsive">
@@ -250,6 +256,7 @@ export default function UsersPage() {
                         onChange={e => updateUserField(user.id, 'role', e.target.value)}
                       >
                         {ROLES.map(role => <option key={role} value={role}>{ROLE_MAP[role]}</option>)}
+                        <option value="remove_user" style={{ color: 'var(--aka)', fontWeight: 600 }}>Remove User (Delete)</option>
                       </select>
                       <div style={{ fontSize: '11px', color: 'var(--neutral-500)', marginTop: '6px', lineHeight: 1.3 }}>
                         {ROLE_DESCRIPTIONS[user.role]}
