@@ -2,8 +2,12 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/components/auth/AuthProvider';
 
 export default function DashboardPage() {
+  const router = useRouter();
+  const { user, role, loading: authLoading } = useAuth();
   const [stats, setStats] = useState({ 
     active: 0, 
     upcoming: 0, 
@@ -18,6 +22,14 @@ export default function DashboardPage() {
   const [chartType, setChartType] = useState('bar');
   const [timeFilter, setTimeFilter] = useState('6M');
   const [liveCompetitions, setLiveCompetitions] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!authLoading) {
+      if (!user || (role !== 'admin' && role !== 'guest_viewer')) {
+        router.push('/competitions');
+      }
+    }
+  }, [user, role, authLoading, router]);
 
   useEffect(() => {
     const loadStats = async () => {
@@ -175,6 +187,10 @@ export default function DashboardPage() {
   const chartData = timeFilter === '12M' ? fullChartData : fullChartData.slice(-6);
   const maxVal = Math.max(...chartData.map(d => d.val));
   const totalVal = chartData.reduce((sum, d) => sum + d.val, 0);
+
+  if (authLoading || (!user || (role !== 'admin' && role !== 'guest_viewer'))) {
+    return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Redirecting...</div>;
+  }
 
   return (
     <>

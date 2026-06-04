@@ -21,9 +21,11 @@ export default function Sidebar() {
         <div className="nav-logo">TAIKAIX</div>
         
         <div className="nav-links hide-on-mobile">
-          <Link href="/" className={`nav-link ${pathname === '/' ? 'active' : ''}`}>
-            Dashboard
-          </Link>
+          {(!loading && (role === 'admin' || role === 'guest_viewer')) && (
+            <Link href="/" className={`nav-link ${pathname === '/' ? 'active' : ''}`}>
+              Dashboard
+            </Link>
+          )}
           <Link href="/competitions" className={`nav-link ${pathname.startsWith('/competitions') || pathname.startsWith('/setup') || pathname.startsWith('/live') || pathname.startsWith('/archives') ? 'active' : ''}`}>
             Competitions
           </Link>
@@ -86,7 +88,9 @@ export default function Sidebar() {
             gap: 'var(--space-4)',
           }}
         >
-          <Link href="/" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Dashboard</Link>
+          {(!loading && (role === 'admin' || role === 'guest_viewer')) && (
+            <Link href="/" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Dashboard</Link>
+          )}
           <Link href="/competitions" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Competitions</Link>
           {(role === 'admin' || role === 'guest_viewer') && (
             <Link href="/users" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Users</Link>

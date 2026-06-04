@@ -3,23 +3,25 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/components/auth/AuthProvider';
-import { Lock, Unlock, Users, Calendar, Layout, Award, Edit3 } from 'lucide-react';
+import { Lock, Unlock, Users, Calendar, Layout, Award, Edit3, Share2 } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import { toast } from 'react-hot-toast';
 
 export default function CompetitionDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
-  const { user } = useAuth();
-  const [passcode, setPasscode] = useState('');
+  const searchParams = useSearchParams();
+  const { user, role } = useAuth();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState('');
 
   const [compData, setCompData] = useState<any>(null);
 
-  // Admins bypass passcode automatically
+  // Admins or users with join link bypass passcode
   useEffect(() => {
-    if (user) {
+    if (user || searchParams.get('join') === 'true') {
       setIsAuthenticated(true);
     }
-  }, [user]);
+  }, [user, searchParams]);
 
   useEffect(() => {
     const fetchComp = async () => {
@@ -37,15 +39,11 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
     fetchComp();
   }, [id]);
 
-  const handlePasscodeSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // TODO: Validate against Firestore (competition.audiencePasscode)
-    // For now, hardcode "1234" for testing the UI
-    if (passcode === '1234') {
-      setIsAuthenticated(true);
-      setError('');
-    } else {
-      setError('Invalid passcode. Please try again.');
+  const handleShareLink = () => {
+    if (typeof window !== 'undefined') {
+      const url = `${window.location.origin}/competitions/${id}?join=true`;
+      navigator.clipboard.writeText(url);
+      toast.success('Public join link copied to clipboard!');
     }
   };
 
@@ -55,22 +53,7 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
         <div className="card" style={{ width: '100%', maxWidth: '400px', textAlign: 'center', padding: 'var(--space-6)' }}>
           <Lock style={{ width: '48px', height: '48px', color: 'var(--neutral-400)', margin: '0 auto var(--space-4)' }} />
           <h2 style={{ marginBottom: 'var(--space-2)' }}>Private Event</h2>
-          <p className="text-small" style={{ marginBottom: 'var(--space-5)' }}>Please enter the audience passcode provided by the tournament organizer to view live results.</p>
-          
-          <form onSubmit={handlePasscodeSubmit}>
-            <input 
-              type="password" 
-              placeholder="Enter passcode"
-              value={passcode}
-              onChange={(e) => setPasscode(e.target.value)}
-              style={{ width: '100%', height: '44px', border: '1.5px solid var(--neutral-300)', borderRadius: '8px', padding: '0 12px', fontSize: '16px', textAlign: 'center', marginBottom: '16px', outline: 'none' }}
-              autoFocus
-            />
-            {error && <div style={{ color: 'var(--aka)', fontSize: '13px', marginBottom: '16px' }}>{error}</div>}
-            <button type="submit" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', height: '44px' }}>
-              Access Event
-            </button>
-          </form>
+          <p className="text-small" style={{ marginBottom: 'var(--space-5)' }}>Please use the public join link provided by the tournament organizer to view live results.</p>
         </div>
       </main>
     );
@@ -91,12 +74,21 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
           </div>
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
-          <Link href={`/setup/${id}`} className="btn btn-primary">
-            <Edit3 size={16} /> Setup Wizard
-          </Link>
-          <button className="btn btn-primary">
-            <Layout size={16} style={{ marginRight: '8px' }} /> Start Next Match
-          </button>
+          {role === 'admin' && (
+            <>
+              <button className="btn btn-secondary" onClick={handleShareLink}>
+                <Share2 size={16} style={{ marginRight: '8px' }} /> Share Join Link
+              </button>
+              <Link href={`/setup/${id}`} className="btn btn-primary">
+                <Edit3 size={16} /> Setup Wizard
+              </Link>
+            </>
+          )}
+          {(role === 'admin' || role === 'mat_operator') && (
+            <button className="btn btn-primary">
+              <Layout size={16} style={{ marginRight: '8px' }} /> Start Next Match
+            </button>
+          )}
         </div>
       </header>
 

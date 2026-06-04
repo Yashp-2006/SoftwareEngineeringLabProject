@@ -15,7 +15,7 @@ export default function CompetitionsPage() {
     name: '', dates: '', venue: '', type: 'national', rules: 'wkf', mats: '6', password: '',
     startTime: '09:00', endTime: '18:00', estMinsPerCategory: '60'
   });
-  const { user } = useAuth();
+  const { user, role, loading: authLoading } = useAuth();
   
   const [competitions, setCompetitions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,6 +54,12 @@ export default function CompetitionsPage() {
       if (unsubscribe) unsubscribe();
     };
   }, []);
+
+  React.useEffect(() => {
+    if (!authLoading && role !== 'admin' && role !== 'guest_viewer') {
+      setFilter('live');
+    }
+  }, [role, authLoading]);
 
   const handleStatusChange = (compId: string, newStatus: string) => {
     setConfirmState({
@@ -194,12 +200,14 @@ export default function CompetitionsPage() {
         }
       `}} />
 
-      <div className="sub-nav">
-        <button className={`sub-nav-link ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')} style={{background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: '14px', fontWeight: 600}}>All Competitions</button>
-        <button className={`sub-nav-link ${filter === 'live' ? 'active' : ''}`} onClick={() => setFilter('live')} style={{background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: '14px', fontWeight: 600}}>Live</button>
-        <button className={`sub-nav-link ${filter === 'upcoming' ? 'active' : ''}`} onClick={() => setFilter('upcoming')} style={{background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: '14px', fontWeight: 600}}>Upcoming</button>
-        <button className={`sub-nav-link ${filter === 'done' ? 'active' : ''}`} onClick={() => setFilter('done')} style={{background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: '14px', fontWeight: 600}}>Archives</button>
-      </div>
+      {(role === 'admin' || role === 'guest_viewer') && (
+        <div className="sub-nav">
+          <button className={`sub-nav-link ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')} style={{background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: '14px', fontWeight: 600}}>All Competitions</button>
+          <button className={`sub-nav-link ${filter === 'live' ? 'active' : ''}`} onClick={() => setFilter('live')} style={{background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: '14px', fontWeight: 600}}>Live</button>
+          <button className={`sub-nav-link ${filter === 'upcoming' ? 'active' : ''}`} onClick={() => setFilter('upcoming')} style={{background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: '14px', fontWeight: 600}}>Upcoming</button>
+          <button className={`sub-nav-link ${filter === 'done' ? 'active' : ''}`} onClick={() => setFilter('done')} style={{background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: '14px', fontWeight: 600}}>Archives</button>
+        </div>
+      )}
 
       <main className="container">
         <header className="page-header">
@@ -212,7 +220,7 @@ export default function CompetitionsPage() {
               <input type="text" placeholder="Search events..." id="comp-search" style={{ height: '40px', borderRadius: '6px', border: '1.5px solid var(--neutral-300)', padding: '0 var(--space-7) 0 var(--space-4)', fontFamily: 'var(--font-body)' }} />
               <Search style={{ position: 'absolute', right: '12px', top: '11px', width: '18px', color: 'var(--neutral-500)' }} />
             </div>
-            {user && (
+            {role === 'admin' && (
               <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
                 <Plus style={{ width: '18px', marginRight: '6px' }} /> Create New
               </button>
@@ -227,7 +235,7 @@ export default function CompetitionsPage() {
             <div style={{ gridColumn: '1 / -1', padding: 'var(--space-8)', textAlign: 'center', background: 'var(--shiro)', borderRadius: '16px', border: '1px dashed var(--neutral-300)' }}>
               <h3 style={{ color: 'var(--neutral-900)', marginBottom: '8px' }}>No Competitions Found</h3>
               <p style={{ color: 'var(--neutral-500)' }}>There are currently no events matching your criteria.</p>
-              {user && (
+              {role === 'admin' && (
                 <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '16px' }}>
                   <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
                     Create the first competition
@@ -272,21 +280,23 @@ export default function CompetitionsPage() {
           ) : (
             competitions.filter(c => filter === 'all' ? true : c.status === filter).map(comp => (
               <div key={comp.id} className={`card comp-card ${comp.status} card-interactive`}>
-                <div className="comp-actions">
-                  {comp.status === 'upcoming' && (
-                    <button className="btn btn-primary" style={{ padding: '6px 12px', height: 'auto', fontSize: '12px' }} onClick={() => handleStatusChange(comp.id, 'live')}>
-                      Go Live
+                {role === 'admin' && (
+                  <div className="comp-actions">
+                    {comp.status === 'upcoming' && (
+                      <button className="btn btn-primary" style={{ padding: '6px 12px', height: 'auto', fontSize: '12px' }} onClick={() => handleStatusChange(comp.id, 'live')}>
+                        Go Live
+                      </button>
+                    )}
+                    {comp.status === 'live' && (
+                      <button className="btn btn-secondary" style={{ padding: '6px 12px', height: 'auto', fontSize: '12px', background: 'var(--status-done)', borderColor: 'var(--status-done)', color: 'white' }} onClick={() => handleStatusChange(comp.id, 'done')}>
+                        Finish & Archive
+                      </button>
+                    )}
+                    <button className="btn btn-ghost" style={{ padding: '6px', color: 'var(--aka)' }} onClick={() => handleDelete(comp.id)}>
+                      <Trash2 style={{ width: '16px' }} />
                     </button>
-                  )}
-                  {comp.status === 'live' && (
-                    <button className="btn btn-secondary" style={{ padding: '6px 12px', height: 'auto', fontSize: '12px', background: 'var(--status-done)', borderColor: 'var(--status-done)', color: 'white' }} onClick={() => handleStatusChange(comp.id, 'done')}>
-                      Finish & Archive
-                    </button>
-                  )}
-                  <button className="btn btn-ghost" style={{ padding: '6px', color: 'var(--aka)' }} onClick={() => handleDelete(comp.id)}>
-                    <Trash2 style={{ width: '16px' }} />
-                  </button>
-                </div>
+                  </div>
+                )}
                 <div className="flex-between mb-2">
                   <span className={`status-chip status-${comp.status}`}>
                     {comp.status === 'live' ? 'Live Now' : comp.status === 'upcoming' ? 'Upcoming' : 'Completed'}
@@ -343,15 +353,15 @@ export default function CompetitionsPage() {
                 <div className="mt-4">
                   {comp.status === 'live' && (
                     <Link href={`/competitions/${comp.id}`} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', textDecoration: 'none' }}>
-                      Manage Operations <ArrowRight style={{ width: '16px', marginLeft: '6px' }} />
+                      {role === 'admin' || role === 'mat_operator' ? 'Manage Operations' : 'View Event'} <ArrowRight style={{ width: '16px', marginLeft: '6px' }} />
                     </Link>
                   )}
-                  {comp.status === 'upcoming' && (
+                  {comp.status === 'upcoming' && (role === 'admin' || role === 'guest_viewer') && (
                     <Link href={`/setup/${comp.id}`} className="btn btn-secondary" style={{ width: '100%', justifyContent: 'center', textDecoration: 'none' }}>
-                      Setup Tournament
+                      {role === 'admin' ? 'Setup Tournament' : 'View Setup'}
                     </Link>
                   )}
-                  {comp.status === 'done' && (
+                  {comp.status === 'done' && (role === 'admin' || role === 'guest_viewer') && (
                     <Link href={`/archives/${comp.id}`} className="btn btn-ghost" style={{ width: '100%', justifyContent: 'center', background: 'var(--neutral-50)', textDecoration: 'none' }}>
                       View Archives
                     </Link>

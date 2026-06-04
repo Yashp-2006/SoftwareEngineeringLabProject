@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { db } from '@lib/firebase';
 import { collection, onSnapshot, query, doc, getDoc } from 'firebase/firestore';
 import FullscreenBracketModal from '@/components/FullscreenBracketModal';
-import { Eye, Trophy, Target, Clock, X, Plus, Star, Zap } from 'lucide-react';
+import { Eye, Trophy, Target, Clock, X, Plus, Star, Zap, Download } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 // ─── Special Category Modal ─────────────────────────────────────────────────
@@ -285,6 +285,8 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [highlightMatchId, setHighlightMatchId] = useState<string | null>(null);
   const [specialModalOpen, setSpecialModalOpen] = useState(false);
+  const [downloadingTiesheets, setDownloadingTiesheets] = useState(false);
+  const [compData, setCompData] = useState<any>(null);
 
   const specialCategories = categories.filter(c => c.isSpecial);
 
@@ -336,6 +338,12 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
 
   // Fetch categories with their match data
   useEffect(() => {
+    const fetchComp = async () => {
+      const snap = await getDoc(doc(db, 'competitions', id));
+      if (snap.exists()) setCompData(snap.data());
+    };
+    fetchComp();
+
     const q = query(collection(db, 'competitions', id, 'categories'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const cats = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
@@ -395,6 +403,32 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
     } catch (err) {
       console.error('Error promoting athlete:', err);
       toast.error('Failed to promote athlete. Please try again.');
+    }
+  };
+
+  const handleDownloadTiesheets = async () => {
+    if (downloadingTiesheets || categories.length === 0) return;
+    setDownloadingTiesheets(true);
+    try {
+      const { exportTiesheetsPDF } = await import('@lib/tiesheet-pdf-exporter');
+      await exportTiesheetsPDF({
+        competitionName: compData?.name || 'TaikaiX Competition',
+        categories: categories.map((c: any) => ({
+          name: c.name,
+          matches: c.matches ?? [],
+          athletes: c.athletes ?? [],
+          matNo: c.mat || '',
+        })),
+        isArchived: false,
+        venue: compData?.venue || '',
+        date: compData?.dates || '',
+      });
+      toast.success('Tiesheets PDF downloaded!');
+    } catch (e: any) {
+      console.error(e);
+      toast.error('Failed to generate tiesheets: ' + e.message);
+    } finally {
+      setDownloadingTiesheets(false);
     }
   };
 
@@ -592,6 +626,17 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
               <Star size={14} />
               Create Special Tiesheet
             </button>
+            {categories.length > 0 && (
+              <button 
+                className="btn btn-secondary" 
+                style={{ display: 'flex', alignItems: 'center', gap: '8px' }} 
+                onClick={handleDownloadTiesheets}
+                disabled={downloadingTiesheets}
+              >
+                <Download size={16} />
+                {downloadingTiesheets ? 'Generating...' : 'Download PDF'}
+              </button>
+            )}
             {categories.length > 0 && (
               <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={() => openModal()}>
                 <Eye size={16} />

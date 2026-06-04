@@ -4,57 +4,82 @@ import React, { useState, useEffect } from 'react';
 import { Lock, Eye, EyeOff } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@lib/firebase';
-import { useParams } from 'next/navigation';
+import { useSearchParams, useParams } from 'next/navigation';
 
 export default function PasswordGateway({ children }: { children: React.ReactNode }) {
   const { id } = useParams() as { id: string };
+  const searchParams = useSearchParams();
+  const matId = searchParams.get('mat'); // e.g. "mat-1"
+  const authKey = matId ? `auth_${id}_${matId}` : `auth_${id}`;
+
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [inputPassword, setInputPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-  const [compName, setCompName] = useState('Competition');
+  const [targetName, setTargetName] = useState('Loading...');
 
   useEffect(() => {
-    // Check if session storage already has the password authorized for this comp
-    const authed = sessionStorage.getItem(`auth_${id}`);
+    // Check if session storage already has the password authorized
+    const authed = sessionStorage.getItem(authKey);
     if (authed === 'true') {
       setIsAuthenticated(true);
     }
     
-    // Fetch comp details
-    const fetchComp = async () => {
+    // Fetch details
+    const fetchTarget = async () => {
       try {
-        const snap = await getDoc(doc(db, 'competitions', id));
-        if (snap.exists()) {
-          setCompName(snap.data().name);
+        if (matId) {
+          const matStr = matId.replace('mat-', '');
+          setTargetName(`Mat ${matStr.padStart(2, '0')}`);
+        } else {
+          const snap = await getDoc(doc(db, 'competitions', id));
+          if (snap.exists()) {
+            setTargetName(snap.data().name);
+          }
         }
       } catch (err) {
-        console.error("Failed to fetch comp for password gateway", err);
+        console.error("Failed to fetch target for password gateway", err);
       } finally {
         setLoading(false);
       }
     };
-    fetchComp();
-  }, [id]);
+    fetchTarget();
+  }, [id, matId, authKey]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputPassword.trim()) return;
     
     try {
-      const snap = await getDoc(doc(db, 'competitions', id));
-      if (snap.exists()) {
-        const actualPassword = snap.data().password;
-        if (actualPassword === inputPassword) {
-          sessionStorage.setItem(`auth_${id}`, 'true');
-          setIsAuthenticated(true);
-          setError('');
+      if (matId) {
+        const matSnap = await getDoc(doc(db, 'competitions', id, 'mats', matId));
+        if (matSnap.exists()) {
+          const actualPassword = matSnap.data().password;
+          if (actualPassword === inputPassword) {
+            sessionStorage.setItem(authKey, 'true');
+            setIsAuthenticated(true);
+            setError('');
+          } else {
+            setError(`Incorrect password for ${targetName}.`);
+          }
         } else {
-          setError('Incorrect password for this competition.');
+          setError('Mat configuration not found.');
         }
       } else {
-        setError('Competition not found.');
+        const snap = await getDoc(doc(db, 'competitions', id));
+        if (snap.exists()) {
+          const actualPassword = snap.data().password;
+          if (actualPassword === inputPassword) {
+            sessionStorage.setItem(authKey, 'true');
+            setIsAuthenticated(true);
+            setError('');
+          } else {
+            setError('Incorrect password for this competition.');
+          }
+        } else {
+          setError('Competition not found.');
+        }
       }
     } catch (err) {
       setError('An error occurred verifying the password.');
@@ -78,7 +103,7 @@ export default function PasswordGateway({ children }: { children: React.ReactNod
           </div>
           <h2 style={{ fontSize: '20px', margin: '0 0 8px 0' }}>Restricted Area</h2>
           <p style={{ color: 'var(--neutral-500)', fontSize: '14px', margin: 0 }}>
-            Enter the staff password for <br /><strong>{compName}</strong>
+            Enter the staff password for <br /><strong>{targetName}</strong>
           </p>
         </div>
         

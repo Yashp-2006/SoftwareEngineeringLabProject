@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Search } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { useAuth } from '@/components/auth/AuthProvider';
 
 interface Athlete {
   id: string;
@@ -25,6 +26,7 @@ interface Category {
 
 export default function AthletesPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
+  const { role } = useAuth();
   const [categories, setCategories] = useState<Category[]>([]);
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -103,6 +105,8 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
     field: keyof Athlete,
     value: string | boolean
   ) => {
+    if (role === 'guest_viewer') return;
+    
     // Optimistic UI
     setCategories(prev =>
       prev.map(cat => {
@@ -389,12 +393,14 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
             </div>
             <h1>Athletes Attendance</h1>
           </div>
-          <button className="btn btn-primary" onClick={() => {
-            setAddForm(p => ({ ...p, categoryId: activeCategoryId || '' }));
-            setIsAddModalOpen(true);
-          }}>
-            Add On-Spot Entry
-          </button>
+          {role === 'admin' && (
+            <button className="btn btn-primary" onClick={() => {
+              setAddForm(p => ({ ...p, categoryId: activeCategoryId || '' }));
+              setIsAddModalOpen(true);
+            }}>
+              Add On-Spot Entry
+            </button>
+          )}
         </header>
 
         {loading ? (
@@ -485,34 +491,39 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
                         <td>{athlete.name}</td>
                         <td className="academy-name">{athlete.academy}</td>
                         <td>
-                          <div className="attendance-control">
+                          <div className="attendance-control" style={{ opacity: role === 'guest_viewer' ? 0.6 : 1, pointerEvents: role === 'guest_viewer' ? 'none' : 'auto' }}>
                             <button
                               className={`attendance-btn present ${athlete.attendance === 'present' ? 'active' : ''}`}
                               onClick={() => handleUpdate(athlete.id, 'attendance', 'present')}
+                              disabled={role === 'guest_viewer'}
                             >Present</button>
                             <button
                               className={`attendance-btn absent ${athlete.attendance === 'absent' ? 'active' : ''}`}
                               onClick={() => handleUpdate(athlete.id, 'attendance', 'absent')}
+                              disabled={role === 'guest_viewer'}
                             >Absent</button>
                           </div>
                         </td>
                         <td>
-                          <div className="attendance-control">
+                          <div className="attendance-control" style={{ opacity: role === 'guest_viewer' ? 0.6 : 1, pointerEvents: role === 'guest_viewer' ? 'none' : 'auto' }}>
                             <button
                               className={`attendance-btn present ${athlete.readiness === 'ready' ? 'active' : ''}`}
                               onClick={() => handleUpdate(athlete.id, 'readiness', 'ready')}
+                              disabled={role === 'guest_viewer'}
                             >Ready</button>
                             <button
                               className={`attendance-btn neutral ${athlete.readiness === 'not-ready' ? 'active' : ''}`}
                               onClick={() => handleUpdate(athlete.id, 'readiness', 'not-ready')}
+                              disabled={role === 'guest_viewer'}
                             >Not Ready</button>
                           </div>
                         </td>
                         <td>
-                          <div className="attendance-control">
+                          <div className="attendance-control" style={{ opacity: role === 'guest_viewer' ? 0.6 : 1, pointerEvents: role === 'guest_viewer' ? 'none' : 'auto' }}>
                             <button
                               className={`attendance-btn absent ${athlete.disqualified ? 'active' : ''}`}
                               onClick={() => handleUpdate(athlete.id, 'disqualified', !athlete.disqualified)}
+                              disabled={role === 'guest_viewer'}
                             >
                               {athlete.disqualified ? 'Disqualified' : 'Disqualify'}
                             </button>

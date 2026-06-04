@@ -15,7 +15,7 @@ interface StaffAssignment {
   operatorSubtitle?: string;
   statusText: string;
   statusCode: 'live' | 'upcoming' | 'idle';
-  type: 'score' | 'attendance' | 'medal';
+  type: 'score' | 'attendance' | 'medal' | 'viewer';
 }
 
 const INITIAL_DATA: StaffAssignment[] = [
@@ -37,6 +37,9 @@ const INITIAL_DATA: StaffAssignment[] = [
   { id: 'm1', type: 'medal', scope: 'National / State', scopeSubtitle: 'Kansai Region', operator: 'Yuki Tanaka', operatorSubtitle: 'Lead Distributor', statusText: 'Active', statusCode: 'live', role: 'Medal Distributor', coverage: 'All Senior Categories' },
   { id: 'm2', type: 'medal', scope: 'International / Country', scopeSubtitle: 'Global Delegations', operator: 'Rafael Silva', statusText: 'Standby', statusCode: 'upcoming', role: 'Medal Distributor', coverage: 'Team Kata + Open Divisions' },
   { id: 'm3', type: 'medal', scope: 'Local / Academy', operator: 'Unassigned', statusText: 'Needs Assignment', statusCode: 'idle', role: 'Medal Distributor', coverage: 'Junior Categories' },
+
+  // Guest Viewer
+  { id: 'v1', type: 'viewer', scope: 'Global Access', operator: 'Unassigned', statusText: 'Needs Assignment', statusCode: 'idle', role: 'Guest Viewer', coverage: 'Read-only access to internals' },
 ];
 
 export default function StaffPage({ params }: { params: Promise<{ id: string }> }) {
@@ -84,6 +87,7 @@ export default function StaffPage({ params }: { params: Promise<{ id: string }> 
   const scoreStaff = staffData.filter(s => s.type === 'score');
   const attendanceStaff = staffData.filter(s => s.type === 'attendance');
   const medalStaff = staffData.filter(s => s.type === 'medal');
+  const viewerStaff = staffData.filter(s => s.type === 'viewer');
 
   const openModal = (assignId: string) => {
     setSelectedAssignmentId(assignId);
@@ -498,6 +502,56 @@ export default function StaffPage({ params }: { params: Promise<{ id: string }> 
                     {medalStaff.map(s => (
                       <tr key={s.id}>
                         <td data-label="Distributor" className="staff-name">
+                          {s.operator}
+                          {s.operatorSubtitle && <><br /><span className="staff-meta">{s.operatorSubtitle}</span></>}
+                        </td>
+                        <td data-label="Scope">
+                          <span className="scope-pill">{s.scope}</span>
+                          {s.scopeSubtitle && <><br /><span className="staff-meta">{s.scopeSubtitle}</span></>}
+                        </td>
+                        <td data-label="Coverage">{s.coverage}</td>
+                        <td data-label="Status" className="staff-status">
+                          <span className={`status-chip status-${s.statusCode}`}>{s.statusText}</span>
+                        </td>
+                        <td data-label="Actions">
+                          <div className="staff-actions">
+                            <button className="btn btn-ghost" onClick={() => openModal(s.id)}>
+                              {s.operator === 'Unassigned' ? 'Assign' : 'Reassign'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                </div>
+              </section>
+            )}
+
+            {/* Guest Viewers */}
+            {viewerStaff.length > 0 && (
+              <section className="staff-card">
+                <div className="staff-header">
+                  <div>
+                    <h3>Guest Viewers</h3>
+                    <p className="text-small">Assign read-only access to view the internal workings of the app without write permissions.</p>
+                  </div>
+                </div>
+                <div className="table-responsive">
+                <table className="staff-table">
+                  <thead>
+                    <tr>
+                      <th>Viewer</th>
+                      <th>Scope</th>
+                      <th>Coverage</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {viewerStaff.map(s => (
+                      <tr key={s.id}>
+                        <td data-label="Viewer" className="staff-name">
                           {s.operator}
                           {s.operatorSubtitle && <><br /><span className="staff-meta">{s.operatorSubtitle}</span></>}
                         </td>

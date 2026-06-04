@@ -303,6 +303,10 @@ export function BracketViewer({
   const canvasRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
 
+  const adjustZoom = (delta: number) => {
+    setZoom(prev => Math.max(0.3, Math.min(2, +(prev + delta).toFixed(2))));
+  };
+
   const fitToScreen = useCallback(() => {
     if (!viewportRef.current || !canvasRef.current) return;
     const margin = 60;
@@ -457,9 +461,13 @@ export function BracketViewer({
           <button className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '11px', height: '28px', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={fitToScreen}>
             <Maximize size={12} /> Fit
           </button>
-          <MinusCircle size={16} style={{ cursor: 'pointer', color: 'var(--neutral-500)' }} onClick={() => setZoom(z => Math.max(0.3, z - 0.1))} />
+          <button style={{ background: 'none', border: 'none', padding: 0, display: 'flex', cursor: 'pointer', color: 'var(--neutral-500)' }} onClick={() => adjustZoom(-0.1)}>
+            <MinusCircle size={16} />
+          </button>
           <input type="range" min="0.3" max="2" step="0.05" value={zoom} onChange={e => setZoom(parseFloat(e.target.value))} style={{ width: '80px', accentColor: 'var(--aka)' }} />
-          <PlusCircle size={16} style={{ cursor: 'pointer', color: 'var(--neutral-500)' }} onClick={() => setZoom(z => Math.min(2, z + 0.1))} />
+          <button style={{ background: 'none', border: 'none', padding: 0, display: 'flex', cursor: 'pointer', color: 'var(--neutral-500)' }} onClick={() => adjustZoom(0.1)}>
+            <PlusCircle size={16} />
+          </button>
           <span style={{ fontSize: '12px', fontWeight: 600, minWidth: '40px', textAlign: 'right' }}>{Math.round(zoom * 100)}%</span>
         </div>
       </div>

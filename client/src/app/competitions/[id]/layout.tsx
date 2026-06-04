@@ -20,9 +20,12 @@ export default function CompetitionLayout({
   const isRoot = pathname === `/competitions/${id}`;
 
   // Role-based visibility
-  const showMedals = role === 'admin' || role === 'medal_distributor';
+  const isAdminOrGuest = role === 'admin' || role === 'guest_viewer';
+  const showCategories = isAdminOrGuest;
+  const showStaff = isAdminOrGuest;
+  const showAthletes = isAdminOrGuest || role === 'attendance_volunteer';
+  const showMedals = isAdminOrGuest || role === 'medal_distributor';
   const showOperator = role === 'admin' || role === 'mat_operator';
-  const showAttendance = role === 'admin' || role === 'attendance_volunteer';
 
   const linkStyle = { background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' };
 
@@ -35,12 +38,14 @@ export default function CompetitionLayout({
         >
           Overview
         </Link>
-        <Link
-          href={`/competitions/${id}/categories`}
-          className={`sub-nav-link ${isActive('/categories') ? 'active' : ''}`}
-        >
-          Categories
-        </Link>
+        {showCategories && (
+          <Link
+            href={`/competitions/${id}/categories`}
+            className={`sub-nav-link ${isActive('/categories') ? 'active' : ''}`}
+          >
+            Categories
+          </Link>
+        )}
         <Link
           href={`/competitions/${id}/bracket`}
           className={`sub-nav-link ${isActive('/bracket') ? 'active' : ''}`}
@@ -54,7 +59,7 @@ export default function CompetitionLayout({
           Mats
         </Link>
 
-        {showAttendance && (
+        {showStaff && (
           <Link
             href={`/competitions/${id}/staff`}
             className={`sub-nav-link ${isActive('/staff') ? 'active' : ''}`}
@@ -63,12 +68,14 @@ export default function CompetitionLayout({
           </Link>
         )}
 
-        <Link
-          href={`/competitions/${id}/athletes`}
-          className={`sub-nav-link ${isActive('/athletes') ? 'active' : ''}`}
-        >
-          Athletes
-        </Link>
+        {showAthletes && (
+          <Link
+            href={`/competitions/${id}/athletes`}
+            className={`sub-nav-link ${isActive('/athletes') ? 'active' : ''}`}
+          >
+            Athletes
+          </Link>
+        )}
 
         {showMedals && (
           <Link
