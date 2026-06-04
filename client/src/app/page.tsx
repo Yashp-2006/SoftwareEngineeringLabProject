@@ -7,6 +7,7 @@ export default function DashboardPage() {
   const [stats, setStats] = useState({ active: 0, upcoming: 0, athletes: 1482, total: 0 });
   const [loading, setLoading] = useState(true);
   const [chartType, setChartType] = useState('bar');
+  const [timeFilter, setTimeFilter] = useState('6M');
   const [liveCompetitions, setLiveCompetitions] = useState<any[]>([]);
 
   useEffect(() => {
@@ -80,14 +81,42 @@ export default function DashboardPage() {
     };
   }, []);
 
-  const chartData = [
+  useEffect(() => {
+    const gsap = (window as any).gsap;
+    let ctx: any;
+    if (gsap) {
+      ctx = gsap.context(() => {
+        if (chartType === 'bar') {
+          gsap.fromTo('.bar-inner', 
+            { scaleY: 0 },
+            { scaleY: 1, duration: 0.8, stagger: 0.05, ease: 'power3.out', transformOrigin: 'bottom' }
+          );
+        } else {
+          gsap.fromTo('.graph-element',
+            { opacity: 0, y: 15 },
+            { opacity: 1, y: 0, duration: 0.6, stagger: 0.05, ease: 'back.out(1.5)' }
+          );
+        }
+      });
+    }
+    return () => { if (ctx) ctx.revert(); };
+  }, [chartType, timeFilter]);
+
+  const fullChartData = [
     { label: 'JAN', val: 320, color: 'var(--neutral-200)', hover: 'var(--neutral-300)' },
     { label: 'FEB', val: 480, color: 'var(--neutral-200)', hover: 'var(--neutral-300)' },
     { label: 'MAR', val: 640, color: 'var(--neutral-200)', hover: 'var(--neutral-300)' },
     { label: 'APR', val: 850, color: 'var(--aka-light)', hover: 'var(--aka)', peak: true },
     { label: 'MAY', val: 560, color: 'var(--neutral-200)', hover: 'var(--neutral-300)' },
-    { label: 'JUN', val: 720, color: 'var(--ao-light)', hover: 'var(--ao)' }
+    { label: 'JUN', val: 720, color: 'var(--ao-light)', hover: 'var(--ao)' },
+    { label: 'JUL', val: 800, color: 'var(--neutral-200)', hover: 'var(--neutral-300)' },
+    { label: 'AUG', val: 600, color: 'var(--neutral-200)', hover: 'var(--neutral-300)' },
+    { label: 'SEP', val: 500, color: 'var(--neutral-200)', hover: 'var(--neutral-300)' },
+    { label: 'OCT', val: 900, color: 'var(--aka-light)', hover: 'var(--aka)', peak: true },
+    { label: 'NOV', val: 750, color: 'var(--neutral-200)', hover: 'var(--neutral-300)' },
+    { label: 'DEC', val: 1050, color: 'var(--ao-light)', hover: 'var(--ao)', peak: true }
   ];
+  const chartData = timeFilter === '12M' ? fullChartData : fullChartData.slice(-6);
   const maxVal = Math.max(...chartData.map(d => d.val));
   const totalVal = chartData.reduce((sum, d) => sum + d.val, 0);
 
@@ -229,67 +258,6 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Participation Trends (Wide) */}
-          <div className="bento-card col-span-6">
-            <div className="flex-between mb-4">
-              <div className="stat-header" style={{ margin: 0 }}>
-                <i data-lucide="trending-up" style={{ width: '16px', color: 'var(--ao)' }}></i>
-                Participation Trends
-              </div>
-              <div className="chart-controls">
-                <select className="select-minimal" value={chartType} onChange={(e) => setChartType(e.target.value)}>
-                  <option value="bar">Bar Graph</option>
-                  <option value="line">Line Graph</option>
-                </select>
-                <select className="select-minimal">
-                  <option>Last 6 Months</option>
-                  <option>This Year</option>
-                </select>
-              </div>
-            </div>
-            
-            <div style={{ flex: 1, position: 'relative', height: '120px', display: 'flex', alignItems: chartType === 'bar' ? 'flex-end' : 'stretch', justifyContent: chartType === 'bar' ? 'space-between' : 'stretch' }}>
-              {chartType === 'bar' && chartData.map((d, i) => {
-                const heightPct = (d.val / maxVal) * 100;
-                const barColor = d.peak ? 'var(--aka)' : 'var(--neutral-300)';
-                return (
-                  <div key={i} className="bar-group">
-                    <div 
-                      className="bar-inner" 
-                      style={{ height: `${heightPct}%`, background: barColor }}
-                      title={`${d.label}: ${d.val} Athletes`}
-                    >
-                      <div className="bar-label">{d.val}</div>
-                    </div>
-                  </div>
-                );
-              })}
-              
-              {chartType === 'line' && (
-                <svg width="100%" height="100%" style={{ overflow: 'visible', position: 'absolute', bottom: 0 }}>
-                  <polyline 
-                    points={chartData.map((d, i) => `${(i / (chartData.length - 1)) * 100},${100 - (d.val / maxVal) * 100}`).join(' ')} 
-                    fill="none" stroke="var(--neutral-300)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
-                  />
-                  {chartData.map((d, i) => {
-                    const x = (i / (chartData.length - 1)) * 100;
-                    const y = 100 - (d.val / maxVal) * 100;
-                    return (
-                      <g key={i}>
-                        <circle cx={`${x}%`} cy={`${y}%`} r="5" fill={d.peak ? 'var(--aka)' : 'var(--ao)'} stroke="var(--shiro)" strokeWidth="2" />
-                        <text x={`${x}%`} y={`calc(${y}% - 14px)`} textAnchor="middle" fontSize="11px" fontWeight="700" fill="var(--neutral-600)">{d.val}</text>
-                      </g>
-                    );
-                  })}
-                </svg>
-              )}
-            </div>
-
-            <div className="flex-between" style={{ fontSize: '10px', fontWeight: 600, color: 'var(--neutral-400)', paddingTop: 'var(--space-3)', marginTop: 'auto' }}>
-              {chartData.map(d => <span key={d.label} style={{ flex: 1, textAlign: 'center' }}>{d.label}</span>)}
-            </div>
-          </div>
-
           <div className="bento-card col-span-3">
             <div>
               <div className="stat-header">
@@ -317,19 +285,75 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Promo Card */}
-          <div className="bento-card col-span-6" style={{ background: 'var(--neutral-900)', color: 'var(--shiro)', borderColor: 'transparent' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%' }}>
-              <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '32px', marginBottom: '8px', color: 'var(--shiro)' }}>Ready for the next major event?</h3>
-              <p style={{ color: 'var(--neutral-400)', fontSize: '14px', marginBottom: 'var(--space-4)', maxWidth: '80%' }}>
-                Set up custom categories, assign dedicated mats with secure access codes, and import athlete tiesheets in minutes.
-              </p>
-              <div>
-                <Link href="/setup/new" className="btn btn-primary" style={{ background: 'var(--shiro)', color: 'var(--neutral-900)', textDecoration: 'none' }}>
-                  Configure Setup
-                  <i data-lucide="arrow-right" style={{ width: '16px' }}></i>
-                </Link>
+          {/* Participation Trends (Wide) */}
+          <div className="bento-card col-span-12" style={{ minHeight: '360px' }}>
+            <div className="flex-between mb-4">
+              <div className="stat-header" style={{ margin: 0 }}>
+                <i data-lucide="trending-up" style={{ width: '16px', color: 'var(--ao)' }}></i>
+                Participation Trends
               </div>
+              <div className="chart-controls">
+                <select className="select-minimal" value={chartType} onChange={(e) => setChartType(e.target.value)}>
+                  <option value="bar">Bar Graph</option>
+                  <option value="line">Line Graph</option>
+                </select>
+                <select className="select-minimal" value={timeFilter} onChange={(e) => setTimeFilter(e.target.value)}>
+                  <option value="6M">Last 6 Months</option>
+                  <option value="12M">This Year</option>
+                </select>
+              </div>
+            </div>
+            
+            <div style={{ flex: 1, position: 'relative', minHeight: '220px', display: 'flex', alignItems: chartType === 'bar' ? 'flex-end' : 'stretch', justifyContent: chartType === 'bar' ? 'space-between' : 'stretch' }}>
+              {chartType === 'bar' && chartData.map((d, i) => {
+                const heightPct = (d.val / maxVal) * 100;
+                const barColor = d.peak ? 'var(--aka)' : 'var(--neutral-300)';
+                return (
+                  <div key={i} className="bar-group">
+                    <div 
+                      className="bar-inner" 
+                      style={{ height: `${heightPct}%`, background: barColor }}
+                      title={`${d.label}: ${d.val} Athletes`}
+                    >
+                      <div className="bar-label">{d.val}</div>
+                    </div>
+                  </div>
+                );
+              })}
+              
+              {chartType === 'line' && (
+                <svg width="100%" height="100%" style={{ overflow: 'visible', position: 'absolute', bottom: 0 }}>
+                  {chartData.slice(1).map((d, i) => {
+                    const prev = chartData[i];
+                    const x1 = (i / (chartData.length - 1)) * 100;
+                    const y1 = 100 - (prev.val / maxVal) * 100;
+                    const x2 = ((i + 1) / (chartData.length - 1)) * 100;
+                    const y2 = 100 - (d.val / maxVal) * 100;
+                    return (
+                      <line 
+                        key={`line-${i}`}
+                        className="graph-element"
+                        x1={`${x1}%`} y1={`${y1}%`} x2={`${x2}%`} y2={`${y2}%`} 
+                        stroke="var(--neutral-300)" strokeWidth="3" strokeLinecap="round" 
+                      />
+                    );
+                  })}
+                  {chartData.map((d, i) => {
+                    const x = (i / (chartData.length - 1)) * 100;
+                    const y = 100 - (d.val / maxVal) * 100;
+                    return (
+                      <g key={`point-${i}`} className="graph-element">
+                        <circle cx={`${x}%`} cy={`${y}%`} r="5" fill={d.peak ? 'var(--aka)' : 'var(--ao)'} stroke="var(--shiro)" strokeWidth="2" />
+                        <text x={`${x}%`} y={`calc(${y}% - 14px)`} textAnchor="middle" fontSize="11px" fontWeight="700" fill="var(--neutral-600)">{d.val}</text>
+                      </g>
+                    );
+                  })}
+                </svg>
+              )}
+            </div>
+
+            <div className="flex-between" style={{ fontSize: '10px', fontWeight: 600, color: 'var(--neutral-400)', paddingTop: 'var(--space-3)', marginTop: 'auto' }}>
+              {chartData.map(d => <span key={d.label} style={{ flex: 1, textAlign: 'center' }}>{d.label}</span>)}
             </div>
           </div>
         </section>
