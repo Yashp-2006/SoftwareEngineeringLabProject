@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Search } from 'lucide-react';
+import { Search, Trash2 } from 'lucide-react';
+import { useAuth } from '@/components/auth/AuthProvider';
 
 const ROLE_MAP: Record<string, string> = {
   'admin': 'Admin',
@@ -55,6 +56,7 @@ interface User {
 }
 
 export default function UsersPage() {
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
@@ -71,7 +73,7 @@ export default function UsersPage() {
       unsub = onSnapshot(q, (snap) => {
         const data = snap.docs.map(d => ({
           id: d.id,
-          name: d.data().displayName || d.data().name || 'Unknown User',
+          name: d.data().displayName || d.data().name || (d.data().email ? d.data().email.split('@')[0] : 'Unknown User'),
           email: d.data().email || 'No email',
           role: getNormalizedRole(d.data().role),
           academy: d.data().academy || 'No Academy'
@@ -94,20 +96,24 @@ export default function UsersPage() {
     return textMatch && roleMatch;
   });
 
-  const updateUserField = async (id: string, field: 'role' | 'academy', value: string) => {
-    if (field === 'role' && value === 'remove_user') {
-      const confirmDelete = window.confirm("Are you sure you want to completely remove this user? This cannot be undone.");
-      if (!confirmDelete) return;
-      
-      try {
-        const { db } = await import('@lib/firebase');
-        const { doc, deleteDoc } = await import('firebase/firestore');
-        await deleteDoc(doc(db, 'users', id));
-      } catch (err) {
-        console.error('Failed to delete user', err);
-      }
+  const handleDeleteUser = async (id: string) => {
+    if (currentUser?.uid === id) {
+      alert("You cannot delete your own account.");
       return;
     }
+    const confirmDelete = window.confirm("Are you sure you want to completely remove this user? This cannot be undone.");
+    if (!confirmDelete) return;
+    
+    try {
+      const { db } = await import('@lib/firebase');
+      const { doc, deleteDoc } = await import('firebase/firestore');
+      await deleteDoc(doc(db, 'users', id));
+    } catch (err) {
+      console.error('Failed to delete user', err);
+    }
+  };
+
+  const updateUserField = async (id: string, field: 'role' | 'academy', value: string) => {
 
     // Optimistic
     setUsers(prev => prev.map(u => u.id === id ? { ...u, [field]: value } : u));
@@ -256,7 +262,6 @@ export default function UsersPage() {
                         onChange={e => updateUserField(user.id, 'role', e.target.value)}
                       >
                         {ROLES.map(role => <option key={role} value={role}>{ROLE_MAP[role]}</option>)}
-                        <option value="remove_user" style={{ color: 'var(--aka)', fontWeight: 600 }}>Remove User (Delete)</option>
                       </select>
                       <div style={{ fontSize: '11px', color: 'var(--neutral-500)', marginTop: '6px', lineHeight: 1.3 }}>
                         {ROLE_DESCRIPTIONS[user.role]}
@@ -271,8 +276,25 @@ export default function UsersPage() {
                         {ACADEMIES.map(academy => <option key={academy} value={academy}>{academy}</option>)}
                       </select>
                     </td>
-                    <td>
+                    <td style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '100%' }}>
                       <span className={`saved-chip ${savedStatus[user.id] ? 'visible' : ''}`}>Saved</span>
+                      <button 
+                        onClick={() => handleDeleteUser(user.id)}
+                        style={{ 
+                          background: 'none', 
+                          border: 'none', 
+                          color: 'var(--aka)', 
+                          cursor: currentUser?.uid === user.id ? 'not-allowed' : 'pointer',
+                          opacity: currentUser?.uid === user.id ? 0.3 : 1,
+                          padding: '4px',
+                          display: 'flex',
+                          alignItems: 'center'
+                        }}
+                        title={currentUser?.uid === user.id ? "Cannot delete yourself" : "Delete User"}
+                        disabled={currentUser?.uid === user.id}
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </td>
                   </tr>
                 ))
