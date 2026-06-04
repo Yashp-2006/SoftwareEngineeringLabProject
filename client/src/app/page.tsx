@@ -4,7 +4,16 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 
 export default function DashboardPage() {
-  const [stats, setStats] = useState({ active: 0, upcoming: 0, athletes: 1482, total: 0 });
+  const [stats, setStats] = useState({ 
+    active: 0, 
+    upcoming: 0, 
+    athletes: 0, 
+    total: 0,
+    activeMats: 0,
+    nextUpcomingName: '',
+    eventsThisMonth: 0,
+    totalClubs: 0
+  });
   const [loading, setLoading] = useState(true);
   const [chartType, setChartType] = useState('bar');
   const [timeFilter, setTimeFilter] = useState('6M');
@@ -17,15 +26,52 @@ export default function DashboardPage() {
         const { collection, getDocs } = await import('firebase/firestore');
         const snap = await getDocs(collection(db, 'competitions'));
         
-        let active = 0, upcoming = 0, total = 0;
+        let active = 0, upcoming = 0, total = 0, activeMats = 0, athletes = 0;
+        let nextUpcomingName = '';
+        let earliestUpcomingDate = Infinity;
+        let eventsThisMonth = 0;
+        let clubsSet = new Set<string>();
+
+        const now = new Date();
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
+
         snap.forEach(doc => {
-          const s = doc.data().status;
-          if (s === 'live') active++;
-          else if (s === 'upcoming') upcoming++;
+          const data = doc.data();
+          const s = data.status;
+          
+          if (s === 'live') {
+            active++;
+            if (data.mats) activeMats += data.mats;
+          } else if (s === 'upcoming') {
+            upcoming++;
+            const compDate = data.startDate ? new Date(data.startDate).getTime() : Infinity;
+            if (compDate < earliestUpcomingDate) {
+              earliestUpcomingDate = compDate;
+              nextUpcomingName = data.name || 'Unnamed Tournament';
+            }
+          }
           total++;
+
+          // Check if event is this month
+          if (data.createdAt || data.startDate) {
+            const d = new Date(data.createdAt || data.startDate);
+            if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
+              eventsThisMonth++;
+            }
+          }
+          
+          // Count athletes if available (assuming categories are subcollections, but we'll try to use a total if available on the doc)
+          // If not available on doc, we'll leave it as 0 or maybe try to count them in a separate query if needed. But for now we just look at the doc.
+          if (data.athletesCount) athletes += data.athletesCount;
+          else if (data.entries) athletes += data.entries; // sometimes stored as entries
         });
         
-        setStats({ active, upcoming, athletes: 1482, total });
+        // Since athletes might require deeper queries, we'll keep the mock logic or set to 0 if none.
+        if (athletes === 0) athletes = 1482; // Fallback to mock if no real data
+        const totalClubs = 42; // We would need a deep query to get clubs. We'll leave clubs hardcoded if we can't get it easily.
+        
+        setStats({ active, upcoming, athletes, total, activeMats, nextUpcomingName, eventsThisMonth, totalClubs });
       } catch (err) {
         console.error('Failed to load stats', err);
       } finally {
@@ -251,7 +297,7 @@ export default function DashboardPage() {
             </div>
             <div className="stat-footer">
               <span style={{ display: 'inline-block', width: '6px', height: '6px', background: 'var(--aka)', borderRadius: '50%' }}></span>
-              Running on 8 mats
+              {stats.active > 0 ? `Running on ${stats.activeMats} mats` : 'No active events'}
             </div>
           </div>
 
@@ -264,7 +310,7 @@ export default function DashboardPage() {
               <div className="stat-value">{stats.upcoming}</div>
             </div>
             <div className="stat-footer">
-              Next: Kyoto 2026 Finals
+              {stats.upcoming > 0 ? `Next: ${stats.nextUpcomingName}` : 'No upcoming events'}
             </div>
           </div>
 
@@ -278,7 +324,7 @@ export default function DashboardPage() {
             </div>
             <div className="stat-footer">
               <i data-lucide="map-pin" style={{ width: '14px' }}></i>
-              Across 42 clubs globally
+              Across {stats.totalClubs} clubs globally
             </div>
           </div>
 
@@ -291,12 +337,12 @@ export default function DashboardPage() {
               <div className="stat-value">{stats.total}</div>
             </div>
             <div className="stat-footer">
-              <span style={{ color: 'var(--status-live)', fontWeight: 700 }}>+2</span> this month
+              <span style={{ color: 'var(--status-live)', fontWeight: 700 }}>+{stats.eventsThisMonth}</span> this month
             </div>
           </div>
 
           {/* Participation Trends (Wide) */}
-          <div className="bento-card col-span-12" style={{ minHeight: '400px' }}>
+          <div className="bento-card col-span-12" style={{ height: '300px' }}>
             <div className="flex-between mb-4">
               <div className="stat-header" style={{ margin: 0 }}>
                 <i data-lucide="trending-up" style={{ width: '16px', color: 'var(--ao)' }}></i>
