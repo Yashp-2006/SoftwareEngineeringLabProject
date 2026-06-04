@@ -305,16 +305,15 @@ export function BracketViewer({
 
   const fitToScreen = useCallback(() => {
     if (!viewportRef.current || !canvasRef.current) return;
-    const margin = 100;
+    const margin = 60;
     const vW = viewportRef.current.clientWidth - margin;
     const vH = viewportRef.current.clientHeight - margin;
-    canvasRef.current.style.transform = 'scale(1)';
+    // Read natural dimensions (offsetWidth/Height always reflect layout without CSS transform)
     const cW = canvasRef.current.offsetWidth;
     const cH = canvasRef.current.offsetHeight;
-    const scale = Math.max(0.3, Math.min(1.1, Math.min(vW / cW, vH / cH)));
+    if (cW === 0 || cH === 0) return;
+    const scale = Math.max(0.2, Math.min(1.2, Math.min(vW / cW, vH / cH)));
     setZoom(scale);
-    viewportRef.current.scrollLeft = (canvasRef.current.scrollWidth - viewportRef.current.clientWidth) / 2;
-    viewportRef.current.scrollTop = 0;
   }, []);
 
   useEffect(() => {
@@ -467,17 +466,19 @@ export function BracketViewer({
 
       {/* Bracket Scroll Area */}
       <div className="bv-scroll" ref={viewportRef}>
-        <div className="bv-canvas" ref={canvasRef} style={{ transform: `scale(${zoom})` }}>
-          {visibleRounds.map((roundMatches, rIdx) => (
-            <div key={rIdx} className="bracket-round">
-              <div className="round-header">{getRoundName(rIdx, rounds.length)}</div>
-              {roundMatches.map((m: any) => (
-                <div key={m.id} className="match-wrapper">
-                  <BracketNode match={m} mats={mats} onPromote={onPromote} isHighlighted={m.id === activeHighlight} />
-                </div>
-              ))}
-            </div>
-          ))}
+        <div className="bv-scale-wrapper" style={{ transform: `scale(${zoom})` }}>
+          <div className="bv-canvas" ref={canvasRef}>
+            {visibleRounds.map((roundMatches, rIdx) => (
+              <div key={rIdx} className="bracket-round">
+                <div className="round-header">{getRoundName(rIdx, rounds.length)}</div>
+                {roundMatches.map((m: any) => (
+                  <div key={m.id} className="match-wrapper">
+                    <BracketNode match={m} mats={mats} onPromote={onPromote} isHighlighted={m.id === activeHighlight} />
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -653,14 +654,19 @@ export default function FullscreenBracketModal({
           background: oklch(99% 0.002 250);
           background-image: linear-gradient(var(--neutral-100) 1px, transparent 1px), linear-gradient(90deg, var(--neutral-100) 1px, transparent 1px);
           background-size: 40px 40px;
+          position: relative;
+        }
+        /* Scale wrapper: transform-origin top left so scrollbars track content correctly */
+        .bv-scale-wrapper {
+          display: inline-block;
+          transform-origin: top left;
+          transition: transform 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94);
         }
         .bv-canvas {
           display: flex;
           gap: 120px;
           padding: var(--space-6);
           align-items: flex-start;
-          transform-origin: top left;
-          transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
         /* Bracket round */
