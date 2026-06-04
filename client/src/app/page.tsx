@@ -156,12 +156,13 @@ export default function DashboardPage() {
         }
         .col-span-3 { grid-column: span 3; }
         .col-span-6 { grid-column: span 6; }
+        .col-span-12 { grid-column: span 12; }
         @media (max-width: 1024px) {
           .col-span-3 { grid-column: span 6; }
-          .col-span-6 { grid-column: span 12; }
+          .col-span-6, .col-span-12 { grid-column: span 12; }
         }
         @media (max-width: 600px) {
-          .col-span-3, .col-span-6 { grid-column: span 12; }
+          .col-span-3, .col-span-6, .col-span-12 { grid-column: span 12; }
         }
         .stat-header {
           display: flex;
@@ -219,7 +220,8 @@ export default function DashboardPage() {
         .bar-group { flex: 1; height: 100%; position: relative; display: flex; align-items: flex-end; margin: 0 4px; }
         .bar-inner { width: 100%; border-radius: 6px 6px 0 0; position: relative; cursor: pointer; transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
         .bar-inner:hover { transform: scaleY(1.05); transform-origin: bottom; }
-        .bar-label { position: absolute; top: -24px; left: 50%; transform: translateX(-50%); text-align: center; font-size: 11px; font-weight: 700; color: var(--neutral-600); transition: opacity 0.2s; }
+        .bar-inner:hover .bar-label { opacity: 1; }
+        .bar-label { position: absolute; top: -24px; left: 50%; transform: translateX(-50%); text-align: center; font-size: 11px; font-weight: 700; color: var(--neutral-600); opacity: 0; transition: opacity 0.2s; }
       `}} />
 
       <main className="container">
@@ -352,7 +354,7 @@ export default function DashboardPage() {
                     return (
                       <g key={`point-${i}`} className="graph-point">
                         <circle cx={`${x}%`} cy={`${y}%`} r="5" fill={d.peak ? 'var(--aka)' : 'var(--ao)'} stroke="var(--shiro)" strokeWidth="2" />
-                        <text x={`${x}%`} y={`calc(${y}% - 14px)`} textAnchor="middle" fontSize="11px" fontWeight="700" fill="var(--neutral-600)">{d.val}</text>
+                        <text x={`${x}%`} y={`${y - 5}%`} textAnchor="middle" fontSize="11px" fontWeight="700" fill="var(--neutral-600)">{d.val}</text>
                       </g>
                     );
                   })}
