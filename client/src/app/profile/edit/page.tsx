@@ -4,9 +4,11 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Camera, ArrowLeft, Loader2, Check } from 'lucide-react';
+import { useAuth } from '@/components/auth/AuthProvider';
 
 export default function EditProfilePage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -26,7 +28,7 @@ export default function EditProfilePage() {
       <style dangerouslySetInnerHTML={{ __html: `
         .edit-grid { display: grid; grid-template-columns: 280px 1fr; gap: var(--space-7); align-items: start; }
         .avatar-upload { text-align: center; background: var(--shiro); border: 1px solid var(--neutral-300); border-radius: 12px; padding: var(--space-6); position: sticky; top: 130px; }
-        .avatar-preview { width: 140px; height: 140px; border-radius: 50%; background: var(--neutral-100) url('https://api.dicebear.com/7.x/avataaars/svg?seed=Felix') center/cover; margin: 0 auto var(--space-4); border: 4px solid var(--shiro); box-shadow: 0 4px 12px rgba(0,0,0,0.1); position: relative; }
+        .avatar-preview { width: 140px; height: 140px; border-radius: 50%; margin: 0 auto var(--space-4); border: 4px solid var(--shiro); box-shadow: 0 4px 12px rgba(0,0,0,0.1); position: relative; }
         .avatar-edit-btn { position: absolute; bottom: 0; right: 0; width: 40px; height: 40px; background: var(--aka); color: var(--shiro); border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 3px solid var(--shiro); cursor: pointer; transition: transform 0.2s; }
         .avatar-edit-btn:hover { transform: scale(1.1); }
         .form-card { background: var(--shiro); border: 1px solid var(--neutral-300); border-radius: 12px; padding: var(--space-7); }
@@ -58,15 +60,18 @@ export default function EditProfilePage() {
           </Link>
         </header>
 
-        <div className="edit-grid">
+        <div className="edit-grid" key={user?.uid || 'guest'}>
           {/* Sidebar / Avatar */}
           <aside className="avatar-upload">
-            <div className="avatar-preview">
+            <div 
+              className="avatar-preview"
+              style={{ background: user?.photoURL ? `url(${user.photoURL}) center/cover` : `var(--neutral-100) url('https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email || 'Felix'}') center/cover` }}
+            >
               <div className="avatar-edit-btn">
                 <Camera size={18} />
               </div>
             </div>
-            <h3 style={{ marginBottom: '4px' }}>Kenji Sato</h3>
+            <h3 style={{ marginBottom: '4px' }}>{user?.displayName || 'User Profile'}</h3>
             <button className="btn btn-ghost" style={{ marginTop: 'var(--space-4)', width: '100%', justifyContent: 'center', fontSize: '13px', border: '1px solid var(--neutral-300)' }}>
               Change Avatar
             </button>
@@ -79,21 +84,21 @@ export default function EditProfilePage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
                 <div className="input-group">
                   <label>Full Name</label>
-                  <input type="text" className="form-input" defaultValue="Kenji Sato" />
+                  <input type="text" className="form-input" defaultValue={user?.displayName || ''} />
                 </div>
                 <div className="input-group">
                   <label>Email Address</label>
-                  <input type="email" className="form-input" defaultValue="kenji.sato@example.com" />
+                  <input type="email" className="form-input" defaultValue={user?.email || ''} />
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
                 <div className="input-group">
                   <label>Phone Number</label>
-                  <input type="tel" className="form-input" defaultValue="+81 90-1234-5678" />
+                  <input type="tel" className="form-input" placeholder="+1 234-567-8900" />
                 </div>
                 <div className="input-group">
                   <label>Location</label>
-                  <input type="text" className="form-input" defaultValue="Osaka, Japan" />
+                  <input type="text" className="form-input" placeholder="City, Country" />
                 </div>
               </div>
             </div>
@@ -102,11 +107,11 @@ export default function EditProfilePage() {
               <h2 className="form-section-title">About Me</h2>
               <div className="input-group">
                 <label>Academy / Organization</label>
-                <input type="text" className="form-input" defaultValue="Osaka Budokan Academy" />
+                <input type="text" className="form-input" placeholder="Your Academy" />
               </div>
               <div className="input-group">
                 <label>Bio & Experience</label>
-                <textarea className="form-textarea" defaultValue="Former competitor with 5 years of experience in officiating regional karate matches." placeholder="Describe your experience in karate competitions..."></textarea>
+                <textarea className="form-textarea" placeholder="Describe your experience in karate competitions..."></textarea>
               </div>
             </div>
 
