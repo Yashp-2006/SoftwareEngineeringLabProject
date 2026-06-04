@@ -382,9 +382,9 @@ export default function DashboardPage() {
                 <svg width="100%" height="100%" style={{ overflow: 'visible', position: 'absolute', bottom: 0 }}>
                   {chartData.slice(1).map((d, i) => {
                     const prev = chartData[i];
-                    const x1 = (i / (chartData.length - 1)) * 100;
+                    const x1 = ((i + 0.5) / chartData.length) * 100;
                     const y1 = 95 - (prev.val / maxVal) * 85;
-                    const x2 = ((i + 1) / (chartData.length - 1)) * 100;
+                    const x2 = ((i + 1.5) / chartData.length) * 100;
                     const y2 = 95 - (d.val / maxVal) * 85;
                     return (
                       <line 
@@ -396,7 +396,7 @@ export default function DashboardPage() {
                     );
                   })}
                   {chartData.map((d, i) => {
-                    const x = (i / (chartData.length - 1)) * 100;
+                    const x = ((i + 0.5) / chartData.length) * 100;
                     const y = 95 - (d.val / maxVal) * 85;
                     return (
                       <g key={`point-${i}`} className="graph-point">
