@@ -8,6 +8,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const { id } = await params;
     const ip = req.headers.get('x-forwarded-for') || '127.0.0.1';
 
+    // Guard: Firebase Admin not initialized (missing env vars on server)
+    if (!adminDb) {
+      console.error('[import/route] adminDb is null — Firebase Admin env vars are missing on this server.');
+      return NextResponse.json(
+        { success: false, error: 'Server configuration error: Firebase Admin not initialized. Please check server environment variables.' },
+        { status: 503 }
+      );
+    }
+
     let rateLimitResult = { success: true, limit: 10, reset: 0, remaining: 10 };
     try {
       rateLimitResult = await rateLimiter.limit(`import_${ip}`);
