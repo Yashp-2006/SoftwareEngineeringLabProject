@@ -296,7 +296,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Participation Trends (Wide) */}
-          <div className="bento-card col-span-12">
+          <div className="bento-card col-span-12" style={{ minHeight: '400px' }}>
             <div className="flex-between mb-4">
               <div className="stat-header" style={{ margin: 0 }}>
                 <i data-lucide="trending-up" style={{ width: '16px', color: 'var(--ao)' }}></i>
@@ -314,7 +314,7 @@ export default function DashboardPage() {
               </div>
             </div>
             
-            <div style={{ width: '100%', position: 'relative', height: '280px', minHeight: '280px', display: 'flex', alignItems: chartType === 'bar' ? 'flex-end' : 'stretch', justifyContent: chartType === 'bar' ? 'space-between' : 'stretch' }}>
+            <div style={{ flex: 1, width: '100%', position: 'relative', display: 'flex', alignItems: chartType === 'bar' ? 'flex-end' : 'stretch', justifyContent: chartType === 'bar' ? 'space-between' : 'stretch' }}>
               {chartType === 'bar' && chartData.map((d, i) => {
                 const heightPct = (d.val / maxVal) * 85;
                 const barColor = d.peak ? 'var(--aka)' : 'var(--neutral-300)';
