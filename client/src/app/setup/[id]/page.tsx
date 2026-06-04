@@ -26,6 +26,8 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
   const [downloadingTiesheets, setDownloadingTiesheets] = useState(false);
   const [modalFormData, setModalFormData] = useState<any>({});
   const [compName, setCompName] = useState<string>('Loading...');
+  const [compVenue, setCompVenue] = useState<string>('');
+  const [compDate, setCompDate] = useState<string>('');
   
   const [compRules, setCompRules] = useState<string>('');
   const [compType, setCompType] = useState<string>('international');
@@ -111,10 +113,17 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         const { getDoc, doc } = await import('firebase/firestore');
         const { db } = await import('@lib/firebase');
         
-        // Load main doc for Name
+        // Load main doc for Name, Venue, Date
         const snap = await getDoc(doc(db, 'competitions', id));
         if (snap.exists()) {
-          setCompName(snap.data().name || 'Untitled Tournament');
+          const mainData = snap.data();
+          setCompName(mainData.name || 'Untitled Tournament');
+          if (mainData.venue) setCompVenue(mainData.venue);
+          if (mainData.startDate) {
+            const startDate = new Date(mainData.startDate).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
+            const endDate = mainData.endDate ? new Date(mainData.endDate).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+            setCompDate(endDate && startDate !== endDate ? `${startDate} - ${endDate}` : startDate);
+          }
         }
 
         // Try to load draft first
@@ -286,8 +295,11 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
           name: c.name,
           matches: c.matches ?? [],
           athletes: c.athletes ?? [],
+          matNo: c.mat || '',
         })),
         isArchived: false,
+        venue: compVenue,
+        date: compDate,
       });
       toast.success('Tiesheets PDF downloaded!');
     } catch (e: any) {

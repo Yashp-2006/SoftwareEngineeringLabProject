@@ -28,6 +28,8 @@ export default function ArchiveDetailPage({ params }: { params: Promise<{ id: st
   const [activeTab, setActiveTab] = useState('overview');
   const [leaderboardView, setLeaderboardView] = useState('dojo');
   const [compName, setCompName] = useState('Archived Competition');
+  const [compVenue, setCompVenue] = useState('');
+  const [compDate, setCompDate] = useState('');
   const [downloadingTiesheets, setDownloadingTiesheets] = useState(false);
 
   useEffect(() => {
@@ -42,7 +44,16 @@ export default function ArchiveDetailPage({ params }: { params: Promise<{ id: st
         const { db } = await import('@lib/firebase');
         const { doc, getDoc } = await import('firebase/firestore');
         const snap = await getDoc(doc(db, 'competitions', id));
-        if (snap.exists()) setCompName(snap.data().name || 'Archived Competition');
+        if (snap.exists()) {
+          const mainData = snap.data();
+          setCompName(mainData.name || 'Archived Competition');
+          if (mainData.venue) setCompVenue(mainData.venue);
+          if (mainData.startDate) {
+            const startDate = new Date(mainData.startDate).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
+            const endDate = mainData.endDate ? new Date(mainData.endDate).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+            setCompDate(endDate && startDate !== endDate ? `${startDate} - ${endDate}` : startDate);
+          }
+        }
       } catch {}
     };
     load();
@@ -67,8 +78,11 @@ export default function ArchiveDetailPage({ params }: { params: Promise<{ id: st
           name: c.name,
           matches: c.matches ?? [],
           athletes: c.athletes ?? [],
+          matNo: c.mat || '',
         })),
         isArchived: true,
+        venue: compVenue,
+        date: compDate,
       });
     } catch (e: any) {
       alert('Failed to generate tiesheets: ' + e.message);
