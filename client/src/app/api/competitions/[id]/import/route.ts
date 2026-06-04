@@ -8,11 +8,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const { id } = await params;
     const ip = req.headers.get('x-forwarded-for') || '127.0.0.1';
 
-    const { success, limit, reset, remaining } = await rateLimiter.limit(`import_${ip}`);
-    if (!success) {
+    let rateLimitResult = { success: true, limit: 10, reset: 0, remaining: 10 };
+    try {
+      rateLimitResult = await rateLimiter.limit(`import_${ip}`);
+    } catch (e: any) {
+      console.warn('[rate-limiter] Redis error, bypassing:', e.message);
+    }
+    
+    if (!rateLimitResult.success) {
       return NextResponse.json(
         { success: false, error: 'Too many requests. Please try again later.' },
-        { status: 429, headers: { 'X-RateLimit-Limit': limit.toString(), 'X-RateLimit-Remaining': remaining.toString(), 'X-RateLimit-Reset': reset.toString() } }
+        { status: 429, headers: { 'X-RateLimit-Limit': rateLimitResult.limit.toString(), 'X-RateLimit-Remaining': rateLimitResult.remaining.toString(), 'X-RateLimit-Reset': rateLimitResult.reset.toString() } }
       );
     }
 
