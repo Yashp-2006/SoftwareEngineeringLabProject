@@ -8,10 +8,10 @@ export default function DashboardPage() {
     active: 0, 
     upcoming: 0, 
     athletes: 0, 
-    total: 0,
+    completed: 0,
     activeMats: 0,
     nextUpcomingName: '',
-    eventsThisMonth: 0,
+    eventsThisYear: 0,
     totalClubs: 0
   });
   const [loading, setLoading] = useState(true);
@@ -26,52 +26,53 @@ export default function DashboardPage() {
         const { collection, getDocs } = await import('firebase/firestore');
         const snap = await getDocs(collection(db, 'competitions'));
         
-        let active = 0, upcoming = 0, total = 0, activeMats = 0, athletes = 0;
+        let active = 0, upcoming = 0, completed = 0, activeMats = 0, athletes = 0;
         let nextUpcomingName = '';
         let earliestUpcomingDate = Infinity;
-        let eventsThisMonth = 0;
+        let eventsThisYear = 0;
         let clubsSet = new Set<string>();
 
         const now = new Date();
-        const currentMonth = now.getMonth();
         const currentYear = now.getFullYear();
 
         snap.forEach(doc => {
           const data = doc.data();
-          const s = data.status;
+          const s = data.status || 'setup'; // default to setup if no status
           
           if (s === 'live') {
             active++;
             if (data.mats) activeMats += data.mats;
-          } else if (s === 'upcoming') {
+          } else if (s === 'upcoming' || s === 'setup' || s === 'draft') {
             upcoming++;
             const compDate = data.startDate ? new Date(data.startDate).getTime() : Infinity;
-            if (compDate < earliestUpcomingDate) {
+            // Always take the first one we see if we don't have one yet
+            if (compDate <= earliestUpcomingDate || !nextUpcomingName) {
               earliestUpcomingDate = compDate;
               nextUpcomingName = data.name || 'Unnamed Tournament';
             }
+          } else if (s === 'completed' || s === 'archived') {
+            completed++;
           }
-          total++;
 
-          // Check if event is this month
-          if (data.createdAt || data.startDate) {
-            const d = new Date(data.createdAt || data.startDate);
-            if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
-              eventsThisMonth++;
+          // Check if event was completed this year
+          if (s === 'completed' || s === 'archived') {
+            if (data.updatedAt || data.endDate || data.createdAt) {
+              const d = new Date(data.updatedAt || data.endDate || data.createdAt);
+              if (d.getFullYear() === currentYear) {
+                eventsThisYear++;
+              }
             }
           }
           
-          // Count athletes if available (assuming categories are subcollections, but we'll try to use a total if available on the doc)
-          // If not available on doc, we'll leave it as 0 or maybe try to count them in a separate query if needed. But for now we just look at the doc.
+          // Count athletes if available
           if (data.athletesCount) athletes += data.athletesCount;
-          else if (data.entries) athletes += data.entries; // sometimes stored as entries
+          else if (data.entries) athletes += data.entries;
         });
         
-        // Since athletes might require deeper queries, we'll keep the mock logic or set to 0 if none.
         if (athletes === 0) athletes = 1482; // Fallback to mock if no real data
-        const totalClubs = 42; // We would need a deep query to get clubs. We'll leave clubs hardcoded if we can't get it easily.
+        const totalClubs = 42; 
         
-        setStats({ active, upcoming, athletes, total, activeMats, nextUpcomingName, eventsThisMonth, totalClubs });
+        setStats({ active, upcoming, athletes, completed, activeMats, nextUpcomingName, eventsThisYear, totalClubs });
       } catch (err) {
         console.error('Failed to load stats', err);
       } finally {
@@ -181,14 +182,14 @@ export default function DashboardPage() {
         .dashboard-bento {
           display: grid;
           grid-template-columns: repeat(12, minmax(0, 1fr));
-          gap: var(--space-5);
-          margin-bottom: var(--space-7);
+          gap: var(--space-4);
+          margin-bottom: var(--space-5);
         }
         .bento-card {
           background: var(--shiro);
           border: 1px solid var(--neutral-200);
           border-radius: 16px;
-          padding: var(--space-5);
+          padding: var(--space-4);
           box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
           transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1);
           display: flex;
@@ -223,10 +224,10 @@ export default function DashboardPage() {
         }
         .stat-value {
           font-family: var(--font-display);
-          font-size: 56px;
+          font-size: 42px;
           line-height: 1;
           color: var(--neutral-900);
-          margin-bottom: var(--space-2);
+          margin-bottom: var(--space-1);
         }
         .stat-footer {
           font-size: 13px;
@@ -332,17 +333,17 @@ export default function DashboardPage() {
             <div>
               <div className="stat-header">
                 <i data-lucide="trophy" style={{ width: '16px', color: 'var(--neutral-500)' }}></i>
-                All Time Events
+                Completed Events
               </div>
-              <div className="stat-value">{stats.total}</div>
+              <div className="stat-value">{stats.completed}</div>
             </div>
             <div className="stat-footer">
-              <span style={{ color: 'var(--status-live)', fontWeight: 700 }}>+{stats.eventsThisMonth}</span> this month
+              <span style={{ color: 'var(--status-live)', fontWeight: 700 }}>{stats.eventsThisYear}</span> this year
             </div>
           </div>
 
           {/* Participation Trends (Wide) */}
-          <div className="bento-card col-span-12" style={{ height: '300px' }}>
+          <div className="bento-card col-span-12" style={{ height: '220px' }}>
             <div className="flex-between mb-4">
               <div className="stat-header" style={{ margin: 0 }}>
                 <i data-lucide="trending-up" style={{ width: '16px', color: 'var(--ao)' }}></i>
