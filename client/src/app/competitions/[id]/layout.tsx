@@ -25,7 +25,7 @@ export default function CompetitionLayout({
   const showStaff = isAdminOrGuest;
   const showAthletes = isAdminOrGuest || role === 'attendance_volunteer';
   const showMedals = isAdminOrGuest || role === 'medal_distributor';
-  const showOperator = role === 'admin' || role === 'mat_operator';
+  const showOperator = role === 'admin' || role === 'score_operator';
 
   const linkStyle = { background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' };
 

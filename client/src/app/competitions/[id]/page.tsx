@@ -84,7 +84,7 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
               </Link>
             </>
           )}
-          {(role === 'admin' || role === 'mat_operator') && (
+          {role === 'admin' && (
             <button className="btn btn-primary">
               <Layout size={16} style={{ marginRight: '8px' }} /> Start Next Match
             </button>
