@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Maximize, ArrowLeft, Play, Pause, Flag, RotateCw } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import PasswordGateway from '@/components/auth/PasswordGateway';
@@ -62,55 +62,51 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
     return Object.values(counts).sort((a, b) => b.wins - a.wins).slice(0, leaderboardIsFullscreen ? 20 : 3);
   }, [allCompletedMatches, leaderboardFilter, leaderboardIsFullscreen]);
 
-  // RTDB sync — writes to live_scores/{id}/mats/{matId} on every state change
-  useEffect(() => {
-    const updateRTDB = async () => {
-      try {
+  // Cache firebase refs so we don't re-import on every tick
+  const rtdbRefCache = useRef<any>(null);
+  const rtdbSetCache = useRef<any>(null);
+  const rtdbDebounceTimer = useRef<NodeJS.Timeout | null>(null);
+
+  // RTDB sync — debounced to max 1 write per 500ms to avoid write storms during timer ticks
+  const syncRTDB = useCallback(async (payload: any) => {
+    try {
+      if (!rtdbRefCache.current || !rtdbSetCache.current) {
         const { rtdb } = await import('@lib/firebase');
         const { ref, set } = await import('firebase/database');
-        
-        // Mat ID from URL query param e.g. /operator?mat=mat-1
-        const params = new URLSearchParams(window.location.search);
-        const matId = params.get('mat') || 'mat-1';
-        
-        const matRef = ref(rtdb, `live_scores/${id}/mats/${matId}`);
-        
-        const mm = Math.floor(timer / 60).toString().padStart(2, '0');
-        const ss = (timer % 60).toString().padStart(2, '0');
-        
-        const payload = {
-          status: status === 'finished' ? 'standby' : (status === 'upcoming' ? 'upcoming' : (running ? 'live' : 'paused')),
-          currentCategory: activeCategoryName || 'No Active Category',
-          currentMatch: queue[0]?.displayId || 'Standby',
-          // Competitor identifiers (read by live/mat/[matId] display)
-          akaName: aka.name,
-          akaCountry: aka.country,
-          akaAcademy: aka.academy,
-          aoName: ao.name,
-          aoCountry: ao.country,
-          aoAcademy: ao.academy,
-          // Scores
-          scores: {
-            aka: aka.score,
-            ao: ao.score,
-          },
-          // Individual penalties (read by live display for penalty dots)
-          akaPenalties: { c1: aka.c1, c2: aka.c2, c3: aka.c3, hc: aka.hc, h: aka.h },
-          aoPenalties:  { c1: ao.c1,  c2: ao.c2,  c3: ao.c3,  hc: ao.hc,  h: ao.h  },
-          // Timer
-          timerSeconds: timer,
-          timerRunning: running,
-          timeRemaining: `${mm}:${ss}`,
-        };
-        
-        await set(matRef, payload);
-      } catch (err) {
-        console.error('Failed to sync RTDB', err);
+        const matId = new URLSearchParams(window.location.search).get('mat') || 'mat-1';
+        rtdbRefCache.current = ref(rtdb, `live_scores/${id}/mats/${matId}`);
+        rtdbSetCache.current = set;
       }
+      await rtdbSetCache.current(rtdbRefCache.current, payload);
+    } catch (err) {
+      console.error('Failed to sync RTDB', err);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    const mm = Math.floor(timer / 60).toString().padStart(2, '0');
+    const ss = (timer % 60).toString().padStart(2, '0');
+    const payload = {
+      status: status === 'finished' ? 'standby' : (status === 'upcoming' ? 'upcoming' : (running ? 'live' : 'paused')),
+      currentCategory: activeCategoryName || 'No Active Category',
+      currentMatch: queue[0]?.displayId || 'Standby',
+      akaName: aka.name, akaCountry: aka.country, akaAcademy: aka.academy,
+      aoName: ao.name, aoCountry: ao.country, aoAcademy: ao.academy,
+      scores: { aka: aka.score, ao: ao.score },
+      akaPenalties: { c1: aka.c1, c2: aka.c2, c3: aka.c3, hc: aka.hc, h: aka.h },
+      aoPenalties:  { c1: ao.c1,  c2: ao.c2,  c3: ao.c3,  hc: ao.hc,  h: ao.h  },
+      timerSeconds: timer, timerRunning: running, timeRemaining: `${mm}:${ss}`,
     };
 
-    updateRTDB();
-  }, [id, aka, ao, timer, status, running]);
+    // Immediate sync for non-timer events (score/status/penalty changes)
+    // Debounced to 500ms for timer ticks to avoid 1 write/sec write storms
+    if (rtdbDebounceTimer.current) clearTimeout(rtdbDebounceTimer.current);
+    rtdbDebounceTimer.current = setTimeout(() => syncRTDB(payload), 500);
+
+    return () => {
+      if (rtdbDebounceTimer.current) clearTimeout(rtdbDebounceTimer.current);
+    };
+  }, [id, aka, ao, timer, status, running, activeCategoryName, queue, syncRTDB]);
 
 
   useEffect(() => {

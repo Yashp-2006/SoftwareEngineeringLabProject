@@ -41,6 +41,26 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ success: false, error: 'No file uploaded' }, { status: 400 });
     }
 
+    // Validate file type before attempting to parse
+    const fileName = file.name?.toLowerCase() ?? '';
+    const allowedExtensions = ['.csv', '.xls', '.xlsx'];
+    const hasValidExtension = allowedExtensions.some(ext => fileName.endsWith(ext));
+    const allowedMimeTypes = [
+      'text/csv',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/csv',
+      'text/plain', // some OS send CSV as text/plain
+    ];
+    const hasValidMime = !file.type || allowedMimeTypes.includes(file.type);
+
+    if (!hasValidExtension || !hasValidMime) {
+      return NextResponse.json(
+        { success: false, error: `Unsupported file type "${file.name}". Please upload a .csv, .xls, or .xlsx file.` },
+        { status: 400 }
+      );
+    }
+
     const specialCategoriesStr = formData.get('specialCategories') as string;
     let specialCategories: any[] = [];
     try { specialCategories = JSON.parse(specialCategoriesStr || '[]'); } catch {}
@@ -52,7 +72,24 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const wkfMode = (formData.get('wkfMode') as string) || 'standard';
 
     const buffer = await file.arrayBuffer();
-    const categoryMap = parseExcelIntoCategories(buffer, specialCategories, wkfMode, customCategories);
+
+    let categoryMap: Map<string, any[]>;
+    try {
+      categoryMap = parseExcelIntoCategories(buffer, specialCategories, wkfMode, customCategories);
+    } catch (parseErr: any) {
+      console.error('[import/route] Excel parse error:', parseErr.message);
+      return NextResponse.json(
+        { success: false, error: `Could not read the file "${file.name}". Make sure it is a valid, non-password-protected Excel or CSV file. (Detail: ${parseErr.message})` },
+        { status: 422 }
+      );
+    }
+
+    if (categoryMap.size === 0) {
+      return NextResponse.json(
+        { success: false, error: 'No athlete data found in the file. Check that the sheet has a header row and at least one athlete row.' },
+        { status: 422 }
+      );
+    }
 
     let categoriesCreated = 0;
     let athletesImported = 0;

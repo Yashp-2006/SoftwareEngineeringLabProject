@@ -40,17 +40,21 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
     let rtdbUnsubs: Record<string, () => void> = {};
 
     const setup = async () => {
-      const { db, rtdb } = await import('@lib/firebase');
-      const { collection, onSnapshot, query, orderBy, getDoc, doc } = await import('firebase/firestore');
-      const { ref, onValue, off } = await import('firebase/database');
+      const [{ db, rtdb }, { collection, onSnapshot, query, orderBy, getDoc, doc }, { ref, onValue, off }] = await Promise.all([
+        import('@lib/firebase'),
+        import('firebase/firestore'),
+        import('firebase/database'),
+      ]);
 
-      // Load competition mats count
-      const compSnap = await getDoc(doc(db, 'competitions', id));
+      // Start all listeners in parallel
+      const [compSnap] = await Promise.all([
+        getDoc(doc(db, 'competitions', id)),
+      ]);
       if (compSnap.exists() && compSnap.data().mats) {
         setCompMatsCount(compSnap.data().mats);
       }
 
-      // Listen to categories to know which mat each is assigned to
+      // Categories listener
       const catsQ = query(collection(db, 'competitions', id, 'categories'), orderBy('order'));
       unsubCats = onSnapshot(catsQ, (snap) => {
         const byMat: Record<string, { name: string; status: string; entries: number }[]> = {};
@@ -63,23 +67,20 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
         setCategoryByMat(byMat);
       });
 
+      // Mats listener
       const matsQ = query(collection(db, 'competitions', id, 'mats'), orderBy('order'));
-      
       unsubFirestore = onSnapshot(matsQ, (snap) => {
         const matsList = snap.docs.map(d => ({ id: d.id, ...d.data() } as MatData));
         setMats(matsList);
         setLoading(false);
 
-        // Listen to RTDB for each mat
+        // Subscribe to RTDB for each mat (skip already-subscribed)
         matsList.forEach(mat => {
           if (!rtdbUnsubs[mat.id]) {
             const matRef = ref(rtdb, `live_scores/${id}/mats/${mat.id}`);
             const listener = onValue(matRef, (snapshot) => {
               const data = snapshot.val();
-              setLiveStates(prev => ({
-                ...prev,
-                [mat.id]: data || { status: 'standby' }
-              }));
+              setLiveStates(prev => ({ ...prev, [mat.id]: data || { status: 'standby' } }));
             });
             rtdbUnsubs[mat.id] = () => off(matRef, 'value', listener);
           }
@@ -368,6 +369,11 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
           70% { box-shadow: 0 0 0 6px rgba(98, 224, 145, 0); }
           100% { box-shadow: 0 0 0 0 rgba(98, 224, 145, 0); }
         }
+        @keyframes shimmer {
+          0% { opacity: 1; }
+          50% { opacity: 0.4; }
+          100% { opacity: 1; }
+        }
         
         .filters {
           display: flex;
@@ -443,8 +449,20 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
         </header>
 
         {loading ? (
-          <div style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--neutral-500)' }}>
-            Loading mats...
+          <div className="mat-grid">
+            {Array.from({ length: compMatsCount || 6 }).map((_, i) => (
+              <div key={i} className="mat-card standby" style={{ minHeight: 220 }}>
+                <div className="mat-header">
+                  <div style={{ width: 80, height: 32, borderRadius: 6, background: 'var(--neutral-200)', animation: 'shimmer 1.4s infinite' }} />
+                  <div style={{ width: 60, height: 22, borderRadius: 6, background: 'var(--neutral-200)', animation: 'shimmer 1.4s infinite' }} />
+                </div>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {[80, 60, 60].map((w, j) => (
+                    <div key={j} style={{ height: 12, width: `${w}%`, borderRadius: 4, background: 'var(--neutral-200)', animation: 'shimmer 1.4s infinite' }} />
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         ) : mats.length === 0 ? (
           <div className="empty-state">
