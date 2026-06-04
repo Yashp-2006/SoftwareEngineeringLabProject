@@ -134,7 +134,7 @@ export default function DashboardPage() {
       <style dangerouslySetInnerHTML={{__html: `
         .dashboard-bento {
           display: grid;
-          grid-template-columns: repeat(12, 1fr);
+          grid-template-columns: repeat(12, minmax(0, 1fr));
           gap: var(--space-5);
           margin-bottom: var(--space-7);
         }
@@ -230,7 +230,7 @@ export default function DashboardPage() {
             <div className="breadcrumb">Admin / Dashboard</div>
             <h1>Operations Hub</h1>
           </div>
-          <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+          <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
             <button className="btn btn-secondary">
               <i data-lucide="download" style={{ width: '18px' }}></i> Export Report
             </button>
@@ -314,7 +314,7 @@ export default function DashboardPage() {
               </div>
             </div>
             
-            <div style={{ flex: 1, position: 'relative', height: '280px', display: 'flex', alignItems: chartType === 'bar' ? 'flex-end' : 'stretch', justifyContent: chartType === 'bar' ? 'space-between' : 'stretch' }}>
+            <div style={{ width: '100%', position: 'relative', height: '280px', minHeight: '280px', display: 'flex', alignItems: chartType === 'bar' ? 'flex-end' : 'stretch', justifyContent: chartType === 'bar' ? 'space-between' : 'stretch' }}>
               {chartType === 'bar' && chartData.map((d, i) => {
                 const heightPct = (d.val / maxVal) * 85;
                 const barColor = d.peak ? 'var(--aka)' : 'var(--neutral-300)';
