@@ -1,26 +1,44 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Camera, ArrowLeft, Loader2, Check } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { updateProfile } from 'firebase/auth';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '@lib/firebase';
 
 export default function EditProfilePage() {
   const router = useRouter();
   const { user } = useAuth();
+  const [name, setName] = useState(user?.displayName || '');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  const handleSave = () => {
+  useEffect(() => {
+    if (user?.displayName) {
+      setName(user.displayName);
+    }
+  }, [user?.displayName]);
+
+  const handleSave = async () => {
     setSaving(true);
-    setTimeout(() => {
+    try {
+      if (user) {
+        await updateProfile(user, { displayName: name });
+        const userRef = doc(db, 'users', user.uid);
+        await updateDoc(userRef, { displayName: name, name: name });
+      }
       setSaving(false);
       setSaved(true);
       setTimeout(() => {
         router.push('/profile');
       }, 800);
-    }, 1500);
+    } catch (error) {
+      console.error('Failed to update profile', error);
+      setSaving(false);
+    }
   };
 
   return (
@@ -84,7 +102,12 @@ export default function EditProfilePage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
                 <div className="input-group">
                   <label>Full Name</label>
-                  <input type="text" className="form-input" defaultValue={user?.displayName || ''} />
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    value={name} 
+                    onChange={(e) => setName(e.target.value)} 
+                  />
                 </div>
                 <div className="input-group">
                   <label>Email Address</label>

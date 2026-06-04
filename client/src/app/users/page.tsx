@@ -71,7 +71,7 @@ export default function UsersPage() {
       unsub = onSnapshot(q, (snap) => {
         const data = snap.docs.map(d => ({
           id: d.id,
-          name: d.data().name || 'Unknown User',
+          name: d.data().displayName || d.data().name || 'Unknown User',
           email: d.data().email || 'No email',
           role: getNormalizedRole(d.data().role),
           academy: d.data().academy || 'No Academy'
