@@ -92,9 +92,15 @@ export default function DashboardPage() {
             { scaleY: 1, duration: 0.8, stagger: 0.05, ease: 'power3.out', transformOrigin: 'bottom' }
           );
         } else {
-          gsap.fromTo('.graph-element',
-            { opacity: 0, y: 15 },
-            { opacity: 1, y: 0, duration: 0.6, stagger: 0.05, ease: 'back.out(1.5)' }
+          // Line drawing effect
+          gsap.fromTo('.graph-line',
+            { strokeDasharray: 1000, strokeDashoffset: 1000 },
+            { strokeDashoffset: 0, duration: 1.2, ease: 'power3.inOut' }
+          );
+          // Point fade/pop effect
+          gsap.fromTo('.graph-point',
+            { scale: 0, opacity: 0, transformOrigin: 'center' },
+            { scale: 1, opacity: 1, duration: 0.6, stagger: 0.05, ease: 'back.out(2)', delay: 0.4 }
           );
         }
       });
@@ -213,8 +219,7 @@ export default function DashboardPage() {
         .bar-group { flex: 1; height: 100%; position: relative; display: flex; align-items: flex-end; margin: 0 4px; }
         .bar-inner { width: 100%; border-radius: 6px 6px 0 0; position: relative; cursor: pointer; transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
         .bar-inner:hover { transform: scaleY(1.05); transform-origin: bottom; }
-        .bar-inner:hover .bar-label { opacity: 1; }
-        .bar-label { position: absolute; top: -24px; left: 50%; transform: translateX(-50%); text-align: center; font-size: 11px; font-weight: 700; color: var(--neutral-600); opacity: 0; transition: opacity 0.2s; }
+        .bar-label { position: absolute; top: -24px; left: 50%; transform: translateX(-50%); text-align: center; font-size: 11px; font-weight: 700; color: var(--neutral-600); transition: opacity 0.2s; }
       `}} />
 
       <main className="container">
@@ -289,7 +294,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Participation Trends (Wide) */}
-          <div className="bento-card col-span-12" style={{ minHeight: '360px' }}>
+          <div className="bento-card col-span-12">
             <div className="flex-between mb-4">
               <div className="stat-header" style={{ margin: 0 }}>
                 <i data-lucide="trending-up" style={{ width: '16px', color: 'var(--ao)' }}></i>
@@ -307,9 +312,9 @@ export default function DashboardPage() {
               </div>
             </div>
             
-            <div style={{ flex: 1, position: 'relative', minHeight: '220px', display: 'flex', alignItems: chartType === 'bar' ? 'flex-end' : 'stretch', justifyContent: chartType === 'bar' ? 'space-between' : 'stretch' }}>
+            <div style={{ flex: 1, position: 'relative', height: '280px', display: 'flex', alignItems: chartType === 'bar' ? 'flex-end' : 'stretch', justifyContent: chartType === 'bar' ? 'space-between' : 'stretch' }}>
               {chartType === 'bar' && chartData.map((d, i) => {
-                const heightPct = (d.val / maxVal) * 100;
+                const heightPct = (d.val / maxVal) * 85;
                 const barColor = d.peak ? 'var(--aka)' : 'var(--neutral-300)';
                 return (
                   <div key={i} className="bar-group">
@@ -329,13 +334,13 @@ export default function DashboardPage() {
                   {chartData.slice(1).map((d, i) => {
                     const prev = chartData[i];
                     const x1 = (i / (chartData.length - 1)) * 100;
-                    const y1 = 100 - (prev.val / maxVal) * 100;
+                    const y1 = 95 - (prev.val / maxVal) * 85;
                     const x2 = ((i + 1) / (chartData.length - 1)) * 100;
-                    const y2 = 100 - (d.val / maxVal) * 100;
+                    const y2 = 95 - (d.val / maxVal) * 85;
                     return (
                       <line 
                         key={`line-${i}`}
-                        className="graph-element"
+                        className="graph-line"
                         x1={`${x1}%`} y1={`${y1}%`} x2={`${x2}%`} y2={`${y2}%`} 
                         stroke="var(--neutral-300)" strokeWidth="3" strokeLinecap="round" 
                       />
@@ -343,9 +348,9 @@ export default function DashboardPage() {
                   })}
                   {chartData.map((d, i) => {
                     const x = (i / (chartData.length - 1)) * 100;
-                    const y = 100 - (d.val / maxVal) * 100;
+                    const y = 95 - (d.val / maxVal) * 85;
                     return (
-                      <g key={`point-${i}`} className="graph-element">
+                      <g key={`point-${i}`} className="graph-point">
                         <circle cx={`${x}%`} cy={`${y}%`} r="5" fill={d.peak ? 'var(--aka)' : 'var(--ao)'} stroke="var(--shiro)" strokeWidth="2" />
                         <text x={`${x}%`} y={`calc(${y}% - 14px)`} textAnchor="middle" fontSize="11px" fontWeight="700" fill="var(--neutral-600)">{d.val}</text>
                       </g>
