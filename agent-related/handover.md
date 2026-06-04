@@ -47,8 +47,14 @@
 - **Entity Management**: CRUD UI for Competitions, Categories, Athletes, and Medals is implemented and wired to Firestore.
 - **User Roles & Academy Assignment**:
   - The `/users` directory is functional with real-time Firestore updates.
-  - Added the ability to completely remove/delete a user's account from the system.
+  - Added the ability to completely remove/delete a user's account from the system, including a secure confirmation prompt and an admin self-deletion guard.
   - Simplified UX by removing the academy filter.
+  - Fixed an issue where incomplete OAuth profiles would display as "Unknown User" by falling back to their email prefix.
+- **Dashboard Improvements**:
+  - Overhauled the main dashboard (`/page.tsx`) layout by removing the setup promo card and expanding the Participation Trends chart to full width.
+  - Rebuilt the line chart logic to use responsive SVG `<line>` elements instead of a distorted polyline.
+  - Integrated GSAP stagger animations that trigger on load and on chart filter changes.
+  - Chart labels are now dynamically generated relative to the current month instead of using static mock data.
 
 ## 2. What's Not Done
 - **RTDB Read/Write Mismatches**: While the operator writes to RTDB and the live mat reads from it, there may still be minor path sync issues or missing subscriptions for specific features (like the fullscreen scoreboard view).

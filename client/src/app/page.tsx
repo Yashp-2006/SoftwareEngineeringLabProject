@@ -102,20 +102,23 @@ export default function DashboardPage() {
     return () => { if (ctx) ctx.revert(); };
   }, [chartType, timeFilter]);
 
-  const fullChartData = [
-    { label: 'JAN', val: 320, color: 'var(--neutral-200)', hover: 'var(--neutral-300)' },
-    { label: 'FEB', val: 480, color: 'var(--neutral-200)', hover: 'var(--neutral-300)' },
-    { label: 'MAR', val: 640, color: 'var(--neutral-200)', hover: 'var(--neutral-300)' },
-    { label: 'APR', val: 850, color: 'var(--aka-light)', hover: 'var(--aka)', peak: true },
-    { label: 'MAY', val: 560, color: 'var(--neutral-200)', hover: 'var(--neutral-300)' },
-    { label: 'JUN', val: 720, color: 'var(--ao-light)', hover: 'var(--ao)' },
-    { label: 'JUL', val: 800, color: 'var(--neutral-200)', hover: 'var(--neutral-300)' },
-    { label: 'AUG', val: 600, color: 'var(--neutral-200)', hover: 'var(--neutral-300)' },
-    { label: 'SEP', val: 500, color: 'var(--neutral-200)', hover: 'var(--neutral-300)' },
-    { label: 'OCT', val: 900, color: 'var(--aka-light)', hover: 'var(--aka)', peak: true },
-    { label: 'NOV', val: 750, color: 'var(--neutral-200)', hover: 'var(--neutral-300)' },
-    { label: 'DEC', val: 1050, color: 'var(--ao-light)', hover: 'var(--ao)', peak: true }
-  ];
+  const generateDynamicData = () => {
+    const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    const currentMonthIndex = new Date().getMonth(); 
+    const baseVals = [320, 480, 640, 850, 560, 720, 800, 600, 500, 900, 750, 1050];
+    
+    return Array.from({ length: 12 }).map((_, i) => {
+      // Calculate month index ending with current month
+      const mIndex = (currentMonthIndex - 11 + i + 12) % 12;
+      const val = baseVals[i];
+      return {
+        label: months[mIndex],
+        val: val,
+        peak: val >= 850
+      };
+    });
+  };
+  const fullChartData = generateDynamicData();
   const chartData = timeFilter === '12M' ? fullChartData : fullChartData.slice(-6);
   const maxVal = Math.max(...chartData.map(d => d.val));
   const totalVal = chartData.reduce((sum, d) => sum + d.val, 0);
