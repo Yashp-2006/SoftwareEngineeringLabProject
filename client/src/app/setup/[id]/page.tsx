@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Save, CheckCircle, Combine, Plus, Edit2, Trash2, Star, FileSpreadsheet, RefreshCw, Key, ChevronDown, Eye, EyeOff, UploadCloud, X } from 'lucide-react';
+import { ArrowRight, Save, CheckCircle, Combine, Plus, Edit2, Trash2, Star, FileSpreadsheet, RefreshCw, Key, ChevronDown, Eye, EyeOff, UploadCloud, X, Download } from 'lucide-react';
 import FullscreenBracketModal from '@/components/FullscreenBracketModal';
 import { toast } from 'react-hot-toast';
 import ConfirmModal from '@/components/ConfirmModal';
@@ -23,6 +23,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
   const [modalType, setModalType] = useState<'standard'|'special'|'merge'|null>(null);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [previewCatId, setPreviewCatId] = useState<string | null>(null);
+  const [downloadingTiesheets, setDownloadingTiesheets] = useState(false);
   const [modalFormData, setModalFormData] = useState<any>({});
   const [compName, setCompName] = useState<string>('Loading...');
   
@@ -266,7 +267,39 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
     }
   };
 
+  const handleDownloadTiesheets = async () => {
+    if (downloadingTiesheets) return;
+    setDownloadingTiesheets(true);
+    try {
+      const { db } = await import('@lib/firebase');
+      const { collection, getDocs } = await import('firebase/firestore');
+      const snap = await getDocs(collection(db, 'competitions', id, 'categories'));
+      const cats = snap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
+      if (cats.length === 0) {
+        toast.error('No categories found. Import athletes first.');
+        return;
+      }
+      const { exportTiesheetsPDF } = await import('@lib/tiesheet-pdf-exporter');
+      await exportTiesheetsPDF({
+        competitionName: compName,
+        categories: cats.map((c: any) => ({
+          name: c.name,
+          matches: c.matches ?? [],
+          athletes: c.athletes ?? [],
+        })),
+        isArchived: false,
+      });
+      toast.success('Tiesheets PDF downloaded!');
+    } catch (e: any) {
+      console.error(e);
+      toast.error('Failed to generate tiesheets: ' + e.message);
+    } finally {
+      setDownloadingTiesheets(false);
+    }
+  };
+
   const handleGenerateSpecialTiesheet = (specialCatId: string, specialCatName: string) => {
+
     setConfirmState({
       isOpen: true,
       title: 'Generate Special Tiesheet',
@@ -958,13 +991,23 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                         {importResult ? importResult.athletesImported : 'N/A'} Athletes {importResult ? 'Imported' : ''} • Pool size: {poolSize}
                       </p>
                     </div>
-                    <button
-                      className="btn btn-primary"
-                      onClick={() => { setPreviewCatId(null); setPreviewModalOpen(true); }}
-                    >
-                      <Eye size={16} style={{ marginRight: '8px' }} />
-                      Open Preview
-                    </button>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        className="btn btn-secondary"
+                        onClick={handleDownloadTiesheets}
+                        disabled={downloadingTiesheets || (!importResult && categories.length === 0)}
+                      >
+                        <Download size={16} style={{ marginRight: '6px' }} />
+                        {downloadingTiesheets ? 'Generating...' : 'Download Tiesheets'}
+                      </button>
+                      <button
+                        className="btn btn-primary"
+                        onClick={() => { setPreviewCatId(null); setPreviewModalOpen(true); }}
+                      >
+                        <Eye size={16} style={{ marginRight: '8px' }} />
+                        Open Preview
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

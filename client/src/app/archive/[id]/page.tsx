@@ -27,11 +27,55 @@ export default function ArchiveDetailPage({ params }: { params: Promise<{ id: st
   const { id } = React.use(params);
   const [activeTab, setActiveTab] = useState('overview');
   const [leaderboardView, setLeaderboardView] = useState('dojo');
+  const [compName, setCompName] = useState('Archived Competition');
+  const [downloadingTiesheets, setDownloadingTiesheets] = useState(false);
 
   useEffect(() => {
     ChartJS.defaults.font.family = "var(--font-body), sans-serif";
-    ChartJS.defaults.color = "#737373"; // neutral-500
+    ChartJS.defaults.color = "#737373";
   }, []);
+
+  // Load competition name from Firestore
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const { db } = await import('@lib/firebase');
+        const { doc, getDoc } = await import('firebase/firestore');
+        const snap = await getDoc(doc(db, 'competitions', id));
+        if (snap.exists()) setCompName(snap.data().name || 'Archived Competition');
+      } catch {}
+    };
+    load();
+  }, [id]);
+
+  const handleDownloadTiesheets = async () => {
+    if (downloadingTiesheets) return;
+    setDownloadingTiesheets(true);
+    try {
+      const { db } = await import('@lib/firebase');
+      const { collection, getDocs } = await import('firebase/firestore');
+      const snap = await getDocs(collection(db, 'competitions', id, 'categories'));
+      const cats = snap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
+      if (cats.length === 0) {
+        alert('No categories found for this competition.');
+        return;
+      }
+      const { exportTiesheetsPDF } = await import('@lib/tiesheet-pdf-exporter');
+      await exportTiesheetsPDF({
+        competitionName: compName,
+        categories: cats.map((c: any) => ({
+          name: c.name,
+          matches: c.matches ?? [],
+          athletes: c.athletes ?? [],
+        })),
+        isArchived: true,
+      });
+    } catch (e: any) {
+      alert('Failed to generate tiesheets: ' + e.message);
+    } finally {
+      setDownloadingTiesheets(false);
+    }
+  };
 
   const athletesData = {
     labels: ['Senior Male -75kg', 'Senior Female -55kg', 'U21 Male Kata', 'Junior Female +59kg', 'Senior Team Kata', 'Super Gold Open', 'Cadet Male -60kg', 'U14 Female -47kg'],
@@ -125,8 +169,8 @@ export default function ArchiveDetailPage({ params }: { params: Promise<{ id: st
             </div>
           </div>
           <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
-            <button className="btn btn-secondary">
-              <Download size={16} /> Export Report
+            <button className="btn btn-secondary" onClick={handleDownloadTiesheets} disabled={downloadingTiesheets}>
+              <Download size={16} /> {downloadingTiesheets ? 'Generating...' : 'Download Tiesheets'}
             </button>
           </div>
         </header>
