@@ -56,7 +56,9 @@ export default function PasswordGateway({ children }: { children: React.ReactNod
         const matSnap = await getDoc(doc(db, 'competitions', id, 'mats', matId));
         if (matSnap.exists()) {
           const actualPassword = matSnap.data().password;
-          if (actualPassword === inputPassword) {
+          if (!actualPassword) {
+            setError('No password has been set for this mat yet. Configure it in the Setup Wizard.');
+          } else if (actualPassword === inputPassword) {
             sessionStorage.setItem(authKey, 'true');
             setIsAuthenticated(true);
             setError('');

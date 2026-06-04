@@ -16,6 +16,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
   const [matsCount, setMatsCount] = useState(8);
   const [poolSize, setPoolSize] = useState<4|8|16|32>(8);
   const [showPasswordMap, setShowPasswordMap] = useState<Record<number, boolean>>({});
+  const [matPasswordMap, setMatPasswordMap] = useState<Record<number, string>>({});
   const [deploying, setDeploying] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [importResult, setImportResult] = useState<{categoriesTotal: number; athletesImported: number} | null>(null);
@@ -196,6 +197,23 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
 
   const togglePassword = (idx: number) => {
     setShowPasswordMap(prev => ({ ...prev, [idx]: !prev[idx] }));
+  };
+
+  const saveMatPassword = async (idx: number, password: string) => {
+    const matId = `mat-${idx + 1}`;
+    try {
+      const { db } = await import('@lib/firebase');
+      const { doc, setDoc } = await import('firebase/firestore');
+      await setDoc(
+        doc(db, 'competitions', id, 'mats', matId),
+        { password },
+        { merge: true }
+      );
+      toast.success(`Password saved for Mat ${String(idx + 1).padStart(2, '0')}`);
+    } catch (err) {
+      console.error('Failed to save mat password', err);
+      toast.error('Failed to save password.');
+    }
   };
 
   const maxPhase = compRules === 'wkf' ? 5 : 6;
@@ -1057,7 +1075,15 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                         <div className="form-group" style={{ marginBottom: 0 }}>
                           <label className="text-micro">Scoreboard Access Password</label>
                           <div className="password-input-group">
-                            <input type={showPasswordMap[i] ? "text" : "password"} placeholder="Enter mat password" />
+                            <input
+                              type={showPasswordMap[i] ? "text" : "password"}
+                              placeholder="Enter mat password"
+                              value={matPasswordMap[i] ?? ''}
+                              onChange={e => setMatPasswordMap(prev => ({ ...prev, [i]: e.target.value }))}
+                              onBlur={() => {
+                                if (matPasswordMap[i]?.trim()) saveMatPassword(i, matPasswordMap[i].trim());
+                              }}
+                            />
                             <div className="toggle-password" onClick={() => togglePassword(i)}>
                               {showPasswordMap[i] ? <EyeOff size={16} /> : <Eye size={16} />}
                             </div>
