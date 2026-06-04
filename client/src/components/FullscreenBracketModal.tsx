@@ -458,14 +458,14 @@ export function BracketViewer({
               </div>
             )}
           </div>
-          <button className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '11px', height: '28px', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={fitToScreen}>
+          <button type="button" className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '11px', height: '28px', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={fitToScreen}>
             <Maximize size={12} /> Fit
           </button>
-          <button style={{ background: 'none', border: 'none', padding: 0, display: 'flex', cursor: 'pointer', color: 'var(--neutral-500)' }} onClick={() => adjustZoom(-0.1)}>
+          <button type="button" style={{ background: 'none', border: 'none', padding: 0, display: 'flex', cursor: 'pointer', color: 'var(--neutral-500)' }} onClick={() => adjustZoom(-0.1)}>
             <MinusCircle size={16} />
           </button>
           <input type="range" min="0.3" max="2" step="0.05" value={zoom} onChange={e => setZoom(parseFloat(e.target.value))} style={{ width: '80px', accentColor: 'var(--aka)' }} />
-          <button style={{ background: 'none', border: 'none', padding: 0, display: 'flex', cursor: 'pointer', color: 'var(--neutral-500)' }} onClick={() => adjustZoom(0.1)}>
+          <button type="button" style={{ background: 'none', border: 'none', padding: 0, display: 'flex', cursor: 'pointer', color: 'var(--neutral-500)' }} onClick={() => adjustZoom(0.1)}>
             <PlusCircle size={16} />
           </button>
           <span style={{ fontSize: '12px', fontWeight: 600, minWidth: '40px', textAlign: 'right' }}>{Math.round(zoom * 100)}%</span>
