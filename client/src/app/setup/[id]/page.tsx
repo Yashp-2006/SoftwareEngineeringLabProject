@@ -20,7 +20,6 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
   const [deploying, setDeploying] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [importResult, setImportResult] = useState<{categoriesTotal: number; athletesImported: number} | null>(null);
-  const [importResult, setImportResult] = useState<{categoriesTotal: number; athletesImported: number} | null>(null);
   const [modalType, setModalType] = useState<'standard'|'merge'|null>(null);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [previewCatId, setPreviewCatId] = useState<string | null>(null);
@@ -963,7 +962,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
               )}
               <div className="cat-group">
                 <p className="text-small">Pool size: {poolSize} (configured in Phase 2)</p>
-                {!importResult && categories.length === 0 && specialCategories.length === 0 ? (
+                {!importResult && categories.length === 0 ? (
                   <div style={{ padding: 'var(--space-6)', textAlign: 'center', background: 'var(--neutral-50)', borderRadius: '12px', border: '1px dashed var(--neutral-300)' }}>
                     <p style={{ color: 'var(--neutral-500)' }}>No categories defined yet. Please upload an Excel file in Phase 1 or create categories manually.</p>
                   </div>
@@ -1156,7 +1155,6 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                         </div>
                       </div>
                     )}
-                    </div>
                   </>
                 )}
               </>

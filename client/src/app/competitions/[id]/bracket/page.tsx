@@ -11,6 +11,7 @@ import { toast } from 'react-hot-toast';
 function SpecialCategoryModal({
   competitionId,
   existingSpecialCats,
+  standardCategories,
   onClose,
   onCreated,
 }: {

@@ -43,6 +43,7 @@ export interface SpecialCategoryRule {
   minWeight?: number;
   maxWeight?: number;
   sourceCategoryId?: string;
+  medal?: string;
 }
 
 export interface CategoryDoc {
