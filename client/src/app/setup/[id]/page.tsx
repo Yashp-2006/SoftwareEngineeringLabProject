@@ -1198,7 +1198,6 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
               )}
               <div className="category-manager">
                 <div className="cat-group">
-                <div className="cat-group">
                   <div className="flex-between">
                     <div>
                       <h3>Attendance Volunteers</h3>
