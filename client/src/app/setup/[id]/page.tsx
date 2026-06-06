@@ -1091,7 +1091,6 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                       </div>
                     </div>
                   </div>
-                  </div>
                   <div className="flex-between mb-4" style={{ marginTop: 'var(--space-4)' }}>
                     <div>
                       <h3>Mat Security</h3>
