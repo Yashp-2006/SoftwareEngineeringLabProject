@@ -1038,7 +1038,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                     style={{ padding: '6px 12px', fontSize: '13px', border: '1px solid var(--neutral-300)', borderRadius: '6px' }}
                   >
                     <option value="">All Pools</option>
-                    {Object.keys(poolStatuses).map(p => (
+                    {Object.keys(poolStatuses).sort((a,b) => parseInt(a) - parseInt(b)).map(p => (
                       <option key={p} value={p}>Pool {p} {poolStatuses[p] ? '✅' : '🔴'}</option>
                     ))}
                   </select>

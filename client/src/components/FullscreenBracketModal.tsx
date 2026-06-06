@@ -68,7 +68,7 @@ const BracketNode = ({
         <div className="comp-info">
           <div className="comp-name">
             {match.aka ? match.aka.name.toUpperCase() : (
-              match.akaFromMatchId ? <span style={{ color: 'var(--neutral-400)', fontStyle: 'normal' }}>WINNER M{match.akaFromMatchId}</span> : 'BYE'
+              match.akaFromMatchId ? <span style={{ color: 'var(--neutral-400)', fontStyle: 'normal' }}>WINNER M{match.akaFromMatchId}</span> : <span style={{ color: 'var(--neutral-400)' }}>Empty</span>
             )}
           </div>
           {match.aka && (
@@ -95,7 +95,7 @@ const BracketNode = ({
         <div className="comp-info">
           <div className="comp-name">
             {match.ao ? match.ao.name.toUpperCase() : (
-              match.aoFromMatchId ? <span style={{ color: 'var(--neutral-400)', fontStyle: 'normal' }}>WINNER M{match.aoFromMatchId}</span> : 'BYE'
+              match.aoFromMatchId ? <span style={{ color: 'var(--neutral-400)', fontStyle: 'normal' }}>WINNER M{match.aoFromMatchId}</span> : <span style={{ color: 'var(--neutral-400)' }}>Empty</span>
             )}
           </div>
           {match.ao && (
@@ -344,9 +344,7 @@ export function BracketViewer({
     .sort((a, b) => a[0] - b[0])
     .map(([, ms]) => ms.sort((a: any, b: any) => a.matchNumber - b.matchNumber));
 
-  const getRoundName = (rIdx: number, total: number) => {
-    return `Round ${rIdx + 1}`;
-  };
+
 
   const visibleRounds = firstRoundOnly ? (rounds.length > 0 ? [rounds[0]] : []) : rounds;
 
@@ -486,7 +484,6 @@ export function BracketViewer({
           <div className="bv-canvas" ref={canvasRef}>
             {visibleRounds.map((roundMatches, rIdx) => (
               <div key={rIdx} className="bracket-round">
-                <div className="round-header">{getRoundName(rIdx, rounds.length)}</div>
                 {roundMatches.map((m: any) => (
                   <div key={m.id} className="match-wrapper">
                     <BracketNode match={m} mats={mats} onPromote={onPromote} isHighlighted={m.id === activeHighlight} />

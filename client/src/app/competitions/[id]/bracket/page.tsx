@@ -372,7 +372,7 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
         const ao = order[a.status as keyof typeof order] ?? 1;
         const bo = order[b.status as keyof typeof order] ?? 1;
         if (ao !== bo) return ao - bo;
-        return (a.name || '').localeCompare(b.name || '');
+        return (a.name || '').localeCompare(b.name || '', undefined, { numeric: true });
       });
       setCategories(cats);
     });
