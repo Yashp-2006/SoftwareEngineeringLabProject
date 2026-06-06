@@ -637,49 +637,7 @@ export function buildSingleElimination(athletes: AthleteRow[], compType: string,
   }
 
   // Propagate byes and winners forward
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (const m of matches) {
-      if (m.round > 1) {
-        if (m.akaFromMatchId && !m.aka) {
-          const prevAka = matches.find(x => x.id === m.akaFromMatchId);
-          if (prevAka && prevAka.winnerId) {
-            m.aka = prevAka.winnerId === prevAka.aka?.playerId ? prevAka.aka : prevAka.ao;
-            changed = true;
-          }
-        }
-        if (m.aoFromMatchId && !m.ao) {
-          const prevAo = matches.find(x => x.id === m.aoFromMatchId);
-          if (prevAo && prevAo.winnerId) {
-            m.ao = prevAo.winnerId === prevAo.aka?.playerId ? prevAo.aka : prevAo.ao;
-            changed = true;
-          }
-        }
-      }
-
-      if (!m.winnerId) {
-        const isTreeEmpty = (matchId: string | null): boolean => {
-          if (!matchId) return true;
-          const prev = matches.find(x => x.id === matchId);
-          if (!prev) return true;
-          if (prev.aka || prev.ao) return false;
-          return isTreeEmpty(prev.akaFromMatchId) && isTreeEmpty(prev.aoFromMatchId);
-        };
-
-        const akaEmpty = m.akaFromMatchId ? isTreeEmpty(m.akaFromMatchId) : !m.aka;
-        const aoEmpty = m.aoFromMatchId ? isTreeEmpty(m.aoFromMatchId) : !m.ao;
-
-        if (m.aka && aoEmpty) {
-          m.winnerId = m.aka.playerId ?? null;
-          changed = true;
-        } else if (m.ao && akaEmpty) {
-          m.winnerId = m.ao.playerId ?? null;
-          changed = true;
-        }
-      }
-    }
-  }
+  propagateByesAndWinners(matches);
 
   return matches;
 }
@@ -815,4 +773,54 @@ export function seedSpecialCategory(
   }
 
   return eligible;
+}
+
+export function propagateByesAndWinners(matches: MatchNode[]): void {
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const m of matches) {
+      if (m.round > 1) {
+        if (m.akaFromMatchId && !m.aka) {
+          const prevAka = matches.find(x => x.id === m.akaFromMatchId);
+          if (prevAka && prevAka.winnerId) {
+            m.aka = prevAka.winnerId === prevAka.aka?.playerId ? prevAka.aka : prevAka.ao;
+            changed = true;
+          }
+        }
+        if (m.aoFromMatchId && !m.ao) {
+          const prevAo = matches.find(x => x.id === m.aoFromMatchId);
+          if (prevAo && prevAo.winnerId) {
+            m.ao = prevAo.winnerId === prevAo.aka?.playerId ? prevAo.aka : prevAo.ao;
+            changed = true;
+          }
+        }
+      }
+
+      if (!m.winnerId && m.status !== 'completed') {
+        const isTreeEmpty = (matchId: string | null): boolean => {
+          if (!matchId) return true;
+          const prev = matches.find(x => x.id === matchId);
+          if (!prev) return true;
+          if (prev.aka || prev.ao) return false;
+          return isTreeEmpty(prev.akaFromMatchId) && isTreeEmpty(prev.aoFromMatchId);
+        };
+
+        const akaEmpty = m.akaFromMatchId ? isTreeEmpty(m.akaFromMatchId) : !m.aka;
+        const aoEmpty = m.aoFromMatchId ? isTreeEmpty(m.aoFromMatchId) : !m.ao;
+
+        if (m.aka && aoEmpty) {
+          m.winnerId = m.aka.playerId ?? null;
+          m.status = 'completed';
+          (m as any).byeFor = 'ao'; // ao side is empty
+          changed = true;
+        } else if (m.ao && akaEmpty) {
+          m.winnerId = m.ao.playerId ?? null;
+          m.status = 'completed';
+          (m as any).byeFor = 'aka'; // aka side is empty
+          changed = true;
+        }
+      }
+    }
+  }
 }

@@ -86,6 +86,11 @@ export async function PATCH(
       }
     }
 
+    // Auto-advance players in subsequent matches if they face empty brackets
+    const { propagateByesAndWinners } = await import('@lib/tiesheet-generator');
+    propagateByesAndWinners(matches);
+
+
     // Check if this is the final match of the pool (no next match)
     // If so, assign medals!
     let athletes = [...(catData.athletes || [])];

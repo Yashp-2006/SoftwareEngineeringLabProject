@@ -241,7 +241,6 @@ function SpecialCategoryModal({
                   If selected, athletes will ONLY be drawn from these specific categories. The age and weight rules will automatically be derived from these source categories.
                 </p>
               </div>
-              </div>
             </div>
           )}
 
