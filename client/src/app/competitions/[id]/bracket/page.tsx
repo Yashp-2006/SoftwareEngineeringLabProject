@@ -336,7 +336,7 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
             categoryId: cat.id,
             categoryName: cat.name,
             matchId: m.id,
-            athleteName: isAo ? aoName : (akaName || 'BYE'),
+            athleteName: isAo ? aoName : (akaName || 'Empty'),
             teamName: isAo ? aoAcademy : akaAcademy,
             pool: (m.id || '').split('-')[0].replace('Pool', ''),
           });
@@ -550,7 +550,7 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
         }
         .tiesheet-card:hover { border-color: var(--neutral-400); transform: translateY(-4px); box-shadow: 0 12px 32px -8px rgba(0,0,0,0.1); }
         .tiesheet-card.live-card { border-color: var(--status-live); box-shadow: 0 0 0 2px var(--status-live-bg), 0 8px 24px -8px rgba(217,38,44,0.15); }
-        .tiesheet-card.completed-card { opacity: 0.7; }
+        .tiesheet-card.completed-card { opacity: 1; border-color: #10b981; box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2); }
         .tiesheet-card.special-card { border-color: #f59e0b; box-shadow: 0 0 0 2px #fffbeb; }
         .tiesheet-card-name { font-size: 14px; font-weight: 700; color: var(--neutral-900); line-height: 1.3; }
         .tiesheet-card-meta { display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: 600; color: var(--neutral-500); text-transform: uppercase; letter-spacing: 0.05em; }
@@ -566,6 +566,8 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
         .btn-view-tiesheet:hover { background: var(--neutral-100); border-color: var(--neutral-500); color: var(--neutral-900); }
         .tiesheet-card.live-card .btn-view-tiesheet { background: var(--aka); border-color: var(--aka); color: white; }
         .tiesheet-card.live-card .btn-view-tiesheet:hover { background: var(--aka-hover); }
+        .tiesheet-card.completed-card .btn-view-tiesheet { background: #10b981; border-color: #10b981; color: white; }
+        .tiesheet-card.completed-card .btn-view-tiesheet:hover { background: #059669; }
         .tiesheet-card.special-card .btn-view-tiesheet { background: #f59e0b; border-color: #f59e0b; color: white; }
         .btn-create-special {
           display: flex; align-items: center; gap: 8px; padding: 8px 16px;
@@ -786,7 +788,7 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
 // ─── TiesheetCard sub-component ─────────────────────────────────────────────
 function TiesheetCard({ cat, onClick, isSpecial = false }: { cat: any; onClick: () => void; isSpecial?: boolean }) {
   const isLive = cat.status === 'live';
-  const isCompleted = cat.status === 'completed';
+  const isCompleted = cat.status === 'completed' || cat.status === 'done';
   const matchCount = (cat.matches || []).filter((m: any) => m.round === 1 && (m.aka || m.ao)).length;
   const athleteCount = cat.athletes?.length || matchCount * 2;
 
@@ -809,9 +811,14 @@ function TiesheetCard({ cat, onClick, isSpecial = false }: { cat: any; onClick: 
             <div className="live-dot-sm" />
             {cat.mat ? `MAT ${cat.mat.padStart(2, '0')} • LIVE` : 'LIVE'}
           </div>
+        ) : isCompleted ? (
+          <div style={{ color: '#10b981', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            COMPLETED
+          </div>
         ) : (
-          <div style={{ color: isCompleted ? 'var(--neutral-400)' : isSpecial ? '#d97706' : 'var(--status-upcoming)' }}>
-            {isCompleted ? 'COMPLETED' : (cat.mat ? `MAT ${cat.mat.padStart(2, '0')} • UPCOMING` : 'NOT ASSIGNED')}
+          <div style={{ color: isSpecial ? '#d97706' : 'var(--status-upcoming)' }}>
+            {cat.mat ? `MAT ${cat.mat.padStart(2, '0')} • UPCOMING` : 'NOT ASSIGNED'}
           </div>
         )}
         <div>{athleteCount} ATHLETES</div>

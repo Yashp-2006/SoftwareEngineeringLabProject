@@ -230,7 +230,7 @@ export function BracketViewer({
   onNavigateToMatch?: (categoryId: string, matchId: string) => void;
   onPromote?: (matchId: string, winnerId: string, nextMatchId: string | null, byeFor?: 'aka' | 'ao') => void;
 }) {
-  const availablePools = Array.from(new Set((matches || []).filter(m => m.id.startsWith('Pool')).map(m => m.id.split('-')[0].replace('Pool', '')))).sort();
+  const availablePools = Array.from(new Set((matches || []).filter(m => m.id.startsWith('Pool')).map(m => m.id.split('-')[0].replace('Pool', '')))).sort((a, b) => parseInt(a) - parseInt(b));
   const [selectedPool, setSelectedPool] = useState<string | null>(null);
 
   const [localSearch, setLocalSearch] = useState('');
@@ -259,7 +259,7 @@ export function BracketViewer({
             categoryId: cat.id,
             categoryName: cat.name,
             matchId: m.id,
-            athleteName: akaMatch ? akaName : (aoMatch ? aoName : (akaName || aoName || 'BYE')),
+            athleteName: akaMatch ? akaName : (aoMatch ? aoName : (akaName || aoName || 'Empty')),
             teamName: akaMatch ? m.aka?.academy : (aoMatch ? m.ao?.academy : ''),
             pool: m.id.split('-')[0].replace('Pool', ''),
           });

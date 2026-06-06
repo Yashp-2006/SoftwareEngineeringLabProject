@@ -86,8 +86,48 @@ export async function PATCH(
       }
     }
 
+    // Check if this is the final match of the pool (no next match)
+    // If so, assign medals!
+    let athletes = [...(catData.athletes || [])];
+    
+    if (!nextMatchId) {
+      // This is the pool final!
+      const compSnap = await adminDb.collection('competitions').doc(id).get();
+      const bronzeRule = compSnap.data()?.bronzeRule || 'two';
+
+      // 1. Assign Gold to winner
+      athletes = athletes.map(a => a.playerId === winnerId ? { ...a, medal: 'gold' } : a);
+
+      // 2. Assign Silver to loser
+      const loserData = winnerId === currentMatch.aka?.playerId ? currentMatch.ao : currentMatch.aka;
+      if (loserData?.playerId) {
+        athletes = athletes.map(a => a.playerId === loserData.playerId ? { ...a, medal: 'silver' } : a);
+      }
+
+      // 3. Assign Bronze
+      if (bronzeRule === 'two') {
+        // Find semi-finals (matches that point to this final)
+        const semiFinals = matches.filter(m => m.nextMatchId === matchId);
+        semiFinals.forEach(semi => {
+          // The loser of the semi-final gets Bronze
+          // Since the semi is completed, we know the winnerId
+          if (semi.winnerId && semi.status === 'completed') {
+            const sfLoser = semi.winnerId === semi.aka?.playerId ? semi.ao : semi.aka;
+            if (sfLoser?.playerId) {
+              athletes = athletes.map(a => a.playerId === sfLoser.playerId ? { ...a, medal: 'bronze' } : a);
+            }
+          }
+        });
+      } else if (bronzeRule === 'one') {
+        // If there's a 3rd-place playoff, its nextMatchId would be null too, but it's not the "final".
+        // Actually, our bracket generator doesn't build a 3rd place match.
+        // We will leave Bronze unassigned so the operator can manually assign it or we handle it later.
+      }
+    }
+
     await catRef.update({
       matches,
+      athletes,
       updatedAt: new Date().toISOString(),
     });
 

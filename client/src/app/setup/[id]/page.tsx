@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Save, CheckCircle, Combine, Plus, Edit2, Trash2, Star, FileSpreadsheet, RefreshCw, Key, ChevronDown, Eye, EyeOff, UploadCloud, X, Download } from 'lucide-react';
 import FullscreenBracketModal from '@/components/FullscreenBracketModal';
+import UndersizedPoolsModal from '@/components/UndersizedPoolsModal';
 import { toast } from 'react-hot-toast';
 import ConfirmModal from '@/components/ConfirmModal';
 
@@ -22,6 +23,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
   const [importResult, setImportResult] = useState<{categoriesTotal: number; athletesImported: number} | null>(null);
   const [modalType, setModalType] = useState<'standard'|'merge'|null>(null);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  const [undersizedModalOpen, setUndersizedModalOpen] = useState(false);
   const [previewCatId, setPreviewCatId] = useState<string | null>(null);
   const [downloadingTiesheets, setDownloadingTiesheets] = useState(false);
   const [modalFormData, setModalFormData] = useState<any>({});
@@ -31,12 +33,13 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
   
   const [compRules, setCompRules] = useState<string>('');
   const [compType, setCompType] = useState<string>('international');
+  const [bronzeRule, setBronzeRule] = useState<'two' | 'one'>('two');
   const [wkfMode, setWkfMode] = useState<string>('standard');
   const [categories, setCategories] = useState<any[]>([]);
   const [selectedCats, setSelectedCats] = useState<Set<string>>(new Set());
 
   const [filterGender, setFilterGender] = useState<'all'|'male'|'female'>('all');
-  const [hideEmpty, setHideEmpty] = useState<boolean>(true);
+  const [hideEmpty, setHideEmpty] = useState<boolean>(false);
 
   const [isSaving, setIsSaving] = useState(false);
   const [confirmState, setConfirmState] = useState<{
@@ -70,6 +73,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         poolSize,
         compRules,
         compType,
+        bronzeRule,
         wkfMode,
         categories,
         importResult: importResult ?? null,
@@ -133,6 +137,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
           if (draftData.poolSize !== undefined) setPoolSize(draftData.poolSize);
           if (draftData.compRules !== undefined) setCompRules(draftData.compRules);
           if (draftData.compType !== undefined) setCompType(draftData.compType);
+          if (draftData.bronzeRule !== undefined) setBronzeRule(draftData.bronzeRule);
           if (draftData.wkfMode !== undefined) setWkfMode(draftData.wkfMode);
           if (draftData.categories !== undefined) setCategories(draftData.categories);
           if (draftData.importResult !== undefined) setImportResult(draftData.importResult);
@@ -148,6 +153,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
           const data = snap.data();
           setCompRules(data.rules);
           setCompType(data.type || 'international');
+          if (data.bronzeRule) setBronzeRule(data.bronzeRule);
           if (data.mats !== undefined) setMatsCount(data.mats);
           
           if (data.rules === 'wkf') {
@@ -203,7 +209,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
           })
         );
         // Merge with existing passwords in case user typed something while it was loading
-        setMatPasswordMap(prev => ({ ...loaded, ...prev }));
+        setMatPasswordMap(prev => ({ ...prev, ...loaded }));
       } catch (err) {
         console.error("Failed to load individual mat passwords", err);
       }
@@ -301,7 +307,9 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
     try {
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('compRules', compRules);
       formData.append('compType', compType);
+      formData.append('bronzeRule', bronzeRule);
       formData.append('poolSize', poolSize.toString());
       formData.append('customCategories', compRules !== 'wkf' ? JSON.stringify(categories) : '[]');
       formData.append('wkfMode', wkfMode);
@@ -377,8 +385,6 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
       setDownloadingTiesheets(false);
     }
   };
-
-
 
   const handleDeploy = async () => {
     setDeploying(true);
@@ -475,9 +481,10 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
       
       batch.update(doc(db, 'competitions', id), {
         name: compName,
-        mats: matsCount,
-        status: 'live',
-        deployedAt: new Date().toISOString(),
+        mats: (matsCount as number) || 1,
+        type: compType,
+        bronzeRule: bronzeRule,
+        isSetupComplete: true,
         updatedAt: new Date().toISOString()
       });
       
@@ -597,8 +604,8 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
 
           <div className="wizard-stepper" style={{ '--stepper-cols': maxPhase } as React.CSSProperties}>
             {(compRules === 'wkf' 
-              ? ['Roster Import', 'Categories & Mats', 'Tiesheet Preview', 'Staff & Security', 'Review']
-              : ['Define Categories', 'Roster Import', 'Mat Setup', 'Tiesheet Preview', 'Staff & Security', 'Review']
+              ? ['Roster Import', 'Categories & Mats', 'Tiesheet Preview', 'Staff Setup', 'Review']
+              : ['Define Categories', 'Roster Import', 'Mat Setup', 'Tiesheet Preview', 'Staff Setup', 'Review']
             ).map((label, idx) => {
               const phaseNum = idx + 1;
               const isCompleted = highestPhase > phaseNum || isReviewMode;
@@ -655,6 +662,18 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                       onChange={e => setCompName(e.target.value)} 
                       style={{ marginBottom: 0 }} 
                     />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 'var(--space-4)' }}>
+                    <label className="text-micro" style={{ display: 'block', marginBottom: '8px' }}>Bronze Medal Rules</label>
+                    <select 
+                      className="input-field" 
+                      value={bronzeRule} 
+                      onChange={e => setBronzeRule(e.target.value as 'two' | 'one')} 
+                      style={{ marginBottom: 0 }}
+                    >
+                      <option value="two">2 Bronze Medals (Awarded to both Semi-final losers)</option>
+                      <option value="one">1 Bronze Medal (Requires a 3rd-place playoff match)</option>
+                    </select>
                   </div>
                 </div>
               </div>
@@ -839,8 +858,8 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                 <div className="cat-group">
                   <div className="flex-between">
                     <div>
-                      <h3>Standard Categories</h3>
-                      <p className="text-small">Generic weight and age divisions without complex prerequisite rules.</p>
+                      <h3>{compRules === 'wkf' ? 'Standard Categories' : 'Categories'}</h3>
+                      <p className="text-small">{compRules === 'wkf' ? 'Generic weight and age divisions without complex prerequisite rules.' : 'Divisions for the tournament.'}</p>
                     </div>
                     <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
                       {compRules === 'wkf' ? (
@@ -1062,6 +1081,14 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <button
                         className="btn btn-secondary"
+                        onClick={() => setUndersizedModalOpen(true)}
+                        disabled={!importResult && categories.length === 0}
+                      >
+                        <Combine size={16} style={{ marginRight: '6px' }} />
+                        Manage Undersized Pools
+                      </button>
+                      <button
+                        className="btn btn-secondary"
                         onClick={handleDownloadTiesheets}
                         disabled={downloadingTiesheets || (!importResult && categories.length === 0)}
                       >
@@ -1253,19 +1280,31 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         </div>
       </div>
 
-      {/* Fullscreen Tiesheet Preview — reads live from Firestore */}
       {previewModalOpen && (
-        <SetupBracketPreview
-          competitionId={id}
-          initialCategoryId={previewCatId}
+        <FullscreenBracketModal
+          isOpen={previewModalOpen}
           onClose={() => setPreviewModalOpen(false)}
+          compId={id}
+          categories={categories}
+          defaultCategoryId={previewCatId}
+          isArchived={false}
+        />
+      )}
+
+      {undersizedModalOpen && (
+        <UndersizedPoolsModal
+          isOpen={undersizedModalOpen}
+          onClose={() => setUndersizedModalOpen(false)}
+          compId={id}
+          poolSize={poolSize}
+          categories={categories}
+          onCategoriesUpdated={(newCats) => setCategories(newCats)}
         />
       )}
     </>
   );
 }
 
-// ─── SetupBracketPreview ────────────────────────────────────────────────────────
 // Loads categories live from Firestore and shows first-round-only brackets
 function SetupBracketPreview({ competitionId, initialCategoryId, onClose }: {
   competitionId: string;

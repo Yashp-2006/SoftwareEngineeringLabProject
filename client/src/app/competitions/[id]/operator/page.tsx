@@ -152,11 +152,11 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
           const mappedQueue = pendingMatches.map((m: any) => ({
             id: m.id,
             displayId: m.matchNumber ? `M${String(m.matchNumber).padStart(2, '0')}` : m.id,
-            aka: m.aka?.name || (m.akaFromMatchId ? `Winner M${m.akaFromMatchId}` : 'BYE'),
+            aka: m.aka?.name || (m.akaFromMatchId ? `Winner M${m.akaFromMatchId}` : 'Empty'),
             akaId: m.aka?.playerId || m.aka?.name,
             akaAcademy: m.aka?.academy || '',
             akaCountry: m.aka?.country || m.aka?.state || '',
-            ao: m.ao?.name || (m.aoFromMatchId ? `Winner M${m.aoFromMatchId}` : 'BYE'),
+            ao: m.ao?.name || (m.aoFromMatchId ? `Winner M${m.aoFromMatchId}` : 'Empty'),
             aoId: m.ao?.playerId || m.ao?.name,
             aoAcademy: m.ao?.academy || '',
             aoCountry: m.ao?.country || m.ao?.state || '',
@@ -1035,7 +1035,11 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                   <select 
                     value={queueFilterPool} 
                     onChange={(e) => setQueueFilterPool(e.target.value)}
-                    style={{ padding: '6px 12px', fontSize: '13px', border: '1px solid var(--neutral-300)', borderRadius: '6px' }}
+                    style={{ 
+                      padding: '6px 12px', fontSize: '13px', border: '1px solid var(--neutral-300)', borderRadius: '6px',
+                      backgroundColor: queueFilterPool && poolStatuses[queueFilterPool] ? '#d1fae5' : 'white',
+                      color: queueFilterPool && poolStatuses[queueFilterPool] ? '#065f46' : 'inherit'
+                    }}
                   >
                     <option value="">All Pools</option>
                     {Object.keys(poolStatuses).sort((a,b) => parseInt(a) - parseInt(b)).map(p => (
@@ -1063,14 +1067,27 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                     </tr>
                   </thead>
                   <tbody>
-                    {visibleQueue.length === 0 ? (
+                    {queueFilterPool && poolStatuses[queueFilterPool] && visibleQueue.length === 0 && (
+                      <tr>
+                        <td colSpan={4} style={{ padding: '32px 20px', textAlign: 'center', background: '#ecfdf5' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                            <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#d1fae5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <Flag size={24} color="#10b981" />
+                            </div>
+                            <div style={{ color: '#065f46', fontWeight: 800, fontSize: '16px' }}>Pool {queueFilterPool} is Completed!</div>
+                            <div style={{ color: '#047857', fontSize: '13px' }}>Medal results have been saved.</div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    {(!queueFilterPool || !poolStatuses[queueFilterPool] || visibleQueue.length > 0) && visibleQueue.length === 0 && (
                       <tr>
                         <td colSpan={4} style={{ padding: '32px 20px', textAlign: 'center', color: 'var(--neutral-500)' }}>
                           No matches in queue for {activeCategoryName || 'this mat'}.
                         </td>
                       </tr>
-                    ) : (
-                      visibleQueue.map((match, idx) => (
+                    )}
+                    {visibleQueue.length > 0 && visibleQueue.map((match, idx) => (
                         <tr 
                           key={match.id}
                           draggable
@@ -1120,8 +1137,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                             )}
                           </td>
                         </tr>
-                      ))
-                    )}
+                      ))}
                   </tbody>
                 </table>
                 </div>

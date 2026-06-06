@@ -535,7 +535,7 @@ function buildRoundRobin(athletes: AthleteRow[], compType: string): MatchNode[] 
   return matches;
 }
 
-function buildSingleElimination(athletes: AthleteRow[], compType: string, poolSize: PoolSize): MatchNode[] {
+export function buildSingleElimination(athletes: AthleteRow[], compType: string, poolSize: PoolSize): MatchNode[] {
   const separated = separateAthletes(athletes, compType, poolSize);
   const totalR1Slots = poolSize;   // e.g. 8 pool size → 4 R1 matches
   const totalR1Matches = totalR1Slots / 2;
@@ -554,6 +554,7 @@ function buildSingleElimination(athletes: AthleteRow[], compType: string, poolSi
     // Auto-advance bye
     const autoWinner = (akaAthlete && !aoAthlete) ? akaAthlete.playerId :
                        (!akaAthlete && aoAthlete) ? aoAthlete.playerId : null;
+    const byeFor = autoWinner ? (!aoAthlete ? 'ao' : 'aka') : null;
 
     const match: MatchNode = {
       id: `R1-M${i + 1}`,
@@ -567,8 +568,9 @@ function buildSingleElimination(athletes: AthleteRow[], compType: string, poolSi
       aoScore: 0,
       winnerId: autoWinner,
       nextMatchId: null,
-      status: 'upcoming',
+      status: autoWinner ? 'completed' : 'upcoming',
       mat: null,
+      ...(byeFor ? { byeFor } : {})
     };
 
     round1Matches.push(match);

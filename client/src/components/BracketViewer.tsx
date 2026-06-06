@@ -226,7 +226,6 @@ export default function BracketViewer({ matches, categoryName }: { matches: any[
             <div className="bracket-container" ref={canvasRef}>
               {rounds.map((roundMatches, rIdx) => (
                 <div key={rIdx} className="bracket-round">
-                  <div className="round-header">Round {rIdx + 1}</div>
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-around' }}>
                     {roundMatches.map(m => (
                       <div key={m.id} className="match-wrapper">
@@ -236,14 +235,14 @@ export default function BracketViewer({ matches, categoryName }: { matches: any[
                           )}
                           <div className="competitor-row aka">
                             <div className="comp-info">
-                              <div className="comp-name">{m.aka ? m.aka.name : 'BYE'}</div>
+                              <div className="comp-name" style={{ color: m.aka ? 'inherit' : 'var(--neutral-400)' }}>{m.aka ? m.aka.name : 'Empty'}</div>
                               <div className="comp-team">{m.aka ? `${m.aka.state} • ${m.aka.academy}` : '—'}</div>
                             </div>
                             <div className="comp-score">{m.akaScore || 0}</div>
                           </div>
                           <div className="competitor-row ao">
                             <div className="comp-info">
-                              <div className="comp-name">{m.ao ? m.ao.name : 'BYE'}</div>
+                              <div className="comp-name" style={{ color: m.ao ? 'inherit' : 'var(--neutral-400)' }}>{m.ao ? m.ao.name : 'Empty'}</div>
                               <div className="comp-team">{m.ao ? `${m.ao.state} • ${m.ao.academy}` : '—'}</div>
                             </div>
                             <div className="comp-score">{m.aoScore || 0}</div>
