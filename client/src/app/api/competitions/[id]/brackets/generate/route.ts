@@ -79,6 +79,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         maxAge: specialCatData.maxAge,
         minWeight: specialCatData.minWeight,
         maxWeight: specialCatData.maxWeight,
+        sourceCategoryIds: specialCatData.sourceCategoryIds,
+        sourceCategoryId: specialCatData.sourceCategoryId,
       };
 
       // Fetch all sibling (non-special) categories

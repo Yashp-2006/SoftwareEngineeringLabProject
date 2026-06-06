@@ -30,11 +30,7 @@ function SpecialCategoryModal({
   // New category form
   const [newName, setNewName] = useState('');
   const [newMedal, setNewMedal] = useState<'Gold' | 'Silver' | 'Bronze' | 'Any Medal'>('Gold');
-  const [newSourceCategoryId, setNewSourceCategoryId] = useState('');
-  const [newMinAge, setNewMinAge] = useState('');
-  const [newMaxAge, setNewMaxAge] = useState('');
-  const [newMinWeight, setNewMinWeight] = useState('');
-  const [newMaxWeight, setNewMaxWeight] = useState('');
+  const [newSourceCategoryIds, setNewSourceCategoryIds] = useState<string[]>([]);
   const [creatingNew, setCreatingNew] = useState(false);
 
   const undeployedSpecials = existingSpecialCats.filter(c => !c.matches || c.matches.length === 0);
@@ -75,11 +71,20 @@ function SpecialCategoryModal({
         order: 9999,
         createdAt: new Date().toISOString(),
       };
-      if (newSourceCategoryId) catData.sourceCategoryId = newSourceCategoryId;
-      if (newMinAge) catData.minAge = parseInt(newMinAge);
-      if (newMaxAge) catData.maxAge = parseInt(newMaxAge);
-      if (newMinWeight) catData.minWeight = parseFloat(newMinWeight);
-      if (newMaxWeight) catData.maxWeight = parseFloat(newMaxWeight);
+      if (newSourceCategoryIds.length > 0) {
+        catData.sourceCategoryIds = newSourceCategoryIds;
+        const selectedCats = standardCategories.filter(c => newSourceCategoryIds.includes(c.id));
+        if (selectedCats.length > 0) {
+          const minAges = selectedCats.map(c => c.minAge ?? 0).filter(a => !isNaN(a));
+          const maxAges = selectedCats.map(c => c.maxAge ?? 999).filter(a => !isNaN(a));
+          const minWeights = selectedCats.map(c => c.minWeight ?? 0).filter(w => !isNaN(w));
+          const maxWeights = selectedCats.map(c => c.maxWeight ?? 999).filter(w => !isNaN(w));
+          if (minAges.length > 0) catData.minAge = Math.min(...minAges);
+          if (maxAges.length > 0) catData.maxAge = Math.max(...maxAges);
+          if (minWeights.length > 0) catData.minWeight = Math.min(...minWeights);
+          if (maxWeights.length > 0) catData.maxWeight = Math.max(...maxWeights);
+        }
+      }
 
       const colRef = collection(db, 'competitions', competitionId, 'categories');
       const newCatRef = await addDoc(colRef, catData);
@@ -216,38 +221,26 @@ function SpecialCategoryModal({
                 </p>
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Source Category (Optional)</label>
-                <select
-                  value={newSourceCategoryId}
-                  onChange={e => setNewSourceCategoryId(e.target.value)}
-                  style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #d1d5db', borderRadius: '8px', fontSize: '14px', background: 'white' }}
-                >
-                  <option value="">Any Category (Filter by age/weight)</option>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Source Categories (Optional)</label>
+                <div style={{ maxHeight: '140px', overflowY: 'auto', border: '1.5px solid #d1d5db', borderRadius: '8px', padding: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {standardCategories.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
+                    <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={newSourceCategoryIds.includes(c.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) setNewSourceCategoryIds(prev => [...prev, c.id]);
+                          else setNewSourceCategoryIds(prev => prev.filter(id => id !== c.id));
+                        }}
+                      />
+                      <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</span>
+                    </label>
                   ))}
-                </select>
+                </div>
                 <p style={{ fontSize: '11px', color: '#6b7280', marginTop: '6px' }}>
-                  If selected, athletes will ONLY be drawn from this specific category's pools.
+                  If selected, athletes will ONLY be drawn from these specific categories. The age and weight rules will automatically be derived from these source categories.
                 </p>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '5px', color: '#6b7280' }}>Min Age (optional)</label>
-                  <input type="number" placeholder="e.g. 18" value={newMinAge} onChange={e => setNewMinAge(e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '13px', boxSizing: 'border-box' }} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '5px', color: '#6b7280' }}>Max Age (optional)</label>
-                  <input type="number" placeholder="e.g. 35" value={newMaxAge} onChange={e => setNewMaxAge(e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '13px', boxSizing: 'border-box' }} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '5px', color: '#6b7280' }}>Min Weight kg (optional)</label>
-                  <input type="number" placeholder="e.g. 60" value={newMinWeight} onChange={e => setNewMinWeight(e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '13px', boxSizing: 'border-box' }} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '5px', color: '#6b7280' }}>Max Weight kg (optional)</label>
-                  <input type="number" placeholder="e.g. 90" value={newMaxWeight} onChange={e => setNewMaxWeight(e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '13px', boxSizing: 'border-box' }} />
-                </div>
               </div>
             </div>
           )}

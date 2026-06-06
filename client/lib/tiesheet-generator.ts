@@ -46,6 +46,7 @@ export interface SpecialCategoryRule {
   minWeight?: number;
   maxWeight?: number;
   sourceCategoryId?: string;
+  sourceCategoryIds?: string[];
   medal?: string;
 }
 
@@ -735,9 +736,11 @@ export function seedSpecialCategory(
   const eligible: AthleteRow[] = [];
   const seen = new Set<string>();
 
-  const docsToProcess = rule.sourceCategoryId
-    ? allCategoryDocs.filter(c => c.id === rule.sourceCategoryId)
-    : allCategoryDocs;
+  const docsToProcess = rule.sourceCategoryIds && rule.sourceCategoryIds.length > 0
+    ? allCategoryDocs.filter(c => rule.sourceCategoryIds!.includes(c.id))
+    : rule.sourceCategoryId
+      ? allCategoryDocs.filter(c => c.id === rule.sourceCategoryId)
+      : allCategoryDocs;
 
   for (const catDoc of docsToProcess) {
     const matches = catDoc.matches || [];
