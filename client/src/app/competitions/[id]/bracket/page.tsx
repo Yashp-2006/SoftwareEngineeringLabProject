@@ -29,7 +29,7 @@ function SpecialCategoryModal({
 
   // New category form
   const [newName, setNewName] = useState('');
-  const [newMedal, setNewMedal] = useState<'Gold' | 'Silver' | 'Bronze' | 'Any Medal'>('Gold');
+  const [newMedals, setNewMedals] = useState<string[]>(['Gold']);
   const [newSourceCategoryIds, setNewSourceCategoryIds] = useState<string[]>([]);
   const [creatingNew, setCreatingNew] = useState(false);
 
@@ -63,7 +63,7 @@ function SpecialCategoryModal({
       const { addDoc } = await import('firebase/firestore');
       const catData: any = {
         name: newName.trim(),
-        medal: newMedal,
+        medals: newMedals,
         isSpecial: true,
         status: 'upcoming',
         athletes: [],
@@ -203,21 +203,34 @@ function SpecialCategoryModal({
               <div>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Seed From (Medal Tier)</label>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  {(['Gold', 'Silver', 'Bronze', 'Any Medal'] as const).map(m => (
-                    <button
-                      key={m}
-                      onClick={() => setNewMedal(m)}
-                      style={{
-                        flex: 1, padding: '8px 6px', fontSize: '12px', fontWeight: 600, borderRadius: '8px', cursor: 'pointer',
-                        border: `2px solid ${newMedal === m ? '#d97706' : '#e5e7eb'}`,
-                        background: newMedal === m ? '#fffbeb' : 'white',
-                        color: newMedal === m ? '#92400e' : '#374151'
-                      }}
-                    >{m === 'Any Medal' ? 'Any' : m}</button>
-                  ))}
+                  {(['Gold', 'Silver', 'Bronze'] as const).map(m => {
+                    const isSelected = newMedals.includes(m);
+                    return (
+                      <button
+                        key={m}
+                        onClick={() => {
+                          if (isSelected) {
+                            if (newMedals.length > 1) {
+                              setNewMedals(prev => prev.filter(x => x !== m));
+                            } else {
+                              toast.error('Must select at least one medal tier');
+                            }
+                          } else {
+                            setNewMedals(prev => [...prev, m]);
+                          }
+                        }}
+                        style={{
+                          flex: 1, padding: '8px 6px', fontSize: '12px', fontWeight: 600, borderRadius: '8px', cursor: 'pointer',
+                          border: `2px solid ${isSelected ? '#d97706' : '#e5e7eb'}`,
+                          background: isSelected ? '#fffbeb' : 'white',
+                          color: isSelected ? '#92400e' : '#374151'
+                        }}
+                      >{m}</button>
+                    );
+                  })}
                 </div>
                 <p style={{ fontSize: '11px', color: '#6b7280', marginTop: '6px' }}>
-                  Athletes who won {newMedal === 'Any Medal' ? 'any match' : `a ${newMedal} medal`} per pool will be seeded into this category.
+                  Athletes who won the selected medals per pool will be seeded into this category.
                 </p>
               </div>
               <div>

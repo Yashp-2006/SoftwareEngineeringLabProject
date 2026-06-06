@@ -48,6 +48,7 @@ export interface SpecialCategoryRule {
   sourceCategoryId?: string;
   sourceCategoryIds?: string[];
   medal?: string;
+  medals?: string[];
 }
 
 export interface CategoryDoc {
@@ -744,19 +745,20 @@ export function seedSpecialCategory(
           eligible.push({ ...ath, medal, sourceCategory: catDoc.name });
         };
 
-        const medalFilter = rule.medal || 'Any Medal';
+        const medalsArray = rule.medals || [];
+        const medalFilter = rule.medal || (medalsArray.length === 0 ? 'Any Medal' : null);
 
-        if (medalFilter === 'Gold Only') {
-          addIfEligible(goldAthlete, 'gold');
-        } else if (medalFilter === 'Silver or Above') {
-          addIfEligible(goldAthlete, 'gold');
-          addIfEligible(silverAthlete, 'silver');
-        } else {
-          // 'Any Medal' — include anyone who won at least one match
-          addIfEligible(goldAthlete, 'gold');
-          addIfEligible(silverAthlete, 'silver');
+        const includeGold = medalsArray.includes('Gold') || medalFilter === 'Gold' || medalFilter === 'Gold Only' || medalFilter === 'Silver or Above' || medalFilter === 'Any Medal';
+        const includeSilver = medalsArray.includes('Silver') || medalFilter === 'Silver' || medalFilter === 'Silver or Above' || medalFilter === 'Any Medal';
+        const includeBronze = medalsArray.includes('Bronze') || medalFilter === 'Bronze' || medalFilter === 'Any Medal';
 
-          // Find semi-final losers (bronze) in this pool
+        if (includeGold) {
+          addIfEligible(goldAthlete, 'gold');
+        }
+        if (includeSilver) {
+          addIfEligible(silverAthlete, 'silver');
+        }
+        if (includeBronze) {
           const semiRound = maxRound - 1;
           if (semiRound >= 1) {
             const semiMatches = poolMatches.filter(m => m.round === semiRound);

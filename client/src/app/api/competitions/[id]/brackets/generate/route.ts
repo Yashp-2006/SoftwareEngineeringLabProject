@@ -81,6 +81,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         maxWeight: specialCatData.maxWeight,
         sourceCategoryIds: specialCatData.sourceCategoryIds,
         sourceCategoryId: specialCatData.sourceCategoryId,
+        medals: specialCatData.medals,
       };
 
       // Fetch all sibling (non-special) categories
