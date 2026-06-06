@@ -165,6 +165,10 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
               name, 
               entries: existingEntries.get(name) || 0 
             })));
+          } else {
+            const { collection, getDocs } = await import('firebase/firestore');
+            const catSnap = await getDocs(collection(db, 'competitions', id, 'categories'));
+            setCategories(catSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
           }
           setIsDataLoaded(true);
         }
@@ -793,6 +797,42 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                       }}
                     >Apply Capacity</button>
                   </div>
+                  <div className="flex-between mb-4" style={{ marginTop: 'var(--space-4)' }}>
+                    <div>
+                      <h3>Mat Security</h3>
+                      <p className="text-small">Set unique access passwords for each mat score table.</p>
+                    </div>
+                    <button className="btn btn-ghost" onClick={bulkSetMatPasswords}>
+                      <Key size={16} /> Bulk Set
+                    </button>
+                  </div>
+                  <div className="mat-setup-list">
+                    {Array.from({ length: matsCount }).map((_, i) => (
+                      <div key={i} className="mat-setup-card">
+                        <div className="mat-header">
+                          <div className="mat-number-badge">{i + 1}</div>
+                          <span className="status-chip" style={{ background: 'var(--neutral-100)', color: 'var(--neutral-600)' }}>Pending</span>
+                        </div>
+                        <div className="form-group" style={{ marginBottom: 0 }}>
+                          <label className="text-micro">Scoreboard Access Password</label>
+                          <div className="password-input-group">
+                            <input
+                              type={showPasswordMap[i] ? "text" : "password"}
+                              placeholder="Enter mat password"
+                              value={matPasswordMap[i] ?? ''}
+                              onChange={e => setMatPasswordMap(prev => ({ ...prev, [i]: e.target.value }))}
+                              onBlur={() => {
+                                if (matPasswordMap[i]?.trim()) saveMatPassword(i, matPasswordMap[i].trim());
+                              }}
+                            />
+                            <div className="toggle-password" onClick={() => togglePassword(i)}>
+                              {showPasswordMap[i] ? <EyeOff size={16} /> : <Eye size={16} />}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
                 )}
 
@@ -954,6 +994,43 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                       >Apply Capacity</button>
                     </div>
                   </div>
+                  </div>
+                  <div className="flex-between mb-4" style={{ marginTop: 'var(--space-4)' }}>
+                    <div>
+                      <h3>Mat Security</h3>
+                      <p className="text-small">Set unique access passwords for each mat score table.</p>
+                    </div>
+                    <button className="btn btn-ghost" onClick={bulkSetMatPasswords}>
+                      <Key size={16} /> Bulk Set
+                    </button>
+                  </div>
+                  <div className="mat-setup-list">
+                    {Array.from({ length: matsCount }).map((_, i) => (
+                      <div key={i} className="mat-setup-card">
+                        <div className="mat-header">
+                          <div className="mat-number-badge">{i + 1}</div>
+                          <span className="status-chip" style={{ background: 'var(--neutral-100)', color: 'var(--neutral-600)' }}>Pending</span>
+                        </div>
+                        <div className="form-group" style={{ marginBottom: 0 }}>
+                          <label className="text-micro">Scoreboard Access Password</label>
+                          <div className="password-input-group">
+                            <input
+                              type={showPasswordMap[i] ? "text" : "password"}
+                              placeholder="Enter mat password"
+                              value={matPasswordMap[i] ?? ''}
+                              onChange={e => setMatPasswordMap(prev => ({ ...prev, [i]: e.target.value }))}
+                              onBlur={() => {
+                                if (matPasswordMap[i]?.trim()) saveMatPassword(i, matPasswordMap[i].trim());
+                              }}
+                            />
+                            <div className="toggle-password" onClick={() => togglePassword(i)}>
+                              {showPasswordMap[i] ? <EyeOff size={16} /> : <Eye size={16} />}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
               </div>
             </section>
           )}
@@ -1010,51 +1087,13 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
               {!isReviewMode && (
                 <div className="phase-header">
                   <div>
-                    <h3 style={{ margin: 0 }}>Phase {compRules === 'wkf' ? '4' : '5'} — Staff Assignment + Mat Security</h3>
-                    <p className="text-small" style={{ marginTop: '4px' }}>Lock in who runs each mat, attendance coverage, medal distribution, and passwords.</p>
+                    <h3 style={{ margin: 0 }}>Phase {compRules === 'wkf' ? '4' : '5'} — Staff Setup</h3>
+                    <p className="text-small" style={{ marginTop: '4px' }}>Lock in attendance coverage.</p>
                   </div>
                 </div>
               )}
               <div className="category-manager">
                 <div className="cat-group">
-                  <div className="flex-between mb-4">
-                    <div>
-                      <h3>Mat Security</h3>
-                      <p className="text-small">Set unique access passwords for each mat score table.</p>
-                    </div>
-                    <button className="btn btn-ghost" onClick={bulkSetMatPasswords}>
-                      <Key size={16} /> Bulk Set
-                    </button>
-                  </div>
-                  <div className="mat-setup-list">
-                    {Array.from({ length: matsCount }).map((_, i) => (
-                      <div key={i} className="mat-setup-card">
-                        <div className="mat-header">
-                          <div className="mat-number-badge">{i + 1}</div>
-                          <span className="status-chip" style={{ background: 'var(--neutral-100)', color: 'var(--neutral-600)' }}>Pending</span>
-                        </div>
-                        <div className="form-group" style={{ marginBottom: 0 }}>
-                          <label className="text-micro">Scoreboard Access Password</label>
-                          <div className="password-input-group">
-                            <input
-                              type={showPasswordMap[i] ? "text" : "password"}
-                              placeholder="Enter mat password"
-                              value={matPasswordMap[i] ?? ''}
-                              onChange={e => setMatPasswordMap(prev => ({ ...prev, [i]: e.target.value }))}
-                              onBlur={() => {
-                                if (matPasswordMap[i]?.trim()) saveMatPassword(i, matPasswordMap[i].trim());
-                              }}
-                            />
-                            <div className="toggle-password" onClick={() => togglePassword(i)}>
-                              {showPasswordMap[i] ? <EyeOff size={16} /> : <Eye size={16} />}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
                 <div className="cat-group">
                   <div className="flex-between">
                     <div>
