@@ -1115,7 +1115,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                           <option value="Kata">Kata</option>
                         </select>
                         {modalFormData.discipline === 'Kata' && (
-                          <p style={{ fontSize: '11px', color: 'var(--neutral-500)', marginTop: '4px' }}>Kata categories are not divided by age groups.</p>
+                          <p style={{ fontSize: '11px', color: 'var(--neutral-500)', marginTop: '4px' }}>Kata categories do not use weight classes.</p>
                         )}
                       </div>
                     </div>
@@ -1139,15 +1139,18 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                         <input type="number" className="input-field" placeholder="99" value={modalFormData.maxAge || ''} onChange={e => setModalFormData({...modalFormData, maxAge: e.target.value})} />
                       </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
-                      <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
-                        <label>Min Weight (kg)</label>
-                        <input type="number" className="input-field" placeholder="0" value={modalFormData.minWeight || ''} onChange={e => setModalFormData({...modalFormData, minWeight: e.target.value})} />
+                    {modalFormData.discipline !== 'Kata' && (
+                      <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+                        <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                          <label>Min Weight (kg)</label>
+                          <input type="number" className="input-field" placeholder="0" value={modalFormData.minWeight || ''} onChange={e => setModalFormData({...modalFormData, minWeight: e.target.value})} />
+                        </div>
+                        <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                          <label>Max Weight (kg)</label>
+                          <input type="number" className="input-field" placeholder="300" value={modalFormData.maxWeight || ''} onChange={e => setModalFormData({...modalFormData, maxWeight: e.target.value})} />
+                        </div>
                       </div>
-                      <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
-                        <label>Max Weight (kg)</label>
-                        <input type="number" className="input-field" placeholder="300" value={modalFormData.maxWeight || ''} onChange={e => setModalFormData({...modalFormData, maxWeight: e.target.value})} />
-                      </div>
+                    )}
                     </div>
                   </>
                 )}
@@ -1211,10 +1214,10 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                   name: modalFormData.name, 
                   discipline: modalFormData.discipline || 'Kumite',
                   gender: modalFormData.gender || 'Any',
-                  minAge: isKata ? 0 : (parseInt(modalFormData.minAge) || 0),
-                  maxAge: isKata ? 999 : (parseInt(modalFormData.maxAge) || 99),
-                  minWeight: parseFloat(modalFormData.minWeight) || 0,
-                  maxWeight: parseFloat(modalFormData.maxWeight) || 300,
+                  minAge: parseInt(modalFormData.minAge) || 0,
+                  maxAge: parseInt(modalFormData.maxAge) || 99,
+                  minWeight: isKata ? 0 : (parseFloat(modalFormData.minWeight) || 0),
+                  maxWeight: isKata ? 300 : (parseFloat(modalFormData.maxWeight) || 300),
                   entries: 0 
                 }]);
               } else if (modalType === 'special' && modalFormData.name) {

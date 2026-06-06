@@ -171,6 +171,11 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
           matches.forEach((m: any) => {
             const p = m.pool || (m.id && m.id.includes('Pool') ? m.id.split('-')[0].replace('Pool', '') : null);
             if (!p) return;
+            
+            // Check if it's a real match (has at least one player or comes from another match)
+            const isRealMatch = !!(m.aka?.playerId || m.aka?.name || m.akaFromMatchId || m.ao?.playerId || m.ao?.name || m.aoFromMatchId);
+            if (!isRealMatch) return;
+
             if (!poolStats[p]) poolStats[p] = { total: 0, completed: 0 };
             poolStats[p].total++;
             if (m.status === 'completed') poolStats[p].completed++;

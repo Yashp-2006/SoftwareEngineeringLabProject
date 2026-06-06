@@ -100,6 +100,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const entries = Array.from(categoryMap.entries());
     const chunkSize = 25; // Process in chunks to avoid overwhelming the database
 
+    const dynamicSpecialCatNames = new Set<string>();
+    for (const [, catAthletes] of categoryMap) {
+      for (const a of catAthletes) {
+        if (a.interestSpecial) {
+          dynamicSpecialCatNames.add(a.interestSpecial);
+        }
+      }
+    }
+
     for (let i = 0; i < entries.length; i += chunkSize) {
       const chunk = entries.slice(i, i + chunkSize);
 
@@ -111,8 +120,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         // Upsert: find existing category by name, or create new one
         const existingQuery = await categoriesRef.where('name', '==', catName).limit(1).get();
 
+        const isSpecialCat = specialCategories.some((sc: any) => sc.name === catName) || dynamicSpecialCatNames.has(catName);
+
         const categoryData = {
           name: catName,
+          isSpecial: isSpecialCat,
           competitionId: id,
           status: 'upcoming',
           athletes: catAthletes.map(a => ({
