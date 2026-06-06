@@ -41,6 +41,7 @@
 - **Live Bracket Advancement**:
   - `PATCH /api/competitions/{id}/brackets/{catId}` atomically completes matches and propagates winners to the next round.
   - `FullscreenBracketModal.tsx` and `BracketViewer.tsx` are fully wired to Firestore `onSnapshot` for real-time interactive updates.
+  - Fixed an issue where Excel imports containing explicit "BYE" names would break auto-promotion and erroneously render as "BYE" instead of correctly acting as an empty slot ("No player assigned").
 - **Live Scoring Hub (Operator Portal)**: 
   - Operator page (`/competitions/[id]/operator`) is implemented and writes real-time scores to Firebase RTDB.
   - Connected to the Live Mat broadcast view (`/live/mat/[matId]`).

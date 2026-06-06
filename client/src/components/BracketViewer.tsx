@@ -235,14 +235,14 @@ export default function BracketViewer({ matches, categoryName }: { matches: any[
                           )}
                           <div className="competitor-row aka">
                             <div className="comp-info">
-                              <div className="comp-name" style={{ color: m.aka ? 'inherit' : 'var(--neutral-400)' }}>{m.aka ? m.aka.name : 'Empty'}</div>
+                              <div className="comp-name" style={{ color: m.aka ? 'inherit' : 'var(--neutral-400)' }}>{m.aka ? m.aka.name : 'No player assigned'}</div>
                               <div className="comp-team">{m.aka ? `${m.aka.state} • ${m.aka.academy}` : '—'}</div>
                             </div>
                             <div className="comp-score">{m.akaScore || 0}</div>
                           </div>
                           <div className="competitor-row ao">
                             <div className="comp-info">
-                              <div className="comp-name" style={{ color: m.ao ? 'inherit' : 'var(--neutral-400)' }}>{m.ao ? m.ao.name : 'Empty'}</div>
+                              <div className="comp-name" style={{ color: m.ao ? 'inherit' : 'var(--neutral-400)' }}>{m.ao ? m.ao.name : 'No player assigned'}</div>
                               <div className="comp-team">{m.ao ? `${m.ao.state} • ${m.ao.academy}` : '—'}</div>
                             </div>
                             <div className="comp-score">{m.aoScore || 0}</div>

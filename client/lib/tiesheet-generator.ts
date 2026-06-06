@@ -101,6 +101,7 @@ export function parseExcel(buffer: ArrayBuffer): AthleteRow[] {
       }
       
       parsedName = parsedName.trim() || 'Unknown';
+      if (parsedName.toUpperCase() === 'BYE') continue; // Skip explicit BYE rows to let generator handle empty slots
       parsedAcademy = parsedAcademy.trim() || 'Unknown';
 
       // ... age parsing remains the same ...

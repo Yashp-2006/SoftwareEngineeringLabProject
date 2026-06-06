@@ -336,7 +336,7 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
             categoryId: cat.id,
             categoryName: cat.name,
             matchId: m.id,
-            athleteName: isAo ? aoName : (akaName || 'Empty'),
+            athleteName: isAo ? aoName : (akaName || 'No player assigned'),
             teamName: isAo ? aoAcademy : akaAcademy,
             pool: (m.id || '').split('-')[0].replace('Pool', ''),
           });

@@ -58,6 +58,15 @@
 
 ---
 
+## 🔧 Recent Bug Fixes & Refinements
+
+- **Scoreboard Logo Upload:** Added support for a 1:1 ratio custom scoreboard logo. The logo is uploaded directly via the `setup/[id]/page.tsx` wizard in the Mats & Capacity phase (Base64), saved to the `competitions/{id}` document, and rendered dynamically in the center column of the `operator/page.tsx` scoreboard UI between the Round pill and the Time Remaining label.
+- **Match Queue Status Refinement:** In `operator/page.tsx`, the Match Queue was updated to explicitly distinguish between the `LIVE / CURRENT` fight (the one loaded into the active scoreboard), the `NEXT` fight, and `STANDBY` fights. Dragging a match to the top of the queue correctly sets it to `NEXT` without overriding the currently live scoreboard match.
+- **BYE Slots Auto-Promotion:** Fixed an issue where the CSV parser in `tiesheet-generator.ts` was literally assigning the name `"BYE"` to missing athletes if explicitly stated in the sheet, which disabled auto-promotion. Filtered `"BYE"` rows during import so they generate pure `null` empty slots, enabling `autoWinner` promotion correctly.
+- **Empty Slot Readability:** Updated `FullscreenBracketModal.tsx` and `BracketViewer.tsx` to render "No player assigned" or "Empty Slot" instead of generic fallback text, providing a cleaner UI.
+
+---
+
 ## 🌐 Hyperedge Groups
 
 ### 1. Live Scoring System

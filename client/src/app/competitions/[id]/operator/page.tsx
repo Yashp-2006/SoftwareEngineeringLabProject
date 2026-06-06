@@ -690,7 +690,12 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
               {/* MIDDLE */}
               <div className="fs-mid">
                 <span className="fs-round-pill">Round {round}</span>
-                <div className="fs-timer-label">Time Remaining</div>
+                {compData?.scoreboardLogo && (
+                  <div style={{ margin: 'auto 0', width: '160px', height: '160px', borderRadius: '24px', overflow: 'hidden', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <img src={compData.scoreboardLogo} alt="Competition Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                  </div>
+                )}
+                <div className="fs-timer-label" style={{ marginTop: compData?.scoreboardLogo ? 'auto' : 'auto' }}>Time Remaining</div>
                 <div className="fs-timer" style={{ color: timer <= 10 ? 'var(--aka)' : 'inherit' }}>{mins}:{secs}</div>
                 <div className="fs-status-wrap">
                   <div className="fs-status-label">Match Status</div>
@@ -1130,7 +1135,9 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                           </td>
                           <td style={{ padding: '16px 20px', color: 'var(--neutral-600)', fontSize: '14px' }}>{match.category}</td>
                           <td style={{ padding: '16px 20px', textAlign: 'right' }}>
-                            {idx === 0 ? (
+                            {match.id === activeMatchId ? (
+                              <span style={{ background: '#fef2f2', color: '#dc2626', padding: '4px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 800, letterSpacing: '0.05em' }}>LIVE / CURRENT</span>
+                            ) : idx === 0 || (idx === 1 && visibleQueue[0]?.id === activeMatchId) ? (
                               <span style={{ background: '#fef3c7', color: '#b45309', padding: '4px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 800, letterSpacing: '0.05em' }}>NEXT</span>
                             ) : (
                               <span style={{ background: 'var(--neutral-100)', color: 'var(--neutral-600)', padding: '4px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 800, letterSpacing: '0.05em' }}>STANDBY</span>
@@ -1180,8 +1187,8 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                 <div style={{ color: 'var(--neutral-500)', fontSize: '13px' }}>Category yet to begin</div>
               ) : (
                 recentMatches.map((m, i) => {
-                  const akaName = m.aka?.name || 'BYE';
-                  const aoName = m.ao?.name || 'BYE';
+                  const akaName = m.aka?.name || 'Empty Slot';
+                  const aoName = m.ao?.name || 'Empty Slot';
                   const akaWon = m.winnerId === m.aka?.playerId || m.winnerId === m.aka?.name;
                   const aoWon = m.winnerId === m.ao?.playerId || m.winnerId === m.ao?.name;
                   

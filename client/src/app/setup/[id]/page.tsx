@@ -32,6 +32,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
   const [compName, setCompName] = useState<string>('Loading...');
   const [compVenue, setCompVenue] = useState<string>('');
   const [compDate, setCompDate] = useState<string>('');
+  const [scoreboardLogo, setScoreboardLogo] = useState<string | null>(null);
   
   const [compRules, setCompRules] = useState<string>('');
   const [compType, setCompType] = useState<string>('international');
@@ -79,6 +80,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         wkfMode,
         categories,
         importResult: importResult ?? null,
+        scoreboardLogo,
         lastActivePhase: targetPhase,
         highestPhase: Math.max(highestPhase, targetPhase),
         updatedAt: new Date().toISOString()
@@ -123,6 +125,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
           const mainData = snap.data();
           setCompName(mainData.name || 'Untitled Tournament');
           if (mainData.venue) setCompVenue(mainData.venue);
+          if (mainData.scoreboardLogo) setScoreboardLogo(mainData.scoreboardLogo);
           if (mainData.startDate) {
             const startDate = new Date(mainData.startDate).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
             const endDate = mainData.endDate ? new Date(mainData.endDate).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
@@ -143,6 +146,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
           if (draftData.wkfMode !== undefined) setWkfMode(draftData.wkfMode);
           if (draftData.categories !== undefined) setCategories(draftData.categories);
           if (draftData.importResult !== undefined) setImportResult(draftData.importResult);
+          if (draftData.scoreboardLogo !== undefined) setScoreboardLogo(draftData.scoreboardLogo);
           if (draftData.highestPhase !== undefined) setHighestPhase(draftData.highestPhase);
           else if (draftData.lastActivePhase !== undefined) setHighestPhase(draftData.lastActivePhase);
           if (draftData.lastActivePhase !== undefined) setActivePhase(draftData.lastActivePhase);
@@ -301,6 +305,15 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
     }
   };
 
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setScoreboardLogo(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -481,14 +494,20 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         batch.set(matRef, { name: `MAT ${String(i).padStart(2, '0')}`, order: i }, { merge: true });
       }
       
-      batch.update(doc(db, 'competitions', id), {
+      const compUpdateData: any = {
         name: compName,
         mats: (matsCount as number) || 1,
         type: compType,
         bronzeRule: bronzeRule,
         isSetupComplete: true,
         updatedAt: new Date().toISOString()
-      });
+      };
+      
+      if (scoreboardLogo) {
+        compUpdateData.scoreboardLogo = scoreboardLogo;
+      }
+      
+      batch.update(doc(db, 'competitions', id), compUpdateData);
       
       await batch.commit();
       toast.success("Deployment successful! Schedule generated and saved.");
@@ -819,6 +838,34 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                       }}
                     >Apply Capacity</button>
                   </div>
+
+                  <div style={{ marginTop: 'var(--space-4)', padding: 'var(--space-4)', background: 'var(--neutral-50)', borderRadius: '12px', border: '1px dashed var(--neutral-300)' }}>
+                    <div className="flex-between mb-4">
+                      <div>
+                        <h4 style={{ margin: 0, fontSize: '14px' }}>Scoreboard Logo (Optional)</h4>
+                        <p className="text-small" style={{ marginTop: '4px' }}>Upload a 1:1 ratio logo to display on all live scoreboards.</p>
+                      </div>
+                      {scoreboardLogo && (
+                        <button className="btn btn-ghost" onClick={() => setScoreboardLogo(null)} style={{ color: 'var(--aka)' }}>
+                          <Trash2 size={14} style={{ marginRight: '6px' }}/> Remove
+                        </button>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                      {scoreboardLogo && (
+                        <div style={{ width: '48px', height: '48px', borderRadius: '8px', overflow: 'hidden', background: '#fff', border: '1px solid var(--neutral-200)', flexShrink: 0 }}>
+                          <img src={scoreboardLogo} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                        </div>
+                      )}
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={handleLogoUpload}
+                        className="input-field" 
+                        style={{ flex: 1, padding: '8px', height: 'auto', background: '#fff' }}
+                      />
+                    </div>
+                  </div>
                   <div className="flex-between mb-4" style={{ marginTop: 'var(--space-4)' }}>
                     <div>
                       <h3>Mat Security</h3>
@@ -1014,6 +1061,34 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                           toast.success(`Capacity successfully updated to ${matsCount || 1} mats!`);
                         }}
                       >Apply Capacity</button>
+                    </div>
+
+                    <div style={{ marginTop: 'var(--space-4)', padding: 'var(--space-4)', background: 'var(--neutral-50)', borderRadius: '12px', border: '1px dashed var(--neutral-300)' }}>
+                      <div className="flex-between mb-4">
+                        <div>
+                          <h4 style={{ margin: 0, fontSize: '14px' }}>Scoreboard Logo (Optional)</h4>
+                          <p className="text-small" style={{ marginTop: '4px' }}>Upload a 1:1 ratio logo to display on all live scoreboards.</p>
+                        </div>
+                        {scoreboardLogo && (
+                          <button className="btn btn-ghost" onClick={() => setScoreboardLogo(null)} style={{ color: 'var(--aka)' }}>
+                            <Trash2 size={14} style={{ marginRight: '6px' }}/> Remove
+                          </button>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                        {scoreboardLogo && (
+                          <div style={{ width: '48px', height: '48px', borderRadius: '8px', overflow: 'hidden', background: '#fff', border: '1px solid var(--neutral-200)', flexShrink: 0 }}>
+                            <img src={scoreboardLogo} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                          </div>
+                        )}
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={handleLogoUpload}
+                          className="input-field" 
+                          style={{ flex: 1, padding: '8px', height: 'auto', background: '#fff' }}
+                        />
+                      </div>
                     </div>
                   </div>
                   </div>
