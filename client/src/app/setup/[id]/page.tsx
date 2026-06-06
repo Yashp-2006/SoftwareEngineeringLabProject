@@ -125,6 +125,23 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
           }
         }
 
+        // Fetch mat passwords
+        try {
+          const { collection, getDocs } = await import('firebase/firestore');
+          const matsSnap = await getDocs(collection(db, 'competitions', id, 'mats'));
+          const loadedPasswords: Record<number, string> = {};
+          matsSnap.docs.forEach(matDoc => {
+            const match = matDoc.id.match(/^mat-(\d+)$/);
+            if (match) {
+              const idx = parseInt(match[1]) - 1;
+              if (matDoc.data().password) loadedPasswords[idx] = matDoc.data().password;
+            }
+          });
+          setMatPasswordMap(loadedPasswords);
+        } catch (err) {
+          console.error("Failed to load mat passwords", err);
+        }
+
         // Try to load draft first
         const draftSnap = await getDoc(doc(db, 'competitions', id, 'drafts', 'setup'));
         if (draftSnap.exists()) {
@@ -210,6 +227,32 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
     } catch (err) {
       console.error('Failed to save mat password', err);
       toast.error('Failed to save password.');
+    }
+  };
+
+  const bulkSetMatPasswords = async () => {
+    const pwd = window.prompt("Enter a password to apply to ALL mats:");
+    if (!pwd || !pwd.trim()) return;
+    
+    const newMap = { ...matPasswordMap };
+    for (let i = 0; i < matsCount; i++) {
+      newMap[i] = pwd.trim();
+    }
+    setMatPasswordMap(newMap);
+    
+    try {
+      const { db } = await import('@lib/firebase');
+      const { doc, setDoc, writeBatch } = await import('firebase/firestore');
+      const batch = writeBatch(db);
+      for (let i = 0; i < matsCount; i++) {
+        const matId = `mat-${i + 1}`;
+        batch.set(doc(db, 'competitions', id, 'mats', matId), { password: pwd.trim() }, { merge: true });
+      }
+      await batch.commit();
+      toast.success('Bulk set passwords successfully!');
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to bulk set passwords.');
     }
   };
 
@@ -972,7 +1015,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                       <h3>Mat Security</h3>
                       <p className="text-small">Set unique access passwords for each mat score table.</p>
                     </div>
-                    <button className="btn btn-ghost">
+                    <button className="btn btn-ghost" onClick={bulkSetMatPasswords}>
                       <Key size={16} /> Bulk Set
                     </button>
                   </div>
