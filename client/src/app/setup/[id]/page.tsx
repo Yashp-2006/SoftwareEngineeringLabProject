@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ArrowRight, Save, CheckCircle, Combine, Plus, Edit2, Trash2, Star, FileSpreadsheet, RefreshCw, Key, ChevronDown, Eye, EyeOff, UploadCloud, X, Download } from 'lucide-react';
 import FullscreenBracketModal from '@/components/FullscreenBracketModal';
 import UndersizedPoolsModal from '@/components/UndersizedPoolsModal';
@@ -10,6 +11,7 @@ import ConfirmModal from '@/components/ConfirmModal';
 
 export default function SetupWizard({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
+  const router = useRouter();
   const [activePhase, setActivePhase] = useState(1);
   const [highestPhase, setHighestPhase] = useState(1);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
@@ -490,6 +492,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
       
       await batch.commit();
       toast.success("Deployment successful! Schedule generated and saved.");
+      router.push(`/competitions/${id}`);
     } catch (err) {
       console.error(err);
       toast.error("Failed to deploy tournament.");
@@ -826,7 +829,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                     </button>
                   </div>
                   <div className="mat-setup-list">
-                    {Array.from({ length: matsCount }).map((_, i) => (
+                    {Array.from({ length: Number(matsCount) || 1 }).map((_, i) => (
                       <div key={i} className="mat-setup-card">
                         <div className="mat-header">
                           <div className="mat-number-badge">{i + 1}</div>
@@ -1024,7 +1027,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                     </button>
                   </div>
                   <div className="mat-setup-list">
-                    {Array.from({ length: matsCount }).map((_, i) => (
+                    {Array.from({ length: Number(matsCount) || 1 }).map((_, i) => (
                       <div key={i} className="mat-setup-card">
                         <div className="mat-header">
                           <div className="mat-number-badge">{i + 1}</div>
