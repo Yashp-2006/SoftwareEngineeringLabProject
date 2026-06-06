@@ -292,14 +292,16 @@ export default function DashboardPage() {
           border-color: var(--neutral-300);
         }
         .col-span-3 { grid-column: span 3; }
+        .col-span-4 { grid-column: span 4; }
         .col-span-6 { grid-column: span 6; }
+        .col-span-8 { grid-column: span 8; }
         .col-span-12 { grid-column: span 12; }
         @media (max-width: 1024px) {
-          .col-span-3 { grid-column: span 6; }
-          .col-span-6, .col-span-12 { grid-column: span 12; }
+          .col-span-3, .col-span-4 { grid-column: span 6; }
+          .col-span-6, .col-span-8, .col-span-12 { grid-column: span 12; }
         }
         @media (max-width: 600px) {
-          .col-span-3, .col-span-6, .col-span-12 { grid-column: span 12; }
+          .col-span-3, .col-span-4, .col-span-6, .col-span-8, .col-span-12 { grid-column: span 12; }
         }
         .stat-header {
           display: flex;
