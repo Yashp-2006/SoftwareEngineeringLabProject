@@ -16,6 +16,9 @@ export interface AthleteRow {
   events?: string[];
   medal?: 'gold' | 'silver' | 'bronze' | null;
   sourceCategory?: string;
+  coachName?: string;
+  phone?: string;
+  email?: string;
 }
 
 export interface MatchNode {
@@ -83,6 +86,9 @@ export function parseExcel(buffer: ArrayBuffer): AthleteRow[] {
       let parsedAcademy = '';
       let parsedFirst = '';
       let parsedLast = '';
+      let coachName = '';
+      let phone = '';
+      let email = '';
 
       for (const k of Object.keys(row)) {
         if (!parsedAcademy && (k.includes('academy') || k.includes('club') || k.includes('team') || k.includes('dojo') || k.includes('school') || k.includes('organization') || k.includes('association') || k.includes('dojo/organization')) && !k.includes('id')) {
@@ -92,7 +98,17 @@ export function parseExcel(buffer: ArrayBuffer): AthleteRow[] {
         } else if (k.includes('last name') || k === 'last' || k === 'surname') {
           parsedLast = String(row[k]);
         } else if (!parsedName && (k.includes('name') || k.includes('athlete') || k.includes('player') || k.includes('participant') || k.includes('competitor'))) {
-          parsedName = String(row[k]);
+          if (!k.includes('coach')) {
+            parsedName = String(row[k]);
+          }
+        }
+        
+        if (k.includes('coach') || k.includes('instructor')) {
+          coachName = String(row[k]);
+        } else if (k.includes('phone') || k.includes('mobile') || k.includes('contact')) {
+          phone = String(row[k]);
+        } else if (k.includes('email') || k.includes('mail')) {
+          email = String(row[k]);
         }
       }
 
@@ -148,12 +164,15 @@ export function parseExcel(buffer: ArrayBuffer): AthleteRow[] {
         gender: String(row['gender'] ?? row['sex'] ?? 'male').trim().toLowerCase(),
         weight: parseFloat(String(rawWeight)) || 0,
         age: parsedAge,
-        country: String(row['country'] ?? 'Unknown').trim(),
-        state: String(row['state'] ?? 'Unknown').trim(),
-        district: String(row['district'] ?? 'Unknown').trim(),
+        country: String(row['country'] || row['nation'] || row['nationality'] || ''),
+        state: String(row['state'] || row['region'] || row['province'] || ''),
+        district: String(row['district'] || row['city'] || ''),
         academy: parsedAcademy,
-        interestSpecial: String(row['interest for special categories'] ?? row['special category'] ?? row['interestspecial'] ?? '').trim(),
+        interestSpecial: String(row['interest special'] || row['special interest'] || row['notes'] || ''),
         events,
+        coachName: coachName || undefined,
+        phone: phone || undefined,
+        email: email || undefined
       });
     }
   }

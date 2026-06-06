@@ -2,13 +2,14 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { LayoutGrid, Plus, Timer, Activity, Coffee, CalendarPlus } from 'lucide-react';
-import gsap from 'gsap';
+import { LayoutGrid, Plus, Timer, Activity, Coffee, CalendarPlus, Key, Eye, EyeOff, Trash2, Image as ImageIcon } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface MatData {
   id: string; // e.g. 'mat-1'
   name: string; // e.g. 'MAT 01'
   order: number;
+  password?: string;
 }
 
 interface RTDBMatState {
@@ -33,6 +34,10 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
   const [loading, setLoading] = useState(true);
   const [isSeeding, setIsSeeding] = useState(false);
   const [compMatsCount, setCompMatsCount] = useState<number>(6);
+  const [showConfig, setShowConfig] = useState(false);
+  const [scoreboardLogo, setScoreboardLogo] = useState<string | null>(null);
+  const [showPasswordMap, setShowPasswordMap] = useState<Record<string, boolean>>({});
+  const [tempPasswords, setTempPasswords] = useState<Record<string, string>>({});
 
   useEffect(() => {
     let unsubFirestore: () => void;
@@ -50,8 +55,10 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
       const [compSnap] = await Promise.all([
         getDoc(doc(db, 'competitions', id)),
       ]);
-      if (compSnap.exists() && compSnap.data().mats) {
-        setCompMatsCount(compSnap.data().mats);
+      if (compSnap.exists()) {
+        const cData = compSnap.data();
+        if (cData.mats) setCompMatsCount(cData.mats);
+        if (cData.scoreboardLogo) setScoreboardLogo(cData.scoreboardLogo);
       }
 
       // Categories listener
@@ -97,17 +104,7 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
     };
   }, [id]);
 
-  useEffect(() => {
-    if (!loading && mats.length > 0) {
-      gsap.from('.bento-reveal', {
-        y: 30,
-        opacity: 0,
-        duration: 0.6,
-        stagger: 0.08,
-        ease: 'power3.out'
-      });
-    }
-  }, [loading, mats.length]);
+  // Removed GSAP stagger animation per user request (no fades)
 
   const handleSeedMats = async () => {
     setIsSeeding(true);
@@ -130,6 +127,40 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
     } finally {
       setIsSeeding(false);
     }
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const b64 = reader.result as string;
+      setScoreboardLogo(b64);
+      try {
+        const { db } = await import('@lib/firebase');
+        const { doc, updateDoc } = await import('firebase/firestore');
+        await updateDoc(doc(db, 'competitions', id), { scoreboardLogo: b64 });
+        toast.success('Scoreboard logo updated!');
+      } catch (err) {
+        toast.error('Failed to update logo');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const saveMatPassword = async (matId: string, pwd: string) => {
+    try {
+      const { db } = await import('@lib/firebase');
+      const { doc, updateDoc } = await import('firebase/firestore');
+      await updateDoc(doc(db, 'competitions', id, 'mats', matId), { password: pwd });
+      toast.success('Password updated');
+    } catch (err) {
+      toast.error('Failed to update password');
+    }
+  };
+
+  const togglePassword = (matId: string) => {
+    setShowPasswordMap(prev => ({ ...prev, [matId]: !prev[matId] }));
   };
 
   const activeCount = Object.values(liveStates).filter(s => s.status === 'live').length;
@@ -163,13 +194,13 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
           border-color: var(--neutral-300);
         }
         .mat-card.live {
-          border-top: 4px solid var(--status-live);
-          border-color: var(--status-live-bg);
-          box-shadow: 0 8px 24px rgba(22, 163, 74, 0.1);
+          background-color: #dcfce7;
+          border-color: #22c55e;
+          box-shadow: 0 8px 24px rgba(34, 197, 94, 0.15);
         }
         .mat-card.standby {
-          border-top: 4px solid var(--neutral-300);
-          background-color: var(--neutral-50);
+          background-color: var(--neutral-100);
+          border-color: var(--neutral-300);
         }
         .mat-number {
           font-family: var(--font-display);
@@ -432,21 +463,66 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
           </div>
           <div className="page-header-actions">
             <div className="controls-row">
-              <button className="btn btn-secondary">
-                <LayoutGrid style={{ width: '16px', marginRight: '6px' }} /> Grid View
+              <button className="btn btn-secondary" onClick={() => setShowConfig(!showConfig)}>
+                <Activity style={{ width: '16px', marginRight: '6px' }} /> {showConfig ? 'Hide Settings' : 'Mat Settings'}
               </button>
-              <button className="btn btn-primary" onClick={handleSeedMats} disabled={isSeeding}>
+              <button className="btn btn-primary" onClick={handleSeedMats} disabled={isSeeding || mats.length > 0}>
                 <Plus style={{ width: '16px', marginRight: '6px' }} /> 
                 {isSeeding ? 'Adding...' : 'Add Mats'}
               </button>
             </div>
-            <div className="filters">
-              <button className="filter-btn active">All Mats ({mats.length})</button>
-              <button className="filter-btn">Live ({activeCount})</button>
-              <button className="filter-btn">Standby ({standbyCount})</button>
-            </div>
           </div>
         </header>
+
+        {showConfig && (
+          <div style={{ background: 'var(--shiro)', padding: 'var(--space-5)', borderRadius: '12px', border: '1px solid var(--neutral-200)', marginBottom: 'var(--space-5)', display: 'flex', gap: 'var(--space-6)', flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 300px' }}>
+              <div className="flex-between mb-4">
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '14px' }}>Scoreboard Logo (Optional)</h4>
+                  <p className="text-small" style={{ marginTop: '4px', color: 'var(--neutral-500)' }}>Upload a 1:1 ratio logo to display on all scoreboards.</p>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                {scoreboardLogo && (
+                  <div style={{ width: '48px', height: '48px', borderRadius: '8px', overflow: 'hidden', background: '#fff', border: '1px solid var(--neutral-200)', flexShrink: 0 }}>
+                    <img src={scoreboardLogo} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                  </div>
+                )}
+                <div style={{ flex: 1 }}>
+                  <input type="file" accept="image/*" onChange={handleLogoUpload} className="input-field" style={{ padding: '8px', height: 'auto', background: '#fff', width: '100%' }} />
+                </div>
+                {scoreboardLogo && (
+                  <button className="btn btn-ghost" onClick={async () => {
+                    setScoreboardLogo(null);
+                    const { db } = await import('@lib/firebase');
+                    const { doc, updateDoc } = await import('firebase/firestore');
+                    await updateDoc(doc(db, 'competitions', id), { scoreboardLogo: null });
+                  }} style={{ color: 'var(--aka)' }}>
+                    <Trash2 size={16} />
+                  </button>
+                )}
+              </div>
+            </div>
+            <div style={{ flex: '1 1 300px' }}>
+              <div className="flex-between mb-4">
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '14px' }}>Bulk Mat Passwords</h4>
+                  <p className="text-small" style={{ marginTop: '4px', color: 'var(--neutral-500)' }}>Set a generic password for all mats.</p>
+                </div>
+              </div>
+              <button className="btn btn-secondary" onClick={() => {
+                const pwd = prompt("Enter generic password for all mats:");
+                if (pwd) {
+                  mats.forEach(m => saveMatPassword(m.id, pwd));
+                  toast.success('Bulk password applied to all mats');
+                }
+              }} style={{ width: '100%', justifyContent: 'center' }}>
+                <Key size={16} style={{ marginRight: '8px' }}/> Set Bulk Passwords
+              </button>
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <div className="mat-grid">
@@ -484,17 +560,17 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
               const doneCats = assignedCats.filter(c => c.status === 'done');
 
               return (
-                <a key={mat.id} href={`/competitions/${id}/operator?mat=${mat.id}`} className={`mat-card ${isLive || liveCat ? 'live' : 'standby'} bento-reveal`}>
+                <a key={mat.id} href={`/competitions/${id}/operator?mat=${mat.id}`} className={`mat-card ${isLive || liveCat || upcomingCats.length > 0 ? 'live' : 'standby'}`}>
                   <div className="mat-header">
                     <span className="mat-number">{mat.name}</span>
                     {isLive || liveCat ? (
                       <span className="status-chip status-live">Live</span>
                     ) : upcomingCats.length > 0 ? (
-                      <span className="status-chip" style={{ background: 'var(--ao-light)', color: 'var(--ao)' }}>
-                        {upcomingCats.length} Upcoming
+                      <span className="status-chip" style={{ background: '#bbf7d0', color: '#166534' }}>
+                        {upcomingCats.length} Scheduled
                       </span>
                     ) : (
-                      <span className="status-chip status-done">Idle</span>
+                      <span className="status-chip status-done">Inactive</span>
                     )}
                   </div>
 
@@ -575,6 +651,33 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
                       </div>
                     </>
                   )}
+                  
+                  {/* Mat Password Field inside Mat Card */}
+                  <div style={{ marginTop: 'var(--space-3)', borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: 'var(--space-3)' }}>
+                    <label style={{ fontSize: '10px', textTransform: 'uppercase', fontWeight: 700, color: 'var(--neutral-500)', display: 'block', marginBottom: '4px' }}>Mat Password</label>
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                      <input 
+                        type={showPasswordMap[mat.id] ? "text" : "password"} 
+                        value={tempPasswords[mat.id] !== undefined ? tempPasswords[mat.id] : (mat.password || '')}
+                        onChange={e => setTempPasswords(prev => ({...prev, [mat.id]: e.target.value}))}
+                        onBlur={() => {
+                          if (tempPasswords[mat.id] !== undefined && tempPasswords[mat.id] !== mat.password) {
+                            saveMatPassword(mat.id, tempPasswords[mat.id]);
+                          }
+                        }}
+                        onClick={e => e.preventDefault()}
+                        placeholder="Set password..."
+                        style={{ width: '100%', padding: '6px 30px 6px 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid var(--neutral-300)', background: 'var(--shiro)' }}
+                      />
+                      <button 
+                        type="button" 
+                        onClick={(e) => { e.preventDefault(); togglePassword(mat.id); }}
+                        style={{ position: 'absolute', right: '8px', background: 'none', border: 'none', color: 'var(--neutral-500)', cursor: 'pointer', padding: 0, display: 'flex' }}
+                      >
+                        {showPasswordMap[mat.id] ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    </div>
+                  </div>
                 </a>
               );
             })}

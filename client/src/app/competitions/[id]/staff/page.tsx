@@ -19,12 +19,12 @@ interface StaffAssignment {
 }
 
 const INITIAL_DATA: StaffAssignment[] = [
-  // Score Operators
-  { id: 's1', type: 'score', scope: 'MAT 01', operator: 'Lucas Rossi', operatorSubtitle: 'Scoreboard Controller', statusText: 'On Shift', statusCode: 'live', role: 'Scoreboard Controller', coverage: 'Senior Male Kumite -75kg', scopeSubtitle: 'Semi-Final' },
-  { id: 's2', type: 'score', scope: 'MAT 02', operator: 'Amina Ndiaye', operatorSubtitle: 'Scoreboard Controller', statusText: 'On Shift', statusCode: 'live', role: 'Scoreboard Controller', coverage: 'Senior Female Kata', scopeSubtitle: 'Round of 16' },
-  { id: 's3', type: 'score', scope: 'MAT 03', operator: 'Unassigned', statusText: 'Standby', statusCode: 'upcoming', role: 'Scoreboard Controller', coverage: 'U21 Male Kumite +84kg', scopeSubtitle: 'Warm-up' },
-  { id: 's4', type: 'score', scope: 'MAT 04', operator: 'Kenji Sato', operatorSubtitle: 'Scoreboard Controller', statusText: 'On Shift', statusCode: 'live', role: 'Scoreboard Controller', coverage: 'Junior Female Kumite +59kg', scopeSubtitle: 'Quarter-Final' },
-  { id: 's5', type: 'score', scope: 'MAT 05', operator: 'Yumi Tanaka', operatorSubtitle: 'Scoreboard Controller', statusText: 'Standby', statusCode: 'upcoming', role: 'Scoreboard Controller', coverage: 'Senior Team Kata', scopeSubtitle: 'Next Match 11:40' },
+  // Mat Operators
+  { id: 's1', type: 'score', scope: 'MAT 01', operator: 'Lucas Rossi', operatorSubtitle: 'Mat Operator', statusText: 'On Shift', statusCode: 'live', role: 'Mat Operator', coverage: 'Senior Male Kumite -75kg', scopeSubtitle: 'Semi-Final' },
+  { id: 's2', type: 'score', scope: 'MAT 02', operator: 'Amina Ndiaye', operatorSubtitle: 'Mat Operator', statusText: 'On Shift', statusCode: 'live', role: 'Mat Operator', coverage: 'Senior Female Kata', scopeSubtitle: 'Round of 16' },
+  { id: 's3', type: 'score', scope: 'MAT 03', operator: 'Unassigned', statusText: 'Standby', statusCode: 'upcoming', role: 'Mat Operator', coverage: 'U21 Male Kumite +84kg', scopeSubtitle: 'Warm-up' },
+  { id: 's4', type: 'score', scope: 'MAT 04', operator: 'Kenji Sato', operatorSubtitle: 'Mat Operator', statusText: 'On Shift', statusCode: 'live', role: 'Mat Operator', coverage: 'Junior Female Kumite +59kg', scopeSubtitle: 'Quarter-Final' },
+  { id: 's5', type: 'score', scope: 'MAT 05', operator: 'Yumi Tanaka', operatorSubtitle: 'Mat Operator', statusText: 'Standby', statusCode: 'upcoming', role: 'Mat Operator', coverage: 'Senior Team Kata', scopeSubtitle: 'Next Match 11:40' },
   
   // Attendance
   { id: 'a1', type: 'attendance', scope: 'Senior Male Kumite -75kg', operator: 'Maria Garcia', statusText: 'Ready', statusCode: 'live', role: 'Attendance Volunteer', coverage: '30 / 32', scopeSubtitle: '2 pending' },
@@ -378,12 +378,12 @@ export default function StaffPage({ params }: { params: Promise<{ id: string }> 
           </div>
         ) : (
           <div className="staff-stack">
-            {/* Score Operators */}
+            {/* Mat Operators */}
             {scoreStaff.length > 0 && (
               <section className="staff-card">
                 <div className="staff-header">
                   <div>
-                    <h3>Score Operators by Mat</h3>
+                    <h3>Mat Operators</h3>
                     <p className="text-small">Who is running each mat right now and which category they are handling.</p>
                   </div>
                 </div>

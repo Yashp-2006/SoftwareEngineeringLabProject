@@ -22,6 +22,8 @@ export default function DashboardPage() {
   const [chartType, setChartType] = useState('bar');
   const [timeFilter, setTimeFilter] = useState('6M');
   const [liveCompetitions, setLiveCompetitions] = useState<any[]>([]);
+  const [trendData, setTrendData] = useState<{label: string, val: number, peak: boolean}[]>([]);
+  const [pieData, setPieData] = useState<{label: string, val: number, color: string}[]>([]);
 
   useEffect(() => {
     if (!authLoading) {
@@ -43,6 +45,7 @@ export default function DashboardPage() {
         let earliestUpcomingDate = Infinity;
         let eventsThisYear = 0;
         let clubsSet = new Set<string>();
+        let compsForTrend: any[] = [];
 
         const now = new Date();
         const currentYear = now.getFullYear();
@@ -77,14 +80,67 @@ export default function DashboardPage() {
           }
           
           // Count athletes if available
-          if (data.athletesCount) athletes += data.athletesCount;
-          else if (data.entries) athletes += data.entries;
+          let compAthletes = 0;
+          if (data.athletesCount) compAthletes = data.athletesCount;
+          else if (data.entries) compAthletes = data.entries;
+          
+          athletes += compAthletes;
+          
+          if (compAthletes > 0) {
+            compsForTrend.push({ 
+              label: data.name || 'Unnamed', 
+              val: compAthletes, 
+              date: new Date(data.createdAt || data.startDate || 0).getTime(),
+              id: doc.id
+            });
+          }
         });
         
         if (athletes === 0) athletes = 1482; // Fallback to mock if no real data
         const totalClubs = 42; 
         
         setStats({ active, upcoming, athletes, completed, activeMats, nextUpcomingName, eventsThisYear, totalClubs });
+
+        // Process trend data
+        compsForTrend.sort((a, b) => a.date - b.date); // Oldest to newest
+        let finalTrends = compsForTrend.map(c => ({ label: c.label, val: c.val, peak: false }));
+        if (finalTrends.length === 0) {
+          // Fallback if no comps have athletes
+          finalTrends = [
+            { label: 'Winter Cup', val: 320, peak: false },
+            { label: 'Spring Open', val: 480, peak: false },
+            { label: 'Summer Clash', val: 640, peak: false },
+            { label: 'Nationals', val: 850, peak: true }
+          ];
+        } else {
+          const maxVal = Math.max(...finalTrends.map(t => t.val));
+          finalTrends.forEach(t => t.peak = t.val === maxVal);
+        }
+        setTrendData(finalTrends);
+
+        // Process pie chart data (fetch categories for the latest competition with athletes)
+        if (compsForTrend.length > 0) {
+          const latestComp = compsForTrend[compsForTrend.length - 1];
+          const catsSnap = await getDocs(collection(db, 'competitions', latestComp.id, 'categories'));
+          const colors = ['#e63946', '#f4a261', '#e9c46a', '#2a9d8f', '#264653', '#8ab17d', '#e76f51'];
+          let pData: any[] = [];
+          catsSnap.forEach(catDoc => {
+            const cData = catDoc.data();
+            const count = Array.isArray(cData.athletes) ? cData.athletes.length : 0;
+            if (count > 0) {
+              pData.push({ label: cData.name || 'Unnamed', val: count });
+            }
+          });
+          pData.sort((a, b) => b.val - a.val); // Sort by count descending
+          // Group small categories into "Other" if there are too many
+          if (pData.length > 6) {
+            const top = pData.slice(0, 5);
+            const otherVal = pData.slice(5).reduce((sum, item) => sum + item.val, 0);
+            pData = [...top, { label: 'Other Categories', val: otherVal }];
+          }
+          setPieData(pData.map((d, i) => ({ ...d, color: colors[i % colors.length] })));
+        }
+
       } catch (err) {
         console.error('Failed to load stats', err);
       } finally {
@@ -167,26 +223,44 @@ export default function DashboardPage() {
     return () => { if (ctx) ctx.revert(); };
   }, [chartType, timeFilter]);
 
-  const generateDynamicData = () => {
-    const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-    const currentMonthIndex = new Date().getMonth(); 
-    const baseVals = [320, 480, 640, 850, 560, 720, 800, 600, 500, 900, 750, 1050];
+  const chartData = timeFilter === '12M' ? trendData : trendData.slice(-6);
+  const maxVal = chartData.length > 0 ? Math.max(...chartData.map(d => d.val)) : 100;
+  
+  // SVG Pie Chart Helper
+  const renderPieChart = () => {
+    if (pieData.length === 0) return <div style={{ color: 'var(--neutral-500)', fontSize: '13px', textAlign: 'center', marginTop: '40px' }}>No category data available</div>;
+    let cumulativePercent = 0;
+    const totalPieVal = pieData.reduce((sum, d) => sum + d.val, 0);
     
-    return Array.from({ length: 12 }).map((_, i) => {
-      // Calculate month index ending with current month
-      const mIndex = (currentMonthIndex - 11 + i + 12) % 12;
-      const val = baseVals[i];
-      return {
-        label: months[mIndex],
-        val: val,
-        peak: val >= 850
-      };
-    });
+    function getCoordinatesForPercent(percent: number) {
+      const x = Math.cos(2 * Math.PI * percent);
+      const y = Math.sin(2 * Math.PI * percent);
+      return [x, y];
+    }
+
+    return (
+      <svg viewBox="-1 -1 2 2" style={{ width: '140px', height: '140px', transform: 'rotate(-90deg)' }}>
+        {pieData.map((slice, i) => {
+          const slicePercent = slice.val / totalPieVal;
+          if (slicePercent === 0) return null;
+          if (slicePercent === 1) {
+            return <circle key={i} cx="0" cy="0" r="1" fill={slice.color} />;
+          }
+          const [startX, startY] = getCoordinatesForPercent(cumulativePercent);
+          cumulativePercent += slicePercent;
+          const [endX, endY] = getCoordinatesForPercent(cumulativePercent);
+          const largeArcFlag = slicePercent > 0.5 ? 1 : 0;
+          const pathData = [
+            `M ${startX} ${startY}`, // Move
+            `A 1 1 0 ${largeArcFlag} 1 ${endX} ${endY}`, // Arc
+            `L 0 0`, // Line to center
+          ].join(' ');
+
+          return <path key={i} d={pathData} fill={slice.color} stroke="var(--shiro)" strokeWidth="0.02" />;
+        })}
+      </svg>
+    );
   };
-  const fullChartData = generateDynamicData();
-  const chartData = timeFilter === '12M' ? fullChartData : fullChartData.slice(-6);
-  const maxVal = Math.max(...chartData.map(d => d.val));
-  const totalVal = chartData.reduce((sum, d) => sum + d.val, 0);
 
   if (authLoading || (!user || (role !== 'admin' && role !== 'guest_viewer'))) {
     return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Redirecting...</div>;
@@ -359,11 +433,11 @@ export default function DashboardPage() {
           </div>
 
           {/* Participation Trends (Wide) */}
-          <div className="bento-card col-span-12" style={{ height: '220px' }}>
+          <div className="bento-card col-span-8" style={{ height: '260px' }}>
             <div className="flex-between mb-4">
               <div className="stat-header" style={{ margin: 0 }}>
                 <i data-lucide="trending-up" style={{ width: '16px', color: 'var(--ao)' }}></i>
-                Participation Trends
+                Competition Participation Trends
               </div>
               <div className="chart-controls">
                 <select className="select-minimal" value={chartType} onChange={(e) => setChartType(e.target.value)}>
@@ -371,30 +445,32 @@ export default function DashboardPage() {
                   <option value="line">Line Graph</option>
                 </select>
                 <select className="select-minimal" value={timeFilter} onChange={(e) => setTimeFilter(e.target.value)}>
-                  <option value="6M">Last 6 Months</option>
-                  <option value="12M">This Year</option>
+                  <option value="6M">Latest 6</option>
+                  <option value="12M">All Competitions</option>
                 </select>
               </div>
             </div>
             
             <div style={{ flex: 1, width: '100%', position: 'relative', display: 'flex', alignItems: chartType === 'bar' ? 'flex-end' : 'stretch', justifyContent: chartType === 'bar' ? 'space-between' : 'stretch' }}>
-              {chartType === 'bar' && chartData.map((d, i) => {
+              {chartData.length === 0 ? (
+                <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', color: 'var(--neutral-500)', fontSize: '13px' }}>
+                  No participation data yet.
+                </div>
+              ) : chartType === 'bar' ? chartData.map((d, i) => {
                 const heightPct = (d.val / maxVal) * 85;
                 const barColor = d.peak ? 'var(--aka)' : 'var(--neutral-300)';
                 return (
                   <div key={i} className="bar-group">
                     <div 
                       className="bar-inner" 
-                      style={{ height: `${heightPct}%`, background: barColor }}
+                      style={{ height: `${Math.max(5, heightPct)}%`, background: barColor }}
                       title={`${d.label}: ${d.val} Athletes`}
                     >
                       <div className="bar-label">{d.val}</div>
                     </div>
                   </div>
                 );
-              })}
-              
-              {chartType === 'line' && (
+              }) : (
                 <svg width="100%" height="100%" style={{ overflow: 'visible', position: 'absolute', bottom: 0 }}>
                   {chartData.slice(1).map((d, i) => {
                     const prev = chartData[i];
@@ -426,7 +502,31 @@ export default function DashboardPage() {
             </div>
 
             <div className="flex-between" style={{ fontSize: '10px', fontWeight: 600, color: 'var(--neutral-400)', paddingTop: 'var(--space-3)', marginTop: 'auto' }}>
-              {chartData.map(d => <span key={d.label} style={{ flex: 1, textAlign: 'center' }}>{d.label}</span>)}
+              {chartData.map((d, i) => <span key={i} style={{ flex: 1, textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '0 4px' }} title={d.label}>{d.label}</span>)}
+            </div>
+          </div>
+
+          {/* Category Distribution Pie Chart */}
+          <div className="bento-card col-span-4" style={{ height: '260px' }}>
+            <div className="stat-header" style={{ margin: 0, marginBottom: 'var(--space-3)' }}>
+              <i data-lucide="pie-chart" style={{ width: '16px', color: 'var(--neutral-500)' }}></i>
+              Category Distribution
+            </div>
+            <p className="text-small" style={{ color: 'var(--neutral-500)', marginBottom: 'var(--space-3)' }}>Athletes per category in recent event</p>
+            
+            <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'center', height: '100%' }}>
+              <div style={{ flexShrink: 0 }}>
+                {renderPieChart()}
+              </div>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px', overflowY: 'auto', maxHeight: '140px', paddingRight: '8px' }}>
+                {pieData.map((d, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
+                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: d.color, flexShrink: 0 }}></span>
+                    <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--neutral-700)' }} title={d.label}>{d.label}</span>
+                    <span style={{ fontWeight: 700 }}>{d.val}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </section>

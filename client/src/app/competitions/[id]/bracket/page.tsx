@@ -4,8 +4,9 @@ import React, { useState, useEffect } from 'react';
 import { db } from '@lib/firebase';
 import { collection, onSnapshot, query, doc, getDoc } from 'firebase/firestore';
 import FullscreenBracketModal from '@/components/FullscreenBracketModal';
-import { Eye, Trophy, Target, Clock, X, Plus, Star, Zap, Download } from 'lucide-react';
+import { Eye, Trophy, Target, Clock, X, Plus, Star, Zap, Download, UserPlus } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { useAuth } from '@/components/auth/AuthProvider';
 
 // ─── Special Category Modal ─────────────────────────────────────────────────
 function SpecialCategoryModal({
@@ -308,6 +309,14 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
   const [downloadingTiesheets, setDownloadingTiesheets] = useState(false);
   const [compData, setCompData] = useState<any>(null);
 
+  const { role } = useAuth();
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [addingAthlete, setAddingAthlete] = useState(false);
+  const [addForm, setAddForm] = useState({
+    name: '', academy: '', age: '', weight: '', gender: 'Male', categoryId: '',
+    phone: '', email: '', coachName: '', interestSpecialIds: [] as string[]
+  });
+
   const specialCategories = categories.filter(c => c.isSpecial);
 
   const searchResults = React.useMemo(() => {
@@ -449,6 +458,40 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
       toast.error('Failed to generate tiesheets: ' + e.message);
     } finally {
       setDownloadingTiesheets(false);
+    }
+  };
+
+  const handleAddAthlete = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAddingAthlete(true);
+    try {
+      const res = await fetch(`/api/competitions/${id}/athletes/add`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          categoryId: addForm.categoryId,
+          athleteData: {
+            name: addForm.name,
+            academy: addForm.academy,
+            age: parseInt(addForm.age),
+            weight: parseFloat(addForm.weight),
+            gender: addForm.gender,
+            phone: addForm.phone,
+            email: addForm.email,
+            coachName: addForm.coachName,
+            interestSpecial: addForm.interestSpecialIds.join(', '),
+          }
+        }),
+      });
+      const result = await res.json();
+      if (!result.success) throw new Error(result.error);
+      setIsAddModalOpen(false);
+      setAddForm({ name: '', academy: '', age: '', weight: '', gender: 'Male', categoryId: '', phone: '', email: '', coachName: '', interestSpecialIds: [] });
+      toast.success('Athlete added successfully!');
+    } catch (err: any) {
+      toast.error(`Failed to add athlete: ${err.message}`);
+    } finally {
+      setAddingAthlete(false);
     }
   };
 
@@ -648,6 +691,12 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
               <Star size={14} />
               Create Special Tiesheet
             </button>
+            {role === 'admin' && (
+              <button className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={() => setIsAddModalOpen(true)}>
+                <UserPlus size={16} />
+                Add On-Spot Entry
+              </button>
+            )}
             {categories.length > 0 && (
               <button 
                 className="btn btn-secondary" 
@@ -780,6 +829,91 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
             setActiveCategoryId(catId);
           }}
         />
+      )}
+
+      {/* Add On-Spot Entry Modal */}
+      {isAddModalOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000 }} onClick={() => !addingAthlete && setIsAddModalOpen(false)}>
+          <div style={{ background: 'white', borderRadius: '12px', width: '100%', maxWidth: '500px', padding: '24px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+            <h2 style={{ marginBottom: '20px' }}>Add On-Spot Entry</h2>
+            <form onSubmit={handleAddAthlete}>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Full Name</label>
+                <input required style={{ width: '100%', padding: '10px', border: '1px solid var(--neutral-300)', borderRadius: '6px' }} value={addForm.name} onChange={e => setAddForm(p => ({...p, name: e.target.value}))} />
+              </div>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Academy / Dojo</label>
+                <input required style={{ width: '100%', padding: '10px', border: '1px solid var(--neutral-300)', borderRadius: '6px' }} value={addForm.academy} onChange={e => setAddForm(p => ({...p, academy: e.target.value}))} />
+              </div>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Coach Name</label>
+                <input style={{ width: '100%', padding: '10px', border: '1px solid var(--neutral-300)', borderRadius: '6px' }} placeholder="Coach's full name" value={addForm.coachName} onChange={e => setAddForm(p => ({...p, coachName: e.target.value}))} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Phone Number</label>
+                  <input type="tel" style={{ width: '100%', padding: '10px', border: '1px solid var(--neutral-300)', borderRadius: '6px' }} placeholder="e.g. +91 98765 43210" value={addForm.phone} onChange={e => setAddForm(p => ({...p, phone: e.target.value}))} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Email</label>
+                  <input type="email" style={{ width: '100%', padding: '10px', border: '1px solid var(--neutral-300)', borderRadius: '6px' }} placeholder="athlete@email.com" value={addForm.email} onChange={e => setAddForm(p => ({...p, email: e.target.value}))} />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Age</label>
+                  <input required type="number" style={{ width: '100%', padding: '10px', border: '1px solid var(--neutral-300)', borderRadius: '6px' }} value={addForm.age} onChange={e => setAddForm(p => ({...p, age: e.target.value}))} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Weight (kg)</label>
+                  <input required type="number" step="0.1" style={{ width: '100%', padding: '10px', border: '1px solid var(--neutral-300)', borderRadius: '6px' }} value={addForm.weight} onChange={e => setAddForm(p => ({...p, weight: e.target.value}))} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Gender</label>
+                  <select style={{ width: '100%', padding: '10px', border: '1px solid var(--neutral-300)', borderRadius: '6px' }} value={addForm.gender} onChange={e => setAddForm(p => ({...p, gender: e.target.value}))}>
+                    <option>Male</option>
+                    <option>Female</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Category</label>
+                <select required style={{ width: '100%', padding: '10px', border: '1px solid var(--neutral-300)', borderRadius: '6px' }} value={addForm.categoryId} onChange={e => setAddForm(p => ({...p, categoryId: e.target.value}))}>
+                  <option value="" disabled>Select Category</option>
+                  {standardCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              {specialCategories.length > 0 && (
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Interest in Special Categories</label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px', border: '1px solid var(--neutral-300)', borderRadius: '8px', background: 'var(--neutral-50)' }}>
+                    {specialCategories.map(sc => {
+                      const checked = addForm.interestSpecialIds.includes(sc.id);
+                      return (
+                        <label key={sc.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '14px', fontWeight: 500 }}>
+                          <span style={{ width: '20px', height: '20px', border: `2px solid ${checked ? 'var(--ao)' : 'var(--neutral-300)'}`, borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: checked ? 'var(--ao)' : 'white', flexShrink: 0, transition: 'all 0.15s' }}>
+                            {checked && <span style={{ color: 'white', fontWeight: 900, fontSize: '13px', lineHeight: 1 }}>&#10003;</span>}
+                          </span>
+                          <input type="checkbox" style={{ display: 'none' }} checked={checked} onChange={() => {
+                            setAddForm(p => ({ ...p, interestSpecialIds: checked ? p.interestSpecialIds.filter(x => x !== sc.id) : [...p.interestSpecialIds, sc.id] }));
+                          }} />
+                          <span>{sc.name}</span>
+                          {sc.medal && <span style={{ fontSize: '11px', color: 'var(--neutral-500)', fontWeight: 600 }}>({sc.medal})</span>}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setIsAddModalOpen(false)} disabled={addingAthlete}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={addingAthlete}>
+                  {addingAthlete ? 'Adding...' : 'Add Athlete'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </>
   );

@@ -23,7 +23,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
   const [deploying, setDeploying] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [importResult, setImportResult] = useState<{categoriesTotal: number; athletesImported: number} | null>(null);
-  const [modalType, setModalType] = useState<'standard'|'merge'|null>(null);
+  const [modalType, setModalType] = useState<'standard'|'merge'|'bulkPassword'|null>(null);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [undersizedModalOpen, setUndersizedModalOpen] = useState(false);
   const [previewCatId, setPreviewCatId] = useState<string | null>(null);
@@ -253,30 +253,9 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
     }
   };
 
-  const bulkSetMatPasswords = async () => {
-    const pwd = window.prompt("Enter a password to apply to ALL mats:");
-    if (!pwd || !pwd.trim()) return;
-    
-    const newMap = { ...matPasswordMap };
-    for (let i = 0; i < matsCount; i++) {
-      newMap[i] = pwd.trim();
-    }
-    setMatPasswordMap(newMap);
-    
-    try {
-      const { db } = await import('@lib/firebase');
-      const { doc, setDoc, writeBatch } = await import('firebase/firestore');
-      const batch = writeBatch(db);
-      for (let i = 0; i < matsCount; i++) {
-        const matId = `mat-${i + 1}`;
-        batch.set(doc(db, 'competitions', id, 'mats', matId), { password: pwd.trim() }, { merge: true });
-      }
-      await batch.commit();
-      toast.success('Bulk set passwords successfully!');
-    } catch (err) {
-      console.error(err);
-      toast.error('Failed to bulk set passwords.');
-    }
+  const bulkSetMatPasswords = () => {
+    setModalFormData({ password: '' });
+    setModalType('bulkPassword');
   };
 
   const maxPhase = compRules === 'wkf' ? 5 : 6;
@@ -511,7 +490,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
       
       await batch.commit();
       toast.success("Deployment successful! Schedule generated and saved.");
-      router.push(`/competitions/${id}`);
+      window.location.href = `/competitions/${id}`;
     } catch (err) {
       console.error(err);
       toast.error("Failed to deploy tournament.");
@@ -1200,38 +1179,63 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                 <div className="cat-group">
                   <div className="flex-between">
                     <div>
-                      <h3>Attendance Volunteers</h3>
-                      <p className="text-small">Assign volunteers to manage athlete attendance per category.</p>
+                      <h3>Staff Assignments Preview</h3>
+                      <p className="text-small">Assign key personnel for the tournament. Detailed assignments can be managed in the Live Staff page.</p>
                     </div>
                   </div>
                   <div className="table-responsive">
                     <table className="cat-table">
                       <thead>
                         <tr>
-                          <th className="text-micro">Category</th>
-                          <th className="text-micro">Assigned Volunteer</th>
+                          <th className="text-micro">Role Type</th>
+                          <th className="text-micro">Coverage / Scope</th>
+                          <th className="text-micro">Assigned To</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredCategories.map((cat, idx) => (
-                          <tr key={cat.id || idx}>
-                            <td style={{ fontWeight: 500 }}>{cat.name}</td>
-                            <td>
-                              <select className="input-field" style={{ height: '36px', marginBottom: 0 }}>
-                                <option value="">Unassigned</option>
-                                <option value="john">John Doe</option>
-                                <option value="jane">Jane Smith</option>
-                              </select>
-                            </td>
-                          </tr>
-                        ))}
-                        {filteredCategories.length === 0 && (
-                          <tr>
-                            <td colSpan={2} style={{ textAlign: 'center', color: 'var(--neutral-500)', padding: 'var(--space-6)' }}>
-                              No categories defined.
-                            </td>
-                          </tr>
-                        )}
+                        <tr>
+                          <td style={{ fontWeight: 500 }}>Mat Operators</td>
+                          <td>Per Mat (e.g., MAT 01, MAT 02)</td>
+                          <td>
+                            <select className="input-field" style={{ height: '36px', marginBottom: 0 }}>
+                              <option value="">Unassigned</option>
+                              <option value="lucas">Lucas Rossi</option>
+                              <option value="amina">Amina Ndiaye</option>
+                            </select>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style={{ fontWeight: 500 }}>Attendance Volunteers</td>
+                          <td>Per Category (e.g., Senior Male Kumite)</td>
+                          <td>
+                            <select className="input-field" style={{ height: '36px', marginBottom: 0 }}>
+                              <option value="">Unassigned</option>
+                              <option value="maria">Maria Garcia</option>
+                              <option value="rafael">Rafael Silva</option>
+                            </select>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style={{ fontWeight: 500 }}>Medal Distributors</td>
+                          <td>Per Region / Level (e.g., National)</td>
+                          <td>
+                            <select className="input-field" style={{ height: '36px', marginBottom: 0 }}>
+                              <option value="">Unassigned</option>
+                              <option value="yuki">Yuki Tanaka</option>
+                            </select>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style={{ fontWeight: 500 }}>Guest Viewers</td>
+                          <td>Global Read-Only Access</td>
+                          <td>
+                            <select className="input-field" style={{ height: '36px', marginBottom: 0 }}>
+                              <option value="">Unassigned</option>
+                              <option value="guest1">Guest Account 1</option>
+                              <option value="guest2">VIP Observer</option>
+                            </select>
+                          </td>
+                        </tr>
                       </tbody>
                     </table>
                   </div>
@@ -1249,6 +1253,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
             <h3>
               {modalType === 'standard' && 'Add Standard Category'}
               {modalType === 'merge' && 'Merge Categories'}
+              {modalType === 'bulkPassword' && 'Bulk Set Mat Passwords'}
             </h3>
             <button className="close-btn" onClick={() => { setModalType(null); setModalFormData({}); }}><X size={16} /></button>
           </div>
@@ -1319,10 +1324,20 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                 <p className="text-small" style={{ color: 'var(--neutral-500)' }}>Select categories to merge from the list in WKF mode, or type the name manually here if custom.</p>
               </>
             )}
+
+            {modalType === 'bulkPassword' && (
+              <>
+                <div className="form-group">
+                  <label>Generic Password</label>
+                  <input type="password" className="input-field" placeholder="Enter password for all mats" value={modalFormData.password || ''} onChange={e => setModalFormData({...modalFormData, password: e.target.value})} />
+                </div>
+                <p className="text-small" style={{ color: 'var(--neutral-500)' }}>This will overwrite the password for all {matsCount} mats.</p>
+              </>
+            )}
           </div>
           <div className="modal-footer">
             <button className="btn btn-secondary" onClick={() => { setModalType(null); setModalFormData({}); }}>Cancel</button>
-            <button className="btn btn-primary" onClick={() => {
+            <button className="btn btn-primary" onClick={async () => {
               if (modalType === 'standard' && modalFormData.name) {
                 const isKata = (modalFormData.discipline || 'Kumite') === 'Kata';
                 setCategories([...categories, { 
@@ -1348,6 +1363,28 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                  } else {
                    setCategories([...categories, { id: modalFormData.name, name: modalFormData.name, entries: 0 }]);
                  }
+              } else if (modalType === 'bulkPassword' && modalFormData.password) {
+                const pwd = modalFormData.password.trim();
+                const newMap = { ...matPasswordMap };
+                for (let i = 0; i < matsCount; i++) {
+                  newMap[i] = pwd;
+                }
+                setMatPasswordMap(newMap);
+                
+                try {
+                  const { db } = await import('@lib/firebase');
+                  const { doc, writeBatch } = await import('firebase/firestore');
+                  const batch = writeBatch(db);
+                  for (let i = 0; i < matsCount; i++) {
+                    const matId = `mat-${i + 1}`;
+                    batch.set(doc(db, 'competitions', id, 'mats', matId), { password: pwd }, { merge: true });
+                  }
+                  await batch.commit();
+                  toast.success('Bulk set passwords successfully!');
+                } catch (err) {
+                  console.error(err);
+                  toast.error('Failed to bulk set passwords.');
+                }
               }
               setModalType(null);
               setModalFormData({});
