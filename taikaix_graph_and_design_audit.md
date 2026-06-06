@@ -263,6 +263,20 @@ The Next.js app introduced several routes **not** in the original 18-screen spec
 > [!TIP]
 > **Most interesting new graph question:** Why does `PasswordGateway` connect the Auth community to the Mat Operations community? **Answer:** The operator portal is the only screen with domain-level password protection (per-competition password from Firestore), while the rest of the app uses Firebase Auth (email/password). This creates two parallel auth systems — one identity-based, one credential-based — that will need to be rationalized before v1 launch.
 
+> [!NOTE]
+> **10 Feature Implementations Batch (June 2026)** — ✅ **IMPLEMENTED:**
+> - Removed Special Category creation from Setup Wizard (moved strictly to live).
+> - Added Kata discipline support in standard categories.
+> - Upgraded On-Spot Entry form with Coach, Phone, Email, and special category checklists.
+> - Upgraded Medals view to group by Pool.
+> - Added "Estimated Time" and "Live Time" to Schedule view.
+> - Moved Disqualify operations directly into Operator Score Operations.
+> - Upgraded Match Queue pool filter to show ✅ / 🔴 completion status.
+> - Upgraded Athletes table with Coach Name, Contact No., and State columns.
+> - Replaced Operator Leaderboard with a "Skipped Categories" panel.
+> - Fixed Bracket Auto-Fit to respect user manual zoom adjustments.
+> - Fixed Special Category Tiesheet Generator to accurately extract pool-wise winners.
+
 ---
 
 ## 🎯 Suggested Next Steps (Updated from Graph Structure)

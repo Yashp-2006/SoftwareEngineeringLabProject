@@ -11,6 +11,7 @@ interface CategorySchedule {
   start: string;
   end: string;
   status: string;
+  actualEndTime?: string;
 }
 
 export default function SchedulePage({ params }: { params: Promise<{ id: string }> }) {
@@ -78,7 +79,8 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
             mat: data.mat,
             start: data.scheduledStartTime,
             end: data.scheduledEndTime,
-            status: data.status
+            status: data.status,
+            actualEndTime: data.actualEndTime,
           } as CategorySchedule;
         });
         setScheduleData(cats);
@@ -210,7 +212,7 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
         .schedule-table {
           width: 100%;
           border-collapse: collapse;
-          min-width: 680px;
+          min-width: 780px;
         }
         .schedule-table thead th {
           text-align: left;
@@ -362,19 +364,22 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
                 <tr>
                   <th className="text-micro">Category Name</th>
                   <th className="text-micro">Mat</th>
-                  <th className="text-micro">Time Frame</th>
+                  <th className="text-micro">Estimated Time</th>
+                  <th className="text-micro">Live Time</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredData.length === 0 ? (
-                  <tr><td colSpan={3} className="empty-row">No categories match the current filters.</td></tr>
+                  <tr><td colSpan={4} className="empty-row">No categories match the current filters.</td></tr>
                 ) : (
-                  filteredData.map(row => (
+                    filteredData.map(row => (
                     <tr key={row.id}>
                       <td>
                         <div className="category-name">{row.category}</div>
+                        {row.status === 'done' && <div style={{ fontSize: '11px', color: '#10b981', fontWeight: 700, marginTop: '2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Finished</div>}
+                        {row.status === 'live' && <div style={{ fontSize: '11px', color: 'var(--aka)', fontWeight: 700, marginTop: '2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>In Progress</div>}
                       </td>
-                      <td><span className="mat-pill">{row.mat || '—'}</span></td>
+                      <td><span className="mat-pill">{row.mat || '\u2014'}</span></td>
                       <td>
                         {row.start && row.end ? (
                           <div className="timeframe-chip">
@@ -384,6 +389,21 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
                           </div>
                         ) : (
                           <span className="unscheduled-tag">Unscheduled</span>
+                        )}
+                      </td>
+                      <td>
+                        {row.actualEndTime ? (
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 700, color: '#10b981' }}>
+                            <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }}></span>
+                            <span className="data-mono">{row.actualEndTime}</span>
+                          </div>
+                        ) : row.status === 'live' ? (
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 700, color: 'var(--aka)' }}>
+                            <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--aka)', display: 'inline-block', animation: 'pulse 1.5s infinite' }}></span>
+                            <span style={{ fontSize: '12px' }}>In Progress</span>
+                          </div>
+                        ) : (
+                          <span style={{ color: 'var(--neutral-400)', fontSize: '12px' }}>--:--</span>
                         )}
                       </td>
                     </tr>

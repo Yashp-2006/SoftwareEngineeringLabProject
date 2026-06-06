@@ -38,11 +38,11 @@ export interface SpecialCategoryRule {
   id?: string;
   name: string;
   gender?: string;
-  medal?: 'Gold Only' | 'Silver or Above' | 'Any Medal' | '';
   minAge?: number;
   maxAge?: number;
   minWeight?: number;
   maxWeight?: number;
+  sourceCategoryId?: string;
 }
 
 export interface CategoryDoc {
@@ -667,59 +667,76 @@ export function seedSpecialCategory(
   const eligible: AthleteRow[] = [];
   const seen = new Set<string>();
 
-  for (const catDoc of allCategoryDocs) {
+  const docsToProcess = rule.sourceCategoryId
+    ? allCategoryDocs.filter(c => c.id === rule.sourceCategoryId)
+    : allCategoryDocs;
+
+  for (const catDoc of docsToProcess) {
     const matches = catDoc.matches || [];
     if (matches.length === 0) continue;
 
-    // Find the final match (highest round number, first match in that round)
-    const maxRound = Math.max(...matches.map(m => m.round));
-    const finalsMatches = matches.filter(m => m.round === maxRound);
+    // Group matches by pool to find pool-wise winners
+    const poolMap = new Map<string, MatchNode[]>();
+    for (const m of matches) {
+      let pool = 'default';
+      if (m.id && m.id.includes('Pool')) {
+        pool = m.id.split('-')[0];
+      }
+      if (!poolMap.has(pool)) poolMap.set(pool, []);
+      poolMap.get(pool)!.push(m);
+    }
 
-    for (const finalMatch of finalsMatches) {
-      const goldWinnerId = finalMatch.winnerId;
-      const goldAthlete = goldWinnerId
-        ? (finalMatch.aka?.playerId === goldWinnerId ? finalMatch.aka : finalMatch.ao) as AthleteRow | null
-        : null;
-      const silverAthlete = goldWinnerId
-        ? (finalMatch.aka?.playerId === goldWinnerId ? finalMatch.ao : finalMatch.aka) as AthleteRow | null
-        : null;
+    for (const [pool, poolMatches] of poolMap.entries()) {
+      // Find the final match (highest round number in this pool)
+      const maxRound = Math.max(...poolMatches.map(m => m.round));
+      const finalsMatches = poolMatches.filter(m => m.round === maxRound);
 
-      const addIfEligible = (ath: AthleteRow | null, medal: 'gold' | 'silver' | 'bronze') => {
-        if (!ath || !ath.playerId || seen.has(ath.playerId)) return;
+      for (const finalMatch of finalsMatches) {
+        const goldWinnerId = finalMatch.winnerId;
+        const goldAthlete = goldWinnerId
+          ? (finalMatch.aka?.playerId === goldWinnerId ? finalMatch.aka : finalMatch.ao) as AthleteRow | null
+          : null;
+        const silverAthlete = goldWinnerId
+          ? (finalMatch.aka?.playerId === goldWinnerId ? finalMatch.ao : finalMatch.aka) as AthleteRow | null
+          : null;
 
-        const age = ath.age || 0;
-        const weight = ath.weight || 0;
+        const addIfEligible = (ath: AthleteRow | null, medal: 'gold' | 'silver' | 'bronze') => {
+          if (!ath || !ath.playerId || seen.has(ath.playerId)) return;
 
-        if (rule.minAge !== undefined && age < rule.minAge) return;
-        if (rule.maxAge !== undefined && age > rule.maxAge) return;
-        if (rule.minWeight !== undefined && weight < rule.minWeight) return;
-        if (rule.maxWeight !== undefined && weight > rule.maxWeight) return;
+          const age = ath.age || 0;
+          const weight = ath.weight || 0;
 
-        seen.add(ath.playerId);
-        eligible.push({ ...ath, medal, sourceCategory: catDoc.name });
-      };
+          if (rule.minAge !== undefined && age < rule.minAge) return;
+          if (rule.maxAge !== undefined && age > rule.maxAge) return;
+          if (rule.minWeight !== undefined && weight < rule.minWeight) return;
+          if (rule.maxWeight !== undefined && weight > rule.maxWeight) return;
 
-      const medalFilter = rule.medal || 'Any Medal';
+          seen.add(ath.playerId);
+          eligible.push({ ...ath, medal, sourceCategory: catDoc.name });
+        };
 
-      if (medalFilter === 'Gold Only') {
-        addIfEligible(goldAthlete, 'gold');
-      } else if (medalFilter === 'Silver or Above') {
-        addIfEligible(goldAthlete, 'gold');
-        addIfEligible(silverAthlete, 'silver');
-      } else {
-        // 'Any Medal' — include anyone who won at least one match
-        addIfEligible(goldAthlete, 'gold');
-        addIfEligible(silverAthlete, 'silver');
+        const medalFilter = rule.medal || 'Any Medal';
 
-        // Find semi-final losers (bronze)
-        const semiRound = maxRound - 1;
-        if (semiRound >= 1) {
-          const semiMatches = matches.filter(m => m.round === semiRound);
-          for (const semi of semiMatches) {
-            const loser = semi.winnerId
-              ? (semi.aka?.playerId === semi.winnerId ? semi.ao : semi.aka) as AthleteRow | null
-              : null;
-            addIfEligible(loser, 'bronze');
+        if (medalFilter === 'Gold Only') {
+          addIfEligible(goldAthlete, 'gold');
+        } else if (medalFilter === 'Silver or Above') {
+          addIfEligible(goldAthlete, 'gold');
+          addIfEligible(silverAthlete, 'silver');
+        } else {
+          // 'Any Medal' — include anyone who won at least one match
+          addIfEligible(goldAthlete, 'gold');
+          addIfEligible(silverAthlete, 'silver');
+
+          // Find semi-final losers (bronze) in this pool
+          const semiRound = maxRound - 1;
+          if (semiRound >= 1) {
+            const semiMatches = poolMatches.filter(m => m.round === semiRound);
+            for (const semi of semiMatches) {
+              const loser = semi.winnerId
+                ? (semi.aka?.playerId === semi.winnerId ? semi.ao : semi.aka) as AthleteRow | null
+                : null;
+              addIfEligible(loser, 'bronze');
+            }
           }
         }
       }

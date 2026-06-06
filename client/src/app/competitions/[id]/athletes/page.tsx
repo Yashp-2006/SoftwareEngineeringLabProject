@@ -14,6 +14,9 @@ interface Athlete {
   readiness: 'ready' | 'not-ready';
   disqualified: boolean;
   pool: string;
+  coachName?: string;
+  phone?: string;
+  state?: string;
 }
 
 interface Category {
@@ -35,8 +38,10 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [addingAthlete, setAddingAthlete] = useState(false);
   const [addForm, setAddForm] = useState({
-    name: '', academy: '', age: '', weight: '', gender: 'Male', categoryId: '', interestSpecial: ''
+    name: '', academy: '', age: '', weight: '', gender: 'Male', categoryId: '',
+    phone: '', email: '', coachName: '', interestSpecialIds: [] as string[]
   });
+  const [specialCategories, setSpecialCategories] = useState<any[]>([]);
 
   // Load categories from Firestore — extract athletes from matches
   useEffect(() => {
@@ -77,6 +82,9 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
               readiness: a.readiness || 'not-ready',
               disqualified: a.disqualified || false,
               pool: poolMap[a.playerId || a.name] || '',
+              coachName: a.coachName || '',
+              phone: a.phone || '',
+              state: a.state || '',
             })).sort((a, b) => a.name.localeCompare(b.name)),
           };
         });
@@ -89,6 +97,22 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
 
     setup();
     return () => unsubscribe();
+  }, [id]);
+
+  // Load special categories for the radar selector
+  useEffect(() => {
+    const loadSpecials = async () => {
+      const { db } = await import('@lib/firebase');
+      const { collection, getDocs, query, where } = await import('firebase/firestore');
+      try {
+        const q = query(collection(db, 'competitions', id, 'categories'), where('isSpecial', '==', true));
+        const snap = await getDocs(q);
+        setSpecialCategories(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      } catch (e) {
+        // If no special categories, silently ignore
+      }
+    };
+    loadSpecials();
   }, [id]);
 
   const activeCategory = categories.find(c => c.id === activeCategoryId);
@@ -190,14 +214,18 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
             age: parseInt(addForm.age),
             weight: parseFloat(addForm.weight),
             gender: addForm.gender,
-            interestSpecial: addForm.interestSpecial,
+            phone: addForm.phone,
+            email: addForm.email,
+            coachName: addForm.coachName,
+            interestSpecial: addForm.interestSpecialIds.join(', '),
           }
         }),
       });
       const result = await res.json();
       if (!result.success) throw new Error(result.error);
       setIsAddModalOpen(false);
-      setAddForm({ name: '', academy: '', age: '', weight: '', gender: 'Male', categoryId: '', interestSpecial: '' });
+      setAddForm({ name: '', academy: '', age: '', weight: '', gender: 'Male', categoryId: '',
+        phone: '', email: '', coachName: '', interestSpecialIds: [] });
       toast.success('Athlete added successfully!');
     } catch (err: any) {
       toast.error(`Failed to add athlete: ${err.message}`);
@@ -471,15 +499,16 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
                   <tr>
                     <th className="text-micro">Athlete Name</th>
                     <th className="text-micro">Academy</th>
+                    <th className="text-micro">Coach</th>
+                    <th className="text-micro">Contact / State</th>
                     <th className="text-micro">Present / Absent</th>
                     <th className="text-micro">Ready / Not Ready</th>
-                    <th className="text-micro">Disqualify</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredAthletes.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="empty-state">
+                      <td colSpan={6} className="empty-state">
                         {activeCategory?.athletes.length === 0
                           ? 'No athletes registered for this category yet.'
                           : 'No athletes match your search.'}
@@ -490,6 +519,11 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
                       <tr key={athlete.id}>
                         <td>{athlete.name}</td>
                         <td className="academy-name">{athlete.academy}</td>
+                        <td className="academy-name" style={{ fontSize: '13px', color: 'var(--neutral-600)' }}>{athlete.coachName || <span style={{color:'var(--neutral-400)',fontStyle:'italic'}}>—</span>}</td>
+                        <td style={{ fontSize: '12px' }}>
+                          <div>{athlete.phone || <span style={{color:'var(--neutral-400)',fontStyle:'italic'}}>—</span>}</div>
+                          {athlete.state && <div style={{color:'var(--neutral-500)',fontSize:'11px'}}>{athlete.state}</div>}
+                        </td>
                         <td>
                           <div className="attendance-control" style={{ opacity: role === 'guest_viewer' ? 0.6 : 1, pointerEvents: role === 'guest_viewer' ? 'none' : 'auto' }}>
                             <button
@@ -518,17 +552,6 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
                             >Not Ready</button>
                           </div>
                         </td>
-                        <td>
-                          <div className="attendance-control" style={{ opacity: role === 'guest_viewer' ? 0.6 : 1, pointerEvents: role === 'guest_viewer' ? 'none' : 'auto' }}>
-                            <button
-                              className={`attendance-btn absent ${athlete.disqualified ? 'active' : ''}`}
-                              onClick={() => handleUpdate(athlete.id, 'disqualified', !athlete.disqualified)}
-                              disabled={role === 'guest_viewer'}
-                            >
-                              {athlete.disqualified ? 'Disqualified' : 'Disqualify'}
-                            </button>
-                          </div>
-                        </td>
                       </tr>
                     ))
                   )}
@@ -551,6 +574,20 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
                 <div className="form-group">
                   <label>Academy / Dojo</label>
                   <input required className="form-input" value={addForm.academy} onChange={e => setAddForm(p => ({...p, academy: e.target.value}))} />
+                </div>
+                <div className="form-group">
+                  <label>Coach Name</label>
+                  <input className="form-input" placeholder="Coach's full name" value={addForm.coachName} onChange={e => setAddForm(p => ({...p, coachName: e.target.value}))} />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div className="form-group">
+                    <label>Phone Number</label>
+                    <input type="tel" className="form-input" placeholder="e.g. +91 98765 43210" value={addForm.phone} onChange={e => setAddForm(p => ({...p, phone: e.target.value}))} />
+                  </div>
+                  <div className="form-group">
+                    <label>Email</label>
+                    <input type="email" className="form-input" placeholder="athlete@email.com" value={addForm.email} onChange={e => setAddForm(p => ({...p, email: e.target.value}))} />
+                  </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
                   <div className="form-group">
@@ -576,10 +613,37 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
                     {categories.map(c => <option key={c.id} value={c.id}>{c.name} ({c.athletes.length} athletes)</option>)}
                   </select>
                 </div>
-                <div className="form-group">
-                  <label>Interest in Special Categories</label>
-                  <input className="form-input" placeholder="e.g. Open Kata, Team Kumite" value={addForm.interestSpecial} onChange={e => setAddForm(p => ({...p, interestSpecial: e.target.value}))} />
-                </div>
+                {specialCategories.length > 0 && (
+                  <div className="form-group">
+                    <label>Interest in Special Categories</label>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '6px', padding: '12px', border: '1px solid var(--neutral-300)', borderRadius: '8px', background: 'var(--neutral-50)' }}>
+                      {specialCategories.map(sc => {
+                        const checked = addForm.interestSpecialIds.includes(sc.id);
+                        return (
+                          <label key={sc.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '14px', fontWeight: 500 }}>
+                            <span style={{
+                              width: '20px', height: '20px', border: `2px solid ${checked ? 'var(--ao)' : 'var(--neutral-300)'}`,
+                              borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              background: checked ? 'var(--ao)' : 'white', flexShrink: 0, transition: 'all 0.15s'
+                            }}>
+                              {checked && <span style={{ color: 'white', fontWeight: 900, fontSize: '13px', lineHeight: 1 }}>&#10003;</span>}
+                            </span>
+                            <input type="checkbox" style={{ display: 'none' }} checked={checked} onChange={() => {
+                              setAddForm(p => ({
+                                ...p,
+                                interestSpecialIds: checked
+                                  ? p.interestSpecialIds.filter(x => x !== sc.id)
+                                  : [...p.interestSpecialIds, sc.id]
+                              }));
+                            }} />
+                            <span>{sc.name}</span>
+                            {sc.medal && <span style={{ fontSize: '11px', color: 'var(--neutral-500)', fontWeight: 600 }}>({sc.medal})</span>}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
                   <button type="button" className="btn btn-secondary" onClick={() => setIsAddModalOpen(false)} disabled={addingAthlete}>Cancel</button>
                   <button type="submit" className="btn btn-primary" disabled={addingAthlete}>

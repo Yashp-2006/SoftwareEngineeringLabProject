@@ -56,6 +56,19 @@
   - Integrated GSAP stagger animations that trigger on load and on chart filter changes.
   - Chart labels are now dynamically generated relative to the current month instead of using static mock data.
 
+- **10 Feature Implementations Batch**:
+  - Removed "Special Category" from Setup Wizard, moving its creation entirely to live competition mode.
+  - Added "Kata" discipline selection to standard categories.
+  - Added Phone Number, Email, and Coach Name fields to the On-Spot Entry form, plus an improved special category checklist.
+  - Refactored Medals to load winners group-wise per pool for specific categories.
+  - Updated the Schedule to display "Estimated Time" and "Live Time" columns instead of generic time frames.
+  - Removed the "Disqualify" button from the general athletes tab and added it specifically to the Operator Score Operations.
+  - Enhanced the Match Queue dropdown in Operator to indicate pool completion (✅ and 🔴).
+  - Enhanced Athletes view columns to include Coach Name, Contact No., and State.
+  - Replaced the Operator Leaderboard with a "Skipped Categories" panel.
+  - Fixed Tiesheet Zoom to ensure manual zoom adjustments are preserved and not overridden by auto-fit when brackets update.
+  - Enhanced Special Category bracket generation algorithm to seed winners per pool rather than just one overall winner per category.
+
 ## 2. What's Not Done
 - **RTDB Read/Write Mismatches**: While the operator writes to RTDB and the live mat reads from it, there may still be minor path sync issues or missing subscriptions for specific features (like the fullscreen scoreboard view).
 - **Staff and Schedule CRUD**: The UI for Staff (`/competitions/[id]/staff`) and Schedule (`/competitions/[id]/schedule`) exists, but the Firestore wiring for direct CRUD operations is not fully completed or verified.

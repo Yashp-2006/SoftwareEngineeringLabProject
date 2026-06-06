@@ -16,6 +16,7 @@ function SpecialCategoryModal({
 }: {
   competitionId: string;
   existingSpecialCats: any[];
+  standardCategories: any[];
   onClose: () => void;
   onCreated: (catId: string) => void;
 }) {
@@ -27,6 +28,7 @@ function SpecialCategoryModal({
   // New category form
   const [newName, setNewName] = useState('');
   const [newMedal, setNewMedal] = useState<'Gold' | 'Silver' | 'Bronze' | 'Any Medal'>('Gold');
+  const [newSourceCategoryId, setNewSourceCategoryId] = useState('');
   const [newMinAge, setNewMinAge] = useState('');
   const [newMaxAge, setNewMaxAge] = useState('');
   const [newMinWeight, setNewMinWeight] = useState('');
@@ -71,6 +73,7 @@ function SpecialCategoryModal({
         order: 9999,
         createdAt: new Date().toISOString(),
       };
+      if (newSourceCategoryId) catData.sourceCategoryId = newSourceCategoryId;
       if (newMinAge) catData.minAge = parseInt(newMinAge);
       if (newMaxAge) catData.maxAge = parseInt(newMaxAge);
       if (newMinWeight) catData.minWeight = parseFloat(newMinWeight);
@@ -207,7 +210,23 @@ function SpecialCategoryModal({
                   ))}
                 </div>
                 <p style={{ fontSize: '11px', color: '#6b7280', marginTop: '6px' }}>
-                  Athletes who won {newMedal === 'Any Medal' ? 'any match' : `a ${newMedal} medal`} in completed tiesheets will be seeded into this category.
+                  Athletes who won {newMedal === 'Any Medal' ? 'any match' : `a ${newMedal} medal`} per pool will be seeded into this category.
+                </p>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Source Category (Optional)</label>
+                <select
+                  value={newSourceCategoryId}
+                  onChange={e => setNewSourceCategoryId(e.target.value)}
+                  style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #d1d5db', borderRadius: '8px', fontSize: '14px', background: 'white' }}
+                >
+                  <option value="">Any Category (Filter by age/weight)</option>
+                  {standardCategories.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+                <p style={{ fontSize: '11px', color: '#6b7280', marginTop: '6px' }}>
+                  If selected, athletes will ONLY be drawn from this specific category's pools.
                 </p>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
@@ -752,6 +771,7 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
         <SpecialCategoryModal
           competitionId={id}
           existingSpecialCats={specialCategories}
+          standardCategories={standardCategories}
           onClose={() => setSpecialModalOpen(false)}
           onCreated={(catId) => {
             setActiveCategoryId(catId);

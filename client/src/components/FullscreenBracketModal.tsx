@@ -300,14 +300,22 @@ export function BracketViewer({
     : (matches || []);
 
   const [zoom, setZoom] = useState(1);
+  const [isManualZoom, setIsManualZoom] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
 
+  // Reset manual zoom when switching categories
+  useEffect(() => {
+    setIsManualZoom(false);
+  }, [categoryName]);
+
   const adjustZoom = (delta: number) => {
+    setIsManualZoom(true);
     setZoom(prev => Math.max(0.3, Math.min(2, +(prev + delta).toFixed(2))));
   };
 
   const fitToScreen = useCallback(() => {
+    if (isManualZoom) return;
     if (!viewportRef.current || !canvasRef.current) return;
     const margin = 60;
     const vW = viewportRef.current.clientWidth - margin;
@@ -318,7 +326,7 @@ export function BracketViewer({
     if (cW === 0 || cH === 0) return;
     const scale = Math.max(0.2, Math.min(1.2, Math.min(vW / cW, vH / cH)));
     setZoom(scale);
-  }, []);
+  }, [isManualZoom]);
 
   useEffect(() => {
     const t = setTimeout(fitToScreen, 200);
@@ -458,13 +466,13 @@ export function BracketViewer({
               </div>
             )}
           </div>
-          <button type="button" className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '11px', height: '28px', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={fitToScreen}>
+          <button type="button" className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '11px', height: '28px', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => { setIsManualZoom(false); setTimeout(() => fitToScreen(), 0); }}>
             <Maximize size={12} /> Fit
           </button>
           <button type="button" style={{ background: 'none', border: 'none', padding: 0, display: 'flex', cursor: 'pointer', color: 'var(--neutral-500)' }} onClick={() => adjustZoom(-0.1)}>
             <MinusCircle size={16} />
           </button>
-          <input type="range" min="0.3" max="2" step="0.05" value={zoom} onChange={e => setZoom(parseFloat(e.target.value))} style={{ width: '80px', accentColor: 'var(--aka)' }} />
+          <input type="range" min="0.3" max="2" step="0.05" value={zoom} onChange={e => { setIsManualZoom(true); setZoom(parseFloat(e.target.value)); }} style={{ width: '80px', accentColor: 'var(--aka)' }} />
           <button type="button" style={{ background: 'none', border: 'none', padding: 0, display: 'flex', cursor: 'pointer', color: 'var(--neutral-500)' }} onClick={() => adjustZoom(0.1)}>
             <PlusCircle size={16} />
           </button>

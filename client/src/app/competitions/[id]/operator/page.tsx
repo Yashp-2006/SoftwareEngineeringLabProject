@@ -22,8 +22,8 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
   const [queue, setQueue] = useState<any[]>([]);
   const [allCompletedMatches, setAllCompletedMatches] = useState<any[]>([]);
   const [recentMatches, setRecentMatches] = useState<any[]>([]);
-  const [leaderboardFilter, setLeaderboardFilter] = useState<'academy' | 'state' | 'country'>('academy');
-  const [leaderboardIsFullscreen, setLeaderboardIsFullscreen] = useState(false);
+  const [skippedCategories, setSkippedCategories] = useState<any[]>([]);
+  const [poolStatuses, setPoolStatuses] = useState<Record<string, boolean>>({});
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [activeCategoryName, setActiveCategoryName] = useState('');
   const [compData, setCompData] = useState<any>(null);
@@ -46,21 +46,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
   
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
 
-  const leaderboard = React.useMemo(() => {
-    const counts: Record<string, { name: string, country: string, wins: number }> = {};
-    allCompletedMatches.forEach(m => {
-      const isAka = m.winnerId === m.aka?.playerId || m.winnerId === m.aka?.name;
-      const winnerData = isAka ? m.aka : m.ao;
-      if (winnerData) {
-        const key = winnerData[leaderboardFilter] || 'Unattached';
-        if (!counts[key]) {
-          counts[key] = { name: key, country: winnerData.country || winnerData.state || 'Unknown', wins: 0 };
-        }
-        counts[key].wins++;
-      }
-    });
-    return Object.values(counts).sort((a, b) => b.wins - a.wins).slice(0, leaderboardIsFullscreen ? 20 : 3);
-  }, [allCompletedMatches, leaderboardFilter, leaderboardIsFullscreen]);
+  // No leaderboard needed — replaced by Skipped Categories panel
 
   // Cache firebase refs so we don't re-import on every tick
   const rtdbRefCache = useRef<any>(null);
@@ -144,6 +130,12 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
         });
         setAllCompletedMatches(completed);
 
+        // Extract skipped categories for the sidebar
+        const skipped = snap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .filter((c: any) => c.status === 'skipped');
+        setSkippedCategories(skipped);
+
         cats = cats.filter(c => c.status === 'live' || c.status === 'upcoming');
         cats.sort((a, b) => (a.order || 0) - (b.order || 0));
 
@@ -174,9 +166,25 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
             aoReady: m.ao?.readiness === 'ready',
           })).filter((m: any) => !m.aka.startsWith('Winner M') && !m.ao.startsWith('Winner M'));
           setQueue(mappedQueue);
+          
+          const poolStats: Record<string, { total: number, completed: number }> = {};
+          matches.forEach((m: any) => {
+            const p = m.pool || (m.id && m.id.includes('Pool') ? m.id.split('-')[0].replace('Pool', '') : null);
+            if (!p) return;
+            if (!poolStats[p]) poolStats[p] = { total: 0, completed: 0 };
+            poolStats[p].total++;
+            if (m.status === 'completed') poolStats[p].completed++;
+          });
+          const pStatuses: Record<string, boolean> = {};
+          Object.keys(poolStats).forEach(p => {
+            pStatuses[p] = poolStats[p].total > 0 && poolStats[p].total === poolStats[p].completed;
+          });
+          setPoolStatuses(pStatuses);
+          
         } else {
           setQueue([]);
           setRecentMatches([]);
+          setPoolStatuses({});
           setActiveCategoryId(null);
           setActiveCategoryName('');
         }
@@ -400,6 +408,67 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
     } catch (err) {
       console.error(err);
       toast.error('Failed to finish match.');
+    }
+  };
+
+  const handleDisqualify = async (side: 'aka' | 'ao') => {
+    const currentMatch = queue.find(m => m.id === activeMatchId);
+    if (!currentMatch || !activeCategoryId) {
+      toast.error('No active match to disqualify from');
+      return;
+    }
+    setRunning(false);
+    setStatus('finished');
+
+    const winnerSide = side === 'aka' ? 'ao' : 'aka';
+    const winnerId = winnerSide === 'aka' ? currentMatch?.akaId : currentMatch?.aoId;
+    const loserName = side === 'aka' ? aka.name : ao.name;
+    const winnerName = side === 'aka' ? ao.name : aka.name;
+
+    setWinnerState({
+      color: winnerSide,
+      name: winnerName,
+      academy: winnerSide === 'aka' ? aka.academy : ao.academy,
+      points: winnerSide === 'aka' ? aka.score : ao.score
+    });
+
+    if (currentMatch) {
+      setRecentMatches(prev => [{
+        ...currentMatch,
+        status: 'completed',
+        winnerId: winnerId,
+        akaScore: aka.score,
+        aoScore: ao.score,
+      }, ...prev].slice(0, 3));
+      setQueue(prev => prev.filter(m => m.id !== activeMatchId));
+    }
+
+    try {
+      const res = await fetch(`/api/competitions/${id}/brackets/${activeCategoryId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ matchId: activeMatchId, winnerId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`${loserName} disqualified. ${winnerName} advances!`);
+      } else {
+        toast.error('Failed to advance winner: ' + data.error);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to process disqualification.');
+    }
+  };
+
+  const handleRestoreSkipped = async (catId: string, catName: string) => {
+    try {
+      const { db } = await import('@lib/firebase');
+      const { doc, updateDoc } = await import('firebase/firestore');
+      await updateDoc(doc(db, 'competitions', id, 'categories', catId), { status: 'upcoming' });
+      toast.success(`${catName} restored to queue`);
+    } catch (err) {
+      toast.error('Failed to restore category');
     }
   };
 
@@ -906,6 +975,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                       <button className="btn-pen" style={{ color: 'var(--aka)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('aka', 'c3')}>+ Penalty (C3)</button>
                       <button className="btn-pen" style={{ color: 'var(--aka)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('aka', 'hc')}>+ Penalty (HC)</button>
                       <button className="btn-pen" style={{ color: 'var(--aka)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('aka', 'h')}>+ Penalty (H)</button>
+                      <button className="btn-pen" style={{ color: 'var(--shiro)', flex: '1 1 45%', background: 'var(--aka)', borderColor: 'var(--aka)', fontWeight: 800 }} onClick={() => handleDisqualify('aka')}>Disqualify AKA</button>
                     </div>
                   </div>
 
@@ -928,6 +998,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                       <button className="btn-pen" style={{ color: 'var(--ao)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('ao', 'c3')}>+ Penalty (C3)</button>
                       <button className="btn-pen" style={{ color: 'var(--ao)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('ao', 'hc')}>+ Penalty (HC)</button>
                       <button className="btn-pen" style={{ color: 'var(--ao)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('ao', 'h')}>+ Penalty (H)</button>
+                      <button className="btn-pen" style={{ color: 'var(--shiro)', flex: '1 1 45%', background: 'var(--aka)', borderColor: 'var(--aka)', fontWeight: 800 }} onClick={() => handleDisqualify('ao')}>Disqualify AO</button>
                     </div>
                   </div>
 
@@ -962,8 +1033,8 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                     style={{ padding: '6px 12px', fontSize: '13px', border: '1px solid var(--neutral-300)', borderRadius: '6px' }}
                   >
                     <option value="">All Pools</option>
-                    {Array.from(new Set(queue.map(m => m.pool).filter(Boolean))).map(p => (
-                      <option key={String(p)} value={String(p)}>Pool {String(p)}</option>
+                    {Object.keys(poolStatuses).map(p => (
+                      <option key={p} value={p}>Pool {p} {poolStatuses[p] ? '✅' : '🔴'}</option>
                     ))}
                   </select>
                   <button 
@@ -1055,40 +1126,33 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
 
           <aside>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h2 style={{ fontSize: '20px', fontWeight: 800 }}>Leaderboard</h2>
-              <button onClick={() => setLeaderboardIsFullscreen(true)} className="btn btn-secondary" style={{ fontSize: '13px', padding: '6px 12px', display: 'flex', gap: '6px', alignItems: 'center', background: 'var(--shiro)' }}>
-                <Maximize size={14} /> View Fullscreen
-              </button>
+              <h2 style={{ fontSize: '20px', fontWeight: 800 }}>Skipped Categories</h2>
             </div>
             
-            <div style={{ background: 'var(--shiro)', borderRadius: '16px', padding: '24px', border: '1px solid var(--neutral-200)', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
-              <div style={{ display: 'flex', background: 'var(--neutral-100)', borderRadius: '999px', padding: '4px', marginBottom: '24px' }}>
-                <button onClick={() => setLeaderboardFilter('academy')} style={{ flex: 1, padding: '8px 12px', background: leaderboardFilter === 'academy' ? 'var(--shiro)' : 'transparent', borderRadius: '999px', border: leaderboardFilter === 'academy' ? '1px solid var(--neutral-200)' : 'none', fontSize: '11px', fontWeight: leaderboardFilter === 'academy' ? 800 : 700, color: leaderboardFilter === 'academy' ? 'var(--neutral-900)' : 'var(--neutral-500)', boxShadow: leaderboardFilter === 'academy' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none' }}>ACADEMY</button>
-                <button onClick={() => setLeaderboardFilter('state')} style={{ flex: 1, padding: '8px 12px', background: leaderboardFilter === 'state' ? 'var(--shiro)' : 'transparent', borderRadius: '999px', border: leaderboardFilter === 'state' ? '1px solid var(--neutral-200)' : 'none', fontSize: '11px', fontWeight: leaderboardFilter === 'state' ? 800 : 700, color: leaderboardFilter === 'state' ? 'var(--neutral-900)' : 'var(--neutral-500)', boxShadow: leaderboardFilter === 'state' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none' }}>STATE</button>
-                <button onClick={() => setLeaderboardFilter('country')} style={{ flex: 1, padding: '8px 12px', background: leaderboardFilter === 'country' ? 'var(--shiro)' : 'transparent', borderRadius: '999px', border: leaderboardFilter === 'country' ? '1px solid var(--neutral-200)' : 'none', fontSize: '11px', fontWeight: leaderboardFilter === 'country' ? 800 : 700, color: leaderboardFilter === 'country' ? 'var(--neutral-900)' : 'var(--neutral-500)', boxShadow: leaderboardFilter === 'country' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none' }}>COUNTRY</button>
-              </div>
-              
-              <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--neutral-500)', textTransform: 'uppercase', marginBottom: '20px', letterSpacing: '0.05em' }}>Top 3 {leaderboardFilter === 'academy' ? 'Academies' : leaderboardFilter === 'state' ? 'States' : 'Countries'} (Matches Won)</div>
-              
-              {leaderboard.length === 0 ? (
-                <div style={{ color: 'var(--neutral-500)', fontSize: '13px' }}>No matches completed yet.</div>
+            <div style={{ background: 'var(--shiro)', borderRadius: '16px', padding: '16px', border: '1px solid var(--neutral-200)', boxShadow: '0 4px 12px rgba(0,0,0,0.02)', marginBottom: '24px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--neutral-500)', textTransform: 'uppercase', marginBottom: '16px', letterSpacing: '0.05em' }}>Categories marked as skipped on this mat</div>
+              {skippedCategories.length === 0 ? (
+                <div style={{ color: 'var(--neutral-500)', fontSize: '13px' }}>No skipped categories.</div>
               ) : (
-                leaderboard.map((item, i) => (
-                  <div key={item.name} style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: i < leaderboard.length - 1 ? '20px' : '0' }}>
-                    <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: i === 0 ? 'var(--aka)' : i === 1 ? 'rgba(225,29,72,0.1)' : 'rgba(26,77,181,0.1)', color: i === 0 ? 'white' : i === 1 ? 'var(--aka)' : 'var(--ao)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '13px' }}>{i + 1}</div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 800, fontSize: '14px', marginBottom: '2px' }}>{item.name}</div>
-                      <div style={{ fontSize: '12px', color: 'var(--neutral-500)', fontWeight: 500 }}>{item.country}</div>
+                skippedCategories.map((cat: any) => (
+                  <div key={cat.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '12px', padding: '12px', background: 'var(--neutral-50)', borderRadius: '10px', border: '1px solid var(--neutral-200)' }}>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '14px' }}>{cat.name}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--neutral-500)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: '2px' }}>SKIPPED</div>
                     </div>
-                    <div style={{ display: 'flex', gap: '4px' }}>
-                      <span style={{ fontSize: '10px', fontWeight: 800, border: '1px solid var(--neutral-200)', padding: '4px 6px', borderRadius: '4px' }}>{item.wins} WINS</span>
-                    </div>
+                    <button
+                      className="btn btn-secondary"
+                      style={{ fontSize: '12px', padding: '5px 12px', whiteSpace: 'nowrap' }}
+                      onClick={() => handleRestoreSkipped(cat.id, cat.name)}
+                    >
+                      Restore
+                    </button>
                   </div>
                 ))
               )}
             </div>
-            
-            <div style={{ background: 'var(--neutral-50)', border: '1px dashed var(--neutral-300)', borderRadius: '16px', padding: '24px', marginTop: '24px' }}>
+
+            <div style={{ background: 'var(--neutral-50)', border: '1px dashed var(--neutral-300)', borderRadius: '16px', padding: '24px' }}>
               <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--neutral-500)', textTransform: 'uppercase', marginBottom: '16px', letterSpacing: '0.05em' }}>Recent Results ({activeCategoryName || 'No Active Category'})</div>
               
               {recentMatches.length === 0 ? (
@@ -1120,36 +1184,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
         </div>
       </main>
 
-      {leaderboardIsFullscreen && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'var(--shiro)', zIndex: 10000, overflowY: 'auto', padding: '40px' }}>
-          <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
-              <h1 style={{ fontSize: '40px', fontWeight: 800, margin: 0 }}>Tournament Leaderboard</h1>
-              <button className="btn btn-secondary" onClick={() => setLeaderboardIsFullscreen(false)}>Close Fullscreen</button>
-            </div>
-            
-            <div style={{ display: 'flex', background: 'var(--neutral-100)', borderRadius: '999px', padding: '4px', marginBottom: '40px', maxWidth: '400px' }}>
-              <button onClick={() => setLeaderboardFilter('academy')} style={{ flex: 1, padding: '12px 24px', background: leaderboardFilter === 'academy' ? 'var(--shiro)' : 'transparent', borderRadius: '999px', border: leaderboardFilter === 'academy' ? '1px solid var(--neutral-200)' : 'none', fontSize: '13px', fontWeight: leaderboardFilter === 'academy' ? 800 : 700, color: leaderboardFilter === 'academy' ? 'var(--neutral-900)' : 'var(--neutral-500)', boxShadow: leaderboardFilter === 'academy' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none' }}>ACADEMY</button>
-              <button onClick={() => setLeaderboardFilter('state')} style={{ flex: 1, padding: '12px 24px', background: leaderboardFilter === 'state' ? 'var(--shiro)' : 'transparent', borderRadius: '999px', border: leaderboardFilter === 'state' ? '1px solid var(--neutral-200)' : 'none', fontSize: '13px', fontWeight: leaderboardFilter === 'state' ? 800 : 700, color: leaderboardFilter === 'state' ? 'var(--neutral-900)' : 'var(--neutral-500)', boxShadow: leaderboardFilter === 'state' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none' }}>STATE</button>
-              <button onClick={() => setLeaderboardFilter('country')} style={{ flex: 1, padding: '12px 24px', background: leaderboardFilter === 'country' ? 'var(--shiro)' : 'transparent', borderRadius: '999px', border: leaderboardFilter === 'country' ? '1px solid var(--neutral-200)' : 'none', fontSize: '13px', fontWeight: leaderboardFilter === 'country' ? 800 : 700, color: leaderboardFilter === 'country' ? 'var(--neutral-900)' : 'var(--neutral-500)', boxShadow: leaderboardFilter === 'country' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none' }}>COUNTRY</button>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {leaderboard.map((item, i) => (
-                <div key={item.name} style={{ display: 'flex', alignItems: 'center', gap: '24px', padding: '24px', background: 'var(--shiro)', border: '1px solid var(--neutral-200)', borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
-                  <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: i === 0 ? 'var(--aka)' : i === 1 ? 'rgba(225,29,72,0.1)' : 'rgba(26,77,181,0.1)', color: i === 0 ? 'white' : i === 1 ? 'var(--aka)' : 'var(--ao)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '20px' }}>{i + 1}</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 800, fontSize: '24px', marginBottom: '4px' }}>{item.name}</div>
-                    <div style={{ fontSize: '14px', color: 'var(--neutral-500)', fontWeight: 500 }}>{item.country}</div>
-                  </div>
-                  <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--neutral-900)' }}>{item.wins} WINS</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
+      {/* Leaderboard fullscreen — removed, replaced by Skipped Categories panel */}
       {showEditModal && (
         <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div className="modal" style={{ background: 'var(--shiro)', width: '600px', borderRadius: '16px', overflow: 'hidden', display: 'flex', flexDirection: 'column', maxHeight: '80vh', boxShadow: '0 24px 48px rgba(0,0,0,0.1)' }}>

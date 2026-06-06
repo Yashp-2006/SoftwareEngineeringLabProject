@@ -10,6 +10,7 @@ interface Athlete {
   academy: string;
   medalName?: 'Gold' | 'Silver' | 'Bronze';
   medal?: 'received' | 'not-received';
+  pool?: string | number;
 }
 
 interface Category {
@@ -68,7 +69,8 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
               name: d.data().name || '',
               academy: d.data().academy || '',
               medalName: d.data().medalName,
-              medal: d.data().medal
+              medal: d.data().medal,
+              pool: d.data().pool,
             }));
 
             setCategories(prev => {
@@ -109,6 +111,23 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     return a.name.toLowerCase().includes(q) || a.academy.toLowerCase().includes(q);
+  });
+
+  // Group winners by pool
+  const winnersByPool = React.useMemo(() => {
+    const groups: Record<string, Athlete[]> = {};
+    filteredWinners.forEach(a => {
+      const poolKey = a.pool ? String(a.pool) : 'No Pool';
+      if (!groups[poolKey]) groups[poolKey] = [];
+      groups[poolKey].push(a);
+    });
+    return groups;
+  }, [filteredWinners]);
+
+  const poolKeys = Object.keys(winnersByPool).sort((a, b) => {
+    if (a === 'No Pool') return 1;
+    if (b === 'No Pool') return -1;
+    return parseInt(a) - parseInt(b);
   });
 
   const updateAthleteMedal = async (athleteId: string, updates: Partial<Athlete>) => {
@@ -507,51 +526,73 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
               </div>
 
               <div className="table-responsive">
-              <table className="medal-table">
-                <thead>
-                  <tr>
-                    <th className="text-micro">Athlete Name</th>
-                    <th className="text-micro">Academy</th>
-                    <th className="text-micro">Medal Name</th>
-                    <th className="text-micro">Medal Received</th>
-                    <th className="text-micro" style={{ width: '40px' }}></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredWinners.length === 0 ? (
-                    <tr><td colSpan={5} className="empty-state">No medal winners found for this filter.</td></tr>
-                  ) : (
-                    filteredWinners.map(athlete => (
-                      <tr key={athlete.id}>
-                        <td>{athlete.name}</td>
-                        <td className="academy-name">{athlete.academy}</td>
-                        <td className={`medal-name ${athlete.medalName?.toLowerCase()}`}>{athlete.medalName}</td>
-                        <td>
-                          <div className="medal-control">
-                            <button 
-                              className={`medal-btn received ${athlete.medal === 'received' ? 'active' : ''}`}
-                              onClick={() => handleMedalStatusChange(athlete.id, 'received')}
-                            >
-                              Received
-                            </button>
-                            <button 
-                              className={`medal-btn not-received ${athlete.medal === 'not-received' ? 'active' : ''}`}
-                              onClick={() => handleMedalStatusChange(athlete.id, 'not-received')}
-                            >
-                              Not Received
-                            </button>
-                          </div>
-                        </td>
-                        <td style={{ textAlign: 'right' }}>
-                          <button className="remove-btn" title="Remove Medalist" onClick={() => openDeleteModal(athlete.id)}>
-                            <Trash2 size={16} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+              {poolKeys.length === 0 ? (
+                <div className="empty-state">No medal winners found for this filter.</div>
+              ) : (
+                poolKeys.map(poolKey => (
+                  <div key={poolKey} style={{ marginBottom: '24px' }}>
+                    <div style={{ 
+                      padding: '10px 24px', 
+                      background: 'var(--neutral-50)', 
+                      borderTop: '1px solid var(--neutral-200)',
+                      borderBottom: '1px solid var(--neutral-200)',
+                      fontWeight: 800, 
+                      fontSize: '12px', 
+                      color: 'var(--neutral-600)',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.06em',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}>
+                      <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: 'var(--ao)' }}></span>
+                      {poolKey === 'No Pool' ? 'General' : `Pool ${poolKey}`}
+                      <span style={{ fontWeight: 500, color: 'var(--neutral-400)', fontSize: '11px', textTransform: 'none', letterSpacing: 0 }}>({winnersByPool[poolKey].length} winner{winnersByPool[poolKey].length !== 1 ? 's' : ''})</span>
+                    </div>
+                    <table className="medal-table">
+                      <thead>
+                        <tr>
+                          <th className="text-micro">Athlete Name</th>
+                          <th className="text-micro">Academy</th>
+                          <th className="text-micro">Medal</th>
+                          <th className="text-micro">Medal Received</th>
+                          <th className="text-micro" style={{ width: '40px' }}></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {winnersByPool[poolKey].map(athlete => (
+                          <tr key={athlete.id}>
+                            <td>{athlete.name}</td>
+                            <td className="academy-name">{athlete.academy}</td>
+                            <td className={`medal-name ${athlete.medalName?.toLowerCase()}`}>{athlete.medalName}</td>
+                            <td>
+                              <div className="medal-control">
+                                <button 
+                                  className={`medal-btn received ${athlete.medal === 'received' ? 'active' : ''}`}
+                                  onClick={() => handleMedalStatusChange(athlete.id, 'received')}
+                                >
+                                  Received
+                                </button>
+                                <button 
+                                  className={`medal-btn not-received ${athlete.medal === 'not-received' ? 'active' : ''}`}
+                                  onClick={() => handleMedalStatusChange(athlete.id, 'not-received')}
+                                >
+                                  Not Received
+                                </button>
+                              </div>
+                            </td>
+                            <td style={{ textAlign: 'right' }}>
+                              <button className="remove-btn" title="Remove Medalist" onClick={() => openDeleteModal(athlete.id)}>
+                                <Trash2 size={16} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ))
+              )}
               </div>
             </div>
           </section>

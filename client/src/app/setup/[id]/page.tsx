@@ -825,6 +825,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                         <tr>
                           {compRules === 'wkf' && <th style={{ width: '40px' }}></th>}
                           <th>Category Name</th>
+                          <th>Discipline</th>
                           <th>Requirements</th>
                           <th>Entries</th>
                           <th style={{ textAlign: 'right' }}>Actions</th>
@@ -843,6 +844,13 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                               </td>
                             )}
                             <td style={{ fontWeight: 500 }}>{cat.name}</td>
+                            <td>
+                              {compRules !== 'wkf' && (
+                                <span className="status-chip status-live" style={{ background: cat.discipline === 'Kata' ? '#eff6ff' : '#fff1f2', color: cat.discipline === 'Kata' ? '#1d4ed8' : '#be123c', fontSize: '10px', padding: '2px 6px', marginRight: '4px', borderRadius: '4px', fontWeight: 700 }}>
+                                  {cat.discipline || 'Kumite'}
+                                </span>
+                              )}
+                            </td>
                             <td>
                               {compRules !== 'wkf' ? (
                                 <>
@@ -863,7 +871,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                         ))}
                         {filteredCategories.length === 0 && (
                           <tr>
-                            <td colSpan={compRules === 'wkf' ? 5 : 4} style={{ textAlign: 'center', color: 'var(--neutral-500)', padding: 'var(--space-6)' }}>
+                            <td colSpan={5} style={{ textAlign: 'center', color: 'var(--neutral-500)', padding: 'var(--space-6)' }}>
                               No categories found matching filters.
                             </td>
                           </tr>
@@ -873,67 +881,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                   </div>
                 </div>
 
-                <div className="cat-group">
-                  <div className="flex-between">
-                    <div>
-                      <h3>Special Categories</h3>
-                      <p className="text-small">Custom divisions with specific prerequisite rules (e.g. Gold Medalists only).</p>
-                    </div>
-                    <button className="btn btn-secondary" onClick={() => setModalType('special')}>
-                      <Star size={16} /> Add Special Category
-                    </button>
-                  </div>
-                  <div className="table-responsive">
-                    <table className="cat-table">
-                      <thead>
-                      <tr>
-                        <th className="text-micro">Category Name</th>
-                        <th className="text-micro">Applied Rules</th>
-                        <th className="text-micro">Est. Athletes</th>
-                        <th className="text-micro" style={{ textAlign: 'right' }}>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {specialCategories.map((cat, idx) => (
-                        <tr key={cat.id || idx}>
-                          <td style={{ fontWeight: 500 }}>{cat.name}</td>
-                          <td>
-                            <span className="status-chip status-live" style={{ background: 'var(--neutral-100)', color: 'var(--neutral-600)', fontSize: '10px', padding: '2px 6px', marginRight: '4px' }}>Medal: {cat.medal || 'Any'}</span>
-                            <span className="status-chip status-live" style={{ background: 'var(--neutral-100)', color: 'var(--neutral-600)', fontSize: '10px', padding: '2px 6px', marginRight: '4px' }}>
-                              Age: {cat.minAge || 0}-{cat.maxAge || 99}
-                            </span>
-                            <span className="status-chip status-live" style={{ background: 'var(--neutral-100)', color: 'var(--neutral-600)', fontSize: '10px', padding: '2px 6px', marginRight: '4px' }}>
-                              Weight: {cat.minWeight || 0}-{cat.maxWeight || 300}kg
-                            </span>
-                          </td>
-                          <td>{cat.entries || 0}</td>
-                          <td style={{ textAlign: 'right' }}>
-                            <div style={{ display: 'flex', gap: '4px', alignItems: 'center', justifyContent: 'flex-end' }}>
-                              <button
-                                className="btn btn-secondary"
-                                style={{ padding: '4px 10px', fontSize: '11px', height: '28px' }}
-                                disabled={generatingSpecialCatId === cat.id}
-                                onClick={() => handleGenerateSpecialTiesheet(cat.id, cat.name)}
-                              >
-                                {generatingSpecialCatId === cat.id ? '...' : 'Create Tiesheet'}
-                              </button>
-                              <button className="btn btn-ghost" style={{ padding: '4px' }}><Edit2 size={16} /></button>
-                              <button className="btn btn-ghost" style={{ padding: '4px', color: 'var(--aka)' }} onClick={() => setSpecialCategories(specialCategories.filter(c => c.id !== cat.id))}><Trash2 size={16} /></button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                      {specialCategories.length === 0 && (
-                        <tr>
-                          <td colSpan={4} style={{ textAlign: 'center', color: 'var(--neutral-500)', padding: 'var(--space-6)' }}>
-                            No special categories defined.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                  </div>
-                </div>
+                {/* Special Categories are created in the live competition (Bracket/Tiesheet page) */}
               </div>
             </section>
           )}
@@ -1161,6 +1109,18 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                   <>
                     <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
                       <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                        <label>Discipline</label>
+                        <select className="input-field" style={{ background: 'white' }} value={modalFormData.discipline || 'Kumite'} onChange={e => setModalFormData({...modalFormData, discipline: e.target.value})}>
+                          <option value="Kumite">Kumite</option>
+                          <option value="Kata">Kata</option>
+                        </select>
+                        {modalFormData.discipline === 'Kata' && (
+                          <p style={{ fontSize: '11px', color: 'var(--neutral-500)', marginTop: '4px' }}>Kata categories are not divided by age groups.</p>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+                      <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
                         <label>Gender</label>
                         <select className="input-field" style={{ background: 'white' }} value={modalFormData.gender || ''} onChange={e => setModalFormData({...modalFormData, gender: e.target.value})}>
                           <option value="">Any</option>
@@ -1245,12 +1205,14 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
             <button className="btn btn-secondary" onClick={() => { setModalType(null); setModalFormData({}); }}>Cancel</button>
             <button className="btn btn-primary" onClick={() => {
               if (modalType === 'standard' && modalFormData.name) {
+                const isKata = (modalFormData.discipline || 'Kumite') === 'Kata';
                 setCategories([...categories, { 
                   id: modalFormData.name, 
                   name: modalFormData.name, 
+                  discipline: modalFormData.discipline || 'Kumite',
                   gender: modalFormData.gender || 'Any',
-                  minAge: parseInt(modalFormData.minAge) || 0,
-                  maxAge: parseInt(modalFormData.maxAge) || 99,
+                  minAge: isKata ? 0 : (parseInt(modalFormData.minAge) || 0),
+                  maxAge: isKata ? 999 : (parseInt(modalFormData.maxAge) || 99),
                   minWeight: parseFloat(modalFormData.minWeight) || 0,
                   maxWeight: parseFloat(modalFormData.maxWeight) || 300,
                   entries: 0 
