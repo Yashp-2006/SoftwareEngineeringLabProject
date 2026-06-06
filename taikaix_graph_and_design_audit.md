@@ -64,6 +64,9 @@
 - **Match Queue Status Refinement:** In `operator/page.tsx`, the Match Queue was updated to explicitly distinguish between the `LIVE / CURRENT` fight (the one loaded into the active scoreboard), the `NEXT` fight, and `STANDBY` fights. Dragging a match to the top of the queue correctly sets it to `NEXT` without overriding the currently live scoreboard match.
 - **BYE Slots Auto-Promotion:** Fixed an issue where the CSV parser in `tiesheet-generator.ts` was literally assigning the name `"BYE"` to missing athletes if explicitly stated in the sheet, which disabled auto-promotion. Filtered `"BYE"` rows during import so they generate pure `null` empty slots, enabling `autoWinner` promotion correctly.
 - **Empty Slot Readability:** Updated `FullscreenBracketModal.tsx` and `BracketViewer.tsx` to render "No player assigned" or "Empty Slot" instead of generic fallback text, providing a cleaner UI.
+- **Auto-Medaling on Pool Finish:** Implemented bracket evaluation upon category completion in `operator/page.tsx` (`handleFinishCategory`). The logic identifies the final match to assign the Gold and Silver medals, and evaluates semi-final losers based on the `bronzeRule` to assign Bronze medals, directly updating the `athletes` collection in the category document.
+- **Completed Pool UI Highlight:** Updated the Match Queue and Recent Results sections in `operator/page.tsx` to highlight match rows with a green background (`#ecfdf5`) when their corresponding pool is finished, providing clearer visual cues for completed pools.
+- **TypeScript Error Fixes:** Resolved strict null check issues in `tiesheet-generator.ts` when assigning `winnerId` and removed an invalid `byeFor` property assignment on the `MatchNode` type.
 
 ---
 

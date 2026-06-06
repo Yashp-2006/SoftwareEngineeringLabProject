@@ -524,9 +524,43 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
       const actualEndM = now.getMinutes();
       const actualEndStr = `${String(actualEndH).padStart(2, '0')}:${String(actualEndM).padStart(2, '0')}`;
       
-      await updateDoc(catRef, { status: 'done', actualEndTime: actualEndStr });
-
       const targetData = targetDoc.data();
+
+      const matches = targetData.matches || [];
+      const athletes = targetData.athletes || [];
+      const finalMatch = matches.find((m: any) => !m.nextMatchId);
+
+      let goldMedalistId = null;
+      let silverMedalistId = null;
+      const bronzeMedalistsIds: string[] = [];
+
+      if (finalMatch && finalMatch.status === 'completed' && finalMatch.winnerId) {
+        goldMedalistId = finalMatch.winnerId;
+        silverMedalistId = finalMatch.winnerId === finalMatch.aka?.playerId ? finalMatch.ao?.playerId : finalMatch.aka?.playerId;
+
+        if (compData?.bronzeRule === 'two' || !compData?.bronzeRule) {
+          const semiFinals = matches.filter((m: any) => m.nextMatchId === finalMatch.id && m.status === 'completed');
+          semiFinals.forEach((sf: any) => {
+            if (sf.winnerId) {
+              const loserId = sf.winnerId === sf.aka?.playerId ? sf.ao?.playerId : sf.aka?.playerId;
+              if (loserId) bronzeMedalistsIds.push(loserId);
+            }
+          });
+        }
+      }
+
+      const updatedAthletes = athletes.map((a: any) => {
+        if (a.playerId === goldMedalistId) return { ...a, medal: 'gold' };
+        if (a.playerId === silverMedalistId) return { ...a, medal: 'silver' };
+        if (bronzeMedalistsIds.includes(a.playerId)) return { ...a, medal: 'bronze' };
+        return a;
+      });
+
+      await updateDoc(catRef, { 
+        status: 'done', 
+        actualEndTime: actualEndStr,
+        athletes: updatedAthletes
+      });
       const diffMins = getTimeDiffMins(targetData.scheduledEndTime, actualEndStr);
       
       if (diffMins !== 0) {
@@ -1102,7 +1136,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                           style={{ 
                             borderBottom: '1px solid var(--neutral-100)',
                             cursor: 'grab',
-                            backgroundColor: draggedIdx === idx ? 'var(--neutral-50)' : 'transparent',
+                            backgroundColor: match.pool && poolStatuses[match.pool] ? '#ecfdf5' : (draggedIdx === idx ? 'var(--neutral-50)' : 'transparent'),
                             opacity: draggedIdx === idx ? 0.5 : 1
                           }}
                         >
@@ -1193,7 +1227,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                   const aoWon = m.winnerId === m.ao?.playerId || m.winnerId === m.ao?.name;
                   
                   return (
-                    <div key={m.id} style={{ fontSize: '13px', borderBottom: i < recentMatches.length - 1 ? '1px solid var(--neutral-200)' : 'none', paddingBottom: i < recentMatches.length - 1 ? '16px' : '0', marginBottom: i < recentMatches.length - 1 ? '16px' : '0' }}>
+                    <div key={m.id} style={{ fontSize: '13px', borderBottom: i < recentMatches.length - 1 ? '1px solid var(--neutral-200)' : 'none', paddingBottom: i < recentMatches.length - 1 ? '16px' : '0', marginBottom: i < recentMatches.length - 1 ? '16px' : '0', padding: m.pool && poolStatuses[m.pool] ? '8px' : '0', borderRadius: m.pool && poolStatuses[m.pool] ? '8px' : '0', backgroundColor: m.pool && poolStatuses[m.pool] ? '#d1fae5' : 'transparent' }}>
                       <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, marginRight: '12px', color: 'var(--neutral-500)' }}>{m.matchNumber ? `M${String(m.matchNumber).padStart(2, '0')}` : m.id}</span> 
                       {akaWon ? (
                         <><span style={{ fontWeight: 700, color: 'var(--aka)' }}>{akaName}</span> def. {aoName}</>

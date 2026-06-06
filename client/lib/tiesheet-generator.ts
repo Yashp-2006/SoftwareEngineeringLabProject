@@ -651,12 +651,10 @@ export function buildSingleElimination(athletes: AthleteRow[], compType: string,
         const aoEmpty = m.aoFromMatchId ? isTreeEmpty(m.aoFromMatchId) : !m.ao;
 
         if (m.aka && aoEmpty) {
-          m.winnerId = m.aka.playerId;
-          m.byeFor = 'ao'; // meaning AO was absent
+          m.winnerId = m.aka.playerId ?? null;
           changed = true;
         } else if (m.ao && akaEmpty) {
-          m.winnerId = m.ao.playerId;
-          m.byeFor = 'aka';
+          m.winnerId = m.ao.playerId ?? null;
           changed = true;
         }
       }
