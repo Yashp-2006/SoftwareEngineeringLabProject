@@ -1358,12 +1358,9 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
 
       {previewModalOpen && (
         <FullscreenBracketModal
-          isOpen={previewModalOpen}
           onClose={() => setPreviewModalOpen(false)}
-          compId={id}
           categories={categories}
-          defaultCategoryId={previewCatId}
-          isArchived={false}
+          initialCategoryId={previewCatId || undefined}
         />
       )}
 
