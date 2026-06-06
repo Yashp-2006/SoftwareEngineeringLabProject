@@ -124,23 +124,6 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
           }
         }
 
-        // Fetch mat passwords
-        try {
-          const { collection, getDocs } = await import('firebase/firestore');
-          const matsSnap = await getDocs(collection(db, 'competitions', id, 'mats'));
-          const loadedPasswords: Record<number, string> = {};
-          matsSnap.docs.forEach(matDoc => {
-            const match = matDoc.id.match(/^mat-(\d+)$/);
-            if (match) {
-              const idx = parseInt(match[1]) - 1;
-              if (matDoc.data().password) loadedPasswords[idx] = matDoc.data().password;
-            }
-          });
-          setMatPasswordMap(loadedPasswords);
-        } catch (err) {
-          console.error("Failed to load mat passwords", err);
-        }
-
         // Try to load draft first
         const draftSnap = await getDoc(doc(db, 'competitions', id, 'drafts', 'setup'));
         if (draftSnap.exists()) {
@@ -198,6 +181,31 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
     else newSet.add(catId);
     setSelectedCats(newSet);
   };
+
+  useEffect(() => {
+    if (!isDataLoaded) return;
+    const loadPasswords = async () => {
+      try {
+        const { doc, getDoc } = await import('firebase/firestore');
+        const { db } = await import('@lib/firebase');
+        const loaded: Record<number, string> = {};
+        await Promise.all(
+          Array.from({ length: matsCount }).map(async (_, i) => {
+            const matId = `mat-${i + 1}`;
+            const snap = await getDoc(doc(db, 'competitions', id, 'mats', matId));
+            if (snap.exists() && snap.data().password) {
+              loaded[i] = snap.data().password;
+            }
+          })
+        );
+        // Merge with existing passwords in case user typed something while it was loading
+        setMatPasswordMap(prev => ({ ...loaded, ...prev }));
+      } catch (err) {
+        console.error("Failed to load individual mat passwords", err);
+      }
+    };
+    loadPasswords();
+  }, [isDataLoaded, matsCount, id]);
 
   const handleMerge = () => {
     if (selectedCats.size < 2) {
