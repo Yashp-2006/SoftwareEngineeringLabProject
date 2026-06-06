@@ -20,8 +20,8 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
   const [deploying, setDeploying] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [importResult, setImportResult] = useState<{categoriesTotal: number; athletesImported: number} | null>(null);
-  const [generatingSpecialCatId, setGeneratingSpecialCatId] = useState<string | null>(null);
-  const [modalType, setModalType] = useState<'standard'|'special'|'merge'|null>(null);
+  const [importResult, setImportResult] = useState<{categoriesTotal: number; athletesImported: number} | null>(null);
+  const [modalType, setModalType] = useState<'standard'|'merge'|null>(null);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [previewCatId, setPreviewCatId] = useState<string | null>(null);
   const [downloadingTiesheets, setDownloadingTiesheets] = useState(false);
@@ -34,7 +34,6 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
   const [compType, setCompType] = useState<string>('international');
   const [wkfMode, setWkfMode] = useState<string>('standard');
   const [categories, setCategories] = useState<any[]>([]);
-  const [specialCategories, setSpecialCategories] = useState<any[]>([]);
   const [selectedCats, setSelectedCats] = useState<Set<string>>(new Set());
 
   const [filterGender, setFilterGender] = useState<'all'|'male'|'female'>('all');
@@ -74,7 +73,6 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         compType,
         wkfMode,
         categories,
-        specialCategories,
         importResult: importResult ?? null,
         lastActivePhase: targetPhase,
         highestPhase: Math.max(highestPhase, targetPhase),
@@ -100,7 +98,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
       saveDraft(activePhase);
     }, 1500);
     return () => clearTimeout(timer);
-  }, [compName, matsCount, poolSize, compRules, compType, wkfMode, categories, specialCategories, importResult, activePhase, highestPhase, isDataLoaded]);
+  }, [compName, matsCount, poolSize, compRules, compType, wkfMode, categories, importResult, activePhase, highestPhase, isDataLoaded]);
 
   const handleWkfModeChange = async (mode: string) => {
     setWkfMode(mode);
@@ -138,7 +136,6 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
           if (draftData.compType !== undefined) setCompType(draftData.compType);
           if (draftData.wkfMode !== undefined) setWkfMode(draftData.wkfMode);
           if (draftData.categories !== undefined) setCategories(draftData.categories);
-          if (draftData.specialCategories !== undefined) setSpecialCategories(draftData.specialCategories);
           if (draftData.importResult !== undefined) setImportResult(draftData.importResult);
           if (draftData.highestPhase !== undefined) setHighestPhase(draftData.highestPhase);
           else if (draftData.lastActivePhase !== undefined) setHighestPhase(draftData.lastActivePhase);
@@ -252,7 +249,6 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
       formData.append('file', file);
       formData.append('compType', compType);
       formData.append('poolSize', poolSize.toString());
-      formData.append('specialCategories', JSON.stringify(specialCategories));
       formData.append('customCategories', compRules !== 'wkf' ? JSON.stringify(categories) : '[]');
       formData.append('wkfMode', wkfMode);
       
@@ -328,39 +324,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
     }
   };
 
-  const handleGenerateSpecialTiesheet = (specialCatId: string, specialCatName: string) => {
 
-    setConfirmState({
-      isOpen: true,
-      title: 'Generate Special Tiesheet',
-      message: `Generate tiesheet for "${specialCatName}" from completed standard categories?`,
-      isDestructive: false,
-      onConfirm: async () => {
-        closeConfirm();
-        setGeneratingSpecialCatId(specialCatId);
-        try {
-          const res = await fetch(`/api/competitions/${id}/brackets/generate`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ specialCategoryId: specialCatId, poolSize, compType }),
-          });
-          const data = await res.json();
-          if (data.success) {
-            toast.success(`Special category tiesheet ready! ${data.athletesSeeded} athletes seeded.`);
-            setPreviewCatId(specialCatId);
-            setPreviewModalOpen(true);
-          } else {
-            toast.error('Error: ' + data.error);
-          }
-        } catch (err) {
-          console.error(err);
-          toast.error('Failed to generate special category tiesheet.');
-        } finally {
-          setGeneratingSpecialCatId(null);
-        }
-      }
-    });
-  };
 
   const handleDeploy = async () => {
     setDeploying(true);
@@ -377,8 +341,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
       const batch = writeBatch(db);
       
       const allCats = [
-        ...categories.filter(c => hideEmpty ? (c.entries || 0) > 0 : true).map(c => ({...c, isSpecial: false})),
-        ...specialCategories.map(c => ({...c, isSpecial: true}))
+        ...categories.filter(c => hideEmpty ? (c.entries || 0) > 0 : true).map(c => ({...c, isSpecial: false}))
       ];
       const numMats = (matsCount as number) || 1;
       
@@ -964,7 +927,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                 ) : (
                   <div className="mat-setup-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-4)' }}>
                     <div>
-                      <h4 style={{ margin: '0 0 4px 0' }}>{importResult ? importResult.categoriesTotal : (categories.length + specialCategories.length)} Categories Generated</h4>
+                      <h4 style={{ margin: '0 0 4px 0' }}>{importResult ? importResult.categoriesTotal : categories.length} Categories Generated</h4>
                       <p className="text-small" style={{ color: 'var(--neutral-500)', margin: 0 }}>
                         {importResult ? importResult.athletesImported : 'N/A'} Athletes {importResult ? 'Imported' : ''} • Pool size: {poolSize}
                       </p>
@@ -1058,7 +1021,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                         </tr>
                       </thead>
                       <tbody>
-                        {[...filteredCategories, ...specialCategories].map((cat, idx) => (
+                        {filteredCategories.map((cat, idx) => (
                           <tr key={cat.id || idx}>
                             <td style={{ fontWeight: 500 }}>{cat.name}</td>
                             <td>
@@ -1070,7 +1033,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                             </td>
                           </tr>
                         ))}
-                        {[...filteredCategories, ...specialCategories].length === 0 && (
+                        {filteredCategories.length === 0 && (
                           <tr>
                             <td colSpan={2} style={{ textAlign: 'center', color: 'var(--neutral-500)', padding: 'var(--space-6)' }}>
                               No categories defined.
@@ -1093,7 +1056,6 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
           <div className="modal-header">
             <h3>
               {modalType === 'standard' && 'Add Standard Category'}
-              {modalType === 'special' && 'Create Special Category'}
               {modalType === 'merge' && 'Merge Categories'}
             </h3>
             <button className="close-btn" onClick={() => { setModalType(null); setModalFormData({}); }}><X size={16} /></button>
@@ -1156,44 +1118,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                 )}
               </>
             )}
-            {modalType === 'special' && (
-              <>
-                <div className="form-group">
-                  <label>Special Category Name</label>
-                  <input type="text" className="input-field" placeholder="e.g. Super Gold Open" value={modalFormData.name || ''} onChange={e => setModalFormData({...modalFormData, name: e.target.value})} />
-                </div>
-                <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
-                  <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
-                    <label>Medal Requirement</label>
-                    <select className="input-field" style={{ background: 'white' }} value={modalFormData.medal || ''} onChange={e => setModalFormData({...modalFormData, medal: e.target.value})}>
-                      <option value="">Any Medal</option>
-                      <option value="Gold Only">Gold Only</option>
-                      <option value="Silver or Above">Silver or Above</option>
-                    </select>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
-                  <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
-                    <label>Min Age</label>
-                    <input type="number" className="input-field" placeholder="0" value={modalFormData.minAge || ''} onChange={e => setModalFormData({...modalFormData, minAge: e.target.value})} />
-                  </div>
-                  <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
-                    <label>Max Age</label>
-                    <input type="number" className="input-field" placeholder="99" value={modalFormData.maxAge || ''} onChange={e => setModalFormData({...modalFormData, maxAge: e.target.value})} />
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
-                  <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
-                    <label>Min Weight (kg)</label>
-                    <input type="number" className="input-field" placeholder="0" value={modalFormData.minWeight || ''} onChange={e => setModalFormData({...modalFormData, minWeight: e.target.value})} />
-                  </div>
-                  <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
-                    <label>Max Weight (kg)</label>
-                    <input type="number" className="input-field" placeholder="300" value={modalFormData.maxWeight || ''} onChange={e => setModalFormData({...modalFormData, maxWeight: e.target.value})} />
-                  </div>
-                </div>
-              </>
-            )}
+
             {modalType === 'merge' && (
               <>
                 <div className="form-group">
@@ -1218,17 +1143,6 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                   maxAge: parseInt(modalFormData.maxAge) || 99,
                   minWeight: isKata ? 0 : (parseFloat(modalFormData.minWeight) || 0),
                   maxWeight: isKata ? 300 : (parseFloat(modalFormData.maxWeight) || 300),
-                  entries: 0 
-                }]);
-              } else if (modalType === 'special' && modalFormData.name) {
-                setSpecialCategories([...specialCategories, { 
-                  id: modalFormData.name, 
-                  name: modalFormData.name, 
-                  medal: modalFormData.medal, 
-                  minAge: parseInt(modalFormData.minAge) || 0,
-                  maxAge: parseInt(modalFormData.maxAge) || 99,
-                  minWeight: parseFloat(modalFormData.minWeight) || 0,
-                  maxWeight: parseFloat(modalFormData.maxWeight) || 300,
                   entries: 0 
                 }]);
               } else if (modalType === 'merge' && modalFormData.name) {
