@@ -23,20 +23,77 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
     }
   }, [user, searchParams]);
 
+  const [recentMatches, setRecentMatches] = useState<any[]>([]);
+  const [matLeaderboards, setMatLeaderboards] = useState<Record<string, { academy: string, gold: number, silver: number, bronze: number, points: number }[]>>({});
+
   useEffect(() => {
+    let unsubCats: () => void;
     const fetchComp = async () => {
       try {
         const { db } = await import('@lib/firebase');
-        const { doc, getDoc } = await import('firebase/firestore');
+        const { doc, getDoc, collection, onSnapshot } = await import('firebase/firestore');
         const d = await getDoc(doc(db, 'competitions', id));
         if (d.exists()) {
           setCompData(d.data());
         }
+
+        unsubCats = onSnapshot(collection(db, 'competitions', id, 'categories'), (snap) => {
+          let allMatches: any[] = [];
+          let matStats: Record<string, Record<string, { gold: number, silver: number, bronze: number, points: number }>> = {};
+
+          snap.docs.forEach(docSnap => {
+            const cat = docSnap.data();
+            const matName = (cat.mat || 'Unassigned').toUpperCase();
+
+            if (cat.matches) {
+              const completed = cat.matches.filter((m: any) => m.status === 'completed' && m.winnerId).map((m: any) => ({
+                ...m,
+                categoryName: cat.name,
+              }));
+              allMatches.push(...completed);
+            }
+
+            if (!matStats[matName]) matStats[matName] = {};
+            if (cat.athletes) {
+              cat.athletes.forEach((ath: any) => {
+                if (ath.medal) {
+                  const academy = ath.academy || 'Unknown';
+                  if (!matStats[matName][academy]) {
+                    matStats[matName][academy] = { gold: 0, silver: 0, bronze: 0, points: 0 };
+                  }
+                  if (ath.medal === 'gold') {
+                    matStats[matName][academy].gold += 1;
+                    matStats[matName][academy].points += 3;
+                  } else if (ath.medal === 'silver') {
+                    matStats[matName][academy].silver += 1;
+                    matStats[matName][academy].points += 2;
+                  } else if (ath.medal === 'bronze') {
+                    matStats[matName][academy].bronze += 1;
+                    matStats[matName][academy].points += 1;
+                  }
+                }
+              });
+            }
+          });
+
+          setRecentMatches(allMatches.reverse().slice(0, 5));
+
+          const formattedBoards: Record<string, any[]> = {};
+          for (const mat of Object.keys(matStats).sort()) {
+            const arr = Object.entries(matStats[mat]).map(([academy, stats]) => ({ academy, ...stats }));
+            arr.sort((a, b) => b.points - a.points || b.gold - a.gold || b.silver - a.silver || b.bronze - a.bronze);
+            if (arr.length > 0) {
+              formattedBoards[mat] = arr;
+            }
+          }
+          setMatLeaderboards(formattedBoards);
+        });
       } catch (err) {
         console.error("Failed to load competition", err);
       }
     };
     fetchComp();
+    return () => unsubCats?.();
   }, [id]);
 
   const handleShareLink = () => {
@@ -115,34 +172,77 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
         </div>
       </div>
 
-      <section style={{ marginTop: 'var(--space-4)' }}>
-        <div className="flex-between" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-2)' }}>
-          <h2>Recent Results</h2>
-          <button className="btn btn-ghost">View All</button>
-        </div>
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <div className="table-responsive">
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead style={{ background: 'var(--neutral-50)', borderBottom: '1px solid var(--neutral-300)' }}>
-              <tr>
-                <th className="text-micro" style={{ padding: '12px 24px', textAlign: 'left' }}>Category</th>
-                <th className="text-micro" style={{ padding: '12px 24px', textAlign: 'left' }}>Aka (Red)</th>
-                <th className="text-micro" style={{ padding: '12px 24px', textAlign: 'left' }}>Ao (Blue)</th>
-                <th className="text-micro" style={{ padding: '12px 24px', textAlign: 'center' }}>Score</th>
-                <th className="text-micro" style={{ padding: '12px 24px', textAlign: 'right' }}>Winner</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td colSpan={5} style={{ padding: '24px', textAlign: 'center', color: 'var(--neutral-500)' }}>
-                  No matches completed yet.
-                </td>
-              </tr>
-            </tbody>
-          </table>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 'var(--space-6)', marginTop: 'var(--space-4)' }}>
+        <section style={{ gridColumn: 'span 8' }}>
+          <div className="flex-between" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-2)' }}>
+            <h2>Recent Results</h2>
           </div>
-        </div>
-      </section>
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div className="table-responsive">
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead style={{ background: 'var(--neutral-50)', borderBottom: '1px solid var(--neutral-300)' }}>
+                <tr>
+                  <th className="text-micro" style={{ padding: '12px 24px', textAlign: 'left' }}>Category</th>
+                  <th className="text-micro" style={{ padding: '12px 24px', textAlign: 'left' }}>Aka (Red)</th>
+                  <th className="text-micro" style={{ padding: '12px 24px', textAlign: 'left' }}>Ao (Blue)</th>
+                  <th className="text-micro" style={{ padding: '12px 24px', textAlign: 'right' }}>Winner</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentMatches.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} style={{ padding: '24px', textAlign: 'center', color: 'var(--neutral-500)' }}>
+                      No matches completed yet.
+                    </td>
+                  </tr>
+                ) : (
+                  recentMatches.map((m, i) => (
+                    <tr key={i} style={{ borderBottom: '1px solid var(--neutral-200)' }}>
+                      <td style={{ padding: '12px 24px', fontSize: '13px', fontWeight: 500 }}>{m.categoryName}</td>
+                      <td style={{ padding: '12px 24px', fontSize: '14px' }}>{m.aka?.name || '-'}</td>
+                      <td style={{ padding: '12px 24px', fontSize: '14px' }}>{m.ao?.name || '-'}</td>
+                      <td style={{ padding: '12px 24px', fontSize: '14px', fontWeight: 600, textAlign: 'right', color: m.winnerId === m.aka?.playerId ? 'var(--aka)' : 'var(--ao)' }}>
+                        {m.winnerId === m.aka?.playerId ? m.aka?.name : m.ao?.name}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+            </div>
+          </div>
+        </section>
+
+        <section style={{ gridColumn: 'span 4' }}>
+          <h2 style={{ marginBottom: 'var(--space-2)' }}>Mat Leaderboards</h2>
+          {Object.keys(matLeaderboards).length === 0 ? (
+            <div className="card" style={{ padding: '24px', textAlign: 'center', color: 'var(--neutral-500)' }}>
+              No medals awarded yet.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {Object.keys(matLeaderboards).map(mat => (
+                <div key={mat} className="card" style={{ padding: '16px' }}>
+                  <h3 style={{ fontSize: '14px', marginBottom: '12px', borderBottom: '1px solid var(--neutral-200)', paddingBottom: '8px' }}>{mat}</h3>
+                  {matLeaderboards[mat].map((entry, idx) => (
+                    <div key={entry.academy} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 0', borderBottom: idx < matLeaderboards[mat].length - 1 ? '1px solid var(--neutral-100)' : 'none' }}>
+                      <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: idx === 0 ? '#fbbf24' : idx === 1 ? '#9ca3af' : idx === 2 ? '#d97706' : '#f3f4f6', color: idx < 3 ? 'white' : '#6b7280', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>
+                        {idx + 1}
+                      </div>
+                      <div style={{ flex: 1, fontSize: '13px', fontWeight: 600 }}>{entry.academy}</div>
+                      <div style={{ display: 'flex', gap: '4px', fontSize: '12px', fontWeight: 500 }}>
+                        <span style={{ color: '#d97706' }}>{entry.gold}</span>/
+                        <span style={{ color: '#6b7280' }}>{entry.silver}</span>/
+                        <span style={{ color: '#92400e' }}>{entry.bronze}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
     </main>
   );
 }
