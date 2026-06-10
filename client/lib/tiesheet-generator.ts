@@ -826,3 +826,606 @@ export function propagateByesAndWinners(matches: MatchNode[]): void {
     }
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// KATA BRACKET GENERATION
+// Gate: isKata === true on the Firestore category document.
+// All code below is strictly additive — zero modifications to Kumite logic above.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ─── Kata Types ────────────────────────────────────────────────────────────────
+
+export interface KataMatchNode {
+  matchId:           string;
+  round:             number;
+  /** "Round of 16" | "QF" | "SF" | "Final" | "Bronze" | "Group Stage" | "Repechage" */
+  roundLabel:        string;
+  slot:              number;       // 1-based position within the round
+  groupId?:          string;       // round-robin only — e.g. "G1", "G2"
+  aka:               string | null; // athleteId or teamId
+  ao:                string | null;
+  isMedalMatch:      boolean;
+  isBronze:          boolean;
+  requiresBunkai:    boolean;      // true only for team medal matches
+  isTieBreaker:      boolean;
+  isReperformance:   boolean;
+  isBye:             boolean;
+  winnerAdvancesTo:  string | null; // matchId the winner feeds into
+  loserAdvancesTo:   string | null; // "repechage_pool_1" | "repechage_pool_2" | matchId
+  result?: {
+    winner: 'aka' | 'ao';
+    votes:  { aka: number; ao: number };
+  };
+}
+
+export interface KataCategoryConfig {
+  kataFormat:      'elimination' | 'round-robin' | 'two-pool';
+  numberOfJudges:  number;
+  allowedKataList: number[];   // kata numbers from KATA_LIST
+  isTeam?:         boolean;
+  isU14?:          boolean;
+  seeds?:          string[];   // athleteIds in seed order (1 = best)
+}
+
+export interface KataGroupResult {
+  athleteId:     string;
+  groupId:       string;
+  victoryPoints: number;
+  wins:          number;
+  losses:        number;
+  votesFor:      number;      // total judge votes won across all group bouts
+  votesAgainst:  number;      // total judge votes lost across all group bouts
+  netVoteDiff:   number;      // votesFor - votesAgainst
+  rank:          number;      // 1 = group winner
+}
+
+// ─── WKF Group Allocation Table (Article 3.7.9) ────────────────────────────────
+
+interface KataGroupConfig {
+  numGroups:  number;
+  groupSizes: number[];
+}
+
+function getWKFGroupConfig(n: number): KataGroupConfig {
+  if (n <= 0) return { numGroups: 0, groupSizes: [] };
+  // 1 group (2–5)
+  if (n <= 5)  return { numGroups: 1, groupSizes: [n] };
+  // 2 groups (6–8)
+  if (n <= 8) {
+    const base = Math.floor(n / 2), rem = n % 2;
+    return { numGroups: 2, groupSizes: rem ? [base, base + 1] : [base, base] };
+  }
+  // 3 groups (9–11)
+  if (n <= 11) {
+    const base = Math.floor(n / 3), rem = n % 3;
+    const s = [base, base, base];
+    for (let i = 2; i >= 3 - rem; i--) s[i]++;
+    return { numGroups: 3, groupSizes: s };
+  }
+  // 4 groups (12–16)
+  if (n <= 16) {
+    const base = Math.floor(n / 4), rem = n % 4;
+    const s = [base, base, base, base];
+    for (let i = 3; i >= 4 - rem; i--) s[i]++;
+    return { numGroups: 4, groupSizes: s };
+  }
+  // 5 groups (17)
+  if (n === 17) return { numGroups: 5, groupSizes: [3, 3, 3, 4, 4] };
+  // 6 groups (18–23)
+  if (n <= 23) {
+    const base = Math.floor(n / 6), rem = n % 6;
+    const s = Array(6).fill(base);
+    for (let i = 5; i >= 6 - rem; i--) s[i]++;
+    return { numGroups: 6, groupSizes: s };
+  }
+  // 8 groups (24–32)
+  const base = Math.floor(n / 8), rem = n % 8;
+  const s = Array(8).fill(base);
+  for (let i = 7; i >= 8 - rem; i--) s[i]++;
+  return { numGroups: 8, groupSizes: s };
+}
+
+// WKF seed placement: seed 1 → G4, seed 2 → G2, seed 3 → G1, seed 4 → G3
+// (0-indexed group indices for seeds 0..3)
+const WKF_SEED_GROUP_ORDER: number[] = [3, 1, 0, 2];
+
+// ─── Utilities ─────────────────────────────────────────────────────────────────
+
+function kataPow2(n: number): number {
+  let p = 1; while (p < n) p <<= 1; return p;
+}
+
+function kataRoundLabel(round: number, totalRounds: number): string {
+  const fromEnd = totalRounds - round;
+  if (fromEnd === 0) return 'Final';
+  if (fromEnd === 1) return 'SF';
+  if (fromEnd === 2) return 'QF';
+  return `Round of ${Math.pow(2, fromEnd + 1)}`;
+}
+
+function mkKataId(prefix: string, round: number, slot: number): string {
+  return `${prefix}-R${round}-S${slot}`;
+}
+
+function stubNode(
+  matchId:      string,
+  round:        number,
+  roundLabel:   string,
+  slot:         number,
+  isMedal:      boolean,
+  isBronze:     boolean,
+  needsBunkai:  boolean
+): KataMatchNode {
+  return {
+    matchId, round, roundLabel, slot,
+    aka: null, ao: null,
+    isMedalMatch: isMedal, isBronze, requiresBunkai: needsBunkai,
+    isTieBreaker: false, isReperformance: false, isBye: false,
+    winnerAdvancesTo: null, loserAdvancesTo: null,
+  };
+}
+
+// ─── Format A — Elimination with Repechage ─────────────────────────────────────
+
+function buildKataElimination(
+  athletes: string[],
+  seeds: string[],
+  isTeam: boolean
+): KataMatchNode[] {
+  // Pool split: seeds 1&4 → Pool 1, seeds 2&3 → Pool 2 (so #1 vs #2 only in Grand Final)
+  const pool1: (string | null)[] = [];
+  const pool2: (string | null)[] = [];
+  const seeded4 = seeds.slice(0, 4);
+
+  if (seeded4[0]) pool1.push(seeded4[0]);
+  if (seeded4[1]) pool2.push(seeded4[1]);
+  if (seeded4[2]) pool2.push(seeded4[2]);
+  if (seeded4[3]) pool1.push(seeded4[3]);
+
+  const unseeded = athletes.filter(id => !seeded4.includes(id));
+  for (let i = 0; i < unseeded.length; i++) {
+    (pool1.length <= pool2.length ? pool1 : pool2).push(unseeded[i]);
+  }
+
+  const all: KataMatchNode[] = [];
+
+  const buildPool = (pool: (string | null)[], label: '1' | '2'): KataMatchNode => {
+    const size = kataPow2(pool.length);
+    const totalR = Math.log2(size);
+    const padded = [...pool];
+    while (padded.length < size) padded.push(null);
+
+    const nodes: KataMatchNode[] = [];
+    const prefix = `P${label}`;
+    const r1Count = size / 2;
+    const r1: KataMatchNode[] = [];
+
+    for (let s = 0; s < r1Count; s++) {
+      const akaId = padded[s * 2] ?? null;
+      const aoId  = padded[s * 2 + 1] ?? null;
+      const isBye = (akaId !== null && aoId === null) || (akaId === null && aoId !== null);
+      const m: KataMatchNode = {
+        matchId:         mkKataId(prefix, 1, s + 1),
+        round:           1,
+        roundLabel:      kataRoundLabel(1, totalR),
+        slot:            s + 1,
+        aka:             akaId,
+        ao:              aoId,
+        isMedalMatch:    false,
+        isBronze:        false,
+        requiresBunkai:  false,
+        isTieBreaker:    false,
+        isReperformance: false,
+        isBye,
+        winnerAdvancesTo: null,
+        loserAdvancesTo:  `repechage_pool_${label}`,
+        result: isBye ? { winner: akaId ? 'aka' : 'ao', votes: { aka: 0, ao: 0 } } : undefined,
+      };
+      r1.push(m); nodes.push(m);
+    }
+
+    let cur = r1; let rn = 2;
+    while (cur.length > 1) {
+      const next: KataMatchNode[] = [];
+      for (let s = 0; s < cur.length; s += 2) {
+        const matchId = mkKataId(prefix, rn, Math.floor(s / 2) + 1);
+        const isPoolFinal = cur.length === 2;
+        const m: KataMatchNode = {
+          matchId,
+          round:           rn,
+          roundLabel:      isPoolFinal ? `Pool ${label} Final` : kataRoundLabel(rn, totalR),
+          slot:            Math.floor(s / 2) + 1,
+          aka:             null, ao: null,
+          isMedalMatch:    false,
+          isBronze:        false,
+          requiresBunkai:  false,
+          isTieBreaker:    false,
+          isReperformance: false,
+          isBye:           false,
+          winnerAdvancesTo: null,
+          loserAdvancesTo:  `repechage_pool_${label}`,
+        };
+        cur[s].winnerAdvancesTo = matchId;
+        if (cur[s + 1]) cur[s + 1].winnerAdvancesTo = matchId;
+        next.push(m); nodes.push(m);
+      }
+      cur = next; rn++;
+    }
+
+    all.push(...nodes);
+    return cur[0]; // Pool final node
+  };
+
+  const p1Final = buildPool(pool1.map(a => a), '1');
+  const p2Final = buildPool(pool2.map(a => a), '2');
+
+  const grandFinal = stubNode('FINAL',
+    Math.max(p1Final.round, p2Final.round) + 1,
+    'Final', 1, true, false, isTeam);
+
+  p1Final.winnerAdvancesTo = 'FINAL';
+  p2Final.winnerAdvancesTo = 'FINAL';
+
+  all.push(grandFinal);
+  return all;
+}
+
+// ─── Format B — Round-Robin Groups + Elimination ───────────────────────────────
+
+function buildRRGroupFixtures(
+  athletes: string[],
+  groupId:  string,
+  startSlot: number
+): KataMatchNode[] {
+  const nodes: KataMatchNode[] = [];
+  let slot = startSlot;
+  const list = [...athletes];
+  if (list.length % 2 === 1) list.push('__BYE__');
+
+  const rounds = list.length - 1;
+  const half   = list.length / 2;
+
+  for (let r = 0; r < rounds; r++) {
+    for (let m = 0; m < half; m++) {
+      const rawAka = list[m];
+      const rawAo  = list[list.length - 1 - m];
+      const akaId  = rawAka === '__BYE__' ? null : rawAka;
+      const aoId   = rawAo  === '__BYE__' ? null : rawAo;
+      const isBye  = akaId === null || aoId === null;
+
+      nodes.push({
+        matchId:          `${groupId}-RR-S${slot}`,
+        round:            1,
+        roundLabel:       'Group Stage',
+        slot,
+        groupId,
+        aka:              akaId,
+        ao:               aoId,
+        isMedalMatch:     false,
+        isBronze:         false,
+        requiresBunkai:   false,
+        isTieBreaker:     false,
+        isReperformance:  false,
+        isBye,
+        winnerAdvancesTo: null,
+        loserAdvancesTo:  null,
+        result: isBye
+          ? { winner: akaId ? 'aka' : 'ao', votes: { aka: 0, ao: 0 } }
+          : undefined,
+      });
+      slot++;
+    }
+    const last = list.pop()!;
+    list.splice(1, 0, last);
+  }
+  return nodes;
+}
+
+function buildKataEliminationStubs(
+  numGroups: number,
+  isTeam:    boolean
+): KataMatchNode[] {
+  const advSlots = advancementSlots(numGroups);
+  const nodes: KataMatchNode[] = [];
+  if (advSlots <= 1) return nodes;
+
+  if (advSlots === 2) {
+    nodes.push(stubNode('FINAL',  2, 'Final',  1, true, false, isTeam));
+    nodes.push(stubNode('BRONZE', 2, 'Bronze', 2, true, true,  false));
+    return nodes;
+  }
+
+  const totalR = Math.ceil(Math.log2(advSlots));
+  const r1Count = advSlots / 2;
+
+  const r1: KataMatchNode[] = [];
+  for (let s = 0; s < r1Count; s++) {
+    const n = stubNode(`ELIM-R1-S${s + 1}`, 2, kataRoundLabel(1, totalR), s + 1, false, false, false);
+    r1.push(n); nodes.push(n);
+  }
+
+  let cur = r1; let rn = 3;
+  while (cur.length > 1) {
+    const next: KataMatchNode[] = [];
+    for (let s = 0; s < cur.length; s += 2) {
+      const isFinal = cur.length === 2;
+      const n = stubNode(
+        isFinal ? 'FINAL' : `ELIM-R${rn}-S${Math.floor(s / 2) + 1}`,
+        rn,
+        isFinal ? 'Final' : kataRoundLabel(rn - 1, totalR),
+        Math.floor(s / 2) + 1,
+        isFinal, false, isTeam && isFinal
+      );
+      cur[s].winnerAdvancesTo = n.matchId;
+      if (cur[s + 1]) cur[s + 1].winnerAdvancesTo = n.matchId;
+      if (isFinal) {
+        cur[s].loserAdvancesTo     = 'BRONZE';
+        if (cur[s + 1]) cur[s + 1].loserAdvancesTo = 'BRONZE';
+      }
+      next.push(n); nodes.push(n);
+    }
+    cur = next; rn++;
+  }
+
+  nodes.push(stubNode('BRONZE', rn, 'Bronze', 1, true, true, false));
+  return nodes;
+}
+
+function advancementSlots(numGroups: number): number {
+  switch (numGroups) {
+    case 8: return 8;
+    case 6: return 8;
+    case 5: return 8;
+    case 4: return 8;
+    case 3: return 8;
+    case 2: return 4;
+    case 1: return 2;
+    default: return numGroups;
+  }
+}
+
+function worldCupGroupConfig(n: number): KataGroupConfig {
+  const numGroups = Math.max(1, Math.ceil(n / 5));
+  const base = Math.floor(n / numGroups), rem = n % numGroups;
+  const sizes = Array(numGroups).fill(base);
+  for (let i = 0; i < rem; i++) sizes[numGroups - 1 - i]++;
+  return { numGroups, groupSizes: sizes };
+}
+
+function buildKataRoundRobin(
+  athletes:  string[],
+  seeds:     string[],
+  isTeam:    boolean,
+  isWorldCup: boolean
+): KataMatchNode[] {
+  const n   = athletes.length;
+  const cfg = isWorldCup ? worldCupGroupConfig(n) : getWKFGroupConfig(n);
+  if (cfg.numGroups === 0) return [];
+
+  // Allocate groups
+  const groups: string[][] = Array.from({ length: cfg.numGroups }, () => []);
+  const seeded4 = seeds.slice(0, 4);
+  for (let si = 0; si < seeded4.length; si++) {
+    const gi = WKF_SEED_GROUP_ORDER[si];
+    if (gi < cfg.numGroups) groups[gi].push(seeded4[si]);
+  }
+  const unseeded = athletes.filter(id => !seeded4.includes(id));
+  let pool = [...unseeded];
+  for (let gi = 0; gi < cfg.numGroups; gi++) {
+    const target = cfg.groupSizes[gi];
+    while (groups[gi].length < target && pool.length > 0) {
+      const idx = Math.floor(Math.random() * pool.length);
+      groups[gi].push(pool.splice(idx, 1)[0]);
+    }
+  }
+
+  const all: KataMatchNode[] = [];
+  let slot = 1;
+  for (let gi = 0; gi < cfg.numGroups; gi++) {
+    const gNodes = buildRRGroupFixtures(groups[gi], `G${gi + 1}`, slot);
+    slot += gNodes.length;
+    all.push(...gNodes);
+  }
+
+  all.push(...buildKataEliminationStubs(cfg.numGroups, isTeam));
+  return all;
+}
+
+// ─── Format C — Two-Pool Round-Robin ──────────────────────────────────────────
+
+function buildKataTwoPool(
+  athletes: string[],
+  seeds:    string[],
+  isTeam:   boolean
+): KataMatchNode[] {
+  const poolA: string[] = [];
+  const poolB: string[] = [];
+  const seeded4 = seeds.slice(0, 4);
+
+  if (seeded4[0]) poolA.push(seeded4[0]);
+  if (seeded4[1]) poolB.push(seeded4[1]);
+  if (seeded4[2]) poolA.push(seeded4[2]);
+  if (seeded4[3]) poolB.push(seeded4[3]);
+
+  const unseeded = athletes.filter(id => !seeded4.includes(id));
+  for (let i = 0; i < unseeded.length; i++) {
+    (poolA.length <= poolB.length ? poolA : poolB).push(unseeded[i]);
+  }
+
+  const all: KataMatchNode[] = [];
+  let slot = 1;
+  const aNodes = buildRRGroupFixtures(poolA, 'PA', slot); slot += aNodes.length;
+  const bNodes = buildRRGroupFixtures(poolB, 'PB', slot);
+  all.push(...aNodes, ...bNodes);
+
+  all.push({
+    matchId: 'FINAL', round: 2, roundLabel: 'Final', slot: 1,
+    aka: null, ao: null, isMedalMatch: true, isBronze: false,
+    requiresBunkai: isTeam, isTieBreaker: false, isReperformance: false,
+    isBye: false, winnerAdvancesTo: null, loserAdvancesTo: null,
+  });
+  all.push({
+    matchId: 'BRONZE', round: 2, roundLabel: 'Bronze', slot: 2,
+    aka: null, ao: null, isMedalMatch: true, isBronze: true,
+    requiresBunkai: false, isTieBreaker: false, isReperformance: false,
+    isBye: false, winnerAdvancesTo: null, loserAdvancesTo: null,
+  });
+
+  return all;
+}
+
+// ─── Runner-Up Comparison ─────────────────────────────────────────────────────
+
+/**
+ * Compares runner-up athletes by net vote differential (votesFor − votesAgainst).
+ * Used at runtime to determine which runners-up advance from group stage.
+ *
+ * Returns sorted list (best first) and any still-tied pairs that need
+ * an extra kata bout scheduled.
+ */
+export function compareRunnerUps(results: KataGroupResult[]): {
+  ranked:    KataGroupResult[];
+  tiedPairs: [string, string][];
+} {
+  const sorted = [...results].sort((a, b) => {
+    if (b.netVoteDiff  !== a.netVoteDiff)  return b.netVoteDiff  - a.netVoteDiff;
+    if (b.votesFor     !== a.votesFor)     return b.votesFor     - a.votesFor;
+    return a.votesAgainst - b.votesAgainst;
+  });
+
+  const tiedPairs: [string, string][] = [];
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const a = sorted[i], b = sorted[i + 1];
+    if (
+      a.netVoteDiff  === b.netVoteDiff &&
+      a.votesFor     === b.votesFor    &&
+      a.votesAgainst === b.votesAgainst
+    ) {
+      tiedPairs.push([a.athleteId, b.athleteId]);
+    }
+  }
+  return { ranked: sorted, tiedPairs };
+}
+
+// ─── DQ in Round-Robin ────────────────────────────────────────────────────────
+
+/**
+ * Records a DQ result on a round-robin match node.
+ * WKF: opponent wins 3 VP; DQ'd athlete stays in draw.
+ * Mutates and returns the node.
+ */
+export function applyKataRRDQ(node: KataMatchNode, dqSide: 'aka' | 'ao'): KataMatchNode {
+  const winner = dqSide === 'aka' ? 'ao' : 'aka';
+  node.result = { winner, votes: { aka: dqSide === 'ao' ? 3 : 0, ao: dqSide === 'aka' ? 3 : 0 } };
+  return node;
+}
+
+// ─── Repechage Bracket Builder (called at runtime) ────────────────────────────
+
+/**
+ * Builds a mini single-elimination repechage sub-tree from athletes who
+ * lost to the finalist at any round. Winner gets Bronze.
+ * Call this once a pool finalist is confirmed.
+ */
+export function buildRepechageBracket(
+  poolLabel: '1' | '2',
+  losers:    string[]
+): KataMatchNode[] {
+  if (losers.length === 0) return [];
+  const prefix  = `REP${poolLabel}`;
+
+  if (losers.length === 1) {
+    return [{
+      matchId: `${prefix}-BRONZE`, round: 1, roundLabel: 'Bronze', slot: 1,
+      aka: losers[0], ao: null,
+      isMedalMatch: true, isBronze: true, requiresBunkai: false,
+      isTieBreaker: false, isReperformance: false, isBye: true,
+      winnerAdvancesTo: null, loserAdvancesTo: null,
+      result: { winner: 'aka', votes: { aka: 0, ao: 0 } },
+    }];
+  }
+
+  const size   = kataPow2(losers.length);
+  const padded = [...losers, ...Array(size - losers.length).fill(null)];
+  const totalR = Math.log2(size);
+  const nodes: KataMatchNode[] = [];
+
+  const r1: KataMatchNode[] = [];
+  for (let s = 0; s < size / 2; s++) {
+    const akaId = padded[s * 2]     ?? null;
+    const aoId  = padded[s * 2 + 1] ?? null;
+    const isBye = (akaId !== null && aoId === null) || (akaId === null && aoId !== null);
+    const m: KataMatchNode = {
+      matchId:          mkKataId(prefix, 1, s + 1),
+      round:            1,
+      roundLabel:       kataRoundLabel(1, totalR),
+      slot:             s + 1,
+      aka:              akaId, ao: aoId,
+      isMedalMatch:     false, isBronze: false, requiresBunkai: false,
+      isTieBreaker:     false, isReperformance: false, isBye,
+      winnerAdvancesTo: null, loserAdvancesTo: null,
+      result: isBye ? { winner: akaId ? 'aka' : 'ao', votes: { aka: 0, ao: 0 } } : undefined,
+    };
+    r1.push(m); nodes.push(m);
+  }
+
+  let cur = r1; let rn = 2;
+  while (cur.length > 1) {
+    const next: KataMatchNode[] = [];
+    for (let s = 0; s < cur.length; s += 2) {
+      const isFinal = cur.length === 2;
+      const matchId = isFinal ? `${prefix}-BRONZE` : mkKataId(prefix, rn, Math.floor(s / 2) + 1);
+      const m: KataMatchNode = {
+        matchId, round: rn,
+        roundLabel: isFinal ? 'Bronze' : kataRoundLabel(rn, totalR),
+        slot: Math.floor(s / 2) + 1,
+        aka: null, ao: null,
+        isMedalMatch: isFinal, isBronze: isFinal, requiresBunkai: false,
+        isTieBreaker: false, isReperformance: false, isBye: false,
+        winnerAdvancesTo: null, loserAdvancesTo: null,
+      };
+      cur[s].winnerAdvancesTo = matchId;
+      if (cur[s + 1]) cur[s + 1].winnerAdvancesTo = matchId;
+      next.push(m); nodes.push(m);
+    }
+    cur = next; rn++;
+  }
+  return nodes;
+}
+
+// ─── Main Entry Point ─────────────────────────────────────────────────────────
+
+/**
+ * Generates a complete Kata bracket for a category.
+ *
+ * @param athletes  Ordered list of athleteIds / teamIds (seeds first if known).
+ * @param config    Kata category configuration from Firestore.
+ * @returns         Flat array of KataMatchNode to store at
+ *                  competitions/{id}/categories/{catId}/matches/{matchId}.
+ */
+export function generateKataBracket(
+  athletes: string[],
+  config:   KataCategoryConfig
+): KataMatchNode[] {
+  if (!athletes || athletes.length === 0) return [];
+
+  const { kataFormat, seeds = [], isTeam = false } = config;
+
+  // Deduplicate while preserving order
+  const uniq   = Array.from(new Set(athletes));
+  const seeded = seeds.filter(s => uniq.includes(s));
+
+  switch (kataFormat) {
+    case 'elimination':
+      return buildKataElimination(uniq, seeded, isTeam);
+
+    case 'round-robin':
+      return buildKataRoundRobin(uniq, seeded, isTeam, /* isWorldCup= */ isTeam);
+
+    case 'two-pool':
+      return buildKataTwoPool(uniq, seeded, isTeam);
+
+    default:
+      return [];
+  }
+}

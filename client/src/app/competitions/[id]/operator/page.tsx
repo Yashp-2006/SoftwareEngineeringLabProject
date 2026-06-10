@@ -5,6 +5,7 @@ import { Maximize, ArrowLeft, Play, Pause, Flag, RotateCw } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import PasswordGateway from '@/components/auth/PasswordGateway';
 import { toast } from 'react-hot-toast';
+import KataOperatorPanel from '@/components/kata/KataOperatorPanel';
 
 export default function OperatorPortal({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
@@ -26,6 +27,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
   const [poolStatuses, setPoolStatuses] = useState<Record<string, boolean>>({});
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [activeCategoryName, setActiveCategoryName] = useState('');
+  const [activeCategoryData, setActiveCategoryData] = useState<any>(null);
   const [compData, setCompData] = useState<any>(null);
   const [activeMatchId, setActiveMatchId] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -143,6 +145,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
           const activeCat = cats[0];
           setActiveCategoryId(activeCat.id);
           setActiveCategoryName(activeCat.name);
+          setActiveCategoryData(activeCat);
           const matches = activeCat.matches || [];
           
           const pendingMatches = matches.filter((m: any) => m.status !== 'completed');
@@ -192,6 +195,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
           setPoolStatuses({});
           setActiveCategoryId(null);
           setActiveCategoryName('');
+          setActiveCategoryData(null);
         }
       });
     };
@@ -878,16 +882,62 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
               <div className="ops-header">
                 <div>
                   <div style={{ color: 'var(--neutral-500)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Current Category</div>
-                  <div style={{ fontWeight: 700, fontSize: '15px' }}>Senior Male Kumite -75kg <span style={{ color: 'var(--neutral-400)', fontWeight: 500 }}>• Semi-Final</span></div>
+                  <div style={{ fontWeight: 700, fontSize: '15px' }}>{activeCategoryName || 'No Active Category'} {activeCategoryData?.isKata && <span style={{ marginLeft: 6, padding: '2px 8px', background: '#dbeafe', color: '#1e40af', borderRadius: 4, fontSize: 11, fontWeight: 800 }}>KATA</span>}</div>
                 </div>
                 <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ color: 'var(--neutral-500)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Match ID</div>
-                    <div style={{ fontWeight: 700, fontFamily: 'var(--font-mono)' }}>M05</div>
+                    <div style={{ fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{queue.find(m => m.id === activeMatchId)?.displayId || '—'}</div>
                   </div>
                 </div>
               </div>
 
+              {/* ── KATA GATE: If category isKata, render KataOperatorPanel; otherwise render existing Kumite controls ── */}
+              {activeCategoryData?.isKata && activeMatchId ? (
+                <div style={{ padding: '24px' }}>
+                  <KataOperatorPanel
+                    competitionId={id}
+                    categoryId={activeCategoryId!}
+                    matchId={activeMatchId}
+                    matId={typeof window !== 'undefined' ? (new URLSearchParams(window.location.search).get('mat') || 'mat-1') : 'mat-1'}
+                    akaName={aka.name}
+                    aoName={ao.name}
+                    akaId={queue.find(m => m.id === activeMatchId)?.akaId}
+                    aoId={queue.find(m => m.id === activeMatchId)?.aoId}
+                    numberOfJudges={activeCategoryData?.numberOfJudges || 5}
+                    allowedKataNumbers={activeCategoryData?.allowedKataList || []}
+                    kataFormat={activeCategoryData?.kataFormat || 'elimination'}
+                    isTeam={activeCategoryData?.isTeam || false}
+                    onMatchFinished={(winner, votes) => {
+                      const currentMatch = queue.find(m => m.id === activeMatchId);
+                      const winnerId = winner === 'aka' ? currentMatch?.akaId : currentMatch?.aoId;
+                      if (currentMatch) {
+                        setRecentMatches(prev => [{ ...currentMatch, status: 'completed', winnerId, kataVotes: votes }, ...prev].slice(0, 3));
+                        setQueue(prev => prev.filter(m => m.id !== activeMatchId));
+                      }
+                      setWinnerState({ color: winner, name: winner === 'aka' ? aka.name : ao.name, academy: winner === 'aka' ? aka.academy : ao.academy, points: votes[winner] });
+                      fetch(`/api/competitions/${id}/brackets/${activeCategoryId}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ matchId: activeMatchId, winnerId }),
+                      }).then(r => r.json()).then(data => {
+                        if (data.success) toast.success('Kata bout result saved!');
+                        else toast.error('Failed to save result: ' + data.error);
+                      }).catch(() => toast.error('Network error saving kata result'));
+                    }}
+                  />
+                  {/* Kata Next Match / Reset controls */}
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '16px', justifyContent: 'flex-end' }}>
+                    <button className="btn-round" onClick={handleNextMatch}>Next Match</button>
+                    <button className="btn-round" style={{ color: 'var(--aka)', borderColor: 'rgba(225,29,72,0.3)' }} onClick={() => {
+                      setRound(1); setWinnerState(null);
+                      const next = queue.find(m => m.id !== activeMatchId);
+                      if (next) loadMatch(next);
+                    }}>↺ Reset / Load Next</button>
+                  </div>
+                </div>
+              ) : (
+                <>
               <div className="ops-display">
                 <div className="ops-side aka">
                   <div className="ops-country">{aka.country}</div>
@@ -1048,6 +1098,8 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
 
                 </div>
               </div>
+                </>
+              )}
             </section>
 
             <section style={{ marginTop: '32px' }}>

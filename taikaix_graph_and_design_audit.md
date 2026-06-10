@@ -13,6 +13,49 @@
 
 ---
 
+## 🏗️ App Overview & Workflow (How TaikaiX Works)
+
+**TaikaiX** is a live, real-time tournament management and scoring system built with Next.js and Firebase. It manages the entire lifecycle of a martial arts (or similar) tournament from initial setup to live operations and post-event archiving.
+
+**The Workflow Flow:**
+1. **Setup & Initialization (`/competitions` & `/setup/[id]`)**: 
+   - An administrator creates a new competition.
+   - The 5-phase setup wizard handles configuration: defining categories (e.g., Weight, Age, Discipline like Kata/Kumite), importing athletes via Excel/CSV, and assigning mats.
+   - Security boundaries are established by setting competition-specific passwords.
+2. **Bracket Generation (`/competitions/[id]/bracket`)**:
+   - The app's `tiesheet-generator.ts` processes the imported athletes and generates competitive brackets, handling Byes and special categories automatically.
+3. **Live Operations & Scoring (`/competitions/[id]/operator` & `/live/mat/[matId]`)**:
+   - **Operator Portal**: Staff log in using the competition password to access the Operator Portal. This is the central command for a specific mat. They manage the match queue, start/stop matches, and input live scores.
+   - **Real-Time Display**: Live scoreboard screens are powered by Firebase Realtime Database (RTDB), reflecting score updates, penalties, and timers instantaneously.
+4. **Resolution & Archiving (`/archives/[id]`)**:
+   - As matches conclude, brackets are updated automatically, and winners are promoted.
+   - Upon category completion, medals are automatically assigned.
+   - Finished competitions move to read-only archives where historical brackets and results can be viewed.
+
+**Core Technical Stack**: Next.js 14 (App Router), React, TailwindCSS, Firebase Firestore (Data persistence), Firebase RTDB (Live scoring), Firebase Auth.
+
+---
+
+## ✅ What's Been Done (Recent Major Accomplishments)
+- **Firebase Wiring:** Migrated from static mock data to live Firestore connections for competitions, categories, athletes, and medals.
+- **Authentication & Security:** Implemented Firebase Auth and a custom `<PasswordGateway>` to protect sensitive operator actions.
+- **Live Scoring Architecture:** Wired the real-time scoring pipeline using Firebase RTDB (`live_scores/{id}/mats/{matId}`), allowing operators to push updates and scoreboards to instantly reflect them.
+- **Dynamic Brackets:** Implemented dynamic tiesheet generation with automatic bye-handling, pool-wise extraction, and auto-medaling upon category completion.
+- **UI/UX Polish:** Completed implementation for 19 out of 21 planned routes, maintaining the original design system (AKA/AO tokens, Bento grids, responsive layouts).
+- **Bug Fixes:** Resolved RTDB path mismatches, protected the `/debug` route, removed misleading empty route directories, fixed CSV import logic, and wired the dashboard homepage.
+
+---
+
+## ⏳ What's Yet To Do (Outstanding Tasks)
+- **Hash the Competition Password:** The competition password is currently stored in plaintext in Firestore (`competitions/page.tsx`). Needs a Next.js server action/API route to hash it before storage.
+- **Wire Remaining Entities:** Bind the Staff, Users, and Schedule CRUD UI to their respective Firestore collections.
+- **Accessibility Audit (WCAG AA):** Perform a systematic pass to ensure focus rings and ARIA labels are fully implemented.
+- **Implement Dark Mode:** Defined in the design spec but deferred to v1.1.
+- **Archive Analytics Visualization:** Wire up Chart.js UI to perform real aggregation queries against Firestore data.
+- **Re-run Graphify:** Update the architecture graph to accurately reflect the Next.js `client/src/` structure instead of the legacy HTML prototype.
+
+---
+
 ## 📊 Graph Summary (Original — HTML Prototype Corpus)
 
 | Metric | Value |
@@ -290,14 +333,3 @@ The Next.js app introduced several routes **not** in the original 18-screen spec
 > - Fixed Special Category Tiesheet Generator to accurately extract pool-wise winners.
 
 ---
-
-## 🎯 Suggested Next Steps (Updated from Graph Structure)
-
-1. **Fix RTDB path mismatch** — Reconcile `live_scores/{id}/mats/{matId}` (operator write) with `matStatus/{matId}` → `liveMatches/{matchId}` (live mat read). This is the single highest-priority bug blocking live scoring.
-2. **Wire the dashboard homepage** — Replace hardcoded stats on `page.tsx` with Firestore `competitions` collection aggregation queries.
-3. **Hash the competition password server-side** — Use a Next.js API route to hash before Firestore write; remove the plaintext `TODO`.
-4. **Clean up routing debris** — Delete empty `/operator`, `/medals` root dirs; delete `/archive` dir (keep `/archives`); evaluate `/debug` route.
-5. **Wire remaining entities** — Staff, Schedule CRUD, Users, Archive Analytics (all have UI, need Firestore binding).
-6. **Re-run graphify against the Next.js client** — The current graph reflects the HTML prototype. Running graphify on `client/src/` will produce an accurate community map of the production codebase.
-7. **Audit accessibility** — WCAG AA focus rings and ARIA labels need a systematic pass; currently ~50%.
-8. **Protect `/debug` route** — Add an environment check or remove before production.
