@@ -1183,61 +1183,14 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                       <p className="text-small">Assign key personnel for the tournament. Detailed assignments can be managed in the Live Staff page.</p>
                     </div>
                   </div>
-                  <div className="table-responsive">
-                    <table className="cat-table">
-                      <thead>
-                        <tr>
-                          <th className="text-micro">Role Type</th>
-                          <th className="text-micro">Coverage / Scope</th>
-                          <th className="text-micro">Assigned To</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td style={{ fontWeight: 500 }}>Mat Operators</td>
-                          <td>Per Mat (e.g., MAT 01, MAT 02)</td>
-                          <td>
-                            <select className="input-field" style={{ height: '36px', marginBottom: 0 }}>
-                              <option value="">Unassigned</option>
-                              <option value="lucas">Lucas Rossi</option>
-                              <option value="amina">Amina Ndiaye</option>
-                            </select>
-                          </td>
-                        </tr>
-                        <tr>
-                          <td style={{ fontWeight: 500 }}>Attendance Volunteers</td>
-                          <td>Per Category (e.g., Senior Male Kumite)</td>
-                          <td>
-                            <select className="input-field" style={{ height: '36px', marginBottom: 0 }}>
-                              <option value="">Unassigned</option>
-                              <option value="maria">Maria Garcia</option>
-                              <option value="rafael">Rafael Silva</option>
-                            </select>
-                          </td>
-                        </tr>
-                        <tr>
-                          <td style={{ fontWeight: 500 }}>Medal Distributors</td>
-                          <td>Per Region / Level (e.g., National)</td>
-                          <td>
-                            <select className="input-field" style={{ height: '36px', marginBottom: 0 }}>
-                              <option value="">Unassigned</option>
-                              <option value="yuki">Yuki Tanaka</option>
-                            </select>
-                          </td>
-                        </tr>
-                        <tr>
-                          <td style={{ fontWeight: 500 }}>Guest Viewers</td>
-                          <td>Global Read-Only Access</td>
-                          <td>
-                            <select className="input-field" style={{ height: '36px', marginBottom: 0 }}>
-                              <option value="">Unassigned</option>
-                              <option value="guest1">Guest Account 1</option>
-                              <option value="guest2">VIP Observer</option>
-                            </select>
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
+                  <div style={{ padding: 'var(--space-6)', textAlign: 'center', background: 'var(--neutral-50)', borderRadius: '12px', border: '1px dashed var(--neutral-300)' }}>
+                    <h4 style={{ marginBottom: '8px' }}>Staff Roster is Managed Live</h4>
+                    <p style={{ color: 'var(--neutral-500)', marginBottom: '16px' }}>
+                      To prevent setup clutter, staff assignments (Mat Operators, Medal Distributors, etc.) are managed dynamically in the Live Staff portal. 
+                    </p>
+                    <Link href={`/competitions/${id}/staff`} className="btn btn-secondary" style={{ display: 'inline-flex' }}>
+                      Open Live Staff Portal →
+                    </Link>
                   </div>
                 </div>
               </div>
@@ -1394,10 +1347,10 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
       </div>
 
       {previewModalOpen && (
-        <FullscreenBracketModal
+        <SetupBracketPreview
+          competitionId={id}
+          initialCategoryId={previewCatId || null}
           onClose={() => setPreviewModalOpen(false)}
-          categories={categories}
-          initialCategoryId={previewCatId || undefined}
         />
       )}
 
