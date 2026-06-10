@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowRight, Save, CheckCircle, Combine, Plus, Edit2, Trash2, Star, FileSpreadsheet, RefreshCw, Key, ChevronDown, Eye, EyeOff, UploadCloud, X, Download } from 'lucide-react';
 import FullscreenBracketModal from '@/components/FullscreenBracketModal';
 import UndersizedPoolsModal from '@/components/UndersizedPoolsModal';
+import StaffAssignmentManager from '@/components/StaffAssignmentManager';
 import { toast } from 'react-hot-toast';
 import ConfirmModal from '@/components/ConfirmModal';
 
@@ -42,7 +43,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
   const [selectedCats, setSelectedCats] = useState<Set<string>>(new Set());
 
   const [filterGender, setFilterGender] = useState<'all'|'male'|'female'>('all');
-  const [hideEmpty, setHideEmpty] = useState<boolean>(false);
+  const [hideEmpty, setHideEmpty] = useState<boolean>(true);
 
   const [isSaving, setIsSaving] = useState(false);
   const [confirmState, setConfirmState] = useState<{
@@ -479,6 +480,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         type: compType,
         bronzeRule: bronzeRule,
         isSetupComplete: true,
+        status: 'live',
         updatedAt: new Date().toISOString()
       };
       
@@ -1177,21 +1179,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
               )}
               <div className="category-manager">
                 <div className="cat-group">
-                  <div className="flex-between">
-                    <div>
-                      <h3>Staff Assignments Preview</h3>
-                      <p className="text-small">Assign key personnel for the tournament. Detailed assignments can be managed in the Live Staff page.</p>
-                    </div>
-                  </div>
-                  <div style={{ padding: 'var(--space-6)', textAlign: 'center', background: 'var(--neutral-50)', borderRadius: '12px', border: '1px dashed var(--neutral-300)' }}>
-                    <h4 style={{ marginBottom: '8px' }}>Staff Roster is Managed Live</h4>
-                    <p style={{ color: 'var(--neutral-500)', marginBottom: '16px' }}>
-                      To prevent setup clutter, staff assignments (Mat Operators, Medal Distributors, etc.) are managed dynamically in the Live Staff portal. 
-                    </p>
-                    <Link href={`/competitions/${id}/staff`} className="btn btn-secondary" style={{ display: 'inline-flex' }}>
-                      Open Live Staff Portal →
-                    </Link>
-                  </div>
+                  <StaffAssignmentManager competitionId={id} />
                 </div>
               </div>
             </section>
@@ -1383,7 +1371,8 @@ function SetupBracketPreview({ competitionId, initialCategoryId, onClose }: {
       const { collection, onSnapshot } = await import('firebase/firestore');
       const { db } = await import('@lib/firebase');
       unsub = onSnapshot(collection(db, 'competitions', competitionId, 'categories'), snap => {
-        setCategories(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        const filtered = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter((c: any) => c.entries > 0);
+        setCategories(filtered);
         setLoading(false);
       });
     };

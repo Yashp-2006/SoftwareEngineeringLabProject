@@ -32,7 +32,7 @@ export default function CompetitionsPage() {
       try {
         const { collection, onSnapshot, query, orderBy } = await import('firebase/firestore');
         const { db } = await import('@lib/firebase');
-        const q = query(collection(db, 'competitions'), orderBy('createdAt', 'desc'));
+        const q = query(collection(db, 'competitions'), orderBy('createdAt', 'asc'));
         
         unsubscribe = onSnapshot(q, (snapshot) => {
           const comps: any[] = [];

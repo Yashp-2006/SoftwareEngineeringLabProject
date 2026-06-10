@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { X, AlertTriangle, CheckCircle2 } from 'lucide-react';
 
 const DQ_REASONS = [
   'Wrong / unannounced kata',
@@ -65,12 +66,12 @@ export default function DQPanel({ isDQ, akaName, aoName, onDQ, disabled }: DQPan
           >
             {isDQ[side] ? (
               <>
-                <span>✕</span>
+                <span style={{ display: 'inline-flex' }}><X size={16} /></span>
                 <span>{side.toUpperCase()} DISQUALIFIED</span>
               </>
             ) : (
               <>
-                <span>⚠</span>
+                <span style={{ display: 'inline-flex' }}><AlertTriangle size={16} /></span>
                 <span>Disqualify {side.toUpperCase()}</span>
               </>
             )}
@@ -187,7 +188,7 @@ export default function DQPanel({ isDQ, akaName, aoName, onDQ, disabled }: DQPan
                     style={{ marginTop: '2px', flexShrink: 0 }}
                   />
                   <span>
-                    Chief Judge has called <strong>Shugo</strong> ✓
+                    Chief Judge has called <strong>Shugo</strong> <CheckCircle2 size={14} style={{ display: 'inline-block', verticalAlign: 'middle' }} />
                     <div style={{ fontSize: '11px', fontWeight: 500, marginTop: '2px', color: '#b45309' }}>
                       DQ cannot be committed without Chief Judge's call
                     </div>
@@ -206,7 +207,7 @@ export default function DQPanel({ isDQ, akaName, aoName, onDQ, disabled }: DQPan
                   fontWeight: 600,
                 }}
               >
-                ⚠ This action awards the bout to the opponent and sets all judge scores to 0.0. This cannot be undone.
+                <AlertTriangle size={14} style={{ display: 'inline-block', verticalAlign: 'text-bottom', marginRight: '4px' }} /> This action awards the bout to the opponent and sets all judge scores to 0.0. This cannot be undone.
               </div>
             </div>
 

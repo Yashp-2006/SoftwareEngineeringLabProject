@@ -66,7 +66,7 @@ export const WKF_CATEGORIES = [
   "U8 (6-7) Male / Female -20 kg",
   "U8 (6-7) Male / Female -25 kg",
   "U8 (6-7) Male / Female +25 kg",
-  "Toddler / Preschool (3-5) Mixed Gender Kata Only (No Weight Divisions)"
+  "Toddler / Preschool (3-5) Mixed Gender Kata Only"
 ];
 
 export function generateWkfCategories(mode: string = 'standard'): string[] {

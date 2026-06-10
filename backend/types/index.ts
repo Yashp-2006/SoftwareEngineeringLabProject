@@ -5,7 +5,7 @@ export interface User {
   uid: string;
   name: string;
   email: string;
-  role: 'Admin' | 'TournamentDirector' | 'ScoreboardController' | 'AttendanceVolunteer' | 'MedalDistributor' | 'Viewer' | 'Coach';
+  role: 'Admin' | 'TournamentDirector' | 'MatOperator' | 'AttendanceVolunteer' | 'MedalDistributor' | 'Viewer' | 'GuestViewer' | 'Judge' | 'Coach';
   academy: string;
   photoURL?: string;
 }

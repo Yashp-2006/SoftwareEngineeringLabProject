@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Maximize, MinusCircle, PlusCircle, X, ChevronDown, Check, Target, ArrowRight } from 'lucide-react';
+import { X, Search, ZoomIn, ZoomOut, Maximize, Target, LayoutTemplate, Swords, CheckCircle2, ArrowRight, Check } from 'lucide-react';
 
 const METRICS = ['S', 'Y', 'W', 'I', 'C1', 'C2', 'C3', 'HC', 'H'];
 
@@ -212,7 +212,7 @@ const BracketNode = ({
             )}
             {isCompleted && onPromote && match.winnerId && (
               <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--status-live)' }}>
-                ✓ Advanced
+                <CheckCircle2 size={12} style={{ display: 'inline-block', verticalAlign: 'baseline', marginRight: '4px' }} /> Advanced
               </span>
             )}
           </>
@@ -290,22 +290,24 @@ export function BracketViewer({
     setIsDropdownOpen(false);
   };
 
-  // Set default pool if not set, prioritize activeHighlight's pool
-  useEffect(() => {
+  const [prevActiveHighlight, setPrevActiveHighlight] = useState(activeHighlight);
+  const poolsKey = availablePools.join(',');
+  const [prevPoolsKey, setPrevPoolsKey] = useState(poolsKey);
+
+  if (activeHighlight !== prevActiveHighlight || poolsKey !== prevPoolsKey) {
+    setPrevActiveHighlight(activeHighlight);
+    setPrevPoolsKey(poolsKey);
     if (availablePools.length > 0) {
       if (activeHighlight && activeHighlight.startsWith('Pool')) {
         const highlightPool = activeHighlight.split('-')[0].replace('Pool', '');
         if (availablePools.includes(highlightPool)) {
           setSelectedPool(highlightPool);
-          return;
         }
-      }
-      
-      if (!selectedPool || !availablePools.includes(selectedPool)) {
+      } else if (!selectedPool || !availablePools.includes(selectedPool)) {
         setSelectedPool(availablePools[0]);
       }
     }
-  }, [availablePools, selectedPool, activeHighlight]);
+  }
 
   const filteredMatches = (availablePools.length > 0 && selectedPool)
     ? (matches || []).filter(m => m.id.startsWith(`Pool${selectedPool}-`))
@@ -316,10 +318,11 @@ export function BracketViewer({
   const canvasRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
 
-  // Reset manual zoom when switching categories
-  useEffect(() => {
+  const [prevCategoryName, setPrevCategoryName] = useState(categoryName);
+  if (categoryName !== prevCategoryName) {
+    setPrevCategoryName(categoryName);
     setIsManualZoom(false);
-  }, [categoryName]);
+  }
 
   const adjustZoom = (delta: number) => {
     setIsManualZoom(true);
@@ -363,7 +366,7 @@ export function BracketViewer({
   if (!matches || matches.length === 0) {
     return (
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--neutral-400)', flexDirection: 'column', gap: '12px' }}>
-        <div style={{ fontSize: '48px' }}>⚔️</div>
+        <div style={{ fontSize: '48px', color: 'var(--neutral-300)' }}><Swords size={48} strokeWidth={1.5} color="currentColor" /></div>
         <div style={{ fontSize: '14px', fontWeight: 600 }}>No matches generated yet.</div>
       </div>
     );
@@ -860,11 +863,11 @@ export default function FullscreenBracketModal({
                     {cat.status === 'live' ? (
                       <div className="fsb-live-tag">
                         <div className="fsb-live-dot" />
-                        {cat.mat ? `MAT ${cat.mat.padStart(2, '0')}` : 'LIVE'}
+                        {cat.mat ? cat.mat : 'LIVE'}
                       </div>
                     ) : (
                       <div style={{ color: cat.status === 'completed' ? 'var(--neutral-400)' : 'var(--status-upcoming)' }}>
-                        {cat.status === 'completed' ? 'COMPLETED' : (cat.mat ? `MAT ${cat.mat.padStart(2, '0')}` : 'NOT ASSIGNED')}
+                        {cat.status === 'completed' ? 'COMPLETED' : (cat.mat ? cat.mat : 'NOT ASSIGNED')}
                       </div>
                     )}
                     <div>{(cat.athletes?.length || cat.matches?.filter((m: any) => m.round === 1 && (m.aka || m.ao)).length * 2 || 0)} ATH</div>

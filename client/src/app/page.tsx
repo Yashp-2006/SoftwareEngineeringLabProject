@@ -122,7 +122,15 @@ export default function DashboardPage() {
         if (compsForTrend.length > 0) {
           const latestComp = compsForTrend[compsForTrend.length - 1];
           const catsSnap = await getDocs(collection(db, 'competitions', latestComp.id, 'categories'));
-          const colors = ['#e63946', '#f4a261', '#e9c46a', '#2a9d8f', '#264653', '#8ab17d', '#e76f51'];
+          const colors = [
+            'var(--aka)',
+            'var(--ao)',
+            'oklch(65% 0.18 50)',
+            'oklch(60% 0.15 160)',
+            'oklch(45% 0.12 280)',
+            'oklch(80% 0.10 90)',
+            'oklch(75% 0.05 220)'
+          ];
           let pData: any[] = [];
           catsSnap.forEach(catDoc => {
             const cData = catDoc.data();
@@ -184,7 +192,7 @@ export default function DashboardPage() {
           opacity: 0,
           duration: 0.8,
           stagger: 0.15,
-          ease: 'power3.out'
+          ease: 'expo.out'
         });
       });
     }
@@ -204,18 +212,18 @@ export default function DashboardPage() {
         if (chartType === 'bar') {
           gsap.fromTo('.bar-inner', 
             { scaleY: 0 },
-            { scaleY: 1, duration: 0.8, stagger: 0.05, ease: 'power3.out', transformOrigin: 'bottom' }
+            { scaleY: 1, duration: 0.8, stagger: 0.05, ease: 'expo.out', transformOrigin: 'bottom' }
           );
         } else {
           // Line drawing effect
           gsap.fromTo('.graph-line',
             { strokeDasharray: 1000, strokeDashoffset: 1000 },
-            { strokeDashoffset: 0, duration: 1.2, ease: 'power3.inOut' }
+            { strokeDashoffset: 0, duration: 1.2, ease: 'expo.inOut' }
           );
           // Point fade/pop effect
           gsap.fromTo('.graph-point',
             { scale: 0, opacity: 0, transformOrigin: 'center' },
-            { scale: 1, opacity: 1, duration: 0.6, stagger: 0.05, ease: 'back.out(2)', delay: 0.4 }
+            { scale: 1, opacity: 1, duration: 0.6, stagger: 0.05, ease: 'back.out(1.5)', delay: 0.4 }
           );
         }
       });

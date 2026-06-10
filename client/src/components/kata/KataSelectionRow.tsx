@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import { KATA_LIST, KataEntry } from '@/lib/kata-list';
 
 interface KataSelectionRowProps {
@@ -141,7 +142,7 @@ export default function KataSelectionRow({
                 fontWeight: 600,
               }}
             >
-              ⚠ All permitted kata used twice. Free selection allowed.
+              <AlertTriangle size={14} style={{ display: 'inline-block', verticalAlign: 'text-bottom', marginRight: '4px' }} /> All permitted kata used twice. Free selection allowed.
             </div>
           )}
 

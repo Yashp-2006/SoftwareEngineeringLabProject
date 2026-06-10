@@ -7,10 +7,11 @@ import { useAuth } from '@/components/auth/AuthProvider';
 
 const ROLE_MAP: Record<string, string> = {
   'admin': 'Admin',
-  'mat_operator': 'Scoreboard Controller',
+  'mat_operator': 'Mat Operator',
   'attendance_volunteer': 'Attendance Volunteer',
   'medal_distributor': 'Medal Distributor',
-  'guest_viewer': 'Viewer'
+  'guest_viewer': 'Guest Viewer',
+  'judge': 'Judge'
 };
 
 const ROLES = Object.keys(ROLE_MAP);
@@ -20,16 +21,18 @@ const ROLE_DESCRIPTIONS: Record<string, string> = {
   "mat_operator": "Score mat, manage tiesheet, points",
   "attendance_volunteer": "Athlete page, ready status, disqualify",
   "medal_distributor": "Filter state/country, distribute",
-  "guest_viewer": "Read-only access"
+  "guest_viewer": "Read-only access",
+  "judge": "Provide inputs for judging matches"
 };
 
 const getNormalizedRole = (role: string) => {
   if (!role) return 'guest_viewer';
-  if (role === 'Viewer') return 'guest_viewer';
+  if (role === 'Viewer' || role === 'Guest Viewer') return 'guest_viewer';
   if (role === 'Admin') return 'admin';
-  if (role === 'Scoreboard Controller') return 'mat_operator';
+  if (role === 'Scoreboard Controller' || role === 'Mat Operator') return 'mat_operator';
   if (role === 'Attendance Volunteer') return 'attendance_volunteer';
   if (role === 'Medal Distributor') return 'medal_distributor';
+  if (role === 'Judge' || role === 'judge') return 'judge';
   return role;
 };
 

@@ -89,3 +89,12 @@
 - **Firestore Security Rules**: Currently relying heavily on client-side logic. Comprehensive Firebase Security Rules (for both Firestore and RTDB) must be written and deployed to prevent unauthorized writes, especially for match advancement and scoring.
 - **API Route Protections**: The server-side API routes (`/api/competitions/...`) must verify the user's Firebase Auth token (via `firebase-admin` auth checks) to ensure the requester is an Admin before executing imports or bracket patches.
 - **`/debug` Route**: Ensure the `/debug` route is strictly stripped or guarded in production environments. (Currently protected by a `NODE_ENV` check, but should be double-checked).
+
+## Update 2026-06-10
+- Replaced emojis with premium Lucide React SVG icons (Scale, Swords, CheckCircle2, AlertTriangle, etc.) to enhance the professional app design.
+- Fixed all remaining React Doctor bugs including a CSRF vulnerability (Side effect in GET handler in test-db) and State Synced to a Prop Inside an Effect bugs in ConfirmModal and FullscreenBracketModal.
+- Transformed chart UI (pie chart) to utilize a premium OKLCH color palette that blends with the --aka and --ao brand colors.
+
+
+- Committed all changes and deployed to Vercel for production readiness.
+

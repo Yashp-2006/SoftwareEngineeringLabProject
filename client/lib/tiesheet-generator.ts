@@ -153,9 +153,14 @@ export function parseExcel(buffer: ArrayBuffer): AthleteRow[] {
       
       for (const k of Object.keys(row)) {
         if (!k) continue;
+        const lowerK = k.toLowerCase().trim();
         const val = String(row[k]).toLowerCase().trim();
         if (val === 'yes' || val === 'y' || val === 'true' || val === '1' || val === 'x' || val === 'checked') {
-          events.push(k.toLowerCase().trim());
+          events.push(lowerK);
+        } else if (['events', 'event', 'category', 'categories', 'participating events'].includes(lowerK)) {
+          // Parse values like "Kata, Kumite" or "Kata & Kumite"
+          const parts = val.split(/[,&]+/).map(v => v.trim()).filter(v => v);
+          events.push(...parts);
         }
       }
 
@@ -214,11 +219,11 @@ export function parseExcelIntoCategories(
       if (matchedSpecial) {
         addToCategory(matchedSpecial.name, athlete);
         addedToAny = true;
-      } else if (event === 'kata') {
+      } else if (event.includes('kata')) {
         const base = determineCategory(athlete, specialCategories, 'age');
         addToCategory(`${base} Kata`, athlete);
         addedToAny = true;
-      } else if (event === 'kumite') {
+      } else if (event.includes('kumite')) {
         addToCategory(determineCategory(athlete, specialCategories, wkfMode), athlete);
         addedToAny = true;
       }
@@ -247,7 +252,10 @@ export function parseExcelIntoCategories(
           addToCategory('Uncategorized', athlete);
         }
       } else {
+        // Automatically enroll in both Kumite and Kata if no events were explicitly specified
         addToCategory(determineCategory(athlete, specialCategories, wkfMode), athlete);
+        const baseKata = determineCategory(athlete, specialCategories, 'age');
+        addToCategory(`${baseKata} Kata`, athlete);
       }
     }
   }

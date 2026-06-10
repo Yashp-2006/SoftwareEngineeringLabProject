@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
+import { Scale, Play, Pause } from 'lucide-react';
 import KataSelectionRow from './KataSelectionRow';
 import JudgeScoreGrid from './JudgeScoreGrid';
 import FoulPanel from './FoulPanel';
@@ -291,7 +292,7 @@ export default function KataOperatorPanel({
 
     if (winner === 'tie_pending') {
       setTieModalOpen(true);
-      toast('Tie detected — resolution required.', { icon: '⚖' });
+      toast('Tie detected — resolution required.', { icon: <Scale size={16} /> });
     } else {
       onMatchFinished(winner, { aka: votes.aka, ao: votes.ao });
     }
@@ -464,7 +465,7 @@ export default function KataOperatorPanel({
                   cursor: 'pointer',
                 }}
               >
-                {timerRunning ? '⏸ Pause' : '▶ Start'}
+                {timerRunning ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Pause size={14} /> Pause</span> : <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Play size={14} /> Start</span>}
               </button>
               {phase === 'kata' ? (
                 <button
@@ -606,7 +607,7 @@ export default function KataOperatorPanel({
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontSize: '14px', fontWeight: 800, color: kataWinner === 'tie_pending' ? '#b45309' : kataWinner === 'aka' ? 'var(--aka)' : 'var(--ao)' }}>
-                    {kataWinner === 'tie_pending' ? '⚖ Tie' : kataWinner === 'aka' ? `${akaName} Wins` : `${aoName} Wins`}
+                    {kataWinner === 'tie_pending' ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Scale size={14} /> Tie</span> : kataWinner === 'aka' ? `${akaName} Wins` : `${aoName} Wins`}
                   </div>
                   {voteResult.tied.length > 0 && (
                     <div style={{ fontSize: '11px', color: 'var(--neutral-500)', marginTop: '2px' }}>

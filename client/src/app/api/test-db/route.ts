@@ -25,20 +25,11 @@ export async function GET() {
     const timestamp = new Date().toISOString();
     
     // 1. Test Firestore (Main Database)
-    const testDocRef = adminDb.collection('system_tests').doc('connection_test');
-    await testDocRef.set({
-      lastTest: timestamp,
-      status: 'OK',
-      database: 'Firestore'
-    });
+    const testDocs = await adminDb.collection('system_tests').limit(1).get();
     
     // 2. Test Realtime Database (Live Scoreboard)
     const rtdbRef = adminRtdb.ref('system_tests/connection_test');
-    await rtdbRef.set({
-      lastTest: timestamp,
-      status: 'OK',
-      database: 'Realtime Database'
-    });
+    await rtdbRef.once('value');
 
     return NextResponse.json({
       success: true,

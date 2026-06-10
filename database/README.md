@@ -139,7 +139,7 @@ TaikaiX uses **two Firebase databases** with distinct roles:
   "competitionId": "string",
   "userId": "string",
   "userName": "string",
-  "role": "Admin | Scoreboard Controller | Attendance Volunteer | Medal Distributor | Viewer",
+  "role": "Admin | Tournament Director | Mat Operator | Attendance Volunteer | Medal Distributor | Viewer | Coach | Guest Viewer | Judge",
   "scope": "mat | category | medals | global",
   "scopeId": "string | null",
   "status": "assigned | unassigned"
@@ -152,7 +152,7 @@ TaikaiX uses **two Firebase databases** with distinct roles:
   "uid": "string",
   "name": "string",
   "email": "string",
-  "role": "Admin | Scoreboard Controller | Attendance Volunteer | Medal Distributor | Viewer",
+  "role": "Admin | Tournament Director | Mat Operator | Attendance Volunteer | Medal Distributor | Viewer | Coach | Guest Viewer | Judge",
   "academy": "string",
   "photoURL": "string | null",
   "createdAt": "ISO timestamp"
@@ -227,11 +227,11 @@ service cloud.firestore {
         allow read: if request.auth != null;
         allow write: if isAdmin();
 
-        // Matches: Scoreboard Controller can update score fields only
+        // Matches: Mat Operator can update score fields only
         match /matches/{matchId} {
           allow read: if request.auth != null;
           allow create: if isAdmin();
-          allow update: if isAdmin() || isScoreboardController();
+          allow update: if isAdmin() || isMatOperator();
         }
       }
 
@@ -269,9 +269,9 @@ service cloud.firestore {
       return request.auth != null &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin';
     }
-    function isScoreboardController() {
+    function isMatOperator() {
       return request.auth != null &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Scoreboard Controller';
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Mat Operator';
     }
     function isAttendanceVolunteer() {
       return request.auth != null &&

@@ -2,17 +2,13 @@
   "rules": {
     "liveMatches": {
       "$matchId": {
-        // Public broadcast screens can read without auth
         ".read": true,
-        // Only authenticated users (Scoreboard Controller) can write
         ".write": "auth != null"
       }
     },
     "matStatus": {
       "$matId": {
-        // Public broadcast screens can read mat status without auth
         ".read": true,
-        // Only authenticated users can update mat status
         ".write": "auth != null"
       }
     }

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { CheckCircle2, Scale } from 'lucide-react';
 
 interface TieResolutionModalProps {
   isOpen: boolean;
@@ -120,8 +121,8 @@ export default function TieResolutionModal({
 
   const getResultLabel = (result?: StepResult, isAkaLabel?: boolean) => {
     if (result === 'tied') return 'Still Tied';
-    if (result === 'aka') return isAkaLabel ? '✓ Resolves: AKA Wins' : akaName + ' wins';
-    if (result === 'ao') return isAkaLabel ? '✓ Resolves: AO Wins' : aoName + ' wins';
+    if (result === 'aka') return isAkaLabel ? 'Resolves: AKA Wins' : akaName + ' wins';
+    if (result === 'ao') return isAkaLabel ? 'Resolves: AO Wins' : aoName + ' wins';
     return '';
   };
 
@@ -196,7 +197,7 @@ export default function TieResolutionModal({
                   marginBottom: '8px',
                 }}
               >
-                ⚖ Tie — Resolution Required
+                <Scale size={14} /> Tie — Resolution Required
               </div>
               <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--neutral-900)' }}>
                 {akaName} vs {aoName}
@@ -275,7 +276,11 @@ export default function TieResolutionModal({
               }}
             >
               <div style={{ fontSize: '12px', fontWeight: 800, color: getResultColor(currentStep.result), textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>
-                {currentStep.result === 'tied' ? '⚖ Still Tied' : `✓ ${getResultLabel(currentStep.result)}`}
+                {currentStep.result === 'tied' ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Scale size={14} /> Still Tied</span>
+                ) : (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><CheckCircle2 size={14} /> {getResultLabel(currentStep.result)}</span>
+                )}
               </div>
               <div style={{ fontSize: '13px', color: 'var(--neutral-700)', fontWeight: 600 }}>
                 {currentStep.result === 'tied'

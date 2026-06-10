@@ -376,6 +376,9 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
                     <tr key={row.id}>
                       <td>
                         <div className="category-name">{row.category}</div>
+                        <div style={{ fontSize: '10px', color: 'var(--neutral-500)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '2px' }}>
+                          {row.category.toLowerCase().includes('kata') ? 'KATA' : 'KUMITE'}
+                        </div>
                         {row.status === 'done' && <div style={{ fontSize: '11px', color: '#10b981', fontWeight: 700, marginTop: '2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Finished</div>}
                         {row.status === 'live' && <div style={{ fontSize: '11px', color: 'var(--aka)', fontWeight: 700, marginTop: '2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>In Progress</div>}
                       </td>

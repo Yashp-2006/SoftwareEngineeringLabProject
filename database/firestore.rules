@@ -23,11 +23,11 @@ service cloud.firestore {
         allow read: if request.auth != null;
         allow write: if isAdmin();
 
-        // Matches — Scoreboard Controller can update score/timer fields
+        // Matches — Mat Operator can update score/timer fields
         match /matches/{matchId} {
           allow read: if request.auth != null;
           allow create: if isAdmin();
-          allow update: if isAdmin() || isScoreboardController();
+          allow update: if isAdmin() || isMatOperator();
           allow delete: if isAdmin();
         }
       }
@@ -76,8 +76,8 @@ service cloud.firestore {
       return request.auth != null && getUserRole() == 'Admin';
     }
 
-    function isScoreboardController() {
-      return request.auth != null && getUserRole() == 'Scoreboard Controller';
+    function isMatOperator() {
+      return request.auth != null && getUserRole() == 'Mat Operator';
     }
 
     function isAttendanceVolunteer() {

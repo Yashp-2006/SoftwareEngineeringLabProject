@@ -23,11 +23,18 @@ export default function ConfirmModal({
   onConfirm,
   onCancel
 }: ConfirmModalProps) {
-  const [isRendered, setIsRendered] = useState(false);
+  const [isRendered, setIsRendered] = useState(isOpen);
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen);
+    if (isOpen) {
+      setIsRendered(true);
+    }
+  }
 
   useEffect(() => {
     if (isOpen) {
-      setIsRendered(true);
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
