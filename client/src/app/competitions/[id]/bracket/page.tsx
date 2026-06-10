@@ -975,7 +975,7 @@ function TiesheetCard({ cat, onClick, isSpecial = false }: { cat: any; onClick: 
         {isLive ? (
           <div className="live-badge">
             <div className="live-dot-sm" />
-            {cat.mat ? `MAT ${cat.mat.padStart(2, '0')} • LIVE` : 'LIVE'}
+            {cat.mat ? `${cat.mat.toUpperCase().includes('MAT') ? cat.mat : `MAT ${cat.mat.padStart(2, '0')}`} • LIVE` : 'LIVE'}
           </div>
         ) : isCompleted ? (
           <div style={{ color: '#10b981', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -984,7 +984,7 @@ function TiesheetCard({ cat, onClick, isSpecial = false }: { cat: any; onClick: 
           </div>
         ) : (
           <div style={{ color: isSpecial ? '#d97706' : 'var(--status-upcoming)' }}>
-            {cat.mat ? `MAT ${cat.mat.padStart(2, '0')} • UPCOMING` : 'NOT ASSIGNED'}
+            {cat.mat ? `${cat.mat.toUpperCase().includes('MAT') ? cat.mat : `MAT ${cat.mat.padStart(2, '0')}`} • UPCOMING` : 'NOT ASSIGNED'}
           </div>
         )}
         <div>{athleteCount} ATHLETES</div>
