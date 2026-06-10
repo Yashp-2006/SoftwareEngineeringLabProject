@@ -78,12 +78,18 @@ const BracketNode = ({
           )}
           {match.aka && (
             <div className="metrics-row">
-              {METRICS.map(m => (
-                <React.Fragment key={m}>
-                  <MetricTag label={m} isAo={false} />
-                  {m === 'I' && <div style={{ width: 24 }} />}
-                </React.Fragment>
-              ))}
+              {match.selectedKata?.aka ? (
+                <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--neutral-600)', textTransform: 'uppercase', padding: '2px 6px', background: 'var(--neutral-100)', borderRadius: '4px' }}>
+                  {match.selectedKata.aka.name}
+                </div>
+              ) : (
+                METRICS.map(m => (
+                  <React.Fragment key={m}>
+                    <MetricTag label={m} isAo={false} />
+                    {m === 'I' && <div style={{ width: 24 }} />}
+                  </React.Fragment>
+                ))
+              )}
             </div>
           )}
         </div>
@@ -105,12 +111,18 @@ const BracketNode = ({
           )}
           {match.ao && (
             <div className="metrics-row">
-              {METRICS.map(m => (
-                <React.Fragment key={m}>
-                  <MetricTag label={m} isAo={true} />
-                  {m === 'I' && <div style={{ width: 24 }} />}
-                </React.Fragment>
-              ))}
+              {match.selectedKata?.ao ? (
+                <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--neutral-600)', textTransform: 'uppercase', padding: '2px 6px', background: 'var(--neutral-100)', borderRadius: '4px' }}>
+                  {match.selectedKata.ao.name}
+                </div>
+              ) : (
+                METRICS.map(m => (
+                  <React.Fragment key={m}>
+                    <MetricTag label={m} isAo={true} />
+                    {m === 'I' && <div style={{ width: 24 }} />}
+                  </React.Fragment>
+                ))
+              )}
             </div>
           )}
         </div>

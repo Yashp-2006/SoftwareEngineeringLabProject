@@ -307,7 +307,25 @@ export default function KataOperatorPanel({
 
   const handleCreateTieBreaker = async () => {
     setTieModalOpen(false);
-    toast.success('Tie-breaker bout created in queue.');
+    toast.loading('Creating tie-breaker bout...', { id: 'tb-create' });
+    try {
+      const res = await fetch(`/api/competitions/${competitionId}/brackets/${categoryId}/tiebreaker`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ matchId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Tie-breaker bout created in queue.', { id: 'tb-create' });
+        // Setting kataWinner to 'tie' ends the bout without triggering typical match finish logic locally
+        setKataWinner('tie' as any);
+        await syncRTDB({ kataWinner: 'tie' });
+      } else {
+        toast.error(`Failed to create tie-breaker: ${data.error}`, { id: 'tb-create' });
+      }
+    } catch (err: any) {
+      toast.error('Network error creating tie-breaker.', { id: 'tb-create' });
+    }
   };
 
   const teamTimerMins = String(Math.floor(teamTimer / 60)).padStart(2, '0');
@@ -427,7 +445,14 @@ export default function KataOperatorPanel({
               <button
                 type="button"
                 className="kata-btn"
-                onClick={() => { timerRunning ? setTimerRunning(false) : handleStartPerformance(); }}
+                onClick={() => {
+                  if (timerRunning) {
+                    setTimerRunning(false);
+                    syncRTDB({ timerRunning: false, teamTimerSeconds: teamTimer });
+                  } else {
+                    handleStartPerformance();
+                  }
+                }}
                 style={{
                   padding: '8px 16px',
                   borderRadius: '8px',
@@ -441,7 +466,7 @@ export default function KataOperatorPanel({
               >
                 {timerRunning ? '⏸ Pause' : '▶ Start'}
               </button>
-              {phase === 'kata' && (
+              {phase === 'kata' ? (
                 <button
                   type="button"
                   className="kata-btn"
@@ -459,6 +484,19 @@ export default function KataOperatorPanel({
                 >
                   Begin Bunkai →
                 </button>
+              ) : (
+                <div style={{
+                  padding: '8px 14px',
+                  borderRadius: '8px',
+                  background: 'rgba(99, 102, 241, 0.1)',
+                  color: '#6366f1',
+                  fontWeight: 800,
+                  fontSize: '13px',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}>
+                  BUNKAI ACTIVE
+                </div>
               )}
             </div>
           </div>

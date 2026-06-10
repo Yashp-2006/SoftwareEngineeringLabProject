@@ -333,3 +333,13 @@ The Next.js app introduced several routes **not** in the original 18-screen spec
 > - Fixed Special Category Tiesheet Generator to accurately extract pool-wise winners.
 
 ---
+
+> [!NOTE]
+> **Kata Implementation Phase (June 2026)** — ? **IMPLEMENTED:**
+> - Full tiesheet generation for Elimination, Round-Robin, and Two-Pool systems.
+> - WKF Seed placement mapping.
+> - Isolated Operator Panel for Kata featuring 102 WKF selection, live vote scoring grid, and Bunkai timing.
+> - Tie Resolution Modal implementing WKF Articles 5.11-5.13.
+> - Added dynamic Kata labels in the bracket view.
+> - Extra Kata tiebreaker generation API.
+---
