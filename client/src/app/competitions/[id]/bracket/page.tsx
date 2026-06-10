@@ -313,6 +313,7 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
   const [specialModalOpen, setSpecialModalOpen] = useState(false);
   const [downloadingTiesheets, setDownloadingTiesheets] = useState(false);
   const [compData, setCompData] = useState<any>(null);
+  const [disciplineFilter, setDisciplineFilter] = useState<'All' | 'Kumite' | 'Kata'>('All');
 
   const { role } = useAuth();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -501,13 +502,21 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
   };
 
   const standardCategories = categories.filter(c => !c.isSpecial);
-  const liveCategories = standardCategories.filter(c => c.status === 'live');
-  const upcomingCategories = standardCategories.filter(c => c.status !== 'live' && c.status !== 'completed');
-  const completedCategories = standardCategories.filter(c => c.status === 'completed');
 
-  const liveSpecial = specialCategories.filter(c => c.status === 'live');
-  const upcomingSpecial = specialCategories.filter(c => c.status !== 'live' && c.status !== 'completed' && c.matches?.length > 0);
-  const completedSpecial = specialCategories.filter(c => c.status === 'completed');
+  const applyFilter = (cats: any[]) => cats.filter(c => {
+    if (disciplineFilter === 'All') return true;
+    const isKata = c.isKata === true || (typeof c.name === 'string' && c.name.toLowerCase().includes('kata'));
+    if (disciplineFilter === 'Kata') return isKata;
+    return !isKata; // Kumite
+  });
+
+  const liveCategories = applyFilter(standardCategories).filter(c => c.status === 'live');
+  const upcomingCategories = applyFilter(standardCategories).filter(c => c.status !== 'live' && c.status !== 'completed');
+  const completedCategories = applyFilter(standardCategories).filter(c => c.status === 'completed');
+
+  const liveSpecial = applyFilter(specialCategories).filter(c => c.status === 'live');
+  const upcomingSpecial = applyFilter(specialCategories).filter(c => c.status !== 'live' && c.status !== 'completed' && c.matches?.length > 0);
+  const completedSpecial = applyFilter(specialCategories).filter(c => c.status === 'completed');
 
   return (
     <>
@@ -637,7 +646,25 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
               {categories.length} categories • Click any category to open its bracket
             </p>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            <select
+              value={disciplineFilter}
+              onChange={e => setDisciplineFilter(e.target.value as any)}
+              style={{
+                padding: '8px 12px',
+                borderRadius: '8px',
+                border: '1px solid var(--neutral-300)',
+                background: 'var(--shiro)',
+                fontSize: '14px',
+                color: 'var(--neutral-900)',
+                cursor: 'pointer',
+                minWidth: '140px'
+              }}
+            >
+              <option value="All">All Disciplines</option>
+              <option value="Kumite">Kumite Only</option>
+              <option value="Kata">Kata Only</option>
+            </select>
             {categories.length > 0 && (
               <div className="search-container">
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
