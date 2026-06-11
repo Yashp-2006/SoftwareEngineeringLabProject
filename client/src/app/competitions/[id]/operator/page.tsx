@@ -13,6 +13,12 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
   const [isFullscreen, setIsFullscreen] = useState(false);
   const { role } = useAuth();
   const isViewer = role === 'audience' || role === 'guest_viewer' || !role;
+
+  useEffect(() => {
+    const handleFS = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', handleFS);
+    return () => document.removeEventListener('fullscreenchange', handleFS);
+  }, []);
   
   // State
   const [aka, setAka] = useState({ name: 'AKA', country: '', academy: '', score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false });
@@ -88,6 +94,8 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
       akaName: aka.name, akaCountry: aka.country, akaAcademy: aka.academy,
       aoName: ao.name, aoCountry: ao.country, aoAcademy: ao.academy,
       scores: { aka: aka.score, ao: ao.score },
+      akaStats: { yuko: aka.yuko, waza: aka.waza, ippon: aka.ippon, senshu: aka.senshu },
+      aoStats: { yuko: ao.yuko, waza: ao.waza, ippon: ao.ippon, senshu: ao.senshu },
       akaPenalties: { c1: aka.c1, c2: aka.c2, c3: aka.c3, hc: aka.hc, h: aka.h },
       aoPenalties:  { c1: ao.c1,  c2: ao.c2,  c3: ao.c3,  hc: ao.hc,  h: ao.h  },
       timerSeconds: timer, timerRunning: running, timeRemaining: `${mm}:${ss}`,
@@ -118,8 +126,8 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
       onValue(liveRef, (snapshot) => {
         const val = snapshot.val();
         if (val) {
-          setAka(prev => ({ ...prev, name: val.akaName || prev.name, country: val.akaCountry || prev.country, academy: val.akaAcademy || prev.academy, score: val.scores?.aka || 0, c1: val.akaPenalties?.c1 || 0, c2: val.akaPenalties?.c2 || 0, c3: val.akaPenalties?.c3 || 0, hc: val.akaPenalties?.hc || 0, h: val.akaPenalties?.h || 0 }));
-          setAo(prev => ({ ...prev, name: val.aoName || prev.name, country: val.aoCountry || prev.country, academy: val.aoAcademy || prev.academy, score: val.scores?.ao || 0, c1: val.aoPenalties?.c1 || 0, c2: val.aoPenalties?.c2 || 0, c3: val.aoPenalties?.c3 || 0, hc: val.aoPenalties?.hc || 0, h: val.aoPenalties?.h || 0 }));
+          setAka(prev => ({ ...prev, name: val.akaName || prev.name, country: val.akaCountry || prev.country, academy: val.akaAcademy || prev.academy, score: val.scores?.aka || 0, yuko: val.akaStats?.yuko || 0, waza: val.akaStats?.waza || 0, ippon: val.akaStats?.ippon || 0, senshu: val.akaStats?.senshu || false, c1: val.akaPenalties?.c1 || 0, c2: val.akaPenalties?.c2 || 0, c3: val.akaPenalties?.c3 || 0, hc: val.akaPenalties?.hc || 0, h: val.akaPenalties?.h || 0 }));
+          setAo(prev => ({ ...prev, name: val.aoName || prev.name, country: val.aoCountry || prev.country, academy: val.aoAcademy || prev.academy, score: val.scores?.ao || 0, yuko: val.aoStats?.yuko || 0, waza: val.aoStats?.waza || 0, ippon: val.aoStats?.ippon || 0, senshu: val.aoStats?.senshu || false, c1: val.aoPenalties?.c1 || 0, c2: val.aoPenalties?.c2 || 0, c3: val.aoPenalties?.c3 || 0, hc: val.aoPenalties?.hc || 0, h: val.aoPenalties?.h || 0 }));
           setStatus(val.status || 'ongoing');
           if (val.currentCategory) setActiveCategoryName(val.currentCategory);
           setKataVotes(val.kataVotes || null);
@@ -643,7 +651,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
     }
   };
 
-  if (isFullscreen) {
+  if (isFullscreen || isViewer) {
     return (
       <PasswordGateway>
       <div style={{ position: 'fixed', inset: 0, backgroundColor: '#fdfbfb', zIndex: 9999, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -709,19 +717,31 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
 
         <div className="overlay-header">
           <div>
-            <div className="overlay-title">Mat 01 — <span className="overlay-title-live">Live Scoreboard</span></div>
-            <div className="overlay-meta">Kyoto 2026 Finals • Senior Male Kumite -75kg • Semi-Final</div>
+            <div className="overlay-title">Mat {new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('mat')?.replace('mat-', '').padStart(2, '0') || '01'} — <span className="overlay-title-live">Live Scoreboard</span></div>
+            <div className="overlay-meta">{compData?.name || 'Tournament'} • {activeCategoryName || 'Waiting for category'} {activeMatchId && queue.find(m => m.id === activeMatchId)?.displayId ? `• ${queue.find(m => m.id === activeMatchId)?.displayId}` : ''}</div>
           </div>
           <div className="overlay-actions">
-            <button className="overlay-btn" onClick={() => document.documentElement.requestFullscreen().catch(()=>{} )}>
-              <Maximize size={16} /> Enter Fullscreen
-            </button>
-            <button className="overlay-btn return" onClick={() => {
-              if (document.fullscreenElement) document.exitFullscreen();
-              setIsFullscreen(false);
+            <button className="overlay-btn" onClick={() => {
+              if (document.fullscreenElement) {
+                document.exitFullscreen().catch(()=>{});
+              } else {
+                document.documentElement.requestFullscreen().catch(()=>{} );
+              }
             }}>
-              <ArrowLeft size={16} /> Return to Mat Operations
+              <Maximize size={16} /> {isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
             </button>
+            {!isFullscreen && (
+              <button className="overlay-btn return" onClick={() => {
+                if (isViewer) {
+                  window.location.href = `/competitions/${id}/mats`;
+                } else {
+                  if (document.fullscreenElement) document.exitFullscreen();
+                  setIsFullscreen(false);
+                }
+              }}>
+                <ArrowLeft size={16} /> {isViewer ? 'Return to Mat' : 'Return to Mat Operations'}
+              </button>
+            )}
           </div>
         </div>
 
