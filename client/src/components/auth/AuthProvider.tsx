@@ -80,7 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // 1. Unauthenticated Users
       if (!user) {
         const isStrictAdminRoute = pathname === '/' || pathname.startsWith('/setup') || pathname.startsWith('/users') || pathname.startsWith('/profile');
-        const isPortalRoute = pathname.includes('/operator') || pathname.includes('/staff') || pathname.includes('/medals');
+        const isPortalRoute = pathname.includes('/staff') || pathname.includes('/medals');
         
         if (isStrictAdminRoute || isPortalRoute) {
           if (pathname === '/') {

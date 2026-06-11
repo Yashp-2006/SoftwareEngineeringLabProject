@@ -12,7 +12,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
   const { id } = React.use(params);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const { role } = useAuth();
-  const isViewer = role === 'audience' || role === 'guest_viewer';
+  const isViewer = role === 'audience' || role === 'guest_viewer' || !role;
   
   // State
   const [aka, setAka] = useState({ name: 'AKA', country: '', academy: '', score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false });

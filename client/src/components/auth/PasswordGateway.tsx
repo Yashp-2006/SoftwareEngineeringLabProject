@@ -24,7 +24,7 @@ export default function PasswordGateway({ children }: { children: React.ReactNod
   useEffect(() => {
     // Check if session storage already has the password authorized or if viewer
     const authed = sessionStorage.getItem(authKey);
-    if (authed === 'true' || role === 'audience' || role === 'guest_viewer') {
+    if (authed === 'true' || role === 'audience' || role === 'guest_viewer' || !role) {
       setIsAuthenticated(true);
     }
     
