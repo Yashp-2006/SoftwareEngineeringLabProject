@@ -860,7 +860,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
         .fs-fighter-head.aka { background: var(--aka); }
         .fs-fighter-head.ao { background: var(--ao); }
         .fs-lane { font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; opacity: 0.9; margin-bottom: 4px; }
-        .fs-name { font-size: clamp(32px, 4vw, 48px); font-weight: 800; line-height: 1; text-transform: uppercase; }
+        .fs-name { font-size: clamp(22px, 3vw, 38px); font-weight: 800; line-height: 1.1; text-transform: uppercase; overflow-wrap: break-word; word-break: break-word; }
         
         .fs-score-stage { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; }
         .fs-main-score { font-family: var(--font-display); font-size: clamp(120px, 15vw, 240px); font-weight: 800; line-height: 1; }
