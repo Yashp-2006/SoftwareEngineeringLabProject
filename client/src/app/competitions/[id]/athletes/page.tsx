@@ -476,7 +476,9 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
                     style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--neutral-300)', fontSize: '13px', background: 'white' }}
                   >
                     <option value="">All Pools</option>
-                    {Array.from(new Set(activeCategory?.athletes.map(a => a.pool).filter(Boolean))).sort().map(p => (
+                    {Array.from(new Set(activeCategory?.athletes.map(a => a.pool).filter(Boolean)))
+                      .sort((a, b) => parseInt(String(a)) - parseInt(String(b)))
+                      .map(p => (
                       <option key={String(p)} value={String(p)}>Pool {String(p)}</option>
                     ))}
                   </select>
