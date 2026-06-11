@@ -15,7 +15,12 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
   const isViewer = role === 'audience' || role === 'guest_viewer' || !role;
 
   useEffect(() => {
-    const handleFS = () => setIsFullscreen(!!document.fullscreenElement);
+    const handleFS = () => {
+      if (document.fullscreenElement && document.fullscreenElement !== document.documentElement) {
+        return;
+      }
+      setIsFullscreen(!!document.fullscreenElement);
+    };
     document.addEventListener('fullscreenchange', handleFS);
     return () => document.removeEventListener('fullscreenchange', handleFS);
   }, []);
@@ -983,8 +988,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
               </>
             )}
             <button className="btn btn-primary" onClick={() => {
-              const el = document.getElementById('ops-display-container');
-              if (el && el.requestFullscreen) el.requestFullscreen();
+              document.documentElement.requestFullscreen().catch(()=>{});
             }}>
               <Maximize size={16} /> View Scoreboard Fullscreen
             </button>
@@ -1468,8 +1472,21 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
 
           <aside>
             {isViewer ? (
+              <>
+              <style dangerouslySetInnerHTML={{__html: `
+                #mat-leaderboard-container:fullscreen {
+                  width: 100vw; height: 100vh; padding: 64px; border-radius: 0; overflow-y: auto; margin: 0; display: flex; flex-direction: column; gap: 16px;
+                }
+                #mat-leaderboard-container:fullscreen .lb-title { font-size: 32px !important; margin-bottom: 32px !important; }
+                #mat-leaderboard-container:fullscreen .lb-item { padding: 32px !important; border-radius: 16px !important; gap: 24px !important; }
+                #mat-leaderboard-container:fullscreen .lb-rank { width: 64px !important; height: 64px !important; font-size: 28px !important; }
+                #mat-leaderboard-container:fullscreen .lb-academy { font-size: 28px !important; }
+                #mat-leaderboard-container:fullscreen .lb-pts { font-size: 40px !important; }
+                #mat-leaderboard-container:fullscreen .lb-pts span { font-size: 20px !important; }
+                #mat-leaderboard-container:-webkit-full-screen { width: 100vw; height: 100vh; }
+              `}} />
               <div id="mat-leaderboard-container" style={{ background: 'var(--shiro)', borderRadius: '16px', padding: '16px', border: '1px solid var(--neutral-200)', boxShadow: '0 4px 12px rgba(0,0,0,0.02)', marginBottom: '24px' }}>
-                <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--neutral-500)', textTransform: 'uppercase', marginBottom: '16px', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div className="lb-title" style={{ fontSize: '11px', fontWeight: 800, color: 'var(--neutral-500)', textTransform: 'uppercase', marginBottom: '16px', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>Mat Leaderboard</div>
                   <button onClick={() => {
                     const el = document.getElementById('mat-leaderboard-container');
@@ -1510,15 +1527,15 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                   return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       {leaderboard.map((entry, idx) => (
-                        <div key={entry.academy} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', border: '1px solid var(--neutral-200)', borderRadius: '10px', background: idx < 3 ? 'var(--shiro)' : 'var(--neutral-50)' }}>
-                          <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: idx === 0 ? '#f59e0b' : idx === 1 ? '#9ca3af' : idx === 2 ? '#d97706' : 'var(--neutral-200)', color: idx < 3 ? 'white' : 'var(--neutral-600)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 800 }}>
+                        <div key={entry.academy} className="lb-item" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', border: '1px solid var(--neutral-200)', borderRadius: '10px', background: idx < 3 ? 'var(--shiro)' : 'var(--neutral-50)' }}>
+                          <div className="lb-rank" style={{ width: '24px', height: '24px', borderRadius: '50%', background: idx === 0 ? '#f59e0b' : idx === 1 ? '#9ca3af' : idx === 2 ? '#d97706' : 'var(--neutral-200)', color: idx < 3 ? 'white' : 'var(--neutral-600)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 800 }}>
                             {idx + 1}
                           </div>
-                          <div style={{ flex: 1, fontSize: '13px', fontWeight: 700, color: 'var(--neutral-900)' }}>
+                          <div className="lb-academy" style={{ flex: 1, fontSize: '13px', fontWeight: 700, color: 'var(--neutral-900)' }}>
                             {entry.academy}
                           </div>
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                            <span style={{ fontSize: '14px', fontWeight: 800, color: 'var(--neutral-900)' }}>{entry.points} <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--neutral-400)', textTransform: 'uppercase' }}>pts</span></span>
+                            <span className="lb-pts" style={{ fontSize: '14px', fontWeight: 800, color: 'var(--neutral-900)' }}>{entry.points} <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--neutral-400)', textTransform: 'uppercase' }}>pts</span></span>
                           </div>
                         </div>
                       ))}
@@ -1526,6 +1543,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                   );
                 })()}
               </div>
+              </>
             ) : (
               <>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
