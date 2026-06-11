@@ -719,17 +719,19 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
                 )}
               </div>
             )}
-            <button className="btn-create-special" onClick={() => setSpecialModalOpen(true)}>
-              <Star size={14} />
-              Create Special Tiesheet
-            </button>
+            {role === 'admin' && (
+              <button className="btn-create-special" onClick={() => setSpecialModalOpen(true)}>
+                <Star size={14} />
+                Create Special Tiesheet
+              </button>
+            )}
             {role === 'admin' && (
               <button className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={() => setIsAddModalOpen(true)}>
                 <UserPlus size={16} />
                 Add On-Spot Entry
               </button>
             )}
-            {categories.length > 0 && (
+            {categories.length > 0 && role === 'admin' && (
               <button 
                 className="btn btn-secondary" 
                 style={{ display: 'flex', alignItems: 'center', gap: '8px' }} 
