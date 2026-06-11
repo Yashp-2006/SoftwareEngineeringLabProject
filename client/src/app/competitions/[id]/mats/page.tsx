@@ -43,7 +43,6 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
   const [scoreboardLogo, setScoreboardLogo] = useState<string | null>(null);
   const [showPasswordMap, setShowPasswordMap] = useState<Record<string, boolean>>({});
   const [tempPasswords, setTempPasswords] = useState<Record<string, string>>({});
-  const [selectedViewerMat, setSelectedViewerMat] = useState<MatData | null>(null);
 
   useEffect(() => {
     let unsubFirestore: () => void;
@@ -570,11 +569,11 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
               // Viewer-friendly card: no links, no password fields
               if (isViewer) {
                 return (
-                  <div 
+                  <Link 
+                    href={`/competitions/${id}/operator?mat=${mat.id}`}
                     key={mat.id} 
                     className={`mat-card ${isLive || liveCat || upcomingCats.length > 0 ? 'live' : 'standby'}`}
-                    onClick={() => setSelectedViewerMat(mat)}
-                    style={{ cursor: 'pointer', transition: 'all 0.2s', ...((selectedViewerMat?.id === mat.id) ? { borderColor: 'var(--aka)', boxShadow: '0 0 0 2px rgba(225,29,72,0.2)' } : {}) }}
+                    style={{ transition: 'all 0.2s' }}
                   >
                     <div className="mat-header">
                       <span className="mat-number">{mat.name}</span>
@@ -650,7 +649,7 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
                         <span>No Categories Assigned</span>
                       </div>
                     )}
-                  </div>
+                  </Link>
                 );
               }
 
@@ -780,148 +779,6 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
           </div>
         )}
       </main>
-
-      {/* Viewer Mat Details Modal */}
-      {selectedViewerMat && isViewer && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setSelectedViewerMat(null)}>
-          <div style={{ background: 'var(--shiro)', width: '90%', maxWidth: '800px', borderRadius: '16px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 24px 48px -12px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--neutral-200)', position: 'sticky', top: 0, background: 'var(--shiro)', zIndex: 10 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <h2 style={{ margin: 0, fontSize: '20px' }}>{selectedViewerMat.name} Details</h2>
-                {liveStates[selectedViewerMat.id]?.status === 'live' && (
-                  <span className="status-chip status-live">Live</span>
-                )}
-              </div>
-              <button onClick={() => setSelectedViewerMat(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--neutral-500)', padding: '4px' }}>
-                <X size={20} />
-              </button>
-            </div>
-            
-            <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
-              {/* Scoreboard Section */}
-              <section>
-                <h3 style={{ fontSize: '14px', textTransform: 'uppercase', color: 'var(--neutral-500)', letterSpacing: '0.05em', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Activity size={16} /> Live Scoreboard
-                </h3>
-                {liveStates[selectedViewerMat.id]?.status === 'live' || liveStates[selectedViewerMat.id]?.status === 'paused' ? (
-                  <div style={{ background: 'var(--neutral-900)', borderRadius: '12px', padding: '24px', color: 'white', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ color: 'var(--neutral-400)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Current Category</div>
-                      <div style={{ fontSize: '20px', fontWeight: 700 }}>{liveStates[selectedViewerMat.id]?.currentCategory || 'Unknown Category'}</div>
-                      <div style={{ color: 'var(--neutral-300)', fontSize: '14px' }}>{liveStates[selectedViewerMat.id]?.currentMatch || 'Match'}</div>
-                    </div>
-                    
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '32px' }}>
-                      {/* AKA Side */}
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
-                        <div style={{ background: 'var(--aka)', color: 'white', padding: '4px 16px', borderRadius: '4px', fontSize: '14px', fontWeight: 800, marginBottom: '12px' }}>AKA</div>
-                        <div style={{ fontSize: '72px', fontWeight: 900, lineHeight: 1, color: 'var(--aka)' }}>{liveStates[selectedViewerMat.id]?.scores?.aka || 0}</div>
-                        <div style={{ color: 'var(--neutral-400)', fontSize: '14px', marginTop: '8px', fontWeight: 600 }}>PEN: {liveStates[selectedViewerMat.id]?.scores?.akaPen || 0}</div>
-                      </div>
-                      
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
-                        <div style={{ fontSize: '12px', color: 'var(--neutral-500)', fontWeight: 800, letterSpacing: '0.1em' }}>VS</div>
-                        <div style={{ background: 'rgba(255,255,255,0.1)', padding: '8px 16px', borderRadius: '8px', fontSize: '24px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', color: liveStates[selectedViewerMat.id]?.status === 'paused' ? '#facc15' : '#4ade80' }}>
-                          <Timer size={20} />
-                          {liveStates[selectedViewerMat.id]?.timeRemaining || '00:00'}
-                        </div>
-                      </div>
-                      
-                      {/* AO Side */}
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
-                        <div style={{ background: 'var(--ao)', color: 'white', padding: '4px 16px', borderRadius: '4px', fontSize: '14px', fontWeight: 800, marginBottom: '12px' }}>AO</div>
-                        <div style={{ fontSize: '72px', fontWeight: 900, lineHeight: 1, color: 'var(--ao)' }}>{liveStates[selectedViewerMat.id]?.scores?.ao || 0}</div>
-                        <div style={{ color: 'var(--neutral-400)', fontSize: '14px', marginTop: '8px', fontWeight: 600 }}>PEN: {liveStates[selectedViewerMat.id]?.scores?.aoPen || 0}</div>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ padding: '32px', textAlign: 'center', background: 'var(--neutral-50)', borderRadius: '12px', color: 'var(--neutral-500)', border: '1px dashed var(--neutral-300)' }}>
-                    <Coffee size={32} style={{ margin: '0 auto 12px' }} />
-                    <div style={{ fontSize: '16px', fontWeight: 600 }}>No active match</div>
-                    <div style={{ fontSize: '13px' }}>The mat is currently on standby or paused.</div>
-                  </div>
-                )}
-              </section>
-
-              {/* Leaderboard Section */}
-              <section>
-                <h3 style={{ fontSize: '14px', textTransform: 'uppercase', color: 'var(--neutral-500)', letterSpacing: '0.05em', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Trophy size={16} /> Mat Leaderboard
-                </h3>
-                {(() => {
-                  const assignedCats = categoryByMat[selectedViewerMat.name] || [];
-                  const matStats: Record<string, { gold: number, silver: number, bronze: number, points: number }> = {};
-                  
-                  assignedCats.forEach(cat => {
-                    (cat.athletes || []).forEach(ath => {
-                      if (ath.medal) {
-                        const academy = ath.academy || 'Unknown';
-                        if (!matStats[academy]) matStats[academy] = { gold: 0, silver: 0, bronze: 0, points: 0 };
-                        if (ath.medal === 'gold') {
-                          matStats[academy].gold += 1;
-                          matStats[academy].points += 3;
-                        } else if (ath.medal === 'silver') {
-                          matStats[academy].silver += 1;
-                          matStats[academy].points += 2;
-                        } else if (ath.medal === 'bronze') {
-                          matStats[academy].bronze += 1;
-                          matStats[academy].points += 1;
-                        }
-                      }
-                    });
-                  });
-
-                  const leaderboard = Object.entries(matStats).map(([academy, stats]) => ({ academy, ...stats }));
-                  leaderboard.sort((a, b) => b.points - a.points || b.gold - a.gold || b.silver - a.silver || b.bronze - a.bronze);
-
-                  if (leaderboard.length === 0) {
-                    return (
-                      <div style={{ padding: '24px', textAlign: 'center', color: 'var(--neutral-500)', border: '1px solid var(--neutral-200)', borderRadius: '12px' }}>
-                        No medals awarded on this mat yet.
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {leaderboard.map((entry, idx) => (
-                        <div key={entry.academy} style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', border: '1px solid var(--neutral-200)', borderRadius: '12px', background: idx < 3 ? 'var(--shiro)' : 'var(--neutral-50)' }}>
-                          <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: idx === 0 ? '#f59e0b' : idx === 1 ? '#9ca3af' : idx === 2 ? '#d97706' : 'var(--neutral-200)', color: idx < 3 ? 'white' : 'var(--neutral-600)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 800 }}>
-                            {idx + 1}
-                          </div>
-                          <div style={{ flex: 1, fontSize: '15px', fontWeight: 700, color: 'var(--neutral-900)' }}>
-                            {entry.academy}
-                          </div>
-                          <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                              <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--neutral-400)', textTransform: 'uppercase' }}>Gold</span>
-                              <span style={{ fontSize: '14px', fontWeight: 700, color: '#d97706' }}>{entry.gold}</span>
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                              <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--neutral-400)', textTransform: 'uppercase' }}>Silver</span>
-                              <span style={{ fontSize: '14px', fontWeight: 700, color: '#6b7280' }}>{entry.silver}</span>
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                              <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--neutral-400)', textTransform: 'uppercase' }}>Bronze</span>
-                              <span style={{ fontSize: '14px', fontWeight: 700, color: '#92400e' }}>{entry.bronze}</span>
-                            </div>
-                            <div style={{ width: '1px', height: '24px', background: 'var(--neutral-200)', margin: '0 8px' }} />
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                              <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--neutral-400)', textTransform: 'uppercase' }}>Points</span>
-                              <span style={{ fontSize: '18px', fontWeight: 800, color: 'var(--neutral-900)' }}>{entry.points}</span>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })()}
-              </section>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }

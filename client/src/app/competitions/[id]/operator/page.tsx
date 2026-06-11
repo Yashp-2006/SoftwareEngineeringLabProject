@@ -6,10 +6,13 @@ import Header from '@/components/layout/Header';
 import PasswordGateway from '@/components/auth/PasswordGateway';
 import { toast } from 'react-hot-toast';
 import KataOperatorPanel from '@/components/kata/KataOperatorPanel';
+import { useAuth } from '@/components/auth/AuthProvider';
 
 export default function OperatorPortal({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const { role } = useAuth();
+  const isViewer = role === 'audience' || role === 'guest_viewer';
   
   // State
   const [aka, setAka] = useState({ name: 'AKA', country: '', academy: '', score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false });
@@ -19,6 +22,8 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
   const [running, setRunning] = useState(false);
   const [status, setStatus] = useState<'upcoming' | 'ongoing' | 'paused' | 'finished'>('ongoing');
   const [round, setRound] = useState(1);
+  const [kataVotes, setKataVotes] = useState<{ aka: number, ao: number } | null>(null);
+  const [kataWinner, setKataWinner] = useState<string | null>(null);
 
   const [queue, setQueue] = useState<any[]>([]);
   const [allCompletedMatches, setAllCompletedMatches] = useState<any[]>([]);
@@ -29,6 +34,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
   const [activeCategoryName, setActiveCategoryName] = useState('');
   const [activeCategoryData, setActiveCategoryData] = useState<any>(null);
   const [compData, setCompData] = useState<any>(null);
+  const [matCategories, setMatCategories] = useState<any[]>([]);
   const [activeMatchId, setActiveMatchId] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [tempQueue, setTempQueue] = useState<any[]>([]);
@@ -57,6 +63,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
 
   // RTDB sync — debounced to max 1 write per 500ms to avoid write storms during timer ticks
   const syncRTDB = useCallback(async (payload: any) => {
+    if (isViewer) return;
     try {
       if (!rtdbRefCache.current || !rtdbSetCache.current) {
         const { rtdb } = await import('@lib/firebase');
@@ -88,13 +95,47 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
 
     // Immediate sync for non-timer events (score/status/penalty changes)
     // Debounced to 500ms for timer ticks to avoid 1 write/sec write storms
-    if (rtdbDebounceTimer.current) clearTimeout(rtdbDebounceTimer.current);
-    rtdbDebounceTimer.current = setTimeout(() => syncRTDB(payload), 500);
+    if (!isViewer) {
+      if (rtdbDebounceTimer.current) clearTimeout(rtdbDebounceTimer.current);
+      rtdbDebounceTimer.current = setTimeout(() => syncRTDB(payload), 500);
+    }
 
     return () => {
       if (rtdbDebounceTimer.current) clearTimeout(rtdbDebounceTimer.current);
     };
-  }, [id, aka, ao, timer, status, running, activeCategoryName, queue, syncRTDB]);
+  }, [id, aka, ao, timer, status, running, activeCategoryName, queue, syncRTDB, isViewer]);
+
+  // Viewer RTDB listener
+  useEffect(() => {
+    if (!isViewer) return;
+    let unsubscribe = () => {};
+    const setupListener = async () => {
+      const { rtdb } = await import('@lib/firebase');
+      const { ref, onValue, off } = await import('firebase/database');
+      const matId = new URLSearchParams(window.location.search).get('mat') || 'mat-1';
+      const liveRef = ref(rtdb, `live_scores/${id}/mats/${matId}`);
+      
+      onValue(liveRef, (snapshot) => {
+        const val = snapshot.val();
+        if (val) {
+          setAka(prev => ({ ...prev, name: val.akaName || prev.name, country: val.akaCountry || prev.country, academy: val.akaAcademy || prev.academy, score: val.scores?.aka || 0, c1: val.akaPenalties?.c1 || 0, c2: val.akaPenalties?.c2 || 0, c3: val.akaPenalties?.c3 || 0, hc: val.akaPenalties?.hc || 0, h: val.akaPenalties?.h || 0 }));
+          setAo(prev => ({ ...prev, name: val.aoName || prev.name, country: val.aoCountry || prev.country, academy: val.aoAcademy || prev.academy, score: val.scores?.ao || 0, c1: val.aoPenalties?.c1 || 0, c2: val.aoPenalties?.c2 || 0, c3: val.aoPenalties?.c3 || 0, hc: val.aoPenalties?.hc || 0, h: val.aoPenalties?.h || 0 }));
+          setStatus(val.status || 'ongoing');
+          if (val.currentCategory) setActiveCategoryName(val.currentCategory);
+          setKataVotes(val.kataVotes || null);
+          setKataWinner(val.kataWinner || null);
+          if (val.timeRemaining) {
+            const [mm, ss] = val.timeRemaining.split(':').map(Number);
+            if (!isNaN(mm) && !isNaN(ss)) setTimer(mm * 60 + ss);
+          }
+          setRunning(val.timerRunning || false);
+        }
+      });
+      unsubscribe = () => off(liveRef);
+    };
+    setupListener();
+    return () => unsubscribe();
+  }, [id, isViewer]);
 
 
   useEffect(() => {
@@ -137,6 +178,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
           .map(d => ({ id: d.id, ...d.data() }))
           .filter((c: any) => c.status === 'skipped');
         setSkippedCategories(skipped);
+        setMatCategories(cats);
 
         cats = cats.filter(c => c.status === 'live' || c.status === 'upcoming');
         cats.sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -788,7 +830,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
         .ops-scoreboard { background: var(--shiro); border: 1px solid var(--neutral-300); border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
         .ops-header { padding: 20px 24px; border-bottom: 1px solid var(--neutral-200); background: var(--neutral-50); display: flex; justify-content: space-between; align-items: center; }
         
-        .ops-display { display: grid; grid-template-columns: 1fr 200px 1fr; border-bottom: 1px solid var(--neutral-200); }
+        .ops-display { display: grid; grid-template-columns: 1fr 200px 1fr; border-bottom: 1px solid var(--neutral-200); background: white; }
         .ops-side { padding: 24px; display: flex; flex-direction: column; align-items: center; text-align: center; }
         .ops-side.aka { background: rgba(225, 29, 72, 0.03); border-right: 1px solid var(--neutral-200); }
         .ops-side.ao { background: rgba(26, 77, 181, 0.03); border-left: 1px solid var(--neutral-200); }
@@ -866,10 +908,17 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
             </div>
           </div>
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-            <button className="btn btn-primary" onClick={handleStartCategory}><Play size={16} /> Start Category</button>
-            <button className="btn btn-secondary" onClick={handleFinishCategory}><Flag size={16} /> Finish Category</button>
-            <button className="btn btn-secondary" onClick={handleNextCategory}>Next Category</button>
-            <button className="btn btn-primary" onClick={() => setIsFullscreen(true)}>
+            {!isViewer && (
+              <>
+                <button className="btn btn-primary" onClick={handleStartCategory}><Play size={16} /> Start Category</button>
+                <button className="btn btn-secondary" onClick={handleFinishCategory}><Flag size={16} /> Finish Category</button>
+                <button className="btn btn-secondary" onClick={handleNextCategory}>Next Category</button>
+              </>
+            )}
+            <button className="btn btn-primary" onClick={() => {
+              const el = document.getElementById('ops-display-container');
+              if (el && el.requestFullscreen) el.requestFullscreen();
+            }}>
               <Maximize size={16} /> View Scoreboard Fullscreen
             </button>
           </div>
@@ -894,51 +943,72 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
 
               {/* ── KATA GATE: If category isKata, render KataOperatorPanel; otherwise render existing Kumite controls ── */}
               {activeCategoryData?.isKata && activeMatchId ? (
-                <div style={{ padding: '24px' }}>
-                  <KataOperatorPanel
-                    competitionId={id}
-                    categoryId={activeCategoryId!}
-                    matchId={activeMatchId}
-                    matId={typeof window !== 'undefined' ? (new URLSearchParams(window.location.search).get('mat') || 'mat-1') : 'mat-1'}
-                    akaName={aka.name}
-                    aoName={ao.name}
-                    akaId={queue.find(m => m.id === activeMatchId)?.akaId}
-                    aoId={queue.find(m => m.id === activeMatchId)?.aoId}
-                    numberOfJudges={activeCategoryData?.numberOfJudges || 5}
-                    allowedKataNumbers={activeCategoryData?.allowedKataList || []}
-                    kataFormat={activeCategoryData?.kataFormat || 'elimination'}
-                    isTeam={activeCategoryData?.isTeam || false}
-                    onMatchFinished={(winner, votes) => {
-                      const currentMatch = queue.find(m => m.id === activeMatchId);
-                      const winnerId = winner === 'aka' ? currentMatch?.akaId : currentMatch?.aoId;
-                      if (currentMatch) {
-                        setRecentMatches(prev => [{ ...currentMatch, status: 'completed', winnerId, kataVotes: votes }, ...prev].slice(0, 3));
-                        setQueue(prev => prev.filter(m => m.id !== activeMatchId));
-                      }
-                      setWinnerState({ color: winner, name: winner === 'aka' ? aka.name : ao.name, academy: winner === 'aka' ? aka.academy : ao.academy, points: votes[winner] });
-                      fetch(`/api/competitions/${id}/brackets/${activeCategoryId}`, {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ matchId: activeMatchId, winnerId }),
-                      }).then(r => r.json()).then(data => {
-                        if (data.success) toast.success('Kata bout result saved!');
-                        else toast.error('Failed to save result: ' + data.error);
-                      }).catch(() => toast.error('Network error saving kata result'));
-                    }}
-                  />
-                  {/* Kata Next Match / Reset controls */}
-                  <div style={{ display: 'flex', gap: '8px', marginTop: '16px', justifyContent: 'flex-end' }}>
-                    <button className="btn-round" onClick={handleNextMatch}>Next Match</button>
-                    <button className="btn-round" style={{ color: 'var(--aka)', borderColor: 'rgba(225,29,72,0.3)' }} onClick={() => {
-                      setRound(1); setWinnerState(null);
-                      const next = queue.find(m => m.id !== activeMatchId);
-                      if (next) loadMatch(next);
-                    }}>↺ Reset / Load Next</button>
-                  </div>
+                <div id="ops-display-container" style={{ padding: '24px', background: 'white' }}>
+                  {isViewer ? (
+                    <div style={{ padding: '24px', background: 'var(--neutral-900)', borderRadius: '12px', display: 'flex', justifyContent: 'center', gap: '32px', color: 'white' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                        <div style={{ background: 'var(--aka)', color: 'white', padding: '4px 16px', borderRadius: '4px', fontSize: '14px', fontWeight: 800, marginBottom: '12px' }}>AKA</div>
+                        <div style={{ fontSize: '20px', fontWeight: 700, marginBottom: '8px' }}>{aka.name}</div>
+                        <div style={{ fontSize: '72px', fontWeight: 900, lineHeight: 1, color: 'var(--aka)' }}>{kataVotes?.aka || 0}</div>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                        <div style={{ fontSize: '12px', color: 'var(--neutral-500)', fontWeight: 800, letterSpacing: '0.1em' }}>VOTES</div>
+                        {kataWinner && <div style={{ marginTop: '16px', padding: '8px 16px', background: 'rgba(255,255,255,0.1)', borderRadius: '8px', fontSize: '14px', fontWeight: 700 }}>{kataWinner === 'tie_pending' ? 'TIE' : (kataWinner === 'aka' ? aka.name : ao.name) + ' WINS'}</div>}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                        <div style={{ background: 'var(--ao)', color: 'white', padding: '4px 16px', borderRadius: '4px', fontSize: '14px', fontWeight: 800, marginBottom: '12px' }}>AO</div>
+                        <div style={{ fontSize: '20px', fontWeight: 700, marginBottom: '8px' }}>{ao.name}</div>
+                        <div style={{ fontSize: '72px', fontWeight: 900, lineHeight: 1, color: 'var(--ao)' }}>{kataVotes?.ao || 0}</div>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <KataOperatorPanel
+                        competitionId={id}
+                        categoryId={activeCategoryId!}
+                        matchId={activeMatchId}
+                        matId={typeof window !== 'undefined' ? (new URLSearchParams(window.location.search).get('mat') || 'mat-1') : 'mat-1'}
+                        akaName={aka.name}
+                        aoName={ao.name}
+                        akaId={queue.find(m => m.id === activeMatchId)?.akaId}
+                        aoId={queue.find(m => m.id === activeMatchId)?.aoId}
+                        numberOfJudges={activeCategoryData?.numberOfJudges || 5}
+                        allowedKataNumbers={activeCategoryData?.allowedKataList || []}
+                        kataFormat={activeCategoryData?.kataFormat || 'elimination'}
+                        isTeam={activeCategoryData?.isTeam || false}
+                        onMatchFinished={(winner, votes) => {
+                          const currentMatch = queue.find(m => m.id === activeMatchId);
+                          const winnerId = winner === 'aka' ? currentMatch?.akaId : currentMatch?.aoId;
+                          if (currentMatch) {
+                            setRecentMatches(prev => [{ ...currentMatch, status: 'completed', winnerId, kataVotes: votes }, ...prev].slice(0, 3));
+                            setQueue(prev => prev.filter(m => m.id !== activeMatchId));
+                          }
+                          setWinnerState({ color: winner, name: winner === 'aka' ? aka.name : ao.name, academy: winner === 'aka' ? aka.academy : ao.academy, points: votes[winner] });
+                          fetch(`/api/competitions/${id}/brackets/${activeCategoryId}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ matchId: activeMatchId, winnerId }),
+                          }).then(r => r.json()).then(data => {
+                            if (data.success) toast.success('Kata bout result saved!');
+                            else toast.error('Failed to save result: ' + data.error);
+                          }).catch(() => toast.error('Network error saving kata result'));
+                        }}
+                      />
+                      {/* Kata Next Match / Reset controls */}
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '16px', justifyContent: 'flex-end' }}>
+                        <button className="btn-round" onClick={handleNextMatch}>Next Match</button>
+                        <button className="btn-round" style={{ color: 'var(--aka)', borderColor: 'rgba(225,29,72,0.3)' }} onClick={() => {
+                          setRound(1); setWinnerState(null);
+                          const next = queue.find(m => m.id !== activeMatchId);
+                          if (next) loadMatch(next);
+                        }}>↺ Reset / Load Next</button>
+                      </div>
+                    </>
+                  )}
                 </div>
               ) : (
                 <>
-              <div className="ops-display">
+              <div id="ops-display-container" className="ops-display">
                 <div className="ops-side aka">
                   <div className="ops-country">{aka.country}</div>
                   <div className="ops-name">{aka.name}</div>
@@ -949,7 +1019,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                     {['c1', 'c2', 'c3', 'hc', 'h'].map((p) => (
                       <div className="pen-slot" key={p}>
                         <span className="pen-code">{p.toUpperCase()}</span>
-                        <div className={`pen-dot ${(aka as any)[p] ? 'active' : ''}`} onClick={() => togglePenalty('aka', p as any)}></div>
+                        <div className={`pen-dot ${(aka as any)[p] ? 'active' : ''}`} onClick={() => !isViewer && togglePenalty('aka', p as any)}></div>
                       </div>
                     ))}
                   </div>
@@ -973,13 +1043,14 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                     {['c1', 'c2', 'c3', 'hc', 'h'].map((p) => (
                       <div className="pen-slot" key={p}>
                         <span className="pen-code">{p.toUpperCase()}</span>
-                        <div className={`pen-dot ${(ao as any)[p] ? 'active' : ''}`} onClick={() => togglePenalty('ao', p as any)}></div>
+                        <div className={`pen-dot ${(ao as any)[p] ? 'active' : ''}`} onClick={() => !isViewer && togglePenalty('ao', p as any)}></div>
                       </div>
                     ))}
                   </div>
                 </div>
               </div>
 
+              {!isViewer && (
               <div className="ops-controls">
                 <div className="round-ops-strip" style={{ borderBottom: '1px solid var(--neutral-200)', background: 'var(--shiro)' }}>
                   <div style={{ fontWeight: 700, fontSize: '14px' }}>Round Operations</div>
@@ -1098,6 +1169,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
 
                 </div>
               </div>
+              )}
                 </>
               )}
             </section>
@@ -1137,6 +1209,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                       <option key={p} value={p}>Pool {p} {poolStatuses[p] ? '✅' : '🔴'}</option>
                     ))}
                   </select>
+                  {!isViewer && (
                   <button 
                     className="btn btn-secondary" 
                     onClick={() => { setTempQueue([...queue]); setShowEditModal(true); }}
@@ -1144,6 +1217,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                   >
                     Edit Queue
                   </button>
+                  )}
                 </div>
               </div>
               <div style={{ background: 'var(--shiro)', border: '1px solid var(--neutral-200)', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
@@ -1181,11 +1255,11 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                     {visibleQueue.length > 0 && visibleQueue.map((match, idx) => (
                         <tr 
                           key={match.id}
-                          draggable
-                          onDragStart={(e) => handleDragStart(e, idx)}
-                          onDragOver={(e) => e.preventDefault()}
-                          onDrop={(e) => handleDropQueue(e, idx)}
-                          style={{ 
+                          draggable={!isViewer}
+                          onDragStart={(e) => !isViewer && handleDragStart(e, idx)}
+                          onDragOver={(e) => !isViewer && e.preventDefault()}
+                          onDrop={(e) => !isViewer && handleDropQueue(e, idx)}
+                          style={{  
                             borderBottom: '1px solid var(--neutral-100)',
                             cursor: 'grab',
                             backgroundColor: match.pool && poolStatuses[match.pool] ? '#ecfdf5' : (draggedIdx === idx ? 'var(--neutral-50)' : 'transparent'),
@@ -1239,32 +1313,95 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
           </div>
 
           <aside>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h2 style={{ fontSize: '20px', fontWeight: 800 }}>Skipped Categories</h2>
-            </div>
-            
-            <div style={{ background: 'var(--shiro)', borderRadius: '16px', padding: '16px', border: '1px solid var(--neutral-200)', boxShadow: '0 4px 12px rgba(0,0,0,0.02)', marginBottom: '24px' }}>
-              <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--neutral-500)', textTransform: 'uppercase', marginBottom: '16px', letterSpacing: '0.05em' }}>Categories marked as skipped on this mat</div>
-              {skippedCategories.length === 0 ? (
-                <div style={{ color: 'var(--neutral-500)', fontSize: '13px' }}>No skipped categories.</div>
-              ) : (
-                skippedCategories.map((cat: any) => (
-                  <div key={cat.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '12px', padding: '12px', background: 'var(--neutral-50)', borderRadius: '10px', border: '1px solid var(--neutral-200)' }}>
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: '14px' }}>{cat.name}</div>
-                      <div style={{ fontSize: '11px', color: 'var(--neutral-500)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: '2px' }}>SKIPPED</div>
+            {isViewer ? (
+              <div id="mat-leaderboard-container" style={{ background: 'var(--shiro)', borderRadius: '16px', padding: '16px', border: '1px solid var(--neutral-200)', boxShadow: '0 4px 12px rgba(0,0,0,0.02)', marginBottom: '24px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--neutral-500)', textTransform: 'uppercase', marginBottom: '16px', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>Mat Leaderboard</div>
+                  <button onClick={() => {
+                    const el = document.getElementById('mat-leaderboard-container');
+                    if (el && el.requestFullscreen) {
+                      el.requestFullscreen();
+                    }
+                  }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--neutral-500)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', fontWeight: 700 }}>
+                    <Maximize size={12} /> FULLSCREEN
+                  </button>
+                </div>
+                {(() => {
+                  const matStats: Record<string, { gold: number, silver: number, bronze: number, points: number }> = {};
+                  matCategories.forEach(cat => {
+                    (cat.athletes || []).forEach((ath: any) => {
+                      if (ath.medal) {
+                        const academy = ath.academy || 'Unknown';
+                        if (!matStats[academy]) matStats[academy] = { gold: 0, silver: 0, bronze: 0, points: 0 };
+                        if (ath.medal === 'gold') {
+                          matStats[academy].gold += 1;
+                          matStats[academy].points += 3;
+                        } else if (ath.medal === 'silver') {
+                          matStats[academy].silver += 1;
+                          matStats[academy].points += 2;
+                        } else if (ath.medal === 'bronze') {
+                          matStats[academy].bronze += 1;
+                          matStats[academy].points += 1;
+                        }
+                      }
+                    });
+                  });
+                  const leaderboard = Object.entries(matStats).map(([academy, stats]) => ({ academy, ...stats }));
+                  leaderboard.sort((a, b) => b.points - a.points || b.gold - a.gold || b.silver - a.silver || b.bronze - a.bronze);
+                  
+                  if (leaderboard.length === 0) {
+                    return <div style={{ color: 'var(--neutral-500)', fontSize: '13px' }}>No medals awarded yet.</div>;
+                  }
+                  
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {leaderboard.map((entry, idx) => (
+                        <div key={entry.academy} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', border: '1px solid var(--neutral-200)', borderRadius: '10px', background: idx < 3 ? 'var(--shiro)' : 'var(--neutral-50)' }}>
+                          <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: idx === 0 ? '#f59e0b' : idx === 1 ? '#9ca3af' : idx === 2 ? '#d97706' : 'var(--neutral-200)', color: idx < 3 ? 'white' : 'var(--neutral-600)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 800 }}>
+                            {idx + 1}
+                          </div>
+                          <div style={{ flex: 1, fontSize: '13px', fontWeight: 700, color: 'var(--neutral-900)' }}>
+                            {entry.academy}
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                            <span style={{ fontSize: '14px', fontWeight: 800, color: 'var(--neutral-900)' }}>{entry.points} <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--neutral-400)', textTransform: 'uppercase' }}>pts</span></span>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                    <button
-                      className="btn btn-secondary"
-                      style={{ fontSize: '12px', padding: '5px 12px', whiteSpace: 'nowrap' }}
-                      onClick={() => handleRestoreSkipped(cat.id, cat.name)}
-                    >
-                      Restore
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
+                  );
+                })()}
+              </div>
+            ) : (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <h2 style={{ fontSize: '20px', fontWeight: 800 }}>Skipped Categories</h2>
+                </div>
+                
+                <div style={{ background: 'var(--shiro)', borderRadius: '16px', padding: '16px', border: '1px solid var(--neutral-200)', boxShadow: '0 4px 12px rgba(0,0,0,0.02)', marginBottom: '24px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--neutral-500)', textTransform: 'uppercase', marginBottom: '16px', letterSpacing: '0.05em' }}>Categories marked as skipped on this mat</div>
+                  {skippedCategories.length === 0 ? (
+                    <div style={{ color: 'var(--neutral-500)', fontSize: '13px' }}>No skipped categories.</div>
+                  ) : (
+                    skippedCategories.map((cat: any) => (
+                      <div key={cat.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '12px', padding: '12px', background: 'var(--neutral-50)', borderRadius: '10px', border: '1px solid var(--neutral-200)' }}>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: '14px' }}>{cat.name}</div>
+                          <div style={{ fontSize: '11px', color: 'var(--neutral-500)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: '2px' }}>SKIPPED</div>
+                        </div>
+                        <button
+                          className="btn btn-secondary"
+                          style={{ fontSize: '12px', padding: '5px 12px', whiteSpace: 'nowrap' }}
+                          onClick={() => handleRestoreSkipped(cat.id, cat.name)}
+                        >
+                          Restore
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </>
+            )}
 
             <div style={{ background: 'var(--neutral-50)', border: '1px dashed var(--neutral-300)', borderRadius: '16px', padding: '24px' }}>
               <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--neutral-500)', textTransform: 'uppercase', marginBottom: '16px', letterSpacing: '0.05em' }}>Recent Results ({activeCategoryName || 'No Active Category'})</div>
