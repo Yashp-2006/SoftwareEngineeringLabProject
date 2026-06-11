@@ -43,6 +43,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
   const [selectedCats, setSelectedCats] = useState<Set<string>>(new Set());
 
   const [filterGender, setFilterGender] = useState<'all'|'male'|'female'>('all');
+  const [filterDiscipline, setFilterDiscipline] = useState<'all'|'kata'|'kumite'>('all');
   const [hideEmpty, setHideEmpty] = useState<boolean>(true);
 
   const [isSaving, setIsSaving] = useState(false);
@@ -508,6 +509,9 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
     const lowerName = c.name.toLowerCase();
     if (filterGender === 'female' && !lowerName.includes('female')) return false;
     if (filterGender === 'male' && (!lowerName.includes('male') || lowerName.includes('female'))) return false;
+    const isKata = lowerName.endsWith('kata') || lowerName.includes(' kata ');
+    if (filterDiscipline === 'kata' && !isKata) return false;
+    if (filterDiscipline === 'kumite' && isKata) return false;
     return true;
   });
 
@@ -910,13 +914,18 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginTop: '16px', marginBottom: '16px' }}>
-                    <select className="input-field" style={{ width: '180px', height: '36px', marginBottom: 0 }} value={filterGender} onChange={e => setFilterGender(e.target.value as any)}>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                    <select className="input-field" style={{ width: '160px', height: '36px', marginBottom: 0 }} value={filterGender} onChange={e => setFilterGender(e.target.value as any)}>
                       <option value="all">All Genders</option>
-                      <option value="male">Male Categories</option>
-                      <option value="female">Female Categories</option>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
                     </select>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: 'var(--neutral-700)' }}>
+                    <select className="input-field" style={{ width: '160px', height: '36px', marginBottom: 0 }} value={filterDiscipline} onChange={e => setFilterDiscipline(e.target.value as any)}>
+                      <option value="all">All Disciplines</option>
+                      <option value="kata">Kata Only</option>
+                      <option value="kumite">Kumite Only</option>
+                    </select>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: 'var(--neutral-700)', marginLeft: '4px' }}>
                       <input type="checkbox" checked={hideEmpty} onChange={e => setHideEmpty(e.target.checked)} />
                       Hide 0 Entries
                     </label>

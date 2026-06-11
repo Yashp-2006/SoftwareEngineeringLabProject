@@ -151,16 +151,42 @@ export function parseExcel(buffer: ArrayBuffer): AthleteRow[] {
 
       const events: string[] = [];
       
+      // Helper: split a comma/semicolon/pipe/slash/ampersand/"and"-separated string into individual event tokens
+      const splitEventVal = (v: string): string[] =>
+        v.split(/[,;&|/\\]+|\band\b|\bor\b/i)
+          .map(p => p.trim())
+          .filter(p => p.length > 0);
+
       for (const k of Object.keys(row)) {
         if (!k) continue;
         const lowerK = k.toLowerCase().trim();
         const val = String(row[k]).toLowerCase().trim();
+        if (!val || val === 'no' || val === 'n' || val === 'false' || val === '0') continue;
+
         if (val === 'yes' || val === 'y' || val === 'true' || val === '1' || val === 'x' || val === 'checked') {
-          events.push(lowerK);
-        } else if (['events', 'event', 'category', 'categories', 'participating events'].includes(lowerK)) {
-          // Parse values like "Kata, Kumite" or "Kata & Kumite"
-          const parts = val.split(/[,&]+/).map(v => v.trim()).filter(v => v);
-          events.push(...parts);
+          // Column name IS the event (e.g. a "Kata" column with value "Yes")
+          // A single column name may itself encode both events (e.g. "Kata / Kumite")
+          const colParts = splitEventVal(lowerK);
+          if (colParts.length > 1) {
+            events.push(...colParts);
+          } else {
+            events.push(lowerK);
+          }
+        } else if (['events', 'event', 'category', 'categories', 'participating events', 'discipline', 'disciplines', 'competition', 'competing in'].includes(lowerK)) {
+          // Cell value is a list of events, e.g. "Kata, Kumite" / "Kata & Kumite" / "Both"
+          if (val === 'both') {
+            events.push('kata', 'kumite');
+          } else {
+            events.push(...splitEventVal(val));
+          }
+        } else if (lowerK.includes('kata') || lowerK.includes('kumite')) {
+          // Column header already encodes the event name with a non-yes/no value
+          // (e.g. header "Kata" with value "Kumite", or header "Event" containing "kata")
+          const colParts = splitEventVal(lowerK);
+          events.push(...colParts);
+          // Also parse the cell value in case it contains additional events
+          const valParts = splitEventVal(val);
+          events.push(...valParts);
         }
       }
 
@@ -213,17 +239,34 @@ export function parseExcelIntoCategories(
     const events = athlete.events || [];
 
     // 1. Check for registered events
+    // First, normalise the events list: expand any combined tokens like "kata/kumite" into two separate entries
+    const expandedEvents: string[] = [];
     for (const event of events) {
+      const hasKata   = event.includes('kata');
+      const hasKumite = event.includes('kumite');
+      if (hasKata && hasKumite) {
+        // A single token encodes both disciplines
+        expandedEvents.push('kata', 'kumite');
+      } else if (event === 'both') {
+        expandedEvents.push('kata', 'kumite');
+      } else {
+        expandedEvents.push(event);
+      }
+    }
+    // Deduplicate
+    const uniqueEvents = [...new Set(expandedEvents)];
+
+    for (const event of uniqueEvents) {
       const matchedSpecial = specialCategories.find(sc => sc.name.toLowerCase() === event);
       
       if (matchedSpecial) {
         addToCategory(matchedSpecial.name, athlete);
         addedToAny = true;
-      } else if (event.includes('kata')) {
+      } else if (event.includes('kata') && !event.includes('kumite')) {
         const base = determineCategory(athlete, specialCategories, 'age');
         addToCategory(`${base} Kata`, athlete);
         addedToAny = true;
-      } else if (event.includes('kumite')) {
+      } else if (event.includes('kumite') && !event.includes('kata')) {
         addToCategory(determineCategory(athlete, specialCategories, wkfMode), athlete);
         addedToAny = true;
       }
@@ -581,6 +624,10 @@ export function buildSingleElimination(athletes: AthleteRow[], compType: string,
     const akaAthlete = akaIdx < separated.length ? separated[akaIdx] : null;
     const aoAthlete = aoIdx < separated.length ? separated[aoIdx] : null;
 
+    // Skip ghost matches — if BOTH slots are empty, no match should exist.
+    // This happens when athlete count << poolSize (e.g. 6 athletes in pool of 16).
+    if (!akaAthlete && !aoAthlete) continue;
+
     // Auto-advance bye
     const autoWinner = (akaAthlete && !aoAthlete) ? akaAthlete.playerId :
                        (!akaAthlete && aoAthlete) ? aoAthlete.playerId : null;
@@ -607,6 +654,13 @@ export function buildSingleElimination(athletes: AthleteRow[], compType: string,
     matches.push(match);
   }
 
+  // Edge case: only 1 R1 match was generated (e.g. 1-2 athletes in a large pool)
+  // — it is already the final, no further rounds needed.
+  if (round1Matches.length <= 1) {
+    propagateByesAndWinners(matches);
+    return matches;
+  }
+
   // Build subsequent rounds
   let currentRound = round1Matches;
   let roundNum = 2;
@@ -616,7 +670,7 @@ export function buildSingleElimination(athletes: AthleteRow[], compType: string,
 
     for (let i = 0; i < currentRound.length; i += 2) {
       const m1 = currentRound[i];
-      const m2 = currentRound[i + 1];
+      const m2 = currentRound[i + 1]; // undefined when currentRound.length is odd
 
       const newMatch: MatchNode = {
         id: `R${roundNum}-M${Math.floor(i / 2) + 1}`,
@@ -651,18 +705,25 @@ export function buildSingleElimination(athletes: AthleteRow[], compType: string,
   return matches;
 }
 
-/** When athlete count > poolSize, split into labelled pools (Pool A, Pool B, ...) */
+/** When athlete count > poolSize, split into labelled pools.
+ * Pools are filled SEQUENTIALLY — Pool 1 is filled to capacity first,
+ * then Pool 2 gets the remainder. This avoids thin pools with many ghost slots.
+ */
 function buildMultiPool(athletes: AthleteRow[], compType: string, poolSize: PoolSize): MatchNode[] {
   const poolCount = Math.ceil(athletes.length / poolSize);
   const allMatches: MatchNode[] = [];
 
-  // Distribute athletes round-robin across pools for fairness
-  const pools: AthleteRow[][] = Array.from({ length: poolCount }, () => []);
-  // Use sortAthletesByRegion so teammates are strictly adjacent in the list.
-  // When we distribute round-robin, teammates are guaranteed to fall into DIFFERENT pools!
+  // Sort athletes by region so teammates are separated across pools.
   const sorted = sortAthletesByRegion(athletes, compType);
+
+  // Sequential filling: Pool 1 gets athletes[0..poolSize-1], Pool 2 gets the rest.
+  // To still interleave teammates across pools while sequential-filling,
+  // we use a strided assignment: athlete at sorted index i goes to pool floor(i/poolSize).
+  // This keeps Pool 1 at full capacity and Pool 2 at whatever remains.
+  const pools: AthleteRow[][] = Array.from({ length: poolCount }, () => []);
   sorted.forEach((ath, idx) => {
-    pools[idx % poolCount].push(ath);
+    const poolIdx = Math.min(Math.floor(idx / poolSize), poolCount - 1);
+    pools[poolIdx].push(ath);
   });
 
   for (let p = 0; p < pools.length; p++) {

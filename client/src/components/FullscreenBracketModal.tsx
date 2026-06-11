@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { X, Search, ZoomIn, ZoomOut, Maximize, Target, LayoutTemplate, Swords, CheckCircle2, ArrowRight, Check } from 'lucide-react';
+import { X, Search, ZoomIn, ZoomOut, Maximize, Target, LayoutTemplate, Swords, CheckCircle2, ArrowRight, Check, MinusCircle, PlusCircle } from 'lucide-react';
 
 const METRICS = ['S', 'Y', 'W', 'I', 'C1', 'C2', 'C3', 'HC', 'H'];
 
@@ -540,6 +540,25 @@ export default function FullscreenBracketModal({
   const [modalHighlight, setModalHighlight] = useState<string | null>(highlightMatchId || null);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
 
+  // Sidebar filters
+  const [sbFilterDiscipline, setSbFilterDiscipline] = useState<'all'|'kata'|'kumite'>('all');
+  const [sbFilterGender, setSbFilterGender] = useState<'all'|'male'|'female'>('all');
+  const [sbFilterMat, setSbFilterMat] = useState<string>('all');
+
+  // Derive list of mats actually assigned across all categories
+  const assignedMats = Array.from(new Set(categories.map(c => c.mat).filter(Boolean) as string[])).sort();
+
+  const filteredSidebarCats = categories.filter(cat => {
+    const lower = cat.name.toLowerCase();
+    const isKata = lower.endsWith('kata') || lower.includes(' kata ');
+    if (sbFilterDiscipline === 'kata' && !isKata) return false;
+    if (sbFilterDiscipline === 'kumite' && isKata) return false;
+    if (sbFilterGender === 'female' && !lower.includes('female')) return false;
+    if (sbFilterGender === 'male' && (!lower.includes('male') || lower.includes('female'))) return false;
+    if (sbFilterMat !== 'all' && cat.mat !== sbFilterMat) return false;
+    return true;
+  });
+
   // Sync with prop if it changes externally
   useEffect(() => {
     if (highlightMatchId) setModalHighlight(highlightMatchId);
@@ -612,14 +631,44 @@ export default function FullscreenBracketModal({
           z-index: 10;
         }
         .fsb-sidebar-header {
-          padding: 16px 20px;
+          padding: 12px 16px 0;
           border-bottom: 1px solid var(--neutral-200);
-          font-size: 11px;
-          font-weight: 700;
+        }
+        .fsb-sidebar-title {
+          font-size: 10px;
+          font-weight: 800;
           color: var(--neutral-500);
           text-transform: uppercase;
-          letter-spacing: 0.1em;
+          letter-spacing: 0.12em;
+          margin-bottom: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
         }
+        .fsb-filter-row {
+          display: flex;
+          gap: 6px;
+          flex-wrap: wrap;
+          padding-bottom: 10px;
+        }
+        .fsb-filter-chip {
+          padding: 3px 10px;
+          border-radius: 999px;
+          border: 1px solid var(--neutral-200);
+          background: var(--shiro);
+          font-size: 10px;
+          font-weight: 700;
+          color: var(--neutral-600);
+          cursor: pointer;
+          transition: all 0.15s;
+          white-space: nowrap;
+        }
+        .fsb-filter-chip:hover { border-color: var(--neutral-400); }
+        .fsb-filter-chip.active-kata { background: #eff6ff; border-color: #1d4ed8; color: #1d4ed8; }
+        .fsb-filter-chip.active-kumite { background: #fff1f2; border-color: var(--aka); color: var(--aka); }
+        .fsb-filter-chip.active-gender { background: var(--neutral-900); border-color: var(--neutral-900); color: var(--shiro); }
+        .fsb-filter-chip.active-mat { background: oklch(94% 0.04 145); border-color: oklch(60% 0.12 145); color: oklch(35% 0.12 145); }
+        .fsb-filter-sep { width: 1px; background: var(--neutral-200); margin: 2px 0; align-self: stretch; flex-shrink: 0; }
         .fsb-cat-list {
           flex: 1;
           overflow-y: auto;
@@ -850,13 +899,65 @@ export default function FullscreenBracketModal({
           <div className={`fsb-sidebar-backdrop ${showMobileSidebar ? 'open' : ''}`} onClick={() => setShowMobileSidebar(false)}></div>
           {/* Category Sidebar */}
           <aside className={`fsb-sidebar ${showMobileSidebar ? 'open' : ''}`}>
-            <div className="fsb-sidebar-header">Categories ({categories.length})</div>
+            <div className="fsb-sidebar-header">
+              <div className="fsb-sidebar-title">
+                <span>Categories ({filteredSidebarCats.length}/{categories.length})</span>
+                {(sbFilterDiscipline !== 'all' || sbFilterGender !== 'all' || sbFilterMat !== 'all') && (
+                  <button
+                    onClick={() => { setSbFilterDiscipline('all'); setSbFilterGender('all'); setSbFilterMat('all'); }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '9px', fontWeight: 700, color: 'var(--aka)', letterSpacing: '0.08em', textTransform: 'uppercase', padding: 0 }}
+                  >Clear</button>
+                )}
+              </div>
+
+              {/* Discipline filter */}
+              <div className="fsb-filter-row">
+                <button
+                  className={`fsb-filter-chip${sbFilterDiscipline === 'kata' ? ' active-kata' : ''}`}
+                  onClick={() => setSbFilterDiscipline(sbFilterDiscipline === 'kata' ? 'all' : 'kata')}
+                >Kata</button>
+                <button
+                  className={`fsb-filter-chip${sbFilterDiscipline === 'kumite' ? ' active-kumite' : ''}`}
+                  onClick={() => setSbFilterDiscipline(sbFilterDiscipline === 'kumite' ? 'all' : 'kumite')}
+                >Kumite</button>
+
+                <div className="fsb-filter-sep" />
+
+                {/* Gender filter */}
+                <button
+                  className={`fsb-filter-chip${sbFilterGender === 'male' ? ' active-gender' : ''}`}
+                  onClick={() => setSbFilterGender(sbFilterGender === 'male' ? 'all' : 'male')}
+                >Male</button>
+                <button
+                  className={`fsb-filter-chip${sbFilterGender === 'female' ? ' active-gender' : ''}`}
+                  onClick={() => setSbFilterGender(sbFilterGender === 'female' ? 'all' : 'female')}
+                >Female</button>
+              </div>
+
+              {/* Mat filter — only shown if any mats are assigned */}
+              {assignedMats.length > 0 && (
+                <div className="fsb-filter-row" style={{ paddingTop: 0 }}>
+                  {assignedMats.map(mat => (
+                    <button
+                      key={mat}
+                      className={`fsb-filter-chip${sbFilterMat === mat ? ' active-mat' : ''}`}
+                      onClick={() => setSbFilterMat(sbFilterMat === mat ? 'all' : mat)}
+                    >{mat}</button>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="fsb-cat-list">
-              {categories.map(cat => (
+              {filteredSidebarCats.length === 0 ? (
+                <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--neutral-400)', fontSize: '12px', fontWeight: 600 }}>
+                  No categories match filters
+                </div>
+              ) : filteredSidebarCats.map(cat => (
                 <div
                   key={cat.id}
                   className={`fsb-cat-item${activeCatId === cat.id ? ' active' : ''}`}
-                  onClick={() => setActiveCatId(cat.id)}
+                  onClick={() => { setActiveCatId(cat.id); setShowMobileSidebar(false); }}
                 >
                   <div className="fsb-cat-name">{cat.name}</div>
                   <div className="fsb-cat-meta">
