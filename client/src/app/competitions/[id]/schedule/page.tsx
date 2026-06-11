@@ -21,6 +21,8 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
   const [compData, setCompData] = useState<{ name: string; dates: string; deployedAt?: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [matFilter, setMatFilter] = useState("all");
+  const [filterType, setFilterType] = useState("all");
+  const [filterGender, setFilterGender] = useState("all");
   const [syncing, setSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<string>("--:--");
 
@@ -109,11 +111,29 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
 
   const filteredData = scheduleData.filter(row => {
     const query = searchQuery.toLowerCase();
-    const matchesText = !query || 
-      row.category.toLowerCase().includes(query) || 
-      row.mat.toLowerCase().includes(query);
+    const nameLower = row.category.toLowerCase();
+    
+    const matchesText = !query || nameLower.includes(query) || row.mat.toLowerCase().includes(query);
     const matchesMat = matFilter === "all" || row.mat === matFilter;
-    return matchesText && matchesMat;
+    
+    let matchesType = true;
+    if (filterType !== 'all') {
+      if (filterType === 'kata') matchesType = nameLower.includes('kata');
+      if (filterType === 'kumite') matchesType = nameLower.includes('kumite');
+    }
+    
+    let matchesGender = true;
+    if (filterGender !== 'all') {
+      const isFemale = nameLower.includes('female') || nameLower.includes('women');
+      const isMale = !isFemale && (nameLower.includes('male') || nameLower.includes('men'));
+      const isMixed = nameLower.includes('mixed') || nameLower.includes('team');
+      
+      if (filterGender === 'female') matchesGender = isFemale;
+      if (filterGender === 'male') matchesGender = isMale;
+      if (filterGender === 'mixed') matchesGender = isMixed;
+    }
+    
+    return matchesText && matchesMat && matchesType && matchesGender;
   }).sort((a, b) => toMinutes(a.start) - toMinutes(b.start));
 
   return (
@@ -348,6 +368,17 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
                   onChange={e => setSearchQuery(e.target.value)}
                 />
               </div>
+              <select className="schedule-select" value={filterType} onChange={e => setFilterType(e.target.value)}>
+                <option value="all">All Types</option>
+                <option value="kata">Kata</option>
+                <option value="kumite">Kumite</option>
+              </select>
+              <select className="schedule-select" value={filterGender} onChange={e => setFilterGender(e.target.value)}>
+                <option value="all">All Genders</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="mixed">Mixed</option>
+              </select>
               <select className="schedule-select" value={matFilter} onChange={e => setMatFilter(e.target.value)}>
                 <option value="all">All Mats</option>
                 {mats.map(mat => (

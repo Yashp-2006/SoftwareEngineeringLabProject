@@ -43,6 +43,10 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
   const { id } = React.use(params);
   const [categories, setCategories] = useState<CategoryRow[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  const [filterType, setFilterType] = useState('all');
+  const [filterGender, setFilterGender] = useState('all');
+  const [filterMat, setFilterMat] = useState('all');
 
   useEffect(() => {
     let unsubscribe = () => {};
@@ -304,6 +308,38 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
           </div>
         </header>
 
+        <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
+          <select 
+            value={filterType} 
+            onChange={e => setFilterType(e.target.value)}
+            style={{ height: '38px', borderRadius: '8px', border: '1.5px solid var(--neutral-300)', padding: '0 12px', fontFamily: 'var(--font-body)', fontSize: '13px', outline: 'none', background: 'var(--shiro)' }}
+          >
+            <option value="all">All Types (Kata/Kumite)</option>
+            <option value="kata">Kata</option>
+            <option value="kumite">Kumite</option>
+          </select>
+
+          <select 
+            value={filterGender} 
+            onChange={e => setFilterGender(e.target.value)}
+            style={{ height: '38px', borderRadius: '8px', border: '1.5px solid var(--neutral-300)', padding: '0 12px', fontFamily: 'var(--font-body)', fontSize: '13px', outline: 'none', background: 'var(--shiro)' }}
+          >
+            <option value="all">All Genders</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+            <option value="mixed">Mixed</option>
+          </select>
+
+          <select 
+            value={filterMat} 
+            onChange={e => setFilterMat(e.target.value)}
+            style={{ height: '38px', borderRadius: '8px', border: '1.5px solid var(--neutral-300)', padding: '0 12px', fontFamily: 'var(--font-body)', fontSize: '13px', outline: 'none', background: 'var(--shiro)' }}
+          >
+            <option value="all">All Mats</option>
+            {MATS.map(m => <option key={m} value={m}>{m}</option>)}
+          </select>
+        </div>
+
         <section className="category-list">
           <div className="category-row header-row" style={{ background: 'var(--neutral-50)', border: 'none', fontWeight: 600, paddingTop: '12px', paddingBottom: '12px' }}>
             <div className="text-micro">Category Name</div>
@@ -314,7 +350,26 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
             <div className="text-micro" style={{ textAlign: 'right' }}>Action</div>
           </div>
 
-          {categories.map((row) => (
+          {categories.filter(row => {
+            const nameLower = row.name.toLowerCase();
+            if (filterType !== 'all') {
+              if (filterType === 'kata' && !nameLower.includes('kata')) return false;
+              if (filterType === 'kumite' && !nameLower.includes('kumite')) return false;
+            }
+            if (filterGender !== 'all') {
+              // 'female' contains 'male', so check 'female' first
+              const isFemale = nameLower.includes('female') || nameLower.includes('women');
+              const isMale = !isFemale && (nameLower.includes('male') || nameLower.includes('men'));
+              const isMixed = nameLower.includes('mixed') || nameLower.includes('team');
+              
+              if (filterGender === 'female' && !isFemale) return false;
+              if (filterGender === 'male' && !isMale) return false;
+              if (filterGender === 'mixed' && !isMixed) return false;
+            }
+            if (filterMat !== 'all' && row.mat !== filterMat) return false;
+            
+            return true;
+          }).map((row) => (
             <article key={row.id} className="category-row bento-reveal">
               <div style={{ fontWeight: 600 }}>{row.name}</div>
               <div className="data-mono">{row.entries}</div>

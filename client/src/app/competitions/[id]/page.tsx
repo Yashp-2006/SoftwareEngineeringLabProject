@@ -24,7 +24,11 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
   }, [user, searchParams]);
 
   const [recentMatches, setRecentMatches] = useState<any[]>([]);
-  const [matLeaderboards, setMatLeaderboards] = useState<Record<string, { academy: string, gold: number, silver: number, bronze: number, points: number }[]>>({});
+  const [matLeaderboards, setMatLeaderboards] = useState<Record<string, any[]>>({});
+  
+  const [filterType, setFilterType] = useState('all');
+  const [filterGender, setFilterGender] = useState('all');
+  const [filterMat, setFilterMat] = useState('all');
 
   useEffect(() => {
     let unsubCats: () => void;
@@ -46,9 +50,10 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
             const matName = (cat.mat || 'Unassigned').toUpperCase();
 
             if (cat.matches) {
-              const completed = cat.matches.filter((m: any) => m.status === 'completed' && m.winnerId).map((m: any) => ({
+              const completed = cat.matches.filter((m: any) => m.status === 'completed').map((m: any) => ({
                 ...m,
                 categoryName: cat.name,
+                mat: cat.mat,
               }));
               allMatches.push(...completed);
             }
@@ -176,6 +181,38 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
         <section style={{ gridColumn: 'span 8' }}>
           <div className="flex-between" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-2)' }}>
             <h2>Recent Results</h2>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <select 
+                value={filterType} 
+                onChange={e => setFilterType(e.target.value)}
+                style={{ height: '32px', borderRadius: '6px', border: '1px solid var(--neutral-300)', padding: '0 8px', fontSize: '12px' }}
+              >
+                <option value="all">All Types</option>
+                <option value="kata">Kata</option>
+                <option value="kumite">Kumite</option>
+              </select>
+              <select 
+                value={filterGender} 
+                onChange={e => setFilterGender(e.target.value)}
+                style={{ height: '32px', borderRadius: '6px', border: '1px solid var(--neutral-300)', padding: '0 8px', fontSize: '12px' }}
+              >
+                <option value="all">All Genders</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="mixed">Mixed</option>
+              </select>
+              <select 
+                value={filterMat} 
+                onChange={e => setFilterMat(e.target.value)}
+                style={{ height: '32px', borderRadius: '6px', border: '1px solid var(--neutral-300)', padding: '0 8px', fontSize: '12px' }}
+              >
+                <option value="all">All Mats</option>
+                {compData?.mats && Array.from({ length: compData.mats }).map((_, i) => {
+                  const m = `MAT ${String(i + 1).padStart(2, '0')}`;
+                  return <option key={m} value={m}>{m}</option>;
+                })}
+              </select>
+            </div>
           </div>
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
             <div className="table-responsive">
@@ -189,24 +226,48 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
                 </tr>
               </thead>
               <tbody>
-                {recentMatches.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} style={{ padding: '24px', textAlign: 'center', color: 'var(--neutral-500)' }}>
-                      No matches completed yet.
-                    </td>
-                  </tr>
-                ) : (
-                  recentMatches.map((m, i) => (
+                {(() => {
+                  const filteredMatches = recentMatches.filter(m => {
+                    if (!m.categoryName) return true;
+                    const nameLower = m.categoryName.toLowerCase();
+                    
+                    if (filterType !== 'all') {
+                      if (filterType === 'kata' && !nameLower.includes('kata')) return false;
+                      if (filterType === 'kumite' && !nameLower.includes('kumite')) return false;
+                    }
+                    if (filterGender !== 'all') {
+                      const isFemale = nameLower.includes('female') || nameLower.includes('women');
+                      const isMale = !isFemale && (nameLower.includes('male') || nameLower.includes('men'));
+                      const isMixed = nameLower.includes('mixed') || nameLower.includes('team');
+                      if (filterGender === 'female' && !isFemale) return false;
+                      if (filterGender === 'male' && !isMale) return false;
+                      if (filterGender === 'mixed' && !isMixed) return false;
+                    }
+                    if (filterMat !== 'all' && m.mat !== filterMat) return false;
+                    return true;
+                  });
+
+                  if (filteredMatches.length === 0) {
+                    return (
+                      <tr>
+                        <td colSpan={4} style={{ padding: '24px', textAlign: 'center', color: 'var(--neutral-500)' }}>
+                          No matches found.
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  return filteredMatches.map((m, i) => (
                     <tr key={i} style={{ borderBottom: '1px solid var(--neutral-200)' }}>
-                      <td style={{ padding: '12px 24px', fontSize: '13px', fontWeight: 500 }}>{m.categoryName}</td>
+                      <td style={{ padding: '12px 24px', fontSize: '13px', fontWeight: 500 }}>{m.categoryName} <span style={{ fontSize: '10px', color: 'var(--neutral-400)', display: 'block' }}>{m.mat}</span></td>
                       <td style={{ padding: '12px 24px', fontSize: '14px' }}>{m.aka?.name || '-'}</td>
                       <td style={{ padding: '12px 24px', fontSize: '14px' }}>{m.ao?.name || '-'}</td>
                       <td style={{ padding: '12px 24px', fontSize: '14px', fontWeight: 600, textAlign: 'right', color: m.winnerId === m.aka?.playerId ? 'var(--aka)' : 'var(--ao)' }}>
-                        {m.winnerId === m.aka?.playerId ? m.aka?.name : m.ao?.name}
+                        {m.winnerId === m.aka?.playerId ? (m.aka?.name === 'Empty Slot' ? 'advanced via BYE' : m.aka?.name) : (m.ao?.name === 'Empty Slot' ? 'advanced via BYE' : m.ao?.name)}
                       </td>
                     </tr>
-                  ))
-                )}
+                  ));
+                })()}
               </tbody>
             </table>
             </div>
