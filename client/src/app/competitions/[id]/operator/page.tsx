@@ -1282,9 +1282,17 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                     <div key={m.id} style={{ fontSize: '13px', borderBottom: i < recentMatches.length - 1 ? '1px solid var(--neutral-200)' : 'none', paddingBottom: i < recentMatches.length - 1 ? '16px' : '0', marginBottom: i < recentMatches.length - 1 ? '16px' : '0', padding: m.pool && poolStatuses[m.pool] ? '8px' : '0', borderRadius: m.pool && poolStatuses[m.pool] ? '8px' : '0', backgroundColor: m.pool && poolStatuses[m.pool] ? '#d1fae5' : 'transparent' }}>
                       <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, marginRight: '12px', color: 'var(--neutral-500)' }}>{m.matchNumber ? `M${String(m.matchNumber).padStart(2, '0')}` : m.id}</span> 
                       {akaWon ? (
-                        <><span style={{ fontWeight: 700, color: 'var(--aka)' }}>{akaName}</span> def. {aoName}</>
+                        aoName === 'Empty Slot' ? (
+                          <><span style={{ fontWeight: 700, color: 'var(--aka)' }}>{akaName}</span> advanced via BYE</>
+                        ) : (
+                          <><span style={{ fontWeight: 700, color: 'var(--aka)' }}>{akaName}</span> def. {aoName}</>
+                        )
                       ) : aoWon ? (
-                        <><span style={{ fontWeight: 700, color: 'var(--ao)' }}>{aoName}</span> def. {akaName}</>
+                        akaName === 'Empty Slot' ? (
+                          <><span style={{ fontWeight: 700, color: 'var(--ao)' }}>{aoName}</span> advanced via BYE</>
+                        ) : (
+                          <><span style={{ fontWeight: 700, color: 'var(--ao)' }}>{aoName}</span> def. {akaName}</>
+                        )
                       ) : (
                         <>{akaName} vs {aoName} (Completed)</>
                       )}
