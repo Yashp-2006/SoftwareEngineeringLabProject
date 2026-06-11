@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { LayoutGrid, Plus, Timer, Activity, Coffee, CalendarPlus, Key, Eye, EyeOff, Trash2, Image as ImageIcon } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -27,6 +28,10 @@ interface RTDBMatState {
 
 export default function MatsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
+  const { role } = useAuth();
+
+  // Viewers: anyone who is not admin or mat_operator
+  const isViewer = role !== 'admin' && role !== 'mat_operator';
 
   const [mats, setMats] = useState<MatData[]>([]);
   const [liveStates, setLiveStates] = useState<Record<string, RTDBMatState>>({});
@@ -459,22 +464,24 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
             <div className="breadcrumb">
               <Link href="/competitions" style={{ color: 'inherit', textDecoration: 'none' }}>Competitions</Link> / {id} / Operations
             </div>
-            <h1>Mat Management</h1>
+            <h1>{isViewer ? 'Live Mats' : 'Mat Management'}</h1>
           </div>
-          <div className="page-header-actions">
-            <div className="controls-row">
-              <button className="btn btn-secondary" onClick={() => setShowConfig(!showConfig)}>
-                <Activity style={{ width: '16px', marginRight: '6px' }} /> {showConfig ? 'Hide Settings' : 'Mat Settings'}
-              </button>
-              <button className="btn btn-primary" onClick={handleSeedMats} disabled={isSeeding || mats.length > 0}>
-                <Plus style={{ width: '16px', marginRight: '6px' }} /> 
-                {isSeeding ? 'Adding...' : 'Add Mats'}
-              </button>
+          {!isViewer && (
+            <div className="page-header-actions">
+              <div className="controls-row">
+                <button className="btn btn-secondary" onClick={() => setShowConfig(!showConfig)}>
+                  <Activity style={{ width: '16px', marginRight: '6px' }} /> {showConfig ? 'Hide Settings' : 'Mat Settings'}
+                </button>
+                <button className="btn btn-primary" onClick={handleSeedMats} disabled={isSeeding || mats.length > 0}>
+                  <Plus style={{ width: '16px', marginRight: '6px' }} /> 
+                  {isSeeding ? 'Adding...' : 'Add Mats'}
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </header>
 
-        {showConfig && (
+        {!isViewer && showConfig && (
           <div style={{ background: 'var(--shiro)', padding: 'var(--space-5)', borderRadius: '12px', border: '1px solid var(--neutral-200)', marginBottom: 'var(--space-5)', display: 'flex', gap: 'var(--space-6)', flexWrap: 'wrap' }}>
             <div style={{ flex: '1 1 300px' }}>
               <div className="flex-between mb-4">
@@ -559,6 +566,89 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
               const upcomingCats = assignedCats.filter(c => c.status === 'upcoming');
               const doneCats = assignedCats.filter(c => c.status === 'done');
 
+              // Viewer-friendly card: no links, no password fields
+              if (isViewer) {
+                return (
+                  <div key={mat.id} className={`mat-card ${isLive || liveCat || upcomingCats.length > 0 ? 'live' : 'standby'}`}>
+                    <div className="mat-header">
+                      <span className="mat-number">{mat.name}</span>
+                      {isLive || liveCat ? (
+                        <span className="status-chip status-live">Live</span>
+                      ) : upcomingCats.length > 0 ? (
+                        <span className="status-chip" style={{ background: '#bbf7d0', color: '#166534' }}>
+                          {upcomingCats.length} Scheduled
+                        </span>
+                      ) : (
+                        <span className="status-chip status-done">Inactive</span>
+                      )}
+                    </div>
+
+                    {isLive ? (
+                      <>
+                        <div className="category-label">Current Category</div>
+                        <div className="category-title">
+                          {liveState.currentCategory || liveCat?.name || 'Unknown Category'}
+                          <br />
+                          <span style={{ color: 'var(--neutral-500)', fontWeight: 500, fontSize: '14px' }}>
+                            {liveState.currentMatch || 'Match'}
+                          </span>
+                        </div>
+                        <div className="score-board">
+                          <div className="score-side aka">
+                            <div className="score-label aka">AKA</div>
+                            <div className="score-value aka">{liveState.scores?.aka || 0}</div>
+                            <div className="score-pen">PEN {liveState.scores?.akaPen || 0}</div>
+                          </div>
+                          <div className="score-divider">PTS</div>
+                          <div className="score-side ao">
+                            <div className="score-label ao">AO</div>
+                            <div className="score-value ao">{liveState.scores?.ao || 0}</div>
+                            <div className="score-pen">PEN {liveState.scores?.aoPen || 0}</div>
+                          </div>
+                        </div>
+                        <div className="mat-footer">
+                          <div className="time-remaining">
+                            <Timer size={14} style={{ color: 'var(--status-live)' }} />
+                            {liveState.timeRemaining || '00:00'}
+                          </div>
+                        </div>
+                      </>
+                    ) : assignedCats.length > 0 ? (
+                      <>
+                        <div style={{ flex: 1, overflowY: 'auto', marginBottom: 'var(--space-3)' }}>
+                          {liveCat && (
+                            <div style={{ padding: '8px 10px', background: 'var(--status-live-bg)', borderRadius: '6px', marginBottom: '6px', fontSize: '12px', fontWeight: 700, color: 'var(--status-live)' }}>
+                              🔴 {liveCat.name}
+                            </div>
+                          )}
+                          {upcomingCats.slice(0, 4).map((c, i) => (
+                            <div key={i} style={{ padding: '6px 10px', background: 'var(--neutral-50)', borderRadius: '6px', marginBottom: '4px', fontSize: '11px', fontWeight: 600, color: 'var(--neutral-700)', display: 'flex', justifyContent: 'space-between' }}>
+                              <span>{c.name}</span>
+                              <span style={{ color: 'var(--neutral-400)', fontSize: '10px' }}>{c.entries} ATH</span>
+                            </div>
+                          ))}
+                          {upcomingCats.length > 4 && (
+                            <div style={{ fontSize: '10px', color: 'var(--neutral-400)', textAlign: 'center', padding: '4px' }}>+{upcomingCats.length - 4} more</div>
+                          )}
+                          {upcomingCats.length === 0 && doneCats.length > 0 && (
+                            <div style={{ padding: '8px 10px', background: 'var(--neutral-50)', borderRadius: '6px', fontSize: '12px', color: 'var(--neutral-500)', textAlign: 'center' }}>✅ All categories completed</div>
+                          )}
+                        </div>
+                        <div className="mat-footer" style={{ justifyContent: 'flex-start' }}>
+                          <span style={{ fontSize: '11px', color: 'var(--neutral-500)' }}>{doneCats.length}/{assignedCats.length} done</span>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="standby-state">
+                        <Coffee size={28} style={{ color: 'var(--neutral-400)', marginBottom: 'var(--space-2)' }} />
+                        <span>No Categories Assigned</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              // Admin/operator card (unchanged — includes password + action buttons)
               return (
                 <a key={mat.id} href={`/competitions/${id}/operator?mat=${mat.id}`} className={`mat-card ${isLive || liveCat || upcomingCats.length > 0 ? 'live' : 'standby'}`}>
                   <div className="mat-header">
@@ -652,7 +742,7 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
                     </>
                   )}
                   
-                  {/* Mat Password Field inside Mat Card */}
+                  {/* Mat Password Field — admin/operator only */}
                   <div style={{ marginTop: 'var(--space-3)', borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: 'var(--space-3)' }}>
                     <label style={{ fontSize: '10px', textTransform: 'uppercase', fontWeight: 700, color: 'var(--neutral-500)', display: 'block', marginBottom: '4px' }}>Mat Password</label>
                     <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
