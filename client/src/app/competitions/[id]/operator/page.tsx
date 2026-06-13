@@ -900,8 +900,8 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
         .fs-status-pill { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; background: var(--neutral-100); color: var(--neutral-600); }
 
         .ops-grid { display: grid; grid-template-columns: 1fr; gap: var(--space-6); margin-top: var(--space-6); }
-        .ops-scoreboard { background: var(--shiro); border: 1px solid var(--neutral-300); border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
-        .ops-header { padding: 20px 24px; border-bottom: 1px solid var(--neutral-200); background: var(--neutral-50); display: flex; justify-content: space-between; align-items: center; }
+        .ops-scoreboard { background: var(--shiro); border: 1px solid var(--neutral-300); border-radius: 16px; overflow: visible; box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
+        .ops-header { padding: 20px 24px; border-bottom: 1px solid var(--neutral-200); background: var(--neutral-50); display: flex; justify-content: space-between; align-items: center; border-radius: 16px 16px 0 0; }
         
         .ops-display { display: grid; grid-template-columns: 1fr 200px 1fr; border-bottom: 1px solid var(--neutral-200); background: white; }
         .ops-side { padding: 24px; display: flex; flex-direction: column; align-items: center; text-align: center; }
