@@ -6,6 +6,8 @@ import { KATA_LIST, KataEntry } from '@/lib/kata-list';
 
 interface KataSelectionRowProps {
   side: 'aka' | 'ao';
+  playerName?: string;
+  academy?: string;
   allowedKataNumbers: number[];
   selectedKata: KataEntry | null;
   usageMap: Record<number, number>; // katanumber -> times used by this athlete
@@ -15,6 +17,8 @@ interface KataSelectionRowProps {
 
 export default function KataSelectionRow({
   side,
+  playerName,
+  academy,
   allowedKataNumbers,
   selectedKata,
   usageMap,
@@ -44,15 +48,28 @@ export default function KataSelectionRow({
     <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
       <div
         style={{
-          fontSize: '11px',
-          fontWeight: 800,
-          textTransform: 'uppercase',
-          letterSpacing: '0.08em',
-          color: colorVar,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'baseline',
           marginBottom: '6px',
         }}
       >
-        {label} — Kata Selection
+        <div
+          style={{
+            fontSize: '11px',
+            fontWeight: 800,
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+            color: colorVar,
+          }}
+        >
+          {label} — Kata Selection
+        </div>
+        {playerName && (
+          <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-600)', textAlign: 'right' }}>
+            {playerName} {academy && <span style={{ opacity: 0.6 }}>• {academy}</span>}
+          </div>
+        )}
       </div>
 
       {/* Trigger */}

@@ -17,6 +17,8 @@ interface Props {
   matId: string;
   akaName: string;
   aoName: string;
+  akaAcademy?: string;
+  aoAcademy?: string;
   akaId?: string;
   aoId?: string;
   numberOfJudges: number;
@@ -59,6 +61,8 @@ export default function KataOperatorPanel({
   matId,
   akaName,
   aoName,
+  akaAcademy,
+  aoAcademy,
   akaId,
   aoId,
   numberOfJudges,
@@ -523,6 +527,8 @@ export default function KataOperatorPanel({
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
               <KataSelectionRow
                 side="aka"
+                playerName={akaName}
+                academy={akaAcademy}
                 allowedKataNumbers={allowedKataNumbers}
                 selectedKata={selectedKata.aka}
                 usageMap={akaUsageMap}
@@ -530,6 +536,8 @@ export default function KataOperatorPanel({
               />
               <KataSelectionRow
                 side="ao"
+                playerName={aoName}
+                academy={aoAcademy}
                 allowedKataNumbers={allowedKataNumbers}
                 selectedKata={selectedKata.ao}
                 usageMap={aoUsageMap}

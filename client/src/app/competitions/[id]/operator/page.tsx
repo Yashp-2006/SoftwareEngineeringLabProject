@@ -1041,6 +1041,8 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                         matId={typeof window !== 'undefined' ? (new URLSearchParams(window.location.search).get('mat') || 'mat-1') : 'mat-1'}
                         akaName={aka.name}
                         aoName={ao.name}
+                        akaAcademy={aka.academy}
+                        aoAcademy={ao.academy}
                         akaId={queue.find(m => m.id === activeMatchId)?.akaId}
                         aoId={queue.find(m => m.id === activeMatchId)?.aoId}
                         numberOfJudges={activeCategoryData?.numberOfJudges || 5}
