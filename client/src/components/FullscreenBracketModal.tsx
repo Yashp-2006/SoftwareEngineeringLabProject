@@ -506,7 +506,7 @@ export function BracketViewer({
               <div key={rIdx} className="bracket-round">
                 {roundMatches.map((m: any) => (
                   <div key={m.id} className="match-wrapper">
-                    <BracketNode match={m} mats={mats} onPromote={onPromote} isHighlighted={m.id === activeHighlight} isKata={activeCategory?.name?.toLowerCase().includes('kata') || false} />
+                    <BracketNode match={m} mats={mats} onPromote={onPromote} isHighlighted={m.id === activeHighlight} isKata={categoryName?.toLowerCase().includes('kata') || false} />
                   </div>
                 ))}
               </div>
