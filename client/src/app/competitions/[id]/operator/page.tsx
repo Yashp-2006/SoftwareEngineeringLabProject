@@ -77,10 +77,10 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
     try {
       if (!rtdbRefCache.current || !rtdbSetCache.current) {
         const { rtdb } = await import('@lib/firebase');
-        const { ref, set } = await import('firebase/database');
+        const { ref, update } = await import('firebase/database');
         const matId = new URLSearchParams(window.location.search).get('mat') || 'mat-1';
         rtdbRefCache.current = ref(rtdb, `live_scores/${id}/mats/${matId}`);
-        rtdbSetCache.current = set;
+        rtdbSetCache.current = update;
       }
       await rtdbSetCache.current(rtdbRefCache.current, payload);
     } catch (err) {
@@ -94,6 +94,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
     const payload = {
       status: status === 'finished' ? 'standby' : (status === 'upcoming' ? 'upcoming' : (running ? 'live' : 'paused')),
       currentCategory: activeCategoryName || 'No Active Category',
+      isKata: activeCategoryName?.toLowerCase().includes('kata') || false,
       currentMatch: queue[0]?.displayId || 'Standby',
       akaName: aka.name, akaCountry: aka.country, akaAcademy: aka.academy,
       aoName: ao.name, aoCountry: ao.country, aoAcademy: ao.academy,
