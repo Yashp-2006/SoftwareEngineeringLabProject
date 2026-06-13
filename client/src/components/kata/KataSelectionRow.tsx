@@ -28,12 +28,11 @@ export default function KataSelectionRow({
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
 
-  const allowedKata = useMemo(
-    () => (!allowedKataNumbers || allowedKataNumbers.length === 0)
-      ? KATA_LIST
-      : KATA_LIST.filter((k) => allowedKataNumbers.includes(k.number)),
-    [allowedKataNumbers]
-  );
+  const allowedKata = useMemo(() => {
+    if (!allowedKataNumbers || allowedKataNumbers.length === 0) return KATA_LIST;
+    const safeAllowed = allowedKataNumbers.map(Number);
+    return KATA_LIST.filter((k) => safeAllowed.includes(k.number));
+  }, [allowedKataNumbers]);
 
   const allUsedOnce = allowedKata.every((k) => (usageMap[k.number] ?? 0) >= 1);
 
