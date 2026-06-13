@@ -79,6 +79,7 @@ export default function ArchiveDetailPage({ params }: { params: Promise<{ id: st
           matches: c.matches ?? [],
           athletes: c.athletes ?? [],
           matNo: c.mat || '',
+          isKata: c.isKata === true || (typeof c.name === 'string' && c.name.toLowerCase().includes('kata')),
         })),
         isArchived: true,
         venue: compVenue,

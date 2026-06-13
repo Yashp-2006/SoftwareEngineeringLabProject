@@ -1047,7 +1047,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                         allowedKataNumbers={activeCategoryData?.allowedKataList || []}
                         kataFormat={activeCategoryData?.kataFormat || 'elimination'}
                         isTeam={activeCategoryData?.isTeam || false}
-                        onMatchFinished={(winner, votes) => {
+                        onMatchFinished={(winner, votes, selectedKata) => {
                           const currentMatch = queue.find(m => m.id === activeMatchId);
                           const winnerId = winner === 'aka' ? currentMatch?.akaId : currentMatch?.aoId;
                           if (currentMatch) {
@@ -1058,7 +1058,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                           fetch(`/api/competitions/${id}/brackets/${activeCategoryId}`, {
                             method: 'PATCH',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ matchId: activeMatchId, winnerId }),
+                            body: JSON.stringify({ matchId: activeMatchId, winnerId, selectedKata }),
                           }).then(r => r.json()).then(data => {
                             if (data.success) toast.success('Kata bout result saved!');
                             else toast.error('Failed to save result: ' + data.error);

@@ -19,6 +19,7 @@ export interface Competition {
   ruleSet: 'WKF' | 'custom';
   status: 'upcoming' | 'live' | 'done';
   matsCount: number;
+  wkfKataJudgeCount?: 3 | 5 | 7;
 }
 
 export interface Category {
@@ -33,6 +34,12 @@ export interface Category {
   matId?: string;
   startTime?: string;
   endTime?: string;
+  isKata?: boolean;
+  judgeCount?: 3 | 5 | 7;
+  numberOfJudges?: number;
+  allowedKataList?: number[];
+  kataFormat?: 'elimination' | 'round-robin';
+  isTeam?: boolean;
 }
 
 export interface Athlete {
@@ -79,6 +86,10 @@ export interface Match {
   };
   winnerId?: string | null; // ID of the winning athlete
   timer: number; // Seconds remaining or elapsed
+  akaKata?: string;
+  aoKata?: string;
+  judgeVotes?: Record<string, 'aka' | 'ao'>;
+  isKata?: boolean;
 }
 
 export interface BracketGenerationResult {

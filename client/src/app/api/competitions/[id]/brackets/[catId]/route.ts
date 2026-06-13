@@ -17,7 +17,7 @@ export async function PATCH(
   try {
     const { id, catId } = await params;
     const body = await req.json();
-    const { matchId, winnerId, byeFor } = body;
+    const { matchId, winnerId, byeFor, selectedKata } = body;
     // byeFor = 'aka' | 'ao' — means that side won by BYE (opponent disqualified/absent)
 
     if (!matchId || !winnerId) {
@@ -70,6 +70,11 @@ export async function PATCH(
       winnerId,
       status: 'completed',
       ...(byeFor ? { byeFor } : {}),
+      ...(selectedKata ? { 
+          selectedKata, 
+          akaKata: selectedKata.aka?.name, 
+          aoKata: selectedKata.ao?.name 
+      } : {}),
     };
 
     // Propagate winner to the next match

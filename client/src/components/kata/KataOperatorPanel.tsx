@@ -23,7 +23,7 @@ interface Props {
   allowedKataNumbers: number[];
   kataFormat: 'elimination' | 'round-robin' | 'two-pool';
   isTeam?: boolean;
-  onMatchFinished: (winner: 'aka' | 'ao', voteCount: { aka: number; ao: number }) => void;
+  onMatchFinished: (winner: 'aka' | 'ao', voteCount: { aka: number; ao: number }, selectedKata?: { aka: KataEntry | null; ao: KataEntry | null }) => void;
   onClose?: () => void;
 }
 
@@ -209,7 +209,7 @@ export default function KataOperatorPanel({
     toast.success(`${side.toUpperCase()} disqualified. ${opponentSide.toUpperCase()} wins.`);
     setBoutFinished(true);
     setKataWinner(opponentSide);
-    onMatchFinished(opponentSide, { aka: opponentSide === 'aka' ? numberOfJudges : 0, ao: opponentSide === 'ao' ? numberOfJudges : 0 });
+    onMatchFinished(opponentSide, { aka: opponentSide === 'aka' ? numberOfJudges : 0, ao: opponentSide === 'ao' ? numberOfJudges : 0 }, selectedKata);
   };
 
   const handleLogFoul = (side: 'aka' | 'ao', code: string) => {
@@ -294,7 +294,7 @@ export default function KataOperatorPanel({
       setTieModalOpen(true);
       toast('Tie detected — resolution required.', { icon: <Scale size={16} /> });
     } else {
-      onMatchFinished(winner, { aka: votes.aka, ao: votes.ao });
+      onMatchFinished(winner, { aka: votes.aka, ao: votes.ao }, selectedKata);
     }
   };
 
@@ -303,7 +303,7 @@ export default function KataOperatorPanel({
     setKataWinner(winner);
     await syncRTDB({ kataWinner: winner });
     toast.success(`${winner.toUpperCase()} wins via ${method}`);
-    onMatchFinished(winner, voteResult ? { aka: voteResult.aka, ao: voteResult.ao } : { aka: 0, ao: 0 });
+    onMatchFinished(winner, voteResult ? { aka: voteResult.aka, ao: voteResult.ao } : { aka: 0, ao: 0 }, selectedKata);
   };
 
   const handleCreateTieBreaker = async () => {

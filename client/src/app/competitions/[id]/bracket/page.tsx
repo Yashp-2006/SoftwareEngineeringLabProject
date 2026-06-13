@@ -453,6 +453,7 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
           matches: c.matches ?? [],
           athletes: c.athletes ?? [],
           matNo: c.mat || '',
+          isKata: c.isKata === true || (typeof c.name === 'string' && c.name.toLowerCase().includes('kata')),
         })),
         isArchived: false,
         venue: compData?.venue || '',

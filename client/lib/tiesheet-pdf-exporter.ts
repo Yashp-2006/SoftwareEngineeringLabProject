@@ -35,6 +35,7 @@ export interface TiesheetCategory {
   matches: TiesheetMatch[];
   athletes?: TiesheetAthlete[];
   matNo?: string;
+  isKata?: boolean;
 }
 
 export interface ExportOptions {
@@ -81,6 +82,7 @@ function drawAthleteRow(
   lightColor: [number, number, number],
   isWinner: boolean,
   isArchived: boolean,
+  isKata: boolean = false,
 ) {
   const nameH = NAME_ROW_H;
   const scoreH = SCORE_ROW_H;
@@ -127,24 +129,46 @@ function drawAthleteRow(
   doc.setFillColor(...color);
   doc.rect(x, sy, 2, scoreH, 'F');
 
-  const colW = (w - 2) / SCORE_COLS.length;
-  for (let i = 0; i < SCORE_COLS.length; i++) {
-    const cx = x + 2 + i * colW;
-    /* vertical separator */
-    if (i > 0) {
+  if (!isKata) {
+    const colW = (w - 2) / SCORE_COLS.length;
+    for (let i = 0; i < SCORE_COLS.length; i++) {
+      const cx = x + 2 + i * colW;
+      /* vertical separator */
+      if (i > 0) {
+        doc.setDrawColor(...GRAY_200);
+        doc.setLineWidth(0.15);
+        doc.line(cx, sy, cx, sy + scoreH);
+      }
+      /* label */
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(4.5);
+      doc.setTextColor(...GRAY_400);
+      doc.text(SCORE_COLS[i], cx + colW / 2, sy + 2.2, { align: 'center' });
+      /* score line */
       doc.setDrawColor(...GRAY_200);
       doc.setLineWidth(0.15);
-      doc.line(cx, sy, cx, sy + scoreH);
+      doc.line(cx + 0.5, sy + 3.8, cx + colW - 0.5, sy + 3.8);
     }
-    /* label */
+  } else {
+    // Kata layout
+    const kataNameW = (w - 2) * 0.7; // 70% width
+    const scoreW = (w - 2) * 0.3;    // 30% width
+    
+    // vertical separator
+    doc.setDrawColor(...GRAY_200);
+    doc.setLineWidth(0.15);
+    doc.line(x + 2 + kataNameW, sy, x + 2 + kataNameW, sy + scoreH);
+
+    // KATA NAME
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(4.5);
     doc.setTextColor(...GRAY_400);
-    doc.text(SCORE_COLS[i], cx + colW / 2, sy + 2.2, { align: 'center' });
-    /* score line */
-    doc.setDrawColor(...GRAY_200);
-    doc.setLineWidth(0.15);
-    doc.line(cx + 0.5, sy + 3.8, cx + colW - 0.5, sy + 3.8);
+    doc.text('KATA NAME', x + 2 + kataNameW / 2, sy + 2.2, { align: 'center' });
+    doc.line(x + 2 + 2, sy + 3.8, x + 2 + kataNameW - 2, sy + 3.8);
+
+    // SCORE / FLAGS
+    doc.text('SCORE / FLAGS', x + 2 + kataNameW + scoreW / 2, sy + 2.2, { align: 'center' });
+    doc.line(x + 2 + kataNameW + 2, sy + 3.8, x + 2 + kataNameW + scoreW - 2, sy + 3.8);
   }
 }
 
@@ -154,12 +178,13 @@ function drawMatchBlock(
   x: number, y: number, w: number,
   match: TiesheetMatch | null,
   isArchived: boolean,
+  isKata: boolean,
 ) {
   const akaWins = !!match?.winnerId && match.winnerId === match.aka?.playerId;
   const aoWins  = !!match?.winnerId && match.winnerId === match.ao?.playerId;
 
-  drawAthleteRow(doc, x, y,           w, match?.aka ?? null, RED_AKA,  LIGHT_RED,  akaWins, isArchived);
-  drawAthleteRow(doc, x, y + ATHLETE_H, w, match?.ao  ?? null, BLUE_AO, LIGHT_BLUE, aoWins,  isArchived);
+  drawAthleteRow(doc, x, y,           w, match?.aka ?? null, RED_AKA,  LIGHT_RED,  akaWins, isArchived, isKata);
+  drawAthleteRow(doc, x, y + ATHLETE_H, w, match?.ao  ?? null, BLUE_AO, LIGHT_BLUE, aoWins,  isArchived, isKata);
 
   /* Outer match border */
   doc.setDrawColor(...GRAY_200);
@@ -381,7 +406,7 @@ export async function exportTiesheetsPDF(options: ExportOptions): Promise<void> 
           const slotTop = bracketY + mi * matchSlotH;
           const my      = slotTop + (matchSlotH - BLOCK_H) / 2;
 
-          drawMatchBlock(doc, rx, my, matchW, match, isArchived);
+          drawMatchBlock(doc, rx, my, matchW, match, isArchived, cat.isKata || cat.name.toLowerCase().includes('kata'));
 
           /* ── Connector lines to next round */
           if (r < numRounds - 1) {

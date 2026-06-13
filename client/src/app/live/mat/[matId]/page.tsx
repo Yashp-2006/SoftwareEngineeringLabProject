@@ -60,8 +60,15 @@ export default function LiveMatPage({ params }: { params: Promise<{ matId: strin
               status: val.status || 'standby',
               timerSeconds: val.timerSeconds ?? 0,
               timerRunning: val.timerRunning ?? false,
+              isKata: val.isKata || false,
+              kataPhase: val.phase,
+              kataScores: val.kataScores,
+              kataVotes: val.kataVotes,
+              kataWinner: val.kataWinner,
+              selectedKata: val.selectedKata,
+              teamTimerSeconds: val.teamTimerSeconds,
             });
-            setTime(val.timerSeconds ?? 0);
+            setTime(val.teamTimerSeconds ?? val.timerSeconds ?? 0);
           } else {
             setMatchData(null);
           }
@@ -85,10 +92,15 @@ export default function LiveMatPage({ params }: { params: Promise<{ matId: strin
   useEffect(() => {
     if (!matchData?.timerRunning) return;
     const timer = setInterval(() => {
-      setTime(prev => (prev > 0 ? prev - 1 : 0));
+      setTime(prev => {
+        if (matchData.isKata && matchData.teamTimerSeconds === undefined) {
+          return prev + 1; // Ascending for individual kata
+        }
+        return prev > 0 ? prev - 1 : 0; // Descending otherwise
+      });
     }, 1000);
     return () => clearInterval(timer);
-  }, [matchData?.timerRunning]);
+  }, [matchData?.timerRunning, matchData?.isKata, matchData?.teamTimerSeconds]);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -177,6 +189,37 @@ export default function LiveMatPage({ params }: { params: Promise<{ matId: strin
           border: 1px solid rgba(255,255,255,0.4);
         }
         .penalty-dot.active { background: var(--shiro); }
+        
+        .kata-name {
+          font-family: var(--font-display);
+          font-size: 28px;
+          color: var(--shiro);
+          text-transform: uppercase;
+          margin-top: var(--space-4);
+          text-align: center;
+          letter-spacing: 0.1em;
+          background: rgba(0,0,0,0.2);
+          padding: 8px 16px;
+          border-radius: 8px;
+        }
+        .judge-scores-row {
+          display: flex;
+          gap: var(--space-4);
+          margin-top: var(--space-6);
+        }
+        .judge-score-box {
+          width: 48px;
+          height: 48px;
+          border-radius: 8px;
+          background: rgba(255,255,255,0.1);
+          border: 1px solid rgba(255,255,255,0.3);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-family: var(--font-mono);
+          font-size: 24px;
+          font-weight: 700;
+        }
 
         /* Animations */
         .mat-reveal-aka { animation: slideInLeft 0.8s cubic-bezier(0.165, 0.84, 0.44, 1) forwards; }
@@ -212,25 +255,51 @@ export default function LiveMatPage({ params }: { params: Promise<{ matId: strin
             <>
               {/* AKA Side */}
               <div className="competitor-side aka mat-reveal-aka">
-                <div className="score-value">{matchData.aka?.score || 0}</div>
+                {matchData.isKata ? (
+                  <div className="score-value">{matchData.kataVotes?.aka || 0}</div>
+                ) : (
+                  <div className="score-value">{matchData.aka?.score || 0}</div>
+                )}
                 <div className="competitor-name">{matchData.aka?.name || 'AKA'}</div>
                 <div className="text-micro" style={{ color: 'rgba(255,255,255,0.8)' }}>
                   {[matchData.aka?.academy, matchData.aka?.country].filter(Boolean).join(' • ').toUpperCase() || 'COUNTRY'}
                 </div>
-                <div className="penalty-row">
-                  {[...Array(4)].map((_, i) => (
-                    <div key={i} className={`penalty-dot ${i < calculatePenalties(matchData.aka?.penalties) ? 'active' : ''}`}></div>
-                  ))}
-                </div>
+                {matchData.isKata ? (
+                  <>
+                    <div className="kata-name">{matchData.selectedKata?.aka?.name || 'KATA PENDING'}</div>
+                    {matchData.kataScores?.aka && (
+                      <div className="judge-scores-row">
+                        {Object.values(matchData.kataScores.aka).map((s: any, i) => (
+                          <div key={i} className="judge-score-box">{s !== null ? s : '-'}</div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="penalty-row">
+                    {[...Array(4)].map((_, i) => (
+                      <div key={i} className={`penalty-dot ${i < calculatePenalties(matchData.aka?.penalties) ? 'active' : ''}`}></div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Center Timer */}
               <div className="timer-center mat-reveal-center">
-                <div className="text-micro" style={{ color: 'var(--neutral-500)' }}>TIME REMAINING</div>
-                <div className="timer-value" style={{ color: time < 10 ? 'var(--aka)' : 'var(--status-live)' }}>
+                <div className="text-micro" style={{ color: 'var(--neutral-500)' }}>
+                  {matchData.isKata && matchData.teamTimerSeconds === undefined ? 'PERFORMANCE TIME' : 'TIME REMAINING'}
+                </div>
+                <div className="timer-value" style={{ color: time < 10 && !matchData.isKata ? 'var(--aka)' : 'var(--status-live)' }}>
                   {formatTime(time)}
                 </div>
                 <div className="status-chip status-live">{matchData.status === 'live' ? 'Match Live' : 'Paused'}</div>
+                
+                {matchData.isKata && (
+                  <div style={{ marginTop: 'var(--space-4)', fontSize: '20px', fontWeight: 800, color: '#fbbf24', letterSpacing: '0.1em' }}>
+                    {matchData.kataPhase === 'bunkai' ? 'BUNKAI' : 'KATA'}
+                  </div>
+                )}
+
                 <div style={{ marginTop: 'var(--space-8)', textAlign: 'center' }}>
                   <div className="text-micro" style={{ color: 'var(--neutral-500)', marginBottom: '8px' }}>NEXT UP</div>
                   <div className="text-small" style={{ color: 'var(--shiro)' }}>PENDING</div>
@@ -239,16 +308,33 @@ export default function LiveMatPage({ params }: { params: Promise<{ matId: strin
 
               {/* AO Side */}
               <div className="competitor-side ao mat-reveal-ao">
-                <div className="score-value">{matchData.ao?.score || 0}</div>
+                {matchData.isKata ? (
+                  <div className="score-value">{matchData.kataVotes?.ao || 0}</div>
+                ) : (
+                  <div className="score-value">{matchData.ao?.score || 0}</div>
+                )}
                 <div className="competitor-name">{matchData.ao?.name || 'AO'}</div>
                 <div className="text-micro" style={{ color: 'rgba(255,255,255,0.8)' }}>
                   {[matchData.ao?.academy, matchData.ao?.country].filter(Boolean).join(' • ').toUpperCase() || 'COUNTRY'}
                 </div>
-                <div className="penalty-row">
-                  {[...Array(4)].map((_, i) => (
-                    <div key={i} className={`penalty-dot ${i < calculatePenalties(matchData.ao?.penalties) ? 'active' : ''}`}></div>
-                  ))}
-                </div>
+                {matchData.isKata ? (
+                  <>
+                    <div className="kata-name">{matchData.selectedKata?.ao?.name || 'KATA PENDING'}</div>
+                    {matchData.kataScores?.ao && (
+                      <div className="judge-scores-row">
+                        {Object.values(matchData.kataScores.ao).map((s: any, i) => (
+                          <div key={i} className="judge-score-box">{s !== null ? s : '-'}</div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="penalty-row">
+                    {[...Array(4)].map((_, i) => (
+                      <div key={i} className={`penalty-dot ${i < calculatePenalties(matchData.ao?.penalties) ? 'active' : ''}`}></div>
+                    ))}
+                  </div>
+                )}
               </div>
             </>
           )}

@@ -68,6 +68,8 @@ export default function BracketViewer({ matches, categoryName }: { matches: any[
 
   if (!matches || matches.length === 0) return <div>No matches generated.</div>;
 
+  const isKata = categoryName?.toLowerCase().includes('kata') || false;
+
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: `
@@ -163,6 +165,18 @@ export default function BracketViewer({ matches, categoryName }: { matches: any[
           margin-left: 16px;
           margin-top: 4px;
         }
+        .comp-kata-name {
+          font-size: 13px;
+          font-weight: 800;
+          color: var(--neutral-600);
+          text-transform: uppercase;
+          margin-left: 16px;
+          text-align: right;
+          max-width: 120px;
+          display: flex;
+          align-items: center;
+          line-height: 1.2;
+        }
         .match-footer {
           padding: 10px 20px;
           display: flex;
@@ -238,14 +252,22 @@ export default function BracketViewer({ matches, categoryName }: { matches: any[
                               <div className="comp-name" style={{ color: m.aka ? 'inherit' : 'var(--neutral-400)' }}>{m.aka ? m.aka.name : 'No player assigned'}</div>
                               <div className="comp-team">{m.aka ? `${m.aka.state} • ${m.aka.academy}` : '—'}</div>
                             </div>
-                            <div className="comp-score">{m.akaScore || 0}</div>
+                            {isKata ? (
+                              <div className="comp-kata-name" style={{ color: m.akaKata ? 'var(--neutral-900)' : 'var(--neutral-400)' }}>{m.akaKata || 'PENDING'}</div>
+                            ) : (
+                              <div className="comp-score">{m.akaScore || 0}</div>
+                            )}
                           </div>
                           <div className="competitor-row ao">
                             <div className="comp-info">
                               <div className="comp-name" style={{ color: m.ao ? 'inherit' : 'var(--neutral-400)' }}>{m.ao ? m.ao.name : 'No player assigned'}</div>
                               <div className="comp-team">{m.ao ? `${m.ao.state} • ${m.ao.academy}` : '—'}</div>
                             </div>
-                            <div className="comp-score">{m.aoScore || 0}</div>
+                            {isKata ? (
+                              <div className="comp-kata-name" style={{ color: m.aoKata ? 'var(--neutral-900)' : 'var(--neutral-400)' }}>{m.aoKata || 'PENDING'}</div>
+                            ) : (
+                              <div className="comp-score">{m.aoScore || 0}</div>
+                            )}
                           </div>
                           <div className="match-footer">
                             <div className="text-micro" style={{ flex: 1, color: 'var(--neutral-400)', fontWeight: 700, letterSpacing: '0.1em' }}>

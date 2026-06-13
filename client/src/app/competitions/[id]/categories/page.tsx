@@ -16,6 +16,8 @@ interface CategoryRow {
   end: string;
   estimatedDuration?: number;
   saved?: boolean;
+  isKata?: boolean;
+  judgeCount?: number;
 }
 
 // Helper to add minutes to time string (HH:MM)
@@ -66,7 +68,9 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
             mat: data.mat,
             start: data.scheduledStartTime,
             end: data.scheduledEndTime,
-            estimatedDuration: data.estimatedDuration
+            estimatedDuration: data.estimatedDuration,
+            isKata: data.isKata || data.name?.toLowerCase().includes('kata'),
+            judgeCount: data.judgeCount || data.numberOfJudges || 3
           } as CategoryRow;
         });
         setCategories(cats);
@@ -107,6 +111,14 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
       let dbField = field as string;
       if (field === 'start') dbField = 'scheduledStartTime';
       if (field === 'end') dbField = 'scheduledEndTime';
+      
+      if (field === 'judgeCount') {
+        dbField = 'judgeCount';
+        await updateDoc(catRef, { judgeCount: parseInt(value), numberOfJudges: parseInt(value) });
+        triggerSaved(catId);
+        toast.success("Judge count updated");
+        return;
+      }
       
       await updateDoc(catRef, { [dbField]: value });
 
@@ -192,7 +204,7 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
         }
         .category-row {
           display: grid;
-          grid-template-columns: 2fr 0.7fr 1fr 1fr 1.5fr 0.9fr;
+          grid-template-columns: 2fr 0.7fr 1fr 1fr 0.8fr 1.5fr 0.9fr;
           align-items: center;
           gap: var(--space-3);
           padding: var(--space-4) var(--space-5);
@@ -273,7 +285,7 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
 
         @media (max-width: 1360px) {
           .category-row {
-            grid-template-columns: 1.8fr 0.7fr 1fr 1fr 1.4fr 0.9fr;
+            grid-template-columns: 1.8fr 0.7fr 1fr 1fr 0.8fr 1.4fr 0.9fr;
           }
         }
         @media (max-width: 1180px) {
@@ -346,6 +358,7 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
             <div className="text-micro">Entries</div>
             <div className="text-micro">Status</div>
             <div className="text-micro">Assigned Mat</div>
+            <div className="text-micro">Judges</div>
             <div className="text-micro">Time Frame</div>
             <div className="text-micro" style={{ textAlign: 'right' }}>Action</div>
           </div>
@@ -392,6 +405,22 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
                 >
                   {MATS.map(m => <option key={m} value={m}>{m}</option>)}
                 </select>
+              </div>
+              <div>
+                {row.isKata ? (
+                  <select 
+                    className="mat-select"
+                    value={row.judgeCount || 3}
+                    onChange={(e) => handleUpdate(row.id, 'judgeCount', e.target.value)}
+                    disabled={row.status !== 'upcoming'}
+                  >
+                    <option value="3">3</option>
+                    <option value="5">5</option>
+                    <option value="7">7</option>
+                  </select>
+                ) : (
+                  <span className="text-micro" style={{ color: 'var(--neutral-400)' }}>—</span>
+                )}
               </div>
               <div className="time-wrap">
                 <input 

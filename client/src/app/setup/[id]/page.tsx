@@ -39,6 +39,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
   const [compType, setCompType] = useState<string>('international');
   const [bronzeRule, setBronzeRule] = useState<'two' | 'one'>('two');
   const [wkfMode, setWkfMode] = useState<string>('standard');
+  const [wkfKataJudgeCount, setWkfKataJudgeCount] = useState<3 | 5 | 7>(3);
   const [categories, setCategories] = useState<any[]>([]);
   const [selectedCats, setSelectedCats] = useState<Set<string>>(new Set());
 
@@ -80,6 +81,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         compType,
         bronzeRule,
         wkfMode,
+        wkfKataJudgeCount,
         categories,
         importResult: importResult ?? null,
         scoreboardLogo,
@@ -112,7 +114,10 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
   const handleWkfModeChange = async (mode: string) => {
     setWkfMode(mode);
     const { generateWkfCategories } = await import('@lib/wkf-categories');
-    setCategories(generateWkfCategories(mode).map(name => ({ id: name, name, entries: 0 })));
+    setCategories(generateWkfCategories(mode).map(name => {
+      const isKata = name.toLowerCase().includes('kata');
+      return { id: name, name, entries: 0, isKata, judgeCount: isKata ? wkfKataJudgeCount : undefined };
+    }));
   };
 
   useEffect(() => {
@@ -146,6 +151,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
           if (draftData.compType !== undefined) setCompType(draftData.compType);
           if (draftData.bronzeRule !== undefined) setBronzeRule(draftData.bronzeRule);
           if (draftData.wkfMode !== undefined) setWkfMode(draftData.wkfMode);
+          if (draftData.wkfKataJudgeCount !== undefined) setWkfKataJudgeCount(draftData.wkfKataJudgeCount);
           if (draftData.categories !== undefined) setCategories(draftData.categories);
           if (draftData.importResult !== undefined) setImportResult(draftData.importResult);
           if (draftData.scoreboardLogo !== undefined) setScoreboardLogo(draftData.scoreboardLogo);
@@ -368,6 +374,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
           matches: c.matches ?? [],
           athletes: c.athletes ?? [],
           matNo: c.mat || '',
+          isKata: c.isKata === true || (typeof c.name === 'string' && c.name.toLowerCase().includes('kata')),
         })),
         isArchived: false,
         venue: compVenue,
@@ -454,6 +461,12 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
           isSpecial: cat.isSpecial
         };
         
+        if (cat.name.toLowerCase().includes('kata')) {
+          updateData.isKata = true;
+          updateData.judgeCount = cat.judgeCount || wkfKataJudgeCount || 3;
+          updateData.numberOfJudges = cat.judgeCount || wkfKataJudgeCount || 3;
+        }
+
         if (cat.isSpecial) {
           if (cat.medal !== undefined) updateData.medal = cat.medal;
           if (cat.minAge !== undefined) updateData.minAge = cat.minAge;
@@ -730,6 +743,19 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                           <span className="text-small">Weight Wise Only</span>
                         </label>
                       </div>
+                      
+                      <div style={{ marginTop: 'var(--space-4)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--neutral-200)' }}>
+                        <h4 style={{ margin: '0 0 var(--space-2) 0', fontSize: '13px' }}>Kata Judge Count</h4>
+                        <p className="text-small" style={{ marginBottom: 'var(--space-3)', color: 'var(--neutral-600)' }}>Applies to all generated Kata categories.</p>
+                        <div style={{ display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
+                          {[3, 5, 7].map(count => (
+                            <label key={count} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                              <input type="radio" name="wkfKataJudgeCount" value={count} checked={wkfKataJudgeCount === count} onChange={() => setWkfKataJudgeCount(count as 3|5|7)} />
+                              <span className="text-small">{count} Judges</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -972,6 +998,25 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                                 </>
                               ) : (
                                 <span className="status-chip status-live" style={{ background: 'var(--neutral-100)', color: 'var(--neutral-600)', fontSize: '10px', padding: '2px 6px', marginRight: '4px' }}>Standard</span>
+                              )}
+                              {(cat.isKata || cat.name.toLowerCase().includes('kata')) && (
+                                <div style={{ marginTop: '6px' }}>
+                                  <span style={{ fontSize: '11px', fontWeight: 600, marginRight: '8px' }}>Judges:</span>
+                                  {[3, 5, 7].map(count => (
+                                    <label key={count} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer', marginRight: '8px', fontSize: '11px' }}>
+                                      <input 
+                                        type="radio" 
+                                        name={`judgeCount-${cat.id || idx}`} 
+                                        value={count} 
+                                        checked={(cat.judgeCount || 3) === count} 
+                                        onChange={() => {
+                                          setCategories(prev => prev.map(c => c.id === cat.id ? { ...c, judgeCount: count } : c));
+                                        }} 
+                                      />
+                                      {count}
+                                    </label>
+                                  ))}
+                                </div>
                               )}
                             </td>
                             <td>{cat.entries}</td>
