@@ -27,6 +27,8 @@ export interface TiesheetMatch {
   winnerId?: string | null;
   akaScore?: number;
   aoScore?: number;
+  akaKata?: string | null;
+  aoKata?: string | null;
   nextMatchId?: string | null;
 }
 
@@ -83,6 +85,7 @@ function drawAthleteRow(
   isWinner: boolean,
   isArchived: boolean,
   isKata: boolean = false,
+  kataName: string | null = null
 ) {
   const nameH = NAME_ROW_H;
   const scoreH = SCORE_ROW_H;
@@ -150,25 +153,17 @@ function drawAthleteRow(
       doc.line(cx + 0.5, sy + 3.8, cx + colW - 0.5, sy + 3.8);
     }
   } else {
-    // Kata layout
-    const kataNameW = (w - 2) * 0.7; // 70% width
-    const scoreW = (w - 2) * 0.3;    // 30% width
-    
-    // vertical separator
-    doc.setDrawColor(...GRAY_200);
-    doc.setLineWidth(0.15);
-    doc.line(x + 2 + kataNameW, sy, x + 2 + kataNameW, sy + scoreH);
-
-    // KATA NAME
+    // Kata layout - display kata name or placeholder
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(4.5);
-    doc.setTextColor(...GRAY_400);
-    doc.text('KATA NAME', x + 2 + kataNameW / 2, sy + 2.2, { align: 'center' });
-    doc.line(x + 2 + 2, sy + 3.8, x + 2 + kataNameW - 2, sy + 3.8);
-
-    // SCORE / FLAGS
-    doc.text('SCORE / FLAGS', x + 2 + kataNameW + scoreW / 2, sy + 2.2, { align: 'center' });
-    doc.line(x + 2 + kataNameW + 2, sy + 3.8, x + 2 + kataNameW + scoreW - 2, sy + 3.8);
+    doc.setFontSize(5.5);
+    if (kataName) {
+      doc.setTextColor(...BLACK);
+      doc.text(kataName.toUpperCase(), x + 2 + (w - 2) / 2, sy + 3.5, { align: 'center', maxWidth: w - 4 });
+    } else {
+      doc.setTextColor(...GRAY_400);
+      doc.setFont('helvetica', 'italic');
+      doc.text('KATA NOT SELECTED', x + 2 + (w - 2) / 2, sy + 3.5, { align: 'center', maxWidth: w - 4 });
+    }
   }
 }
 
@@ -183,8 +178,8 @@ function drawMatchBlock(
   const akaWins = !!match?.winnerId && match.winnerId === match.aka?.playerId;
   const aoWins  = !!match?.winnerId && match.winnerId === match.ao?.playerId;
 
-  drawAthleteRow(doc, x, y,           w, match?.aka ?? null, RED_AKA,  LIGHT_RED,  akaWins, isArchived, isKata);
-  drawAthleteRow(doc, x, y + ATHLETE_H, w, match?.ao  ?? null, BLUE_AO, LIGHT_BLUE, aoWins,  isArchived, isKata);
+  drawAthleteRow(doc, x, y,           w, match?.aka ?? null, RED_AKA,  LIGHT_RED,  akaWins, isArchived, isKata, match?.akaKata ?? null);
+  drawAthleteRow(doc, x, y + ATHLETE_H, w, match?.ao  ?? null, BLUE_AO, LIGHT_BLUE, aoWins,  isArchived, isKata, match?.aoKata ?? null);
 
   /* Outer match border */
   doc.setDrawColor(...GRAY_200);
