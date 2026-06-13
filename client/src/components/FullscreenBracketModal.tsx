@@ -25,6 +25,7 @@ const BracketNode = ({
   mats: string[];
   isHighlighted?: boolean;
   onPromote?: (matchId: string, winnerId: string, nextMatchId: string | null, byeFor?: 'aka' | 'ao') => void;
+  isKata?: boolean;
 }) => {
   const [showPromoteMenu, setShowPromoteMenu] = useState(false);
   const isLive = match.status === 'live';
@@ -78,9 +79,9 @@ const BracketNode = ({
           )}
           {match.aka && (
             <div className="metrics-row">
-              {match.selectedKata?.aka ? (
-                <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--neutral-600)', textTransform: 'uppercase', padding: '2px 6px', background: 'var(--neutral-100)', borderRadius: '4px' }}>
-                  {match.selectedKata.aka.name}
+              {isKata ? (
+                <div style={{ fontSize: '10px', fontWeight: 800, color: match.selectedKata?.aka ? 'var(--neutral-900)' : 'var(--neutral-400)', textTransform: 'uppercase', padding: '2px 6px', background: 'var(--neutral-100)', borderRadius: '4px', fontStyle: match.selectedKata?.aka ? 'normal' : 'italic' }}>
+                  {match.selectedKata?.aka?.name ? `KATA NAME: ${match.selectedKata.aka.name}` : 'KATA NOT SELECTED'}
                 </div>
               ) : (
                 METRICS.map(m => (
@@ -93,7 +94,9 @@ const BracketNode = ({
             </div>
           )}
         </div>
-        <div className="comp-score">{match.akaScore ?? (match.aka ? 0 : '')}</div>
+        {!isKata && (
+          <div className="comp-score">{match.akaScore ?? (match.aka ? 0 : '')}</div>
+        )}
       </div>
 
       {/* AO Row */}
@@ -111,9 +114,9 @@ const BracketNode = ({
           )}
           {match.ao && (
             <div className="metrics-row">
-              {match.selectedKata?.ao ? (
-                <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--neutral-600)', textTransform: 'uppercase', padding: '2px 6px', background: 'var(--neutral-100)', borderRadius: '4px' }}>
-                  {match.selectedKata.ao.name}
+              {isKata ? (
+                <div style={{ fontSize: '10px', fontWeight: 800, color: match.selectedKata?.ao ? 'var(--neutral-900)' : 'var(--neutral-400)', textTransform: 'uppercase', padding: '2px 6px', background: 'var(--neutral-100)', borderRadius: '4px', fontStyle: match.selectedKata?.ao ? 'normal' : 'italic' }}>
+                  {match.selectedKata?.ao?.name ? `KATA NAME: ${match.selectedKata.ao.name}` : 'KATA NOT SELECTED'}
                 </div>
               ) : (
                 METRICS.map(m => (
@@ -126,7 +129,9 @@ const BracketNode = ({
             </div>
           )}
         </div>
-        <div className="comp-score">{match.aoScore ?? (match.ao ? 0 : '')}</div>
+        {!isKata && (
+          <div className="comp-score">{match.aoScore ?? (match.ao ? 0 : '')}</div>
+        )}
       </div>
 
       {/* Match Footer */}
@@ -501,7 +506,7 @@ export function BracketViewer({
               <div key={rIdx} className="bracket-round">
                 {roundMatches.map((m: any) => (
                   <div key={m.id} className="match-wrapper">
-                    <BracketNode match={m} mats={mats} onPromote={onPromote} isHighlighted={m.id === activeHighlight} />
+                    <BracketNode match={m} mats={mats} onPromote={onPromote} isHighlighted={m.id === activeHighlight} isKata={activeCategory?.name?.toLowerCase().includes('kata') || false} />
                   </div>
                 ))}
               </div>

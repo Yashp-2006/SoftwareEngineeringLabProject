@@ -253,7 +253,7 @@ export default function BracketViewer({ matches, categoryName }: { matches: any[
                               <div className="comp-team">{m.aka ? `${m.aka.state} • ${m.aka.academy}` : '—'}</div>
                             </div>
                             {isKata ? (
-                              <div className="comp-kata-name" style={{ color: m.akaKata ? 'var(--neutral-900)' : 'var(--neutral-400)' }}>{m.akaKata || 'PENDING'}</div>
+                              <div className="comp-kata-name" style={{ color: m.akaKata ? 'var(--neutral-900)' : 'var(--neutral-400)', fontStyle: m.akaKata ? 'normal' : 'italic', fontSize: '11px', textAlign: 'right', flexShrink: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.akaKata ? `KATA NAME: ${m.akaKata}` : 'KATA NOT SELECTED'}</div>
                             ) : (
                               <div className="comp-score">{m.akaScore || 0}</div>
                             )}
@@ -264,7 +264,7 @@ export default function BracketViewer({ matches, categoryName }: { matches: any[
                               <div className="comp-team">{m.ao ? `${m.ao.state} • ${m.ao.academy}` : '—'}</div>
                             </div>
                             {isKata ? (
-                              <div className="comp-kata-name" style={{ color: m.aoKata ? 'var(--neutral-900)' : 'var(--neutral-400)' }}>{m.aoKata || 'PENDING'}</div>
+                              <div className="comp-kata-name" style={{ color: m.aoKata ? 'var(--neutral-900)' : 'var(--neutral-400)', fontStyle: m.aoKata ? 'normal' : 'italic', fontSize: '11px', textAlign: 'right', flexShrink: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.aoKata ? `KATA NAME: ${m.aoKata}` : 'KATA NOT SELECTED'}</div>
                             ) : (
                               <div className="comp-score">{m.aoScore || 0}</div>
                             )}
