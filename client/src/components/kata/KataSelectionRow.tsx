@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Check } from 'lucide-react';
 import { KATA_LIST, KataEntry } from '@/lib/kata-list';
 
 interface KataSelectionRowProps {
@@ -33,7 +33,7 @@ export default function KataSelectionRow({
     [allowedKataNumbers]
   );
 
-  const allUsedTwice = allowedKata.every((k) => (usageMap[k.number] ?? 0) >= 2);
+  const allUsedOnce = allowedKata.every((k) => (usageMap[k.number] ?? 0) >= 1);
 
   const filtered = allowedKata.filter(
     (k) =>
@@ -148,7 +148,7 @@ export default function KataSelectionRow({
             />
           </div>
 
-          {allUsedTwice && (
+          {allUsedOnce && (
             <div
               style={{
                 padding: '8px 12px',
@@ -159,7 +159,7 @@ export default function KataSelectionRow({
                 fontWeight: 600,
               }}
             >
-              <AlertTriangle size={14} style={{ display: 'inline-block', verticalAlign: 'text-bottom', marginRight: '4px' }} /> All permitted kata used twice. Free selection allowed.
+              <AlertTriangle size={14} style={{ display: 'inline-block', verticalAlign: 'text-bottom', marginRight: '4px' }} /> All permitted kata performed once. Free selection allowed.
             </div>
           )}
 
@@ -182,8 +182,7 @@ export default function KataSelectionRow({
 
             {filtered.map((kata) => {
               const uses = usageMap[kata.number] ?? 0;
-              const isDisabled = !allUsedTwice && uses >= 2;
-              const usedOnce = uses === 1;
+              const isDisabled = !allUsedOnce && uses >= 1;
 
               return (
                 <div
@@ -217,14 +216,9 @@ export default function KataSelectionRow({
                     </span>
                     <strong>{kata.name}</strong>
                   </span>
-                  {usedOnce && (
-                    <span style={{ fontSize: '10px', color: '#b45309', background: '#fef3c7', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
-                      used 1×
-                    </span>
-                  )}
-                  {isDisabled && (
-                    <span style={{ fontSize: '10px', color: 'var(--neutral-400)', fontWeight: 600 }}>
-                      used 2× (max)
+                  {uses >= 1 && (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: '#10b981', fontWeight: 700, background: 'rgba(16,185,129,0.1)', padding: '2px 6px', borderRadius: '4px' }}>
+                      <Check size={12} strokeWidth={3} /> Performed
                     </span>
                   )}
                 </div>
