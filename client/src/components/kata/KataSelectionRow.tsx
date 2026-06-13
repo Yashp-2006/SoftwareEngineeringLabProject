@@ -29,7 +29,9 @@ export default function KataSelectionRow({
   const [open, setOpen] = useState(false);
 
   const allowedKata = useMemo(
-    () => KATA_LIST.filter((k) => allowedKataNumbers.includes(k.number)),
+    () => (!allowedKataNumbers || allowedKataNumbers.length === 0)
+      ? KATA_LIST
+      : KATA_LIST.filter((k) => allowedKataNumbers.includes(k.number)),
     [allowedKataNumbers]
   );
 
@@ -61,12 +63,14 @@ export default function KataSelectionRow({
             textTransform: 'uppercase',
             letterSpacing: '0.08em',
             color: colorVar,
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
           }}
         >
           {label} — Kata Selection
         </div>
         {playerName && (
-          <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-600)', textAlign: 'right' }}>
+          <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-600)', textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginLeft: '12px' }}>
             {playerName} {academy && <span style={{ opacity: 0.6 }}>• {academy}</span>}
           </div>
         )}

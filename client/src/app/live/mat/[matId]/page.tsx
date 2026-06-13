@@ -31,6 +31,7 @@ export default function LiveMatPage({ params }: { params: Promise<{ matId: strin
           if (val) {
             // Map from operator's enriched payload to local matchData shape
             setMatchData({
+              currentCategory: val.currentCategory || 'UNKNOWN CATEGORY',
               aka: {
                 name: val.akaName || 'AKA',
                 country: val.akaCountry || '',
@@ -240,7 +241,7 @@ export default function LiveMatPage({ params }: { params: Promise<{ matId: strin
       <div className="mat-container">
         <div className="mat-header">
           <div className="nav-logo" style={{ color: 'var(--shiro)' }}>TAIKAIX <span style={{ color: 'var(--neutral-500)' }}>| MAT {matId.padStart(2, '0')}</span></div>
-          <div className="category-label">SENIOR MALE KUMITE -75KG</div>
+          <div className="category-label" style={{ textTransform: 'uppercase' }}>{matchData?.currentCategory || 'UNKNOWN CATEGORY'}</div>
           <div className="data-mono" style={{ color: 'var(--neutral-500)' }}>KYOTO 2026 FINALS</div>
         </div>
 
@@ -266,7 +267,9 @@ export default function LiveMatPage({ params }: { params: Promise<{ matId: strin
                 </div>
                 {matchData.isKata ? (
                   <>
-                    <div className="kata-name">{matchData.selectedKata?.aka?.name || 'KATA PENDING'}</div>
+                    <div className="kata-name" style={{ fontStyle: matchData.selectedKata?.aka?.name ? 'normal' : 'italic', color: matchData.selectedKata?.aka?.name ? 'var(--shiro)' : 'rgba(255,255,255,0.4)' }}>
+                      {matchData.selectedKata?.aka?.name ? `KATA NAME: ${matchData.selectedKata.aka.name}` : 'KATA NOT SELECTED'}
+                    </div>
                     {matchData.kataScores?.aka && matchData.kataScores?.ao && (
                       <div className="judge-scores-row">
                         {Object.values(matchData.kataScores.aka).map((s: any, i) => {
@@ -332,7 +335,9 @@ export default function LiveMatPage({ params }: { params: Promise<{ matId: strin
                 </div>
                 {matchData.isKata ? (
                   <>
-                    <div className="kata-name">{matchData.selectedKata?.ao?.name || 'KATA PENDING'}</div>
+                    <div className="kata-name" style={{ fontStyle: matchData.selectedKata?.ao?.name ? 'normal' : 'italic', color: matchData.selectedKata?.ao?.name ? 'var(--shiro)' : 'rgba(255,255,255,0.4)' }}>
+                      {matchData.selectedKata?.ao?.name ? `KATA NAME: ${matchData.selectedKata.ao.name}` : 'KATA NOT SELECTED'}
+                    </div>
                     {matchData.kataScores?.aka && matchData.kataScores?.ao && (
                       <div className="judge-scores-row">
                         {Object.values(matchData.kataScores.ao).map((s: any, i) => {
