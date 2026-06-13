@@ -267,11 +267,24 @@ export default function LiveMatPage({ params }: { params: Promise<{ matId: strin
                 {matchData.isKata ? (
                   <>
                     <div className="kata-name">{matchData.selectedKata?.aka?.name || 'KATA PENDING'}</div>
-                    {matchData.kataScores?.aka && (
+                    {matchData.kataScores?.aka && matchData.kataScores?.ao && (
                       <div className="judge-scores-row">
-                        {Object.values(matchData.kataScores.aka).map((s: any, i) => (
-                          <div key={i} className="judge-score-box">{s !== null ? s : '-'}</div>
-                        ))}
+                        {Object.values(matchData.kataScores.aka).map((s: any, i) => {
+                          const a = s;
+                          const b = matchData.kataScores.ao[i];
+                          let vote = '-';
+                          let bg = 'rgba(255,255,255,0.1)';
+                          if (a !== null && b !== null) {
+                            if (a > b) { vote = 'AKA'; bg = 'var(--aka)'; }
+                            else if (b > a) { vote = 'AO'; bg = 'var(--ao)'; }
+                            else { vote = 'TIE'; bg = 'var(--neutral-500)'; }
+                          }
+                          return (
+                            <div key={i} className="judge-score-box" style={{ background: bg, fontSize: '14px', border: 'none' }}>
+                              {vote}
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </>
@@ -320,11 +333,24 @@ export default function LiveMatPage({ params }: { params: Promise<{ matId: strin
                 {matchData.isKata ? (
                   <>
                     <div className="kata-name">{matchData.selectedKata?.ao?.name || 'KATA PENDING'}</div>
-                    {matchData.kataScores?.ao && (
+                    {matchData.kataScores?.aka && matchData.kataScores?.ao && (
                       <div className="judge-scores-row">
-                        {Object.values(matchData.kataScores.ao).map((s: any, i) => (
-                          <div key={i} className="judge-score-box">{s !== null ? s : '-'}</div>
-                        ))}
+                        {Object.values(matchData.kataScores.ao).map((s: any, i) => {
+                          const b = s;
+                          const a = matchData.kataScores.aka[i];
+                          let vote = '-';
+                          let bg = 'rgba(255,255,255,0.1)';
+                          if (a !== null && b !== null) {
+                            if (a > b) { vote = 'AKA'; bg = 'var(--aka)'; }
+                            else if (b > a) { vote = 'AO'; bg = 'var(--ao)'; }
+                            else { vote = 'TIE'; bg = 'var(--neutral-500)'; }
+                          }
+                          return (
+                            <div key={i} className="judge-score-box" style={{ background: bg, fontSize: '14px', border: 'none' }}>
+                              {vote}
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </>

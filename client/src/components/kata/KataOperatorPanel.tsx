@@ -223,6 +223,17 @@ export default function KataOperatorPanel({
       toast.error('Select kata for both AKA and AO before starting.');
       return;
     }
+
+    try {
+      await fetch(`/api/competitions/${competitionId}/brackets/${categoryId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ matchId, selectedKata })
+      });
+    } catch (e) {
+      console.error('Failed to save kata selection to match document', e);
+    }
+
     await syncRTDB({
       isKata: true,
       'selectedKata.aka': selectedKata.aka,

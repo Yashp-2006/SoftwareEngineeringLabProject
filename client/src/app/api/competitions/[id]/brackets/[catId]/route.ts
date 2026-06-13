@@ -20,8 +20,12 @@ export async function PATCH(
     const { matchId, winnerId, byeFor, selectedKata } = body;
     // byeFor = 'aka' | 'ao' — means that side won by BYE (opponent disqualified/absent)
 
-    if (!matchId || !winnerId) {
-      return NextResponse.json({ success: false, error: 'matchId and winnerId are required' }, { status: 400 });
+    if (!matchId) {
+      return NextResponse.json({ success: false, error: 'matchId is required' }, { status: 400 });
+    }
+
+    if (!winnerId && !selectedKata) {
+      return NextResponse.json({ success: false, error: 'winnerId or selectedKata is required' }, { status: 400 });
     }
 
     const catRef = adminDb
@@ -58,6 +62,21 @@ export async function PATCH(
       const loserSide = byeFor === 'aka' ? 'ao' : 'aka'; // winner is opposite of byeFor
       winnerData = currentMatch[loserSide === 'aka' ? 'aka' : 'ao'];
       // if still null, try using winnerId as direct lookup
+    }
+
+    // If we only want to update the selected kata without finishing the match
+    if (!winnerId && selectedKata) {
+      matches[currentIdx] = {
+        ...currentMatch,
+        selectedKata,
+        akaKata: selectedKata.aka?.name,
+        aoKata: selectedKata.ao?.name
+      };
+      await catRef.update({
+        matches,
+        updatedAt: new Date().toISOString(),
+      });
+      return NextResponse.json({ success: true, nextMatchId: null });
     }
 
     if (!winnerData) {
