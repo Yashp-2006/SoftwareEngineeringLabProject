@@ -1034,6 +1034,28 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                     </div>
                   ) : (
                     <>
+                      <div id="ops-display-container" className="ops-display" style={{ marginBottom: '24px' }}>
+                        <div className="ops-side aka">
+                          <div className="ops-country">{aka.country}</div>
+                          <div className="ops-name">{aka.name}</div>
+                          <div className="ops-academy">{aka.academy}</div>
+                        </div>
+
+                        <div className="ops-side ops-center">
+                          <div style={{ border: '1px solid var(--neutral-300)', padding: '4px 16px', borderRadius: '999px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '24px' }}>Round {round}</div>
+                          <div style={{ color: 'var(--neutral-500)', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px' }}>Remaining</div>
+                          <div className={`ops-timer ${running ? 'live' : ''}`}>{Math.floor(timer / 60).toString().padStart(2, '0')}:{(timer % 60).toString().padStart(2, '0')}</div>
+                          <div style={{ color: 'var(--neutral-500)', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '6px' }}>Match Status</div>
+                          <div style={{ background: 'var(--neutral-100)', padding: '6px 12px', borderRadius: '999px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--neutral-600)' }}>{status}</div>
+                        </div>
+
+                        <div className="ops-side ao">
+                          <div className="ops-country">{ao.country}</div>
+                          <div className="ops-name">{ao.name}</div>
+                          <div className="ops-academy">{ao.academy}</div>
+                        </div>
+                      </div>
+
                       <KataOperatorPanel
                         competitionId={id}
                         categoryId={activeCategoryId!}
