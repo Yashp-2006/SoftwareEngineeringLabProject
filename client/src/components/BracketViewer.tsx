@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Maximize, MinusCircle, PlusCircle } from 'lucide-react';
 
-export default function BracketViewer({ matches, categoryName }: { matches: any[], categoryName?: string }) {
+export default function BracketViewer({ matches, categoryName, isKata: propIsKata }: { matches: any[], categoryName?: string, isKata?: boolean }) {
   const [zoom, setZoom] = useState(1);
   const canvasRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -69,7 +69,7 @@ export default function BracketViewer({ matches, categoryName }: { matches: any[
 
   if (!matches || matches.length === 0) return <div>No matches generated.</div>;
 
-  const isKata = categoryName?.toLowerCase().includes('kata') || false;
+  const isKata = propIsKata !== undefined ? propIsKata : (categoryName?.toLowerCase().includes('kata') || false);
 
   // ── SVG Connector Computation ──
   const computeConnectors = useCallback(() => {
@@ -79,33 +79,34 @@ export default function BracketViewer({ matches, categoryName }: { matches: any[
     }
     const canvas = canvasRef.current;
     const canvasRect = canvas.getBoundingClientRect();
-    const wrappers = canvas.querySelectorAll('.match-wrapper');
-    if (!wrappers.length) { setConnectors([]); return; }
+    const newConnectors: Array<{x1:number;y1:number;x2:number;y2:number;xMid:number}> = [];
 
-    const posMap = new Map<string, DOMRect>();
-    wrappers.forEach((el) => {
-      const node = el.querySelector('.bracket-node') as HTMLElement;
-      if (!node) return;
-      const matchId = (el as any).__matchId;
-      if (matchId) posMap.set(matchId, node.getBoundingClientRect());
+    // Map each match to its DOM element
+    const matchNodes = new Map<string, HTMLElement>();
+    canvas.querySelectorAll('.match-wrapper').forEach((el: any) => {
+      if (el.__matchId) matchNodes.set(el.__matchId, el);
     });
 
-    const newConnectors: Array<{x1:number;y1:number;x2:number;y2:number;xMid:number}> = [];
     for (const match of matches) {
       if (!match.nextMatchId) continue;
-      const srcRect = posMap.get(match.id);
-      const destRect = posMap.get(match.nextMatchId);
-      if (!srcRect || !destRect) continue;
+      const src = matchNodes.get(match.id);
+      const dest = matchNodes.get(match.nextMatchId);
+      if (!src || !dest) continue;
 
-      const x1 = srcRect.right - canvasRect.left;
-      const y1 = srcRect.top + srcRect.height / 2 - canvasRect.top;
-      const x2 = destRect.left - canvasRect.left;
-      const y2 = destRect.top + destRect.height / 2 - canvasRect.top;
+      const srcRect = src.getBoundingClientRect();
+      const destRect = dest.getBoundingClientRect();
+
+      // Divide by zoom because getBoundingClientRect() returns scaled screen pixels
+      const x1 = (srcRect.right - canvasRect.left) / zoom;
+      const y1 = (srcRect.top + srcRect.height / 2 - canvasRect.top) / zoom;
+      const x2 = (destRect.left - canvasRect.left) / zoom;
+      const y2 = (destRect.top + destRect.height / 2 - canvasRect.top) / zoom;
       const xMid = x1 + (x2 - x1) / 2;
+
       newConnectors.push({ x1, y1, x2, y2, xMid });
     }
     setConnectors(newConnectors);
-  }, [matches, rounds.length]);
+  }, [matches, rounds.length, zoom]);
 
   useEffect(() => {
     const timer = setTimeout(computeConnectors, 350);
@@ -313,7 +314,7 @@ export default function BracketViewer({ matches, categoryName }: { matches: any[
                                 Kata Name: <span style={{ color: 'var(--aka)', fontWeight: 700 }}>{m.akaKata ? m.akaKata : 'Not Selected'}</span>
                               </div>
                             )}
-                            <div className="comp-score">{m.akaScore || 0}</div>
+                            <div className="comp-score">{(m.akaScore !== undefined && m.akaScore !== null && m.akaScore !== '') ? m.akaScore : (m.aka ? 0 : '')}</div>
                           </div>
                           <div className="competitor-row ao">
                             <div className="comp-info">
@@ -325,7 +326,7 @@ export default function BracketViewer({ matches, categoryName }: { matches: any[
                                 Kata Name: <span style={{ color: 'var(--ao)', fontWeight: 700 }}>{m.aoKata ? m.aoKata : 'Not Selected'}</span>
                               </div>
                             )}
-                            <div className="comp-score">{m.aoScore || 0}</div>
+                            <div className="comp-score">{(m.aoScore !== undefined && m.aoScore !== null && m.aoScore !== '') ? m.aoScore : (m.ao ? 0 : '')}</div>
                           </div>
                           <div className="match-footer">
                             <div className="text-micro" style={{ flex: 1, color: 'var(--neutral-400)', fontWeight: 700, letterSpacing: '0.1em' }}>

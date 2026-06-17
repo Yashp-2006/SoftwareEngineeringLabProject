@@ -95,7 +95,7 @@ const BracketNode = ({
             </div>
           )}
         </div>
-        <div className="comp-score">{match.akaScore ?? (match.aka ? 0 : '')}</div>
+        <div className="comp-score">{(match.akaScore !== undefined && match.akaScore !== null && match.akaScore !== '') ? match.akaScore : (match.aka ? 0 : '')}</div>
       </div>
 
       {/* AO Row */}
@@ -128,7 +128,7 @@ const BracketNode = ({
             </div>
           )}
         </div>
-        <div className="comp-score">{match.aoScore ?? (match.ao ? 0 : '')}</div>
+        <div className="comp-score">{(match.aoScore !== undefined && match.aoScore !== null && match.aoScore !== '') ? match.aoScore : (match.ao ? 0 : '')}</div>
       </div>
 
       {/* Match Footer */}
@@ -228,6 +228,7 @@ const BracketNode = ({
 export function BracketViewer({
   matches,
   categoryName,
+  isKata,
   mats = [],
   firstRoundOnly = false,
   highlightMatchId,
@@ -237,6 +238,7 @@ export function BracketViewer({
 }: {
   matches: any[];
   categoryName?: string;
+  isKata?: boolean;
   mats?: string[];
   firstRoundOnly?: boolean;
   highlightMatchId?: string | null;
@@ -391,21 +393,17 @@ export function BracketViewer({
       const destRect = posMap.get(match.nextMatchId);
       if (!srcRect || !destRect) continue;
 
-      // Source: center-right of current match
-      const x1 = srcRect.right - canvasRect.left;
-      const y1 = srcRect.top + srcRect.height / 2 - canvasRect.top;
-      // Destination: center-left of next-round match
-      const x2 = destRect.left - canvasRect.left;
-      const y2 = destRect.top + destRect.height / 2 - canvasRect.top;
-      // Midpoint X for the elbow
+      const x1 = (srcRect.right - canvasRect.left) / zoom;
+      const y1 = (srcRect.top + srcRect.height / 2 - canvasRect.top) / zoom;
+      const x2 = (destRect.left - canvasRect.left) / zoom;
+      const y2 = (destRect.top + destRect.height / 2 - canvasRect.top) / zoom;
       const xMid = x1 + (x2 - x1) / 2;
 
       newConnectors.push({ x1, y1, x2, y2, xMid });
     }
     setConnectors(newConnectors);
-  }, [filteredMatches, rounds.length]);
+  }, [filteredMatches, rounds.length, zoom]);
 
-  // Recompute connectors when layout changes
   useEffect(() => {
     const timer = setTimeout(computeConnectors, 300);
     return () => clearTimeout(timer);
@@ -420,8 +418,6 @@ export function BracketViewer({
     return () => observer.disconnect();
   }, [computeConnectors]);
 
-
-
   const visibleRounds = firstRoundOnly ? (rounds.length > 0 ? [rounds[0]] : []) : rounds;
 
   if (!matches || matches.length === 0) {
@@ -435,7 +431,6 @@ export function BracketViewer({
 
   return (
     <div className="bv-viewport">
-      {/* Controls Bar */}
       <div className="bv-controls">
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <h2 style={{ fontSize: '18px', margin: 0 }}>{categoryName || 'Tiesheet'}</h2>
@@ -445,16 +440,7 @@ export function BracketViewer({
               value={selectedPool || ''}
               onChange={(e) => setSelectedPool(e.target.value)}
               className="pool-select"
-              style={{
-                padding: '4px 8px',
-                borderRadius: '6px',
-                border: '1px solid var(--neutral-300)',
-                background: 'var(--shiro)',
-                fontSize: '13px',
-                fontWeight: 600,
-                color: 'var(--neutral-800)',
-                cursor: 'pointer'
-              }}
+              style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid var(--neutral-300)', background: 'var(--shiro)', fontSize: '13px', fontWeight: 600, color: 'var(--neutral-800)', cursor: 'pointer' }}
             >
               {availablePools.map(p => (
                 <option key={p} value={p}>Pool {p}</option>
@@ -472,26 +458,10 @@ export function BracketViewer({
               type="text" 
               placeholder="Find athlete..." 
               value={localSearch}
-              onChange={e => {
-                setLocalSearch(e.target.value);
-                setIsDropdownOpen(true);
-              }}
+              onChange={e => { setLocalSearch(e.target.value); setIsDropdownOpen(true); }}
               onFocus={() => setIsDropdownOpen(true)}
-              onKeyDown={e => {
-                if (e.key === 'Enter' && searchResults.length > 0) {
-                  handleSearchResultClick(searchResults[0]);
-                }
-              }}
-              style={{
-                width: '180px',
-                padding: '4px 30px 4px 10px',
-                borderRadius: '6px',
-                border: '1px solid var(--neutral-300)',
-                background: 'var(--shiro)',
-                fontSize: '11px',
-                color: 'var(--neutral-900)',
-                outline: 'none'
-              }}
+              onKeyDown={e => { if (e.key === 'Enter' && searchResults.length > 0) handleSearchResultClick(searchResults[0]); }}
+              style={{ width: '180px', padding: '4px 30px 4px 10px', borderRadius: '6px', border: '1px solid var(--neutral-300)', background: 'var(--shiro)', fontSize: '11px', color: 'var(--neutral-900)', outline: 'none' }}
             />
             {localSearch && (
               <button 
@@ -502,36 +472,17 @@ export function BracketViewer({
               </button>
             )}
             {searchResults.length > 0 && (
-              <div style={{
-                position: 'absolute',
-                top: 'calc(100% + 4px)',
-                right: 0,
-                width: '260px',
-                background: 'var(--shiro)',
-                border: '1px solid var(--neutral-200)',
-                borderRadius: '8px',
-                boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
-                zIndex: 100,
-                maxHeight: '300px',
-                overflowY: 'auto'
-              }}>
+              <div style={{ position: 'absolute', top: 'calc(100% + 4px)', right: 0, width: '260px', background: 'var(--shiro)', border: '1px solid var(--neutral-200)', borderRadius: '8px', boxShadow: '0 8px 24px rgba(0,0,0,0.1)', zIndex: 100, maxHeight: '300px', overflowY: 'auto' }}>
                 {searchResults.map((res, idx) => (
                   <div 
                     key={idx} 
                     onClick={() => handleSearchResultClick(res)}
-                    style={{
-                      padding: '8px 12px',
-                      borderBottom: '1px solid var(--neutral-100)',
-                      cursor: 'pointer',
-                      fontSize: '11px'
-                    }}
+                    style={{ padding: '8px 12px', borderBottom: '1px solid var(--neutral-100)', cursor: 'pointer', fontSize: '11px' }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
                       <div style={{ fontWeight: 700, color: 'var(--neutral-900)' }}>{res.athleteName}</div>
                       {res.teamName && (
-                        <div style={{ fontSize: '9px', fontWeight: 600, color: 'var(--neutral-500)', textTransform: 'uppercase', textAlign: 'right', maxWidth: '120px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {res.teamName}
-                        </div>
+                        <div style={{ fontSize: '9px', fontWeight: 600, color: 'var(--neutral-500)', textTransform: 'uppercase', textAlign: 'right', maxWidth: '120px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{res.teamName}</div>
                       )}
                     </div>
                     <div style={{ color: 'var(--neutral-500)', fontSize: '10px' }}>{res.categoryName} • Pool {res.pool}</div>
@@ -554,11 +505,9 @@ export function BracketViewer({
         </div>
       </div>
 
-      {/* Bracket Scroll Area */}
       <div className="bv-scroll" ref={viewportRef}>
         <div className="bv-scale-wrapper" style={{ transform: `scale(${zoom})` }}>
           <div className="bv-canvas" ref={canvasRef}>
-            {/* SVG Connector Overlay */}
             {connectors.length > 0 && (
               <svg className="bv-connectors" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 1 }}>
                 {connectors.map((c, i) => (
@@ -567,7 +516,7 @@ export function BracketViewer({
                     d={`M${c.x1},${c.y1} L${c.xMid},${c.y1} L${c.xMid},${c.y2} L${c.x2},${c.y2}`}
                     fill="none"
                     stroke="var(--neutral-300)"
-                    strokeWidth="2"
+                    strokeWidth={2 / zoom}
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   />
@@ -578,7 +527,7 @@ export function BracketViewer({
               <div key={rIdx} className="bracket-round">
                 {roundMatches.map((m: any) => (
                   <div key={m.id} className="match-wrapper" ref={(el) => { if (el) (el as any).__matchId = m.id; }}>
-                    <BracketNode match={m} mats={mats} onPromote={onPromote} isHighlighted={m.id === activeHighlight} isKata={categoryName?.toLowerCase().includes('kata') || false} />
+                    <BracketNode match={m} mats={mats} onPromote={onPromote} isHighlighted={m.id === activeHighlight} isKata={isKata} />
                   </div>
                 ))}
               </div>
@@ -590,7 +539,6 @@ export function BracketViewer({
   );
 }
 
-// --- FullscreenBracketModal: fixed-position popup wrapping BracketViewer + sidebar ---
 export default function FullscreenBracketModal({
   categories,
   initialCategoryId,
@@ -601,7 +549,7 @@ export default function FullscreenBracketModal({
   onPromote,
   onAssignMat,
 }: {
-  categories: Array<{ id: string; name: string; matches: any[]; athletes?: any[]; status?: string; mat?: string }>;
+  categories: Array<{ id: string; name: string; matches: any[]; isKata?: boolean; athletes?: any[]; status?: string; mat?: string }>;
   initialCategoryId?: string;
   highlightMatchId?: string | null;
   onClose: () => void;
@@ -610,14 +558,16 @@ export default function FullscreenBracketModal({
   onPromote?: (matchId: string, winnerId: string, nextMatchId: string | null, byeFor?: 'aka' | 'ao') => void;
   onAssignMat?: (categoryId: string, mat: string) => void;
 }) {
-  const [activeCatId, setActiveCatId] = useState(initialCategoryId || (categories[0]?.id ?? null));
-  const activeCatFirstRoundOnly = firstRoundOnly ?? false;
+  const activeCatIdState = initialCategoryId || (categories[0]?.id ?? null);
+  const [activeCatId, setActiveCatId] = useState(activeCatIdState);
   const activeCategory = categories.find(c => c.id === activeCatId);
+  const activeCatFirstRoundOnly = firstRoundOnly ?? false;
+
+  const isKataCat = activeCategory?.isKata || activeCategory?.name?.toLowerCase().includes('kata') || false;
 
   const [modalHighlight, setModalHighlight] = useState<string | null>(highlightMatchId || null);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
 
-  // Sidebar filters
   const [sbFilterDiscipline, setSbFilterDiscipline] = useState<'all'|'kata'|'kumite'>('all');
   const [sbFilterGender, setSbFilterGender] = useState<'all'|'male'|'female'>('all');
   const [sbFilterMat, setSbFilterMat] = useState<string>('all');
@@ -1062,6 +1012,7 @@ export default function FullscreenBracketModal({
               <BracketViewer
                 matches={activeCategory.matches || []}
                 categoryName={activeCategory.name}
+                isKata={isKataCat}
                 mats={mats}
                 firstRoundOnly={activeCatFirstRoundOnly}
                 highlightMatchId={modalHighlight}
