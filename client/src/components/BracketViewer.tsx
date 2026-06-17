@@ -7,6 +7,7 @@ export default function BracketViewer({ matches, categoryName }: { matches: any[
   const [zoom, setZoom] = useState(1);
   const canvasRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const [connectors, setConnectors] = useState<Array<{x1:number;y1:number;x2:number;y2:number;xMid:number}>>([]);
 
   const adjustZoom = (delta: number) => {
     setZoom(prev => Math.max(0.2, Math.min(2, +(prev + delta).toFixed(2))));
@@ -70,6 +71,54 @@ export default function BracketViewer({ matches, categoryName }: { matches: any[
 
   const isKata = categoryName?.toLowerCase().includes('kata') || false;
 
+  // ── SVG Connector Computation ──
+  const computeConnectors = useCallback(() => {
+    if (!canvasRef.current || rounds.length < 2) {
+      setConnectors([]);
+      return;
+    }
+    const canvas = canvasRef.current;
+    const canvasRect = canvas.getBoundingClientRect();
+    const wrappers = canvas.querySelectorAll('.match-wrapper');
+    if (!wrappers.length) { setConnectors([]); return; }
+
+    const posMap = new Map<string, DOMRect>();
+    wrappers.forEach((el) => {
+      const node = el.querySelector('.bracket-node') as HTMLElement;
+      if (!node) return;
+      const matchId = (el as any).__matchId;
+      if (matchId) posMap.set(matchId, node.getBoundingClientRect());
+    });
+
+    const newConnectors: Array<{x1:number;y1:number;x2:number;y2:number;xMid:number}> = [];
+    for (const match of matches) {
+      if (!match.nextMatchId) continue;
+      const srcRect = posMap.get(match.id);
+      const destRect = posMap.get(match.nextMatchId);
+      if (!srcRect || !destRect) continue;
+
+      const x1 = srcRect.right - canvasRect.left;
+      const y1 = srcRect.top + srcRect.height / 2 - canvasRect.top;
+      const x2 = destRect.left - canvasRect.left;
+      const y2 = destRect.top + destRect.height / 2 - canvasRect.top;
+      const xMid = x1 + (x2 - x1) / 2;
+      newConnectors.push({ x1, y1, x2, y2, xMid });
+    }
+    setConnectors(newConnectors);
+  }, [matches, rounds.length]);
+
+  useEffect(() => {
+    const timer = setTimeout(computeConnectors, 350);
+    return () => clearTimeout(timer);
+  }, [computeConnectors, zoom, matches]);
+
+  useEffect(() => {
+    if (!canvasRef.current) return;
+    const observer = new ResizeObserver(() => setTimeout(computeConnectors, 100));
+    observer.observe(canvasRef.current);
+    return () => observer.disconnect();
+  }, [computeConnectors]);
+
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: `
@@ -104,6 +153,7 @@ export default function BracketViewer({ matches, categoryName }: { matches: any[
           gap: 120px;
           padding: 32px 24px 48px;
           align-items: flex-start;
+          position: relative;
         }
         .bracket-round {
           display: flex;
@@ -190,16 +240,6 @@ export default function BracketViewer({ matches, categoryName }: { matches: any[
           position: relative;
           margin-bottom: 24px;
         }
-        .match-wrapper::after {
-          content: '';
-          position: absolute;
-          right: -60px;
-          top: 50%;
-          width: 60px;
-          height: 2px;
-          background: var(--neutral-300);
-          z-index: 0;
-        }
         .bracket-round:last-child .match-wrapper::after {
           display: none;
         }
@@ -238,11 +278,27 @@ export default function BracketViewer({ matches, categoryName }: { matches: any[
           {/* Scale wrapper: transform-origin top left means content expands to the right/bottom */}
           <div className="bracket-scale-wrapper" style={{ transform: `scale(${zoom})` }}>
             <div className="bracket-container" ref={canvasRef}>
+              {/* SVG Connector Overlay */}
+              {connectors.length > 0 && (
+                <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 1 }}>
+                  {connectors.map((c, i) => (
+                    <path
+                      key={i}
+                      d={`M${c.x1},${c.y1} L${c.xMid},${c.y1} L${c.xMid},${c.y2} L${c.x2},${c.y2}`}
+                      fill="none"
+                      stroke="var(--neutral-300)"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  ))}
+                </svg>
+              )}
               {rounds.map((roundMatches, rIdx) => (
                 <div key={rIdx} className="bracket-round">
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-around' }}>
                     {roundMatches.map(m => (
-                      <div key={m.id} className="match-wrapper">
+                      <div key={m.id} className="match-wrapper" ref={(el) => { if (el) (el as any).__matchId = m.id; }}>
                         <div className={`bracket-node${m.status === 'live' ? ' live' : ''}`}>
                           {m.status === 'live' && (
                             <div className="live-indicator"><div className="live-dot"></div> LIVE</div>
@@ -252,22 +308,24 @@ export default function BracketViewer({ matches, categoryName }: { matches: any[
                               <div className="comp-name" style={{ color: m.aka ? 'inherit' : 'var(--neutral-400)' }}>{m.aka ? m.aka.name : 'No player assigned'}</div>
                               <div className="comp-team">{m.aka ? `${m.aka.state} • ${m.aka.academy}` : '—'}</div>
                             </div>
-                            {isKata ? (
-                              <div className="comp-kata-name" style={{ color: m.akaKata ? 'var(--neutral-900)' : 'var(--neutral-400)', fontStyle: m.akaKata ? 'normal' : 'italic', fontSize: '11px', textAlign: 'right', flexShrink: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.akaKata ? `KATA NAME: ${m.akaKata}` : 'KATA NOT SELECTED'}</div>
-                            ) : (
-                              <div className="comp-score">{m.akaScore || 0}</div>
+                            {isKata && (
+                              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-500)', padding: '6px 12px', background: 'var(--neutral-50)', borderRadius: '6px', marginTop: '4px', width: 'fit-content' }}>
+                                Kata Name: <span style={{ color: 'var(--aka)', fontWeight: 700 }}>{m.akaKata ? m.akaKata : 'Not Selected'}</span>
+                              </div>
                             )}
+                            <div className="comp-score">{m.akaScore || 0}</div>
                           </div>
                           <div className="competitor-row ao">
                             <div className="comp-info">
                               <div className="comp-name" style={{ color: m.ao ? 'inherit' : 'var(--neutral-400)' }}>{m.ao ? m.ao.name : 'No player assigned'}</div>
                               <div className="comp-team">{m.ao ? `${m.ao.state} • ${m.ao.academy}` : '—'}</div>
                             </div>
-                            {isKata ? (
-                              <div className="comp-kata-name" style={{ color: m.aoKata ? 'var(--neutral-900)' : 'var(--neutral-400)', fontStyle: m.aoKata ? 'normal' : 'italic', fontSize: '11px', textAlign: 'right', flexShrink: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.aoKata ? `KATA NAME: ${m.aoKata}` : 'KATA NOT SELECTED'}</div>
-                            ) : (
-                              <div className="comp-score">{m.aoScore || 0}</div>
+                            {isKata && (
+                              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-500)', padding: '6px 12px', background: 'var(--neutral-50)', borderRadius: '6px', marginTop: '4px', width: 'fit-content' }}>
+                                Kata Name: <span style={{ color: 'var(--ao)', fontWeight: 700 }}>{m.aoKata ? m.aoKata : 'Not Selected'}</span>
+                              </div>
                             )}
+                            <div className="comp-score">{m.aoScore || 0}</div>
                           </div>
                           <div className="match-footer">
                             <div className="text-micro" style={{ flex: 1, color: 'var(--neutral-400)', fontWeight: 700, letterSpacing: '0.1em' }}>

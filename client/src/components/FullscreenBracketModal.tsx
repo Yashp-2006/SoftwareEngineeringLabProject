@@ -20,6 +20,7 @@ const BracketNode = ({
   mats,
   isHighlighted = false,
   onPromote,
+  isKata = false,
 }: {
   match: any;
   mats: string[];
@@ -80,8 +81,8 @@ const BracketNode = ({
           {match.aka && (
             <div className="metrics-row">
               {isKata ? (
-                <div style={{ fontSize: '10px', fontWeight: 800, color: match.selectedKata?.aka ? 'var(--neutral-900)' : 'var(--neutral-400)', textTransform: 'uppercase', padding: '2px 6px', background: 'var(--neutral-100)', borderRadius: '4px', fontStyle: match.selectedKata?.aka ? 'normal' : 'italic' }}>
-                  {match.selectedKata?.aka?.name ? `KATA NAME: ${match.selectedKata.aka.name}` : 'KATA NOT SELECTED'}
+                <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-500)', padding: '6px 12px', background: 'var(--neutral-50)', borderRadius: '6px', marginTop: '4px', width: 'fit-content' }}>
+                  Kata Name: <span style={{ color: 'var(--aka)', fontWeight: 700 }}>{match.selectedKata?.aka?.name ? match.selectedKata.aka.name : 'Not Selected'}</span>
                 </div>
               ) : (
                 METRICS.map(m => (
@@ -94,9 +95,7 @@ const BracketNode = ({
             </div>
           )}
         </div>
-        {!isKata && (
-          <div className="comp-score">{match.akaScore ?? (match.aka ? 0 : '')}</div>
-        )}
+        <div className="comp-score">{match.akaScore ?? (match.aka ? 0 : '')}</div>
       </div>
 
       {/* AO Row */}
@@ -115,8 +114,8 @@ const BracketNode = ({
           {match.ao && (
             <div className="metrics-row">
               {isKata ? (
-                <div style={{ fontSize: '10px', fontWeight: 800, color: match.selectedKata?.ao ? 'var(--neutral-900)' : 'var(--neutral-400)', textTransform: 'uppercase', padding: '2px 6px', background: 'var(--neutral-100)', borderRadius: '4px', fontStyle: match.selectedKata?.ao ? 'normal' : 'italic' }}>
-                  {match.selectedKata?.ao?.name ? `KATA NAME: ${match.selectedKata.ao.name}` : 'KATA NOT SELECTED'}
+                <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-500)', padding: '6px 12px', background: 'var(--neutral-50)', borderRadius: '6px', marginTop: '4px', width: 'fit-content' }}>
+                  Kata Name: <span style={{ color: 'var(--ao)', fontWeight: 700 }}>{match.selectedKata?.ao?.name ? match.selectedKata.ao.name : 'Not Selected'}</span>
                 </div>
               ) : (
                 METRICS.map(m => (
@@ -129,9 +128,7 @@ const BracketNode = ({
             </div>
           )}
         </div>
-        {!isKata && (
-          <div className="comp-score">{match.aoScore ?? (match.ao ? 0 : '')}</div>
-        )}
+        <div className="comp-score">{match.aoScore ?? (match.ao ? 0 : '')}</div>
       </div>
 
       {/* Match Footer */}
@@ -322,6 +319,7 @@ export function BracketViewer({
   const [isManualZoom, setIsManualZoom] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
+  const [connectors, setConnectors] = useState<Array<{x1:number;y1:number;x2:number;y2:number;xMid:number}>>([]);
 
   const [prevCategoryName, setPrevCategoryName] = useState(categoryName);
   if (categoryName !== prevCategoryName) {
@@ -363,6 +361,64 @@ export function BracketViewer({
   const rounds = Array.from(roundMap.entries())
     .sort((a, b) => a[0] - b[0])
     .map(([, ms]) => ms.sort((a: any, b: any) => a.matchNumber - b.matchNumber));
+
+  // ── SVG Connector Computation ──
+  const computeConnectors = useCallback(() => {
+    if (!canvasRef.current || rounds.length < 2) {
+      setConnectors([]);
+      return;
+    }
+    const canvas = canvasRef.current;
+    const canvasRect = canvas.getBoundingClientRect();
+    const wrappers = canvas.querySelectorAll('.match-wrapper');
+    if (!wrappers.length) { setConnectors([]); return; }
+
+    // Build a map of matchId -> DOM element center-right / center-left
+    const posMap = new Map<string, DOMRect>();
+    wrappers.forEach((el) => {
+      const node = el.querySelector('.bracket-node') as HTMLElement;
+      if (!node) return;
+      const matchId = (el as any).__matchId;
+      if (matchId) posMap.set(matchId, node.getBoundingClientRect());
+    });
+
+    const newConnectors: Array<{x1:number;y1:number;x2:number;y2:number;xMid:number}> = [];
+    const allMatches = filteredMatches;
+
+    for (const match of allMatches) {
+      if (!match.nextMatchId) continue;
+      const srcRect = posMap.get(match.id);
+      const destRect = posMap.get(match.nextMatchId);
+      if (!srcRect || !destRect) continue;
+
+      // Source: center-right of current match
+      const x1 = srcRect.right - canvasRect.left;
+      const y1 = srcRect.top + srcRect.height / 2 - canvasRect.top;
+      // Destination: center-left of next-round match
+      const x2 = destRect.left - canvasRect.left;
+      const y2 = destRect.top + destRect.height / 2 - canvasRect.top;
+      // Midpoint X for the elbow
+      const xMid = x1 + (x2 - x1) / 2;
+
+      newConnectors.push({ x1, y1, x2, y2, xMid });
+    }
+    setConnectors(newConnectors);
+  }, [filteredMatches, rounds.length]);
+
+  // Recompute connectors when layout changes
+  useEffect(() => {
+    const timer = setTimeout(computeConnectors, 300);
+    return () => clearTimeout(timer);
+  }, [computeConnectors, zoom, filteredMatches]);
+
+  useEffect(() => {
+    if (!canvasRef.current) return;
+    const observer = new ResizeObserver(() => {
+      setTimeout(computeConnectors, 100);
+    });
+    observer.observe(canvasRef.current);
+    return () => observer.disconnect();
+  }, [computeConnectors]);
 
 
 
@@ -502,10 +558,26 @@ export function BracketViewer({
       <div className="bv-scroll" ref={viewportRef}>
         <div className="bv-scale-wrapper" style={{ transform: `scale(${zoom})` }}>
           <div className="bv-canvas" ref={canvasRef}>
+            {/* SVG Connector Overlay */}
+            {connectors.length > 0 && (
+              <svg className="bv-connectors" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 1 }}>
+                {connectors.map((c, i) => (
+                  <path
+                    key={i}
+                    d={`M${c.x1},${c.y1} L${c.xMid},${c.y1} L${c.xMid},${c.y2} L${c.x2},${c.y2}`}
+                    fill="none"
+                    stroke="var(--neutral-300)"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                ))}
+              </svg>
+            )}
             {visibleRounds.map((roundMatches, rIdx) => (
               <div key={rIdx} className="bracket-round">
                 {roundMatches.map((m: any) => (
-                  <div key={m.id} className="match-wrapper">
+                  <div key={m.id} className="match-wrapper" ref={(el) => { if (el) (el as any).__matchId = m.id; }}>
                     <BracketNode match={m} mats={mats} onPromote={onPromote} isHighlighted={m.id === activeHighlight} isKata={categoryName?.toLowerCase().includes('kata') || false} />
                   </div>
                 ))}
@@ -749,6 +821,7 @@ export default function FullscreenBracketModal({
           gap: 120px;
           padding: var(--space-6);
           align-items: flex-start;
+          position: relative;
         }
 
         /* Bracket round */

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ChevronDown } from 'lucide-react';
+import KataLiveScoreboard, { deriveJudgeVotes } from '@/components/kata/KataLiveScoreboard';
 
 export default function LiveMatPage({ params }: { params: Promise<{ matId: string }> }) {
   const { matId } = React.use(params);
@@ -68,6 +69,7 @@ export default function LiveMatPage({ params }: { params: Promise<{ matId: strin
               kataWinner: val.kataWinner,
               selectedKata: val.selectedKata,
               teamTimerSeconds: val.teamTimerSeconds,
+              numberOfJudges: val.numberOfJudges || 3,
             });
             setTime(val.teamTimerSeconds ?? val.timerSeconds ?? 0);
           } else {
@@ -252,7 +254,33 @@ export default function LiveMatPage({ params }: { params: Promise<{ matId: strin
              <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '100px', fontSize: '24px', color: 'var(--neutral-400)' }}>
                No Active Match
              </div>
-          ) : (
+          ) : matchData?.isKata ? (() => {
+            // Kata mode: use the shared KataLiveScoreboard component
+            const nJudges = matchData.numberOfJudges || 3;
+            const { judgeVotes, akaFlags, aoFlags } = deriveJudgeVotes(matchData.kataScores, nJudges);
+            return (
+              <KataLiveScoreboard
+                akaName={matchData.aka?.name || 'AKA'}
+                aoName={matchData.ao?.name || 'AO'}
+                akaAcademy={matchData.aka?.academy}
+                aoAcademy={matchData.ao?.academy}
+                akaCountry={matchData.aka?.country}
+                aoCountry={matchData.ao?.country}
+                akaKataName={matchData.selectedKata?.aka?.name}
+                aoKataName={matchData.selectedKata?.ao?.name}
+                numberOfJudges={nJudges}
+                judgeVotes={judgeVotes}
+                akaFlags={matchData.kataVotes?.aka ?? akaFlags}
+                aoFlags={matchData.kataVotes?.ao ?? aoFlags}
+                timeRemaining={formatTime(time)}
+                matchStatus={matchData.status === 'live' ? 'LIVE' : matchData.status?.toUpperCase() || 'STANDBY'}
+                title={`TAIKAIX LIVE — MAT ${matId.padStart(2, '0')}`}
+                subtitle={matchData.currentCategory || 'KATA'}
+                kataWinner={matchData.kataWinner}
+                winnerName={matchData.kataWinner === 'aka' ? matchData.aka?.name : matchData.kataWinner === 'ao' ? matchData.ao?.name : undefined}
+              />
+            );
+          })() : (
             <>
               {/* AKA Side */}
               <div className="competitor-side aka mat-reveal-aka">

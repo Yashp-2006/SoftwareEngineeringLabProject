@@ -6,6 +6,7 @@ import Header from '@/components/layout/Header';
 import PasswordGateway from '@/components/auth/PasswordGateway';
 import { toast } from 'react-hot-toast';
 import KataOperatorPanel from '@/components/kata/KataOperatorPanel';
+import KataLiveScoreboard, { deriveJudgeVotes } from '@/components/kata/KataLiveScoreboard';
 import { useAuth } from '@/components/auth/AuthProvider';
 
 export default function OperatorPortal({ params }: { params: Promise<{ id: string }> }) {
@@ -95,6 +96,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
       status: status === 'finished' ? 'standby' : (status === 'upcoming' ? 'upcoming' : (running ? 'live' : 'paused')),
       currentCategory: activeCategoryName || 'No Active Category',
       isKata: activeCategoryName?.toLowerCase().includes('kata') || false,
+      numberOfJudges: activeCategoryData?.numberOfJudges || 3,
       currentMatch: queue[0]?.displayId || 'Standby',
       akaName: aka.name, akaCountry: aka.country, akaAcademy: aka.academy,
       aoName: ao.name, aoCountry: ao.country, aoAcademy: ao.academy,
@@ -656,7 +658,66 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
     }
   };
 
+  // Derive isKata for fullscreen scoreboard switching
+  const isKataCategory = activeCategoryData?.isKata || activeCategoryName?.toLowerCase().includes('kata') || false;
+  const kataJudgeCount = activeCategoryData?.numberOfJudges || 3;
+  const kataScoresDerived = React.useMemo(() => deriveJudgeVotes(
+    null, // RTDB kataScores are synced independently by KataOperatorPanel
+    kataJudgeCount
+  ), [kataJudgeCount]);
+
   if (isFullscreen) {
+    // When Kata category is active, render the shared KataLiveScoreboard instead of the Kumite layout
+    if (isKataCategory) {
+      const matIdParam = typeof window !== 'undefined' ? (new URLSearchParams(window.location.search).get('mat') || 'mat-1') : 'mat-1';
+      const matNum = matIdParam.replace('mat-', '').padStart(2, '0');
+
+      return (
+        <PasswordGateway>
+          <KataLiveScoreboard
+            akaName={aka.name}
+            aoName={ao.name}
+            akaAcademy={aka.academy}
+            aoAcademy={ao.academy}
+            akaCountry={aka.country}
+            aoCountry={ao.country}
+            numberOfJudges={kataJudgeCount}
+            judgeVotes={kataVotes ? (() => {
+              // Derive from kataVotes count — for the operator page which also has raw score data from state
+              const votes: Array<'aka' | 'ao' | 'tie' | null> = Array(kataJudgeCount).fill(null);
+              return votes;
+            })() : Array(kataJudgeCount).fill(null)}
+            akaFlags={kataVotes?.aka || 0}
+            aoFlags={kataVotes?.ao || 0}
+            round={round}
+            timeRemaining={`${Math.floor(timer / 60).toString().padStart(2, '0')}:${(timer % 60).toString().padStart(2, '0')}`}
+            matchStatus={status === 'finished' ? 'COMPLETED' : (running ? 'LIVE' : status.toUpperCase())}
+            logoUrl={compData?.scoreboardLogo}
+            title={`Mat ${matNum} — Kata Scoreboard`}
+            subtitle={`${compData?.name || 'Tournament'} • ${activeCategoryName || 'Kata'}`}
+            onToggleFullscreen={() => {
+              if (document.fullscreenElement) {
+                document.exitFullscreen().catch(() => {});
+              } else {
+                document.documentElement.requestFullscreen().catch(() => {});
+              }
+            }}
+            isFullscreen={isFullscreen}
+            onBack={() => {
+              if (isViewer) {
+                window.location.href = `/competitions/${id}/mats`;
+              } else {
+                if (document.fullscreenElement) document.exitFullscreen();
+                setIsFullscreen(false);
+              }
+            }}
+            kataWinner={winnerState ? winnerState.color : (kataWinner as any)}
+            winnerName={winnerState?.name}
+          />
+        </PasswordGateway>
+      );
+    }
+
     return (
       <PasswordGateway>
       <div style={{ position: 'fixed', inset: 0, backgroundColor: '#fdfbfb', zIndex: 9999, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>

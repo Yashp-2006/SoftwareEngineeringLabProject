@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Maximize2, X, Play, Pause, RotateCcw } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
+import KataLiveScoreboard, { deriveJudgeVotes } from '@/components/kata/KataLiveScoreboard';
 
 type FighterState = {
   name: string;
@@ -40,6 +41,31 @@ export default function ScoreboardPage({ params }: { params: Promise<{ matchId: 
   }>({ isOpen: false, title: '', message: '', isDestructive: false, onConfirm: () => {} });
 
   const closeConfirm = () => setConfirmState(prev => ({ ...prev, isOpen: false }));
+
+  // RTDB listener for live data (when connected to a real competition)
+  const [rtdbData, setRtdbData] = useState<any>(null);
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+    const setup = async () => {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const competitionId = params.get('competition');
+        const matId = params.get('mat');
+        if (!competitionId || !matId) return; // No RTDB params, stay in demo mode
+
+        const { ref, onValue } = await import('firebase/database');
+        const { rtdb } = await import('@lib/firebase');
+        const matRef = ref(rtdb, `live_scores/${competitionId}/mats/${matId}`);
+        unsubscribe = onValue(matRef, (snapshot) => {
+          setRtdbData(snapshot.val());
+        });
+      } catch (err) {
+        console.error('Scoreboard RTDB setup failed:', err);
+      }
+    };
+    setup();
+    return () => { if (unsubscribe) unsubscribe(); };
+  }, [matchId]);
 
   // Timer Effect
   useEffect(() => {
@@ -184,6 +210,35 @@ export default function ScoreboardPage({ params }: { params: Promise<{ matchId: 
       <div key={i} className={`dot ${i < count ? 'active' : ''}`}></div>
     ));
   };
+
+  // If RTDB data indicates this is a Kata match, render KataLiveScoreboard
+  if (rtdbData?.isKata) {
+    const nJudges = rtdbData.numberOfJudges || 3;
+    const { judgeVotes, akaFlags, aoFlags } = deriveJudgeVotes(rtdbData.kataScores, nJudges);
+    return (
+      <KataLiveScoreboard
+        akaName={rtdbData.akaName || 'AKA'}
+        aoName={rtdbData.aoName || 'AO'}
+        akaAcademy={rtdbData.akaAcademy}
+        aoAcademy={rtdbData.aoAcademy}
+        akaCountry={rtdbData.akaCountry}
+        aoCountry={rtdbData.aoCountry}
+        akaKataName={rtdbData.selectedKata?.aka?.name}
+        aoKataName={rtdbData.selectedKata?.ao?.name}
+        numberOfJudges={nJudges}
+        judgeVotes={judgeVotes}
+        akaFlags={rtdbData.kataVotes?.aka ?? akaFlags}
+        aoFlags={rtdbData.kataVotes?.ao ?? aoFlags}
+        timeRemaining={rtdbData.timeRemaining || formatTime(timer)}
+        matchStatus={rtdbData.status === 'live' ? 'LIVE' : (rtdbData.status || 'STANDBY').toUpperCase()}
+        title={`TAIKAIX — SCOREBOARD`}
+        subtitle={rtdbData.currentCategory || 'KATA'}
+        kataWinner={rtdbData.kataWinner}
+        winnerName={rtdbData.kataWinner === 'aka' ? rtdbData.akaName : rtdbData.kataWinner === 'ao' ? rtdbData.aoName : undefined}
+        onToggleFullscreen={toggleFullscreen}
+      />
+    );
+  }
 
   return (
     <div style={{ backgroundColor: 'var(--kuro)', color: 'var(--shiro)', height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
