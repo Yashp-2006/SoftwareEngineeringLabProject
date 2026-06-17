@@ -85,7 +85,8 @@ function drawAthleteRow(
   isWinner: boolean,
   isArchived: boolean,
   isKata: boolean = false,
-  kataName: string | null = null
+  kataName: string | null = null,
+  score: number | undefined = undefined
 ) {
   const nameH = NAME_ROW_H;
   const scoreH = SCORE_ROW_H;
@@ -119,12 +120,20 @@ function drawAthleteRow(
     doc.setFontSize(5);
     doc.setTextColor(...GRAY_400);
     const sub = [athlete.academy, athlete.playerId].filter(Boolean).join('   ');
-    if (sub) doc.text(sub, x + 3.5, y + 6.5, { maxWidth: w - 5 });
+    if (sub) doc.text(sub, x + 3.5, y + 6.5, { maxWidth: w - 12 });
+
+    /* ── Score display for Kata (right aligned) */
+    if (isKata) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(...BLACK);
+      doc.text(String(score ?? 0), x + w - 4, y + 5.5, { align: 'right' });
+    }
   }
 
   /* ── Score sub-row (below name) */
   const sy = y + nameH;
-  doc.setFillColor(...WHITE);
+  doc.setFillColor(...(isKata ? GRAY_100 : WHITE));
   doc.setDrawColor(...GRAY_200);
   doc.rect(x, sy, w, scoreH, 'FD');
 
@@ -156,14 +165,24 @@ function drawAthleteRow(
     // Kata layout - display kata name or placeholder
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(5.5);
-    if (kataName) {
-      doc.setTextColor(...BLACK);
-      doc.text(kataName.toUpperCase(), x + 2 + (w - 2) / 2, sy + 3.5, { align: 'center', maxWidth: w - 4 });
-    } else {
-      doc.setTextColor(...GRAY_400);
-      doc.setFont('helvetica', 'italic');
-      doc.text('KATA NOT SELECTED', x + 2 + (w - 2) / 2, sy + 3.5, { align: 'center', maxWidth: w - 4 });
-    }
+    doc.setTextColor(...GRAY_400);
+    
+    // Draw "Kata Name: " in gray
+    const prefix = 'Kata Name: ';
+    const prefixW = doc.getTextWidth(prefix);
+    
+    // Calculate total width to center it
+    const valText = kataName ? kataName.toUpperCase() : 'NOT SELECTED';
+    doc.setFont('helvetica', 'bold');
+    const valW = doc.getTextWidth(valText);
+    const totalW = prefixW + valW;
+    const startX = x + 2 + (w - 2) / 2 - totalW / 2;
+    
+    doc.setTextColor(...GRAY_400);
+    doc.text(prefix, startX, sy + 3.5);
+    
+    doc.setTextColor(...color); // Use the competitor's color (red/blue)
+    doc.text(valText, startX + prefixW, sy + 3.5);
   }
 }
 
@@ -178,8 +197,8 @@ function drawMatchBlock(
   const akaWins = !!match?.winnerId && match.winnerId === match.aka?.playerId;
   const aoWins  = !!match?.winnerId && match.winnerId === match.ao?.playerId;
 
-  drawAthleteRow(doc, x, y,           w, match?.aka ?? null, RED_AKA,  LIGHT_RED,  akaWins, isArchived, isKata, match?.akaKata ?? null);
-  drawAthleteRow(doc, x, y + ATHLETE_H, w, match?.ao  ?? null, BLUE_AO, LIGHT_BLUE, aoWins,  isArchived, isKata, match?.aoKata ?? null);
+  drawAthleteRow(doc, x, y,           w, match?.aka ?? null, RED_AKA,  LIGHT_RED,  akaWins, isArchived, isKata, match?.akaKata ?? null, match?.akaScore);
+  drawAthleteRow(doc, x, y + ATHLETE_H, w, match?.ao  ?? null, BLUE_AO, LIGHT_BLUE, aoWins,  isArchived, isKata, match?.aoKata ?? null, match?.aoScore);
 
   /* Outer match border */
   doc.setDrawColor(...GRAY_200);
