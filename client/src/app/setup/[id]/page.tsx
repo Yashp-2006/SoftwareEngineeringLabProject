@@ -180,11 +180,16 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
               existingEntries.set(doc.data().name, doc.data().entries || 0);
             });
             
-            setCategories(generateWkfCategories(wkfMode).map(name => ({ 
-              id: name, 
-              name, 
-              entries: existingEntries.get(name) || 0 
-            })));
+            setCategories(generateWkfCategories(wkfMode).map(name => {
+              const isKata = name.toLowerCase().includes('kata');
+              return { 
+                id: name, 
+                name, 
+                entries: existingEntries.get(name) || 0,
+                isKata,
+                judgeCount: isKata ? wkfKataJudgeCount : undefined
+              };
+            }));
           } else {
             const { collection, getDocs } = await import('firebase/firestore');
             const catSnap = await getDocs(collection(db, 'competitions', id, 'categories'));
@@ -750,7 +755,12 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                         <div style={{ display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
                           {[3, 5, 7].map(count => (
                             <label key={count} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                              <input type="radio" name="wkfKataJudgeCount" value={count} checked={wkfKataJudgeCount === count} onChange={() => setWkfKataJudgeCount(count as 3|5|7)} />
+                              <input type="radio" name="wkfKataJudgeCount" value={count} checked={wkfKataJudgeCount === count} onChange={() => {
+                                setWkfKataJudgeCount(count as 3|5|7);
+                                setCategories(prev => prev.map(c => 
+                                  c.name.toLowerCase().includes('kata') ? { ...c, judgeCount: count } : c
+                                ));
+                              }} />
                               <span className="text-small">{count} Judges</span>
                             </label>
                           ))}
@@ -1008,7 +1018,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                                         type="radio" 
                                         name={`judgeCount-${cat.id || idx}`} 
                                         value={count} 
-                                        checked={(cat.judgeCount || 3) === count} 
+                                        checked={(cat.judgeCount || wkfKataJudgeCount || 3) === count} 
                                         onChange={() => {
                                           setCategories(prev => prev.map(c => c.id === cat.id ? { ...c, judgeCount: count } : c));
                                         }} 

@@ -27,6 +27,10 @@ export interface TiesheetMatch {
   winnerId?: string | null;
   akaScore?: number;
   aoScore?: number;
+  selectedKata?: {
+    aka?: { name: string };
+    ao?: { name: string };
+  };
   akaKata?: string | null;
   aoKata?: string | null;
   nextMatchId?: string | null;
@@ -197,8 +201,11 @@ function drawMatchBlock(
   const akaWins = !!match?.winnerId && match.winnerId === match.aka?.playerId;
   const aoWins  = !!match?.winnerId && match.winnerId === match.ao?.playerId;
 
-  drawAthleteRow(doc, x, y,           w, match?.aka ?? null, RED_AKA,  LIGHT_RED,  akaWins, isArchived, isKata, match?.akaKata ?? null, match?.akaScore);
-  drawAthleteRow(doc, x, y + ATHLETE_H, w, match?.ao  ?? null, BLUE_AO, LIGHT_BLUE, aoWins,  isArchived, isKata, match?.aoKata ?? null, match?.aoScore);
+  const akaKataName = match?.selectedKata?.aka?.name || match?.akaKata || null;
+  const aoKataName = match?.selectedKata?.ao?.name || match?.aoKata || null;
+
+  drawAthleteRow(doc, x, y,           w, match?.aka ?? null, RED_AKA,  LIGHT_RED,  akaWins, isArchived, isKata, akaKataName, match?.akaScore);
+  drawAthleteRow(doc, x, y + ATHLETE_H, w, match?.ao  ?? null, BLUE_AO, LIGHT_BLUE, aoWins,  isArchived, isKata, aoKataName, match?.aoScore);
 
   /* Outer match border */
   doc.setDrawColor(...GRAY_200);
