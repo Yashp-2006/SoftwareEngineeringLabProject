@@ -43,6 +43,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
   const [skippedCategories, setSkippedCategories] = useState<any[]>([]);
   const [poolStatuses, setPoolStatuses] = useState<Record<string, boolean>>({});
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
+  const activeCategoryRef = useRef<string | null>(null);
   const [activeCategoryName, setActiveCategoryName] = useState('');
   const [activeCategoryData, setActiveCategoryData] = useState<any>(null);
   const [compData, setCompData] = useState<any>(null);
@@ -200,6 +201,10 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
 
         if (cats.length > 0) {
           const activeCat = cats[0];
+          if (activeCategoryRef.current !== null && activeCategoryRef.current !== activeCat.id) {
+            setActiveMatchId(null);
+          }
+          activeCategoryRef.current = activeCat.id;
           setActiveCategoryId(activeCat.id);
           setActiveCategoryName(activeCat.name);
           setActiveCategoryData(activeCat);
@@ -250,6 +255,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
           setQueue([]);
           setRecentMatches([]);
           setPoolStatuses({});
+          activeCategoryRef.current = null;
           setActiveCategoryId(null);
           setActiveCategoryName('');
           setActiveCategoryData(null);
@@ -658,258 +664,254 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
     }
   };
 
-  // Derive isKata for fullscreen scoreboard switching
+  const prevCategoryRef = React.useRef(activeCategoryId);
+  React.useEffect(() => {
+    if (activeCategoryId !== prevCategoryRef.current) {
+      setActiveMatchId(null);
+      prevCategoryRef.current = activeCategoryId;
+    }
+  }, [activeCategoryId]);
+
   const isKataCategory = activeCategoryData?.isKata || activeCategoryName?.toLowerCase().includes('kata') || false;
   const kataJudgeCount = activeCategoryData?.numberOfJudges || 3;
   const kataScoresDerived = React.useMemo(() => deriveJudgeVotes(
-    null, // RTDB kataScores are synced independently by KataOperatorPanel
+    null, 
     kataJudgeCount
   ), [kataJudgeCount]);
 
-  if (isFullscreen) {
-    // When Kata category is active, render the shared KataLiveScoreboard instead of the Kumite layout
-    if (isKataCategory) {
-      const matIdParam = typeof window !== 'undefined' ? (new URLSearchParams(window.location.search).get('mat') || 'mat-1') : 'mat-1';
-      const matNum = matIdParam.replace('mat-', '').padStart(2, '0');
+  const matIdParam = typeof window !== 'undefined' ? (new URLSearchParams(window.location.search).get('mat') || 'mat-1') : 'mat-1';
+  const matNum = matIdParam.replace('mat-', '').padStart(2, '0');
 
-      return (
-        <PasswordGateway>
-          <KataLiveScoreboard
-            akaName={aka.name}
-            aoName={ao.name}
-            akaAcademy={aka.academy}
-            aoAcademy={ao.academy}
-            akaCountry={aka.country}
-            aoCountry={ao.country}
-            numberOfJudges={kataJudgeCount}
-            judgeVotes={kataVotes ? (() => {
-              // Derive from kataVotes count — for the operator page which also has raw score data from state
-              const votes: Array<'aka' | 'ao' | 'tie' | null> = Array(kataJudgeCount).fill(null);
-              return votes;
-            })() : Array(kataJudgeCount).fill(null)}
-            akaFlags={kataVotes?.aka || 0}
-            aoFlags={kataVotes?.ao || 0}
-            round={round}
-            timeRemaining={`${Math.floor(timer / 60).toString().padStart(2, '0')}:${(timer % 60).toString().padStart(2, '0')}`}
-            matchStatus={status === 'finished' ? 'COMPLETED' : (running ? 'LIVE' : status.toUpperCase())}
-            logoUrl={compData?.scoreboardLogo}
-            title={`Mat ${matNum} — Kata Scoreboard`}
-            subtitle={`${compData?.name || 'Tournament'} • ${activeCategoryName || 'Kata'}`}
-            onToggleFullscreen={() => {
-              if (document.fullscreenElement) {
-                document.exitFullscreen().catch(() => {});
-              } else {
-                document.documentElement.requestFullscreen().catch(() => {});
-              }
-            }}
-            isFullscreen={isFullscreen}
-            onBack={() => {
-              if (isViewer) {
-                window.location.href = `/competitions/${id}/mats`;
-              } else {
-                if (document.fullscreenElement) document.exitFullscreen();
-                setIsFullscreen(false);
-              }
-            }}
-            kataWinner={winnerState ? winnerState.color : (kataWinner as any)}
-            winnerName={winnerState?.name}
-          />
-        </PasswordGateway>
-      );
-    }
-
-    return (
-      <PasswordGateway>
-      <div style={{ position: 'fixed', inset: 0, backgroundColor: '#fdfbfb', zIndex: 9999, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-        <style dangerouslySetInnerHTML={{__html: `
-          .overlay-header { display: flex; justify-content: space-between; align-items: center; padding: 24px 40px; }
-          .overlay-title { font-size: 32px; font-weight: 800; color: var(--neutral-900); }
-          .overlay-title-live { color: var(--aka); }
-          .overlay-meta { font-size: 14px; font-weight: 700; color: var(--neutral-500); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 4px; }
-          .overlay-actions { display: flex; gap: 12px; }
-          .overlay-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid var(--neutral-300); background: var(--shiro); transition: all 0.2s; }
-          .overlay-btn:hover { background: var(--neutral-50); border-color: var(--neutral-400); }
-          .overlay-btn.return { background: var(--neutral-900); color: var(--shiro); border-color: var(--neutral-900); }
-          .overlay-btn.return:hover { background: var(--neutral-800); }
-
-          .fs-body { display: grid; grid-template-columns: 140px 1fr 200px 1fr 140px; gap: 24px; padding: 0 40px 40px; flex: 1; min-height: 0; }
-          .fs-stat-col { width: 140px; display: flex; flex-direction: column; gap: 16px; flex-shrink: 0; }
-          .fs-stat-card { flex: 1; background: var(--shiro); border: 1px solid var(--neutral-200); border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.02); }
-          .fs-stat-label { font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--neutral-900); letter-spacing: 0.05em; margin-bottom: 8px; }
-          .fs-stat-value { font-family: var(--font-display); font-size: 32px; font-weight: 800; color: var(--ao); }
-          .fs-stat-value.aka { color: var(--aka); }
-          .fs-stat-card.active-senshu { background: var(--shiro); border-width: 2px; }
-          .fs-stat-card.active-senshu.aka { border-color: var(--aka); background: var(--aka); color: var(--shiro); }
-          .fs-stat-card.active-senshu.ao { border-color: var(--ao); background: var(--ao); color: var(--shiro); }
-
-          .fs-fighter { background: var(--shiro); border: 1px solid var(--neutral-200); border-radius: 16px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 12px 32px rgba(0,0,0,0.04); }
-          .fs-fighter-head { padding: 16px 24px; text-align: center; color: var(--shiro); flex-shrink: 0; }
-          .fs-fighter-head.aka { background: var(--aka); }
-          .fs-fighter-head.ao { background: var(--ao); }
-          .fs-lane { font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; opacity: 0.9; margin-bottom: 4px; }
-          .fs-name { font-size: clamp(32px, 4vw, 48px); font-weight: 800; line-height: 1; text-transform: uppercase; }
-          
-          .fs-score-stage { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; }
-          .fs-main-score { font-family: var(--font-display); font-size: clamp(120px, 15vw, 240px); font-weight: 800; line-height: 1; }
-          .fs-main-score.aka { color: var(--aka); }
-          .fs-main-score.ao { color: var(--ao); }
-
-          .fs-fighter-foot { padding: 16px 24px; border-top: 1px solid var(--neutral-200); text-align: center; flex-shrink: 0; }
-          .fs-pen-title { font-size: 11px; font-weight: 800; color: var(--neutral-500); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; }
-          .fs-penalties { display: flex; justify-content: center; gap: clamp(12px, 2vw, 24px); margin-bottom: 8px; }
-          .fs-pen-slot { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-          .fs-pen-code { font-size: 10px; font-weight: 700; color: var(--neutral-400); }
-          .fs-pen-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--neutral-200); background: transparent; }
-          .fs-pen-dot.aka.active { border-color: var(--aka); background: var(--aka); }
-          .fs-pen-dot.ao.active { border-color: var(--ao); background: var(--ao); }
-          .fs-academy { font-size: 14px; font-weight: 700; color: var(--neutral-900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-          .fs-winner-showcase { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; border-radius: 24px; padding: 48px; text-align: center; }
-          .fs-winner-showcase.aka { background: var(--aka); color: #fff; }
-          .fs-winner-showcase.ao { background: var(--ao); color: #fff; }
-          .fs-winner-title { font-size: clamp(40px, 5vw, 60px); font-weight: 800; letter-spacing: 0.1em; margin-bottom: 24px; text-transform: uppercase; }
-          .fs-winner-name { font-family: var(--font-display); font-size: clamp(60px, 8vw, 120px); font-weight: 800; line-height: 1; text-transform: uppercase; margin-bottom: 16px; color: #fff; }
-          .fs-winner-points { font-family: var(--font-display); font-size: clamp(140px, 20vw, 320px); font-weight: 800; line-height: 1; margin-bottom: 24px; color: #fff; }
-          @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-16px); } 100% { transform: translateY(0px); } }
-
-          .fs-mid { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
-          .fs-round-pill { border: 1px solid var(--neutral-300); background: var(--shiro); padding: 4px 16px; border-radius: 999px; font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
-          .fs-timer-label { font-size: 12px; font-weight: 800; color: var(--neutral-900); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; margin-top: auto; }
-          .fs-timer { background: var(--shiro); border: 1px solid var(--neutral-200); border-radius: 16px; width: 100%; padding: 16px 0; font-family: var(--font-mono); font-size: clamp(40px, 5vw, 64px); font-weight: 800; color: var(--neutral-900); margin-bottom: auto; box-shadow: 0 8px 24px rgba(0,0,0,0.03); }
-          .fs-status-wrap { width: 100%; background: var(--shiro); border: 1px solid var(--neutral-200); border-radius: 16px; padding: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.02); margin-top: auto; }
-          .fs-status-label { font-size: 11px; font-weight: 800; color: var(--neutral-500); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; }
-          .fs-status-pill { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; background: var(--neutral-100); color: var(--neutral-600); }
-        `}} />
-
-        <div className="overlay-header">
-          <div>
-            <div className="overlay-title">Mat {new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('mat')?.replace('mat-', '').padStart(2, '0') || '01'} — <span className="overlay-title-live">Live Scoreboard</span></div>
-            <div className="overlay-meta">{compData?.name || 'Tournament'} • {activeCategoryName || 'Waiting for category'} {activeMatchId && queue.find(m => m.id === activeMatchId)?.displayId ? `• ${queue.find(m => m.id === activeMatchId)?.displayId}` : ''}</div>
-          </div>
-          <div className="overlay-actions">
-            <button className="overlay-btn" onClick={() => {
-              if (document.fullscreenElement) {
-                document.exitFullscreen().catch(()=>{});
-              } else {
-                document.documentElement.requestFullscreen().catch(()=>{} );
-              }
-            }}>
-              <Maximize size={16} /> {isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
-            </button>
-            {!isFullscreen && (
-              <button className="overlay-btn return" onClick={() => {
+  return (
+    <PasswordGateway>
+      {/* FULLSCREEN OVERLAY */}
+      {isFullscreen && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: '#fdfbfb', zIndex: 9999, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          {isKataCategory ? (
+            <KataLiveScoreboard
+              akaName={aka.name}
+              aoName={ao.name}
+              akaAcademy={aka.academy}
+              aoAcademy={ao.academy}
+              akaCountry={aka.country}
+              aoCountry={ao.country}
+              numberOfJudges={kataJudgeCount}
+              judgeVotes={kataVotes ? (() => {
+                const votes: Array<'aka' | 'ao' | 'tie' | null> = Array(kataJudgeCount).fill(null);
+                return votes;
+              })() : Array(kataJudgeCount).fill(null)}
+              akaFlags={kataVotes?.aka || 0}
+              aoFlags={kataVotes?.ao || 0}
+              round={round}
+              timeRemaining={`${Math.floor(timer / 60).toString().padStart(2, '0')}:${(timer % 60).toString().padStart(2, '0')}`}
+              matchStatus={status === 'finished' ? 'COMPLETED' : (running ? 'LIVE' : status.toUpperCase())}
+              logoUrl={compData?.scoreboardLogo}
+              title={`Mat ${matNum} — Kata Scoreboard`}
+              subtitle={`${compData?.name || 'Tournament'} • ${activeCategoryName || 'Kata'}`}
+              onToggleFullscreen={() => {
+                if (document.fullscreenElement) {
+                  document.exitFullscreen().catch(() => {});
+                } else {
+                  document.documentElement.requestFullscreen().catch(() => {});
+                }
+              }}
+              isFullscreen={isFullscreen}
+              onBack={() => {
                 if (isViewer) {
                   window.location.href = `/competitions/${id}/mats`;
                 } else {
                   if (document.fullscreenElement) document.exitFullscreen();
                   setIsFullscreen(false);
                 }
-              }}>
-                <ArrowLeft size={16} /> {isViewer ? 'Return to Mat' : 'Return to Mat Operations'}
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="fs-body" style={{ display: winnerState ? 'flex' : 'grid', height: winnerState ? '100%' : 'auto' }}>
-          {winnerState ? (
-            <div style={{ flex: 1, padding: '24px 0', display: 'flex', flexDirection: 'column' }}>
-              <div className={`fs-winner-showcase ${winnerState.color}`}>
-                <div className="fs-winner-title">{winnerState.color === 'aka' ? 'AKA WINS' : 'AO WINS'}</div>
-                <div className="fs-winner-points">{winnerState.points}</div>
-                <div className="fs-winner-name">{winnerState.name}</div>
-              </div>
-            </div>
+              }}
+              kataWinner={winnerState ? winnerState.color : (kataWinner as any)}
+              winnerName={winnerState?.name}
+            />
           ) : (
             <>
-              {/* AKA STATS */}
-              <div className="fs-stat-col">
-                <div className="fs-stat-card"><div className="fs-stat-label">Yuko</div><div className="fs-stat-value aka">{aka.yuko}</div></div>
-                <div className="fs-stat-card"><div className="fs-stat-label">Waza</div><div className="fs-stat-value aka">{aka.waza}</div></div>
-                <div className="fs-stat-card"><div className="fs-stat-label">Ippon</div><div className="fs-stat-value aka">{aka.ippon}</div></div>
-                <div className={`fs-stat-card ${aka.senshu ? 'active-senshu aka' : ''}`}><div className="fs-stat-label" style={{margin:0, color: aka.senshu ? '#fff' : 'inherit'}}>Senshu</div></div>
+              <style dangerouslySetInnerHTML={{__html: `
+                .overlay-header { display: flex; justify-content: space-between; align-items: center; padding: 24px 40px; }
+                .overlay-title { font-size: 32px; font-weight: 800; color: var(--neutral-900); }
+                .overlay-title-live { color: var(--aka); }
+                .overlay-meta { font-size: 14px; font-weight: 700; color: var(--neutral-500); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 4px; }
+                .overlay-actions { display: flex; gap: 12px; }
+                .overlay-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid var(--neutral-300); background: var(--shiro); transition: all 0.2s; }
+                .overlay-btn:hover { background: var(--neutral-50); border-color: var(--neutral-400); }
+                .overlay-btn.return { background: var(--neutral-900); color: var(--shiro); border-color: var(--neutral-900); }
+                .overlay-btn.return:hover { background: var(--neutral-800); }
+
+                .fs-body { display: grid; grid-template-columns: 140px 1fr 200px 1fr 140px; gap: 24px; padding: 0 40px 40px; flex: 1; min-height: 0; }
+                .fs-stat-col { width: 140px; display: flex; flex-direction: column; gap: 16px; flex-shrink: 0; }
+                .fs-stat-card { flex: 1; background: var(--shiro); border: 1px solid var(--neutral-200); border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.02); }
+                .fs-stat-label { font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--neutral-900); letter-spacing: 0.05em; margin-bottom: 8px; }
+                .fs-stat-value { font-family: var(--font-display); font-size: 32px; font-weight: 800; color: var(--ao); }
+                .fs-stat-value.aka { color: var(--aka); }
+                .fs-stat-card.active-senshu { background: var(--shiro); border-width: 2px; }
+                .fs-stat-card.active-senshu.aka { border-color: var(--aka); background: var(--aka); color: var(--shiro); }
+                .fs-stat-card.active-senshu.ao { border-color: var(--ao); background: var(--ao); color: var(--shiro); }
+
+                .fs-fighter { background: var(--shiro); border: 1px solid var(--neutral-200); border-radius: 16px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 12px 32px rgba(0,0,0,0.04); }
+                .fs-fighter-head { padding: 16px 24px; text-align: center; color: var(--shiro); flex-shrink: 0; }
+                .fs-fighter-head.aka { background: var(--aka); }
+                .fs-fighter-head.ao { background: var(--ao); }
+                .fs-lane { font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; opacity: 0.9; margin-bottom: 4px; }
+                .fs-name { font-size: clamp(32px, 4vw, 48px); font-weight: 800; line-height: 1; text-transform: uppercase; }
+                
+                .fs-score-stage { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; }
+                .fs-main-score { font-family: var(--font-display); font-size: clamp(120px, 15vw, 240px); font-weight: 800; line-height: 1; }
+                .fs-main-score.aka { color: var(--aka); }
+                .fs-main-score.ao { color: var(--ao); }
+
+                .fs-fighter-foot { padding: 16px 24px; border-top: 1px solid var(--neutral-200); text-align: center; flex-shrink: 0; }
+                .fs-pen-title { font-size: 11px; font-weight: 800; color: var(--neutral-500); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; }
+                .fs-penalties { display: flex; justify-content: center; gap: clamp(12px, 2vw, 24px); margin-bottom: 8px; }
+                .fs-pen-slot { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+                .fs-pen-code { font-size: 10px; font-weight: 700; color: var(--neutral-400); }
+                .fs-pen-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--neutral-200); background: transparent; }
+                .fs-pen-dot.aka.active { border-color: var(--aka); background: var(--aka); }
+                .fs-pen-dot.ao.active { border-color: var(--ao); background: var(--ao); }
+                .fs-academy { font-size: 14px; font-weight: 700; color: var(--neutral-900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+                .fs-winner-showcase { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; border-radius: 24px; padding: 48px; text-align: center; }
+                .fs-winner-showcase.aka { background: var(--aka); color: #fff; }
+                .fs-winner-showcase.ao { background: var(--ao); color: #fff; }
+                .fs-winner-title { font-size: clamp(40px, 5vw, 60px); font-weight: 800; letter-spacing: 0.1em; margin-bottom: 24px; text-transform: uppercase; }
+                .fs-winner-name { font-family: var(--font-display); font-size: clamp(60px, 8vw, 120px); font-weight: 800; line-height: 1; text-transform: uppercase; margin-bottom: 16px; color: #fff; }
+                .fs-winner-points { font-family: var(--font-display); font-size: clamp(140px, 20vw, 320px); font-weight: 800; line-height: 1; margin-bottom: 24px; color: #fff; }
+                @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-16px); } 100% { transform: translateY(0px); } }
+
+                .fs-mid { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+                .fs-round-pill { border: 1px solid var(--neutral-300); background: var(--shiro); padding: 4px 16px; border-radius: 999px; font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+                .fs-timer-label { font-size: 12px; font-weight: 800; color: var(--neutral-900); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; margin-top: auto; }
+                .fs-timer { background: var(--shiro); border: 1px solid var(--neutral-200); border-radius: 16px; width: 100%; padding: 16px 0; font-family: var(--font-mono); font-size: clamp(40px, 5vw, 64px); font-weight: 800; color: var(--neutral-900); margin-bottom: auto; box-shadow: 0 8px 24px rgba(0,0,0,0.03); }
+                .fs-status-wrap { width: 100%; background: var(--shiro); border: 1px solid var(--neutral-200); border-radius: 16px; padding: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.02); margin-top: auto; }
+                .fs-status-label { font-size: 11px; font-weight: 800; color: var(--neutral-500); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; }
+                .fs-status-pill { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; background: var(--neutral-100); color: var(--neutral-600); }
+              `}} />
+
+              <div className="overlay-header">
+                <div>
+                  <div className="overlay-title">Mat {matNum} — <span className="overlay-title-live">Live Scoreboard</span></div>
+                  <div className="overlay-meta">{compData?.name || 'Tournament'} • {activeCategoryName || 'Waiting for category'} {activeMatchId && queue.find(m => m.id === activeMatchId)?.displayId ? `• ${queue.find(m => m.id === activeMatchId)?.displayId}` : ''}</div>
+                </div>
+                <div className="overlay-actions">
+                  <button className="overlay-btn" onClick={() => {
+                    if (document.fullscreenElement) {
+                      document.exitFullscreen().catch(()=>{});
+                    } else {
+                      document.documentElement.requestFullscreen().catch(()=>{} );
+                    }
+                  }}>
+                    <Maximize size={16} /> {isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+                  </button>
+                  {!isFullscreen && (
+                    <button className="overlay-btn return" onClick={() => {
+                      if (isViewer) {
+                        window.location.href = `/competitions/${id}/mats`;
+                      } else {
+                        if (document.fullscreenElement) document.exitFullscreen();
+                        setIsFullscreen(false);
+                      }
+                    }}>
+                      <ArrowLeft size={16} /> {isViewer ? 'Return to Mat' : 'Return to Mat Operations'}
+                    </button>
+                  )}
+                </div>
               </div>
 
-              {/* AKA CARD */}
-              <article className="fs-fighter">
-                <div className="fs-fighter-head aka">
-                  <div className="fs-lane">AKA</div>
-                  <div className="fs-name">{aka.name}</div>
-                </div>
-                <div className="fs-score-stage">
-                  <div className="fs-main-score aka">{aka.score}</div>
-                </div>
-                <div className="fs-fighter-foot">
-                  <div className="fs-pen-title">Penalties</div>
-                  <div className="fs-penalties">
-                    {['c1', 'c2', 'c3', 'hc', 'h'].map((p) => (
-                      <span className="fs-pen-slot" key={p}>
-                        <span className="fs-pen-code">{p.toUpperCase()}</span>
-                        <span className={`fs-pen-dot aka ${(aka as any)[p] ? 'active' : ''}`}></span>
-                      </span>
-                    ))}
+              <div className="fs-body" style={{ display: winnerState ? 'flex' : 'grid', height: winnerState ? '100%' : 'auto' }}>
+                {winnerState ? (
+                  <div style={{ flex: 1, padding: '24px 0', display: 'flex', flexDirection: 'column' }}>
+                    <div className={`fs-winner-showcase ${winnerState.color}`}>
+                      <div className="fs-winner-title">{winnerState.color === 'aka' ? 'AKA WINS' : 'AO WINS'}</div>
+                      <div className="fs-winner-points">{winnerState.points}</div>
+                      <div className="fs-winner-name">{winnerState.name}</div>
+                    </div>
                   </div>
-                  <div className="fs-academy">{aka.academy}</div>
-                </div>
-              </article>
+                ) : (
+                  <>
+                    <div className="fs-stat-col">
+                      <div className="fs-stat-card"><div className="fs-stat-label">Yuko</div><div className="fs-stat-value aka">{aka.yuko}</div></div>
+                      <div className="fs-stat-card"><div className="fs-stat-label">Waza</div><div className="fs-stat-value aka">{aka.waza}</div></div>
+                      <div className="fs-stat-card"><div className="fs-stat-label">Ippon</div><div className="fs-stat-value aka">{aka.ippon}</div></div>
+                      <div className={`fs-stat-card ${aka.senshu ? 'active-senshu aka' : ''}`}><div className="fs-stat-label" style={{margin:0, color: aka.senshu ? '#fff' : 'inherit'}}>Senshu</div></div>
+                    </div>
 
-              {/* MIDDLE */}
-              <div className="fs-mid">
-                <span className="fs-round-pill">Round {round}</span>
-                {compData?.scoreboardLogo && (
-                  <div style={{ margin: 'auto 0', width: '160px', height: '160px', borderRadius: '24px', overflow: 'hidden', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <img src={compData.scoreboardLogo} alt="Competition Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                  </div>
+                    <article className="fs-fighter">
+                      <div className="fs-fighter-head aka">
+                        <div className="fs-lane">AKA</div>
+                        <div className="fs-name">{aka.name}</div>
+                      </div>
+                      <div className="fs-score-stage">
+                        <div className="fs-main-score aka">{aka.score}</div>
+                      </div>
+                      <div className="fs-fighter-foot">
+                        <div className="fs-pen-title">Penalties</div>
+                        <div className="fs-penalties">
+                          {['c1', 'c2', 'c3', 'hc', 'h'].map((p) => (
+                            <span className="fs-pen-slot" key={p}>
+                              <span className="fs-pen-code">{p.toUpperCase()}</span>
+                              <span className={`fs-pen-dot aka ${(aka as any)[p] ? 'active' : ''}`}></span>
+                            </span>
+                          ))}
+                        </div>
+                        <div className="fs-academy">{aka.academy}</div>
+                      </div>
+                    </article>
+
+                    <div className="fs-mid">
+                      <span className="fs-round-pill">Round {round}</span>
+                      {compData?.scoreboardLogo && (
+                        <div style={{ margin: 'auto 0', width: '160px', height: '160px', borderRadius: '24px', overflow: 'hidden', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <img src={compData.scoreboardLogo} alt="Competition Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                        </div>
+                      )}
+                      <div className="fs-timer-label" style={{ marginTop: compData?.scoreboardLogo ? 'auto' : 'auto' }}>Time Remaining</div>
+                      <div className="fs-timer" style={{ color: timer <= 10 ? 'var(--aka)' : 'inherit' }}>{mins}:{secs}</div>
+                      <div className="fs-status-wrap">
+                        <div className="fs-status-label">Match Status</div>
+                        <span className="fs-status-pill">{status}</span>
+                      </div>
+                    </div>
+
+                    <article className="fs-fighter">
+                      <div className="fs-fighter-head ao">
+                        <div className="fs-lane">AO</div>
+                        <div className="fs-name">{ao.name}</div>
+                      </div>
+                      <div className="fs-score-stage">
+                        <div className="fs-main-score ao">{ao.score}</div>
+                      </div>
+                      <div className="fs-fighter-foot">
+                        <div className="fs-pen-title">Penalties</div>
+                        <div className="fs-penalties">
+                          {['c1', 'c2', 'c3', 'hc', 'h'].map((p) => (
+                            <span className="fs-pen-slot" key={p}>
+                              <span className="fs-pen-code">{p.toUpperCase()}</span>
+                              <span className={`fs-pen-dot ao ${(ao as any)[p] ? 'active' : ''}`}></span>
+                            </span>
+                          ))}
+                        </div>
+                        <div className="fs-academy">{ao.academy}</div>
+                      </div>
+                    </article>
+
+                    <div className="fs-stat-col">
+                      <div className="fs-stat-card"><div className="fs-stat-label">Yuko</div><div className="fs-stat-value">{ao.yuko}</div></div>
+                      <div className="fs-stat-card"><div className="fs-stat-label">Waza</div><div className="fs-stat-value">{ao.waza}</div></div>
+                      <div className="fs-stat-card"><div className="fs-stat-label">Ippon</div><div className="fs-stat-value">{ao.ippon}</div></div>
+                      <div className={`fs-stat-card ${ao.senshu ? 'active-senshu ao' : ''}`}><div className="fs-stat-label" style={{margin:0, color: ao.senshu ? '#fff' : 'inherit'}}>Senshu</div></div>
+                    </div>
+                  </>
                 )}
-                <div className="fs-timer-label" style={{ marginTop: compData?.scoreboardLogo ? 'auto' : 'auto' }}>Time Remaining</div>
-                <div className="fs-timer" style={{ color: timer <= 10 ? 'var(--aka)' : 'inherit' }}>{mins}:{secs}</div>
-                <div className="fs-status-wrap">
-                  <div className="fs-status-label">Match Status</div>
-                  <span className="fs-status-pill">{status}</span>
-                </div>
-              </div>
-
-              {/* AO CARD */}
-              <article className="fs-fighter">
-                <div className="fs-fighter-head ao">
-                  <div className="fs-lane">AO</div>
-                  <div className="fs-name">{ao.name}</div>
-                </div>
-                <div className="fs-score-stage">
-                  <div className="fs-main-score ao">{ao.score}</div>
-                </div>
-                <div className="fs-fighter-foot">
-                  <div className="fs-pen-title">Penalties</div>
-                  <div className="fs-penalties">
-                    {['c1', 'c2', 'c3', 'hc', 'h'].map((p) => (
-                      <span className="fs-pen-slot" key={p}>
-                        <span className="fs-pen-code">{p.toUpperCase()}</span>
-                        <span className={`fs-pen-dot ao ${(ao as any)[p] ? 'active' : ''}`}></span>
-                      </span>
-                    ))}
-                  </div>
-                  <div className="fs-academy">{ao.academy}</div>
-                </div>
-              </article>
-
-              {/* AO STATS */}
-              <div className="fs-stat-col">
-                <div className="fs-stat-card"><div className="fs-stat-label">Yuko</div><div className="fs-stat-value">{ao.yuko}</div></div>
-                <div className="fs-stat-card"><div className="fs-stat-label">Waza</div><div className="fs-stat-value">{ao.waza}</div></div>
-                <div className="fs-stat-card"><div className="fs-stat-label">Ippon</div><div className="fs-stat-value">{ao.ippon}</div></div>
-                <div className={`fs-stat-card ${ao.senshu ? 'active-senshu ao' : ''}`}><div className="fs-stat-label" style={{margin:0, color: ao.senshu ? '#fff' : 'inherit'}}>Senshu</div></div>
               </div>
             </>
           )}
         </div>
-      </div>
-    </PasswordGateway>
-    );
-  }
+      )}
 
-  // Operator Dashboard UI
-  return (
-    <PasswordGateway>
+      {/* NORMAL VIEW - Kept mounted but hidden when fullscreen */}
+      <div style={{ display: isFullscreen ? 'none' : 'block' }}>
       <div style={{ background: '#f5f5f5', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <style dangerouslySetInnerHTML={{__html: `
         .fs-body { display: grid; grid-template-columns: 140px 1fr 200px 1fr 140px; gap: 24px; padding: 0 40px 40px; flex: 1; min-height: 0; }
@@ -1773,6 +1775,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
           </div>
         </div>
       )}
+      </div>
       </div>
     </PasswordGateway>
   );
