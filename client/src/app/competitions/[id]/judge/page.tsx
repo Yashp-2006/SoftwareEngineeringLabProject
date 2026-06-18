@@ -93,18 +93,7 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
     }
   };
 
-  if (!user) {
-    return (
-      <main className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 60px)' }}>
-        <div className="card" style={{ width: '100%', maxWidth: '400px', textAlign: 'center', padding: 'var(--space-6)' }}>
-          <ShieldAlert style={{ width: '48px', height: '48px', color: 'var(--neutral-400)', margin: '0 auto var(--space-4)' }} />
-          <h2 style={{ marginBottom: 'var(--space-2)' }}>Authentication Required</h2>
-          <p className="text-small" style={{ marginBottom: 'var(--space-5)' }}>You must be logged in to access the Judge Panel.</p>
-          <Link href="/auth" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>Sign In</Link>
-        </div>
-      </main>
-    );
-  }
+
 
   if (!matId || judgeIndex === null) {
     return (
