@@ -12,33 +12,33 @@ export interface StaffAssignment {
   coverage?: string; // used for Medal Distributors
   operator: string; // name
   operatorSubtitle?: string;
-  statusText: string;
-  statusCode: 'live' | 'upcoming' | 'idle';
-  type: 'score' | 'attendance' | 'medal' | 'viewer';
+  type: 'score' | 'attendance' | 'medal' | 'judge';
 }
 
 const INITIAL_DATA: StaffAssignment[] = [
   // Mat Operators
-  { id: 's1', type: 'score', scope: 'MAT 01', operator: 'Lucas Rossi', operatorSubtitle: 'Mat Operator', statusText: 'On Shift', statusCode: 'live', role: 'Mat Operator', coverage: 'Senior Male Kumite -75kg', scopeSubtitle: 'Semi-Final' },
-  { id: 's2', type: 'score', scope: 'MAT 02', operator: 'Amina Ndiaye', operatorSubtitle: 'Mat Operator', statusText: 'On Shift', statusCode: 'live', role: 'Mat Operator', coverage: 'Senior Female Kata', scopeSubtitle: 'Round of 16' },
-  { id: 's3', type: 'score', scope: 'MAT 03', operator: 'Unassigned', statusText: 'Standby', statusCode: 'upcoming', role: 'Mat Operator', coverage: 'U21 Male Kumite +84kg', scopeSubtitle: 'Warm-up' },
-  { id: 's4', type: 'score', scope: 'MAT 04', operator: 'Kenji Sato', operatorSubtitle: 'Mat Operator', statusText: 'On Shift', statusCode: 'live', role: 'Mat Operator', coverage: 'Junior Female Kumite +59kg', scopeSubtitle: 'Quarter-Final' },
-  { id: 's5', type: 'score', scope: 'MAT 05', operator: 'Yumi Tanaka', operatorSubtitle: 'Mat Operator', statusText: 'Standby', statusCode: 'upcoming', role: 'Mat Operator', coverage: 'Senior Team Kata', scopeSubtitle: 'Next Match 11:40' },
+  { id: 's1', type: 'score', scope: 'MAT 01', operator: 'Lucas Rossi', operatorSubtitle: 'Mat Operator', role: 'Mat Operator', coverage: 'Senior Male Kumite -75kg', scopeSubtitle: 'Semi-Final' },
+  { id: 's2', type: 'score', scope: 'MAT 02', operator: 'Amina Ndiaye', operatorSubtitle: 'Mat Operator', role: 'Mat Operator', coverage: 'Senior Female Kata', scopeSubtitle: 'Round of 16' },
+  { id: 's3', type: 'score', scope: 'MAT 03', operator: 'Unassigned', role: 'Mat Operator', coverage: 'U21 Male Kumite +84kg', scopeSubtitle: 'Warm-up' },
+  { id: 's4', type: 'score', scope: 'MAT 04', operator: 'Kenji Sato', operatorSubtitle: 'Mat Operator', role: 'Mat Operator', coverage: 'Junior Female Kumite +59kg', scopeSubtitle: 'Quarter-Final' },
+  { id: 's5', type: 'score', scope: 'MAT 05', operator: 'Yumi Tanaka', operatorSubtitle: 'Mat Operator', role: 'Mat Operator', coverage: 'Senior Team Kata', scopeSubtitle: 'Next Match 11:40' },
   
   // Attendance
-  { id: 'a1', type: 'attendance', scope: 'Senior Male Kumite -75kg', operator: 'Maria Garcia', statusText: 'Ready', statusCode: 'live', role: 'Attendance Volunteer', coverage: '30 / 32', scopeSubtitle: '2 pending' },
-  { id: 'a2', type: 'attendance', scope: 'Senior Female Kata', operator: 'Rafael Silva', statusText: 'Ready', statusCode: 'live', role: 'Attendance Volunteer', coverage: '24 / 24', scopeSubtitle: 'All present' },
-  { id: 'a3', type: 'attendance', scope: 'U21 Male Kumite +84kg', operator: 'Aiko Mori', statusText: 'Pending', statusCode: 'upcoming', role: 'Attendance Volunteer', coverage: '12 / 16', scopeSubtitle: '4 pending' },
-  { id: 'a4', type: 'attendance', scope: 'Junior Female Kumite +59kg', operator: 'Elena Costa', statusText: 'Pending', statusCode: 'upcoming', role: 'Attendance Volunteer', coverage: '18 / 20', scopeSubtitle: '2 pending' },
-  { id: 'a5', type: 'attendance', scope: 'Senior Team Kata', operator: 'Unassigned', statusText: 'Not Ready', statusCode: 'idle', role: 'Attendance Volunteer', coverage: '0 / 8', scopeSubtitle: 'Awaiting arrival' },
+  { id: 'a1', type: 'attendance', scope: 'Senior Male Kumite -75kg', operator: 'Maria Garcia', role: 'Attendance Volunteer', coverage: '30 / 32', scopeSubtitle: '2 pending' },
+  { id: 'a2', type: 'attendance', scope: 'Senior Female Kata', operator: 'Rafael Silva', role: 'Attendance Volunteer', coverage: '24 / 24', scopeSubtitle: 'All present' },
+  { id: 'a3', type: 'attendance', scope: 'U21 Male Kumite +84kg', operator: 'Aiko Mori', role: 'Attendance Volunteer', coverage: '12 / 16', scopeSubtitle: '4 pending' },
+  { id: 'a4', type: 'attendance', scope: 'Junior Female Kumite +59kg', operator: 'Elena Costa', role: 'Attendance Volunteer', coverage: '18 / 20', scopeSubtitle: '2 pending' },
+  { id: 'a5', type: 'attendance', scope: 'Senior Team Kata', operator: 'Unassigned', role: 'Attendance Volunteer', coverage: '0 / 8', scopeSubtitle: 'Awaiting arrival' },
 
   // Medal
-  { id: 'm1', type: 'medal', scope: 'National / State', scopeSubtitle: 'Kansai Region', operator: 'Yuki Tanaka', operatorSubtitle: 'Lead Distributor', statusText: 'Active', statusCode: 'live', role: 'Medal Distributor', coverage: 'All Senior Categories' },
-  { id: 'm2', type: 'medal', scope: 'International / Country', scopeSubtitle: 'Global Delegations', operator: 'Rafael Silva', statusText: 'Standby', statusCode: 'upcoming', role: 'Medal Distributor', coverage: 'Team Kata + Open Divisions' },
-  { id: 'm3', type: 'medal', scope: 'Local / Academy', operator: 'Unassigned', statusText: 'Needs Assignment', statusCode: 'idle', role: 'Medal Distributor', coverage: 'Junior Categories' },
+  { id: 'm1', type: 'medal', scope: 'Medal Distributor 1', operator: 'Yuki Tanaka', operatorSubtitle: 'Lead Distributor', role: 'Medal Distributor', coverage: 'All Senior Categories' },
+  { id: 'm2', type: 'medal', scope: 'Medal Distributor 2', operator: 'Rafael Silva', role: 'Medal Distributor', coverage: 'Team Kata + Open Divisions' },
+  { id: 'm3', type: 'medal', scope: 'Medal Distributor 3', operator: 'Unassigned', role: 'Medal Distributor', coverage: 'Junior Categories' },
 
-  // Guest Viewer
-  { id: 'v1', type: 'viewer', scope: 'Global Access', operator: 'Unassigned', statusText: 'Needs Assignment', statusCode: 'idle', role: 'Guest Viewer', coverage: 'Read-only access to internals' },
+  // Judges
+  { id: 'j1', type: 'judge', scope: 'MAT 01', scopeSubtitle: 'Judge 1', operator: 'Kenji Nakamura', role: 'Judge', coverage: 'All Matches on Mat 1' },
+  { id: 'j2', type: 'judge', scope: 'MAT 01', scopeSubtitle: 'Judge 2', operator: 'Unassigned', role: 'Judge', coverage: 'All Matches on Mat 1' },
+  { id: 'j3', type: 'judge', scope: 'MAT 02', scopeSubtitle: 'Judge 1', operator: 'Unassigned', role: 'Judge', coverage: 'All Matches on Mat 2' },
 ];
 
 export default function StaffAssignmentManager({ competitionId }: { competitionId: string }) {
@@ -47,6 +47,7 @@ export default function StaffAssignmentManager({ competitionId }: { competitionI
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [selectedAssignmentId, setSelectedAssignmentId] = useState<string | null>(null);
   const [selectedPerson, setSelectedPerson] = useState('');
+  const [coverageInput, setCoverageInput] = useState('');
   const [isSeeding, setIsSeeding] = useState(false);
 
   useEffect(() => {
@@ -85,11 +86,13 @@ export default function StaffAssignmentManager({ competitionId }: { competitionI
   const scoreStaff = staffData.filter(s => s.type === 'score');
   const attendanceStaff = staffData.filter(s => s.type === 'attendance');
   const medalStaff = staffData.filter(s => s.type === 'medal');
-  const viewerStaff = staffData.filter(s => s.type === 'viewer');
+  const judgeStaff = staffData.filter(s => s.type === 'judge');
 
   const openModal = (assignId: string) => {
     setSelectedAssignmentId(assignId);
-    setSelectedPerson('');
+    const assignment = staffData.find(s => s.id === assignId);
+    setSelectedPerson(assignment?.operator !== 'Unassigned' ? assignment?.operator || '' : '');
+    setCoverageInput(assignment?.coverage || '');
     setAssignModalOpen(true);
   };
 
@@ -106,12 +109,14 @@ export default function StaffAssignmentManager({ competitionId }: { competitionI
     const assignment = staffData.find(s => s.id === selectedAssignmentId);
     if (!assignment) return;
 
-    const updates = {
+    const updates: any = {
       operator: newName,
-      statusCode: newName === 'Unassigned' ? 'idle' : 'live',
-      statusText: newName === 'Unassigned' ? 'Needs Assignment' : 'Assigned',
       operatorSubtitle: newName !== 'Unassigned' ? assignment.role : null
     };
+
+    if (assignment.type === 'medal') {
+      updates.coverage = coverageInput;
+    }
 
     // Optimistic
     setStaffData(prev => prev.map(s => s.id === selectedAssignmentId ? { ...s, ...updates } as StaffAssignment : s));
@@ -199,10 +204,6 @@ export default function StaffAssignmentManager({ competitionId }: { competitionI
         .staff-meta {
           font-size: 12px;
           color: var(--neutral-500);
-        }
-        .status-idle {
-          background: var(--neutral-200);
-          color: var(--neutral-600);
         }
         .scope-pill {
           display: inline-flex;
@@ -374,7 +375,6 @@ export default function StaffAssignmentManager({ competitionId }: { competitionI
                     <th>Mat</th>
                     <th>Operator</th>
                     <th>Current Category</th>
-                    <th>Status</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -390,8 +390,50 @@ export default function StaffAssignmentManager({ competitionId }: { competitionI
                         {s.coverage}
                         {s.scopeSubtitle && <><br /><span className="staff-meta">{s.scopeSubtitle}</span></>}
                       </td>
-                      <td data-label="Status" className="staff-status">
-                        <span className={`status-chip status-${s.statusCode}`}>{s.statusText}</span>
+                      <td data-label="Actions">
+                        <div className="staff-actions">
+                          <button className="btn btn-ghost" onClick={() => openModal(s.id)}>
+                            {s.operator === 'Unassigned' ? 'Assign' : 'Reassign'}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              </div>
+            </section>
+          )}
+
+          {/* Judges */}
+          {judgeStaff.length > 0 && (
+            <section className="staff-card">
+              <div className="staff-header">
+                <div>
+                  <h3>Judges</h3>
+                  <p className="text-small">Assign judges to specific mats to allow them access to the judge panel.</p>
+                </div>
+              </div>
+              <div className="table-responsive">
+              <table className="staff-table">
+                <thead>
+                  <tr>
+                    <th>Mat</th>
+                    <th>Judge Name</th>
+                    <th>Position</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {judgeStaff.map(s => (
+                    <tr key={s.id}>
+                      <td data-label="Mat"><strong>{s.scope}</strong></td>
+                      <td data-label="Judge Name" className="staff-name">
+                        {s.operator}
+                        {s.operatorSubtitle && <><br /><span className="staff-meta">{s.operatorSubtitle}</span></>}
+                      </td>
+                      <td data-label="Position">
+                        {s.scopeSubtitle}
                       </td>
                       <td data-label="Actions">
                         <div className="staff-actions">
@@ -424,7 +466,6 @@ export default function StaffAssignmentManager({ competitionId }: { competitionI
                     <th>Category</th>
                     <th>Volunteer</th>
                     <th>Check-in</th>
-                    <th>Status</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -439,9 +480,6 @@ export default function StaffAssignmentManager({ competitionId }: { competitionI
                       <td data-label="Check-in">
                         <strong>{s.coverage}</strong>
                         {s.scopeSubtitle && <><br /><span className="staff-meta">{s.scopeSubtitle}</span></>}
-                      </td>
-                      <td data-label="Status" className="staff-status">
-                        <span className={`status-chip status-${s.statusCode}`}>{s.statusText}</span>
                       </td>
                       <td data-label="Actions">
                         <div className="staff-actions">
@@ -464,7 +502,7 @@ export default function StaffAssignmentManager({ competitionId }: { competitionI
               <div className="staff-header">
                 <div>
                   <h3>Medal Distributors</h3>
-                  <p className="text-small">Who is assigned to distribute medals and the scope they cover.</p>
+                  <p className="text-small">Who is assigned to distribute medals and the categories they cover.</p>
                 </div>
               </div>
               <div className="table-responsive">
@@ -472,9 +510,7 @@ export default function StaffAssignmentManager({ competitionId }: { competitionI
                 <thead>
                   <tr>
                     <th>Distributor</th>
-                    <th>Scope</th>
-                    <th>Coverage</th>
-                    <th>Status</th>
+                    <th>Coverage (Categories)</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -485,64 +521,7 @@ export default function StaffAssignmentManager({ competitionId }: { competitionI
                         {s.operator}
                         {s.operatorSubtitle && <><br /><span className="staff-meta">{s.operatorSubtitle}</span></>}
                       </td>
-                      <td data-label="Scope">
-                        <span className="scope-pill">{s.scope}</span>
-                        {s.scopeSubtitle && <><br /><span className="staff-meta">{s.scopeSubtitle}</span></>}
-                      </td>
                       <td data-label="Coverage">{s.coverage}</td>
-                      <td data-label="Status" className="staff-status">
-                        <span className={`status-chip status-${s.statusCode}`}>{s.statusText}</span>
-                      </td>
-                      <td data-label="Actions">
-                        <div className="staff-actions">
-                          <button className="btn btn-ghost" onClick={() => openModal(s.id)}>
-                            {s.operator === 'Unassigned' ? 'Assign' : 'Reassign'}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              </div>
-            </section>
-          )}
-
-          {/* Guest Viewers */}
-          {viewerStaff.length > 0 && (
-            <section className="staff-card">
-              <div className="staff-header">
-                <div>
-                  <h3>Guest Viewers</h3>
-                  <p className="text-small">Assign read-only access to view the internal workings of the app without write permissions.</p>
-                </div>
-              </div>
-              <div className="table-responsive">
-              <table className="staff-table">
-                <thead>
-                  <tr>
-                    <th>Viewer</th>
-                    <th>Scope</th>
-                    <th>Coverage</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {viewerStaff.map(s => (
-                    <tr key={s.id}>
-                      <td data-label="Viewer" className="staff-name">
-                        {s.operator}
-                        {s.operatorSubtitle && <><br /><span className="staff-meta">{s.operatorSubtitle}</span></>}
-                      </td>
-                      <td data-label="Scope">
-                        <span className="scope-pill">{s.scope}</span>
-                        {s.scopeSubtitle && <><br /><span className="staff-meta">{s.scopeSubtitle}</span></>}
-                      </td>
-                      <td data-label="Coverage">{s.coverage}</td>
-                      <td data-label="Status" className="staff-status">
-                        <span className={`status-chip status-${s.statusCode}`}>{s.statusText}</span>
-                      </td>
                       <td data-label="Actions">
                         <div className="staff-actions">
                           <button className="btn btn-ghost" onClick={() => openModal(s.id)}>
@@ -577,10 +556,17 @@ export default function StaffAssignmentManager({ competitionId }: { competitionI
           </div>
           <form onSubmit={handleAssignSubmit}>
             <div className="assign-grid">
-              <div className="assign-field full">
-                <label>Assignment scope</label>
-                <input type="text" value={activeAssignment?.scope || ''} disabled />
-              </div>
+              {activeAssignment?.type === 'medal' ? (
+                <div className="assign-field full">
+                  <label>Coverage (Categories)</label>
+                  <input type="text" placeholder="e.g. All Junior Categories" required value={coverageInput} onChange={e => setCoverageInput(e.target.value)} />
+                </div>
+              ) : (
+                <div className="assign-field full">
+                  <label>Assignment scope</label>
+                  <input type="text" value={`${activeAssignment?.scope || ''} ${activeAssignment?.scopeSubtitle ? '(' + activeAssignment.scopeSubtitle + ')' : ''}`} disabled />
+                </div>
+              )}
               <div className="assign-field">
                 <label>Role</label>
                 <input type="text" value={activeAssignment?.role || ''} disabled />

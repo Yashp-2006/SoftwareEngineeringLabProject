@@ -35,31 +35,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const userDoc = await getDoc(userDocRef);
           
           if (userDoc.exists()) {
-            // Upgrade audience to admin for developer convenience
+            // No longer upgrading audience to admin for developer convenience
             const currentRole = userDoc.data().role;
-            const assignedRole = currentRole === 'audience' ? 'admin' : currentRole;
-            setRole(assignedRole as UserRole);
+            setRole(currentRole as UserRole);
 
             // Update latest user info
             await setDoc(userDocRef, {
               email: currentUser.email,
               displayName: currentUser.displayName || null,
               photoURL: currentUser.photoURL || null,
-              role: assignedRole,
+              role: currentRole,
               lastLoginAt: new Date().toISOString()
             }, { merge: true });
           } else {
-            // First time login - default to admin
+            // First time login - default to audience
             await setDoc(userDocRef, {
               uid: currentUser.uid,
               email: currentUser.email,
               displayName: currentUser.displayName || null,
               photoURL: currentUser.photoURL || null,
-              role: 'admin',
+              role: 'audience',
               createdAt: new Date().toISOString(),
               lastLoginAt: new Date().toISOString()
             });
-            setRole('admin');
+            setRole('audience');
           }
         } catch (error) {
           console.error("Error fetching user role:", error);

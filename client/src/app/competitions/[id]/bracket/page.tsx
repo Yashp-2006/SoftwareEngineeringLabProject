@@ -640,14 +640,48 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
 
       <div className="tiesheet-page">
         {/* Page Hero */}
-        <div className="tiesheet-hero">
-          <div>
-            <h2 style={{ fontSize: '24px', margin: '0 0 4px 0' }}>Tiesheet Management</h2>
-            <p style={{ fontSize: '14px', color: 'var(--neutral-500)', margin: 0 }}>
-              {categories.length} categories • Click any category to open its bracket
-            </p>
+        <div className="tiesheet-hero" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+            <div>
+              <h2 style={{ fontSize: '24px', margin: '0 0 4px 0' }}>Tiesheet Management</h2>
+              <p style={{ fontSize: '14px', color: 'var(--neutral-500)', margin: 0 }}>
+                {categories.length} categories • Click any category to open its bracket
+              </p>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+              {role === 'admin' && (
+                <button className="btn-create-special" onClick={() => setSpecialModalOpen(true)}>
+                  <Star size={14} />
+                  Create Special Tiesheet
+                </button>
+              )}
+              {role === 'admin' && (
+                <button className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={() => setIsAddModalOpen(true)}>
+                  <UserPlus size={16} />
+                  Add On-Spot Entry
+                </button>
+              )}
+              {categories.length > 0 && role === 'admin' && (
+                <button 
+                  className="btn btn-secondary" 
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px' }} 
+                  onClick={handleDownloadTiesheets}
+                  disabled={downloadingTiesheets}
+                >
+                  <Download size={16} />
+                  {downloadingTiesheets ? 'Generating...' : 'Download PDF'}
+                </button>
+              )}
+              {categories.length > 0 && (
+                <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={() => openModal()}>
+                  <Eye size={16} />
+                  Open All Brackets
+                </button>
+              )}
+            </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', width: '100%', padding: '16px', background: 'var(--shiro)', border: '1px solid var(--neutral-200)', borderRadius: '12px' }}>
             <select
               value={disciplineFilter}
               onChange={e => setDisciplineFilter(e.target.value as any)}
@@ -667,7 +701,7 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
               <option value="Kata">Kata Only</option>
             </select>
             {categories.length > 0 && (
-              <div className="search-container">
+              <div className="search-container" style={{ flex: 1, minWidth: '280px' }}>
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                   <input 
                     type="text" 
@@ -719,35 +753,6 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
                   </div>
                 )}
               </div>
-            )}
-            {role === 'admin' && (
-              <button className="btn-create-special" onClick={() => setSpecialModalOpen(true)}>
-                <Star size={14} />
-                Create Special Tiesheet
-              </button>
-            )}
-            {role === 'admin' && (
-              <button className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={() => setIsAddModalOpen(true)}>
-                <UserPlus size={16} />
-                Add On-Spot Entry
-              </button>
-            )}
-            {categories.length > 0 && role === 'admin' && (
-              <button 
-                className="btn btn-secondary" 
-                style={{ display: 'flex', alignItems: 'center', gap: '8px' }} 
-                onClick={handleDownloadTiesheets}
-                disabled={downloadingTiesheets}
-              >
-                <Download size={16} />
-                {downloadingTiesheets ? 'Generating...' : 'Download PDF'}
-              </button>
-            )}
-            {categories.length > 0 && (
-              <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={() => openModal()}>
-                <Eye size={16} />
-                Open All Brackets
-              </button>
             )}
           </div>
         </div>

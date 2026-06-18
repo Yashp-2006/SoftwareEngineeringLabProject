@@ -15,6 +15,7 @@ interface JudgeScoreGridProps {
   errorCells?: { aka: Set<number>; ao: Set<number> };
   onScoreChange: (side: 'aka' | 'ao', judgeIdx: number, value: number | null) => void;
   onDQJudge: (side: 'aka' | 'ao', judgeIdx: number) => void;
+  readonly?: boolean;
 }
 
 export default function JudgeScoreGrid({
@@ -25,6 +26,7 @@ export default function JudgeScoreGrid({
   errorCells,
   onScoreChange,
   onDQJudge,
+  readonly,
 }: JudgeScoreGridProps) {
   const judges = Array.from({ length: numberOfJudges }, (_, i) => i);
 
@@ -107,16 +109,21 @@ export default function JudgeScoreGrid({
               {finished ? (
                 <div
                   style={{
-                    fontSize: '20px',
-                    fontWeight: 800,
-                    fontFamily: 'var(--font-mono)',
-                    color: val === 0 ? 'var(--neutral-400)' : 'var(--neutral-900)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    height: '28px',
                     animation: 'fadeInUp 0.4s ease forwards',
                     animationDelay: `${i * 0.07}s`,
                     opacity: 0,
+                    color: val === 1 ? 'var(--aka)' : 'var(--neutral-300)'
                   }}
                 >
-                  {val === null ? '—' : val === 0 ? 'DQ' : val?.toFixed(1)}
+                  {val === 0 ? <span style={{ fontSize: '14px', fontWeight: 800, color: 'var(--neutral-400)' }}>DQ</span> : 
+                   val === 1 ? <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1v12z" fill="currentColor" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      <line x1="4" y1="22" x2="4" y2="15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                    </svg> : <span>—</span>}
                 </div>
               ) : (
                 <>
@@ -124,55 +131,78 @@ export default function JudgeScoreGrid({
                     <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--aka)', background: '#fef2f2', padding: '4px 8px', borderRadius: '4px' }}>
                       DQ
                     </div>
+                  ) : readonly ? (
+                    <div
+                      style={{
+                        width: '64px',
+                        height: '32px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        border: `1.5px solid ${val === 1 ? 'var(--aka)' : 'var(--neutral-300)'}`,
+                        borderRadius: '6px',
+                        background: val === 1 ? 'var(--aka)' : 'var(--shiro)',
+                        color: val === 1 ? 'white' : 'var(--neutral-400)',
+                      }}
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1v12z" fill={val === 1 ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        <line x1="4" y1="22" x2="4" y2="15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                      </svg>
+                    </div>
                   ) : (
-                    <input
-                      type="number"
-                      min="5.0"
-                      max="10.0"
-                      step="0.1"
+                    <button
+                      type="button"
                       disabled={finished || isDQ.aka}
-                      value={val === null ? '' : val}
-                      onChange={(e) => {
-                        const raw = parseFloat(e.target.value);
-                        if (isNaN(raw)) {
+                      onClick={() => {
+                        if (val === 1) {
                           onScoreChange('aka', i, null);
+                          onScoreChange('ao', i, null);
                         } else {
-                          onScoreChange('aka', i, Math.min(10, Math.max(5, raw)));
+                          onScoreChange('aka', i, 1);
+                          onScoreChange('ao', i, -1);
                         }
                       }}
                       style={{
                         width: '64px',
-                        padding: '4px 6px',
-                        border: `1.5px solid ${isError ? 'var(--aka)' : 'var(--neutral-300)'}`,
+                        height: '32px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        border: `1.5px solid ${val === 1 ? 'var(--aka)' : isError ? 'var(--aka)' : 'var(--neutral-300)'}`,
                         borderRadius: '6px',
-                        textAlign: 'center',
-                        fontFamily: 'var(--font-mono)',
-                        fontWeight: 700,
-                        fontSize: '13px',
-                        outline: 'none',
-                        background: isDQ.aka ? 'var(--neutral-100)' : 'var(--shiro)',
+                        background: val === 1 ? 'var(--aka)' : isDQ.aka ? 'var(--neutral-100)' : 'var(--shiro)',
+                        color: val === 1 ? 'white' : 'var(--neutral-400)',
+                        cursor: finished || isDQ.aka ? 'not-allowed' : 'pointer',
+                        transition: 'all 0.2s'
                       }}
-                      placeholder="—"
-                    />
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1v12z" fill={val === 1 ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        <line x1="4" y1="22" x2="4" y2="15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                      </svg>
+                    </button>
                   )}
-                  <button
-                    type="button"
-                    disabled={finished || isDQ.aka}
-                    onClick={() => onDQJudge('aka', i)}
-                    style={{
-                      fontSize: '9px',
-                      fontWeight: 800,
-                      padding: '2px 5px',
-                      borderRadius: '3px',
-                      border: '1px solid rgba(217,38,44,0.3)',
-                      color: 'var(--aka)',
-                      background: 'transparent',
-                      cursor: finished || isDQ.aka ? 'not-allowed' : 'pointer',
-                      letterSpacing: '0.05em',
-                    }}
-                  >
-                    DQ
-                  </button>
+                  {!readonly && (
+                    <button
+                      type="button"
+                      disabled={finished || isDQ.aka}
+                      onClick={() => onDQJudge('aka', i)}
+                      style={{
+                        fontSize: '9px',
+                        fontWeight: 800,
+                        padding: '2px 5px',
+                        borderRadius: '3px',
+                        border: '1px solid rgba(217,38,44,0.3)',
+                        color: 'var(--aka)',
+                        background: 'transparent',
+                        cursor: finished || isDQ.aka ? 'not-allowed' : 'pointer',
+                        letterSpacing: '0.05em',
+                      }}
+                    >
+                      DQ
+                    </button>
+                  )}
                 </>
               )}
             </div>
@@ -211,16 +241,21 @@ export default function JudgeScoreGrid({
               {finished ? (
                 <div
                   style={{
-                    fontSize: '20px',
-                    fontWeight: 800,
-                    fontFamily: 'var(--font-mono)',
-                    color: val === 0 ? 'var(--neutral-400)' : 'var(--neutral-900)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    height: '28px',
                     animation: 'fadeInUp 0.4s ease forwards',
                     animationDelay: `${i * 0.07 + 0.3}s`,
                     opacity: 0,
+                    color: val === 1 ? 'var(--ao)' : 'var(--neutral-300)'
                   }}
                 >
-                  {val === null ? '—' : val === 0 ? 'DQ' : val?.toFixed(1)}
+                  {val === 0 ? <span style={{ fontSize: '14px', fontWeight: 800, color: 'var(--neutral-400)' }}>DQ</span> : 
+                   val === 1 ? <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1v12z" fill="currentColor" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      <line x1="4" y1="22" x2="4" y2="15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                    </svg> : <span>—</span>}
                 </div>
               ) : (
                 <>
@@ -228,55 +263,78 @@ export default function JudgeScoreGrid({
                     <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--ao)', background: '#eff6ff', padding: '4px 8px', borderRadius: '4px' }}>
                       DQ
                     </div>
+                  ) : readonly ? (
+                    <div
+                      style={{
+                        width: '64px',
+                        height: '32px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        border: `1.5px solid ${val === 1 ? 'var(--ao)' : 'var(--neutral-300)'}`,
+                        borderRadius: '6px',
+                        background: val === 1 ? 'var(--ao)' : 'var(--shiro)',
+                        color: val === 1 ? 'white' : 'var(--neutral-400)',
+                      }}
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1v12z" fill={val === 1 ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        <line x1="4" y1="22" x2="4" y2="15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                      </svg>
+                    </div>
                   ) : (
-                    <input
-                      type="number"
-                      min="5.0"
-                      max="10.0"
-                      step="0.1"
+                    <button
+                      type="button"
                       disabled={finished || isDQ.ao}
-                      value={val === null ? '' : val}
-                      onChange={(e) => {
-                        const raw = parseFloat(e.target.value);
-                        if (isNaN(raw)) {
+                      onClick={() => {
+                        if (val === 1) {
                           onScoreChange('ao', i, null);
+                          onScoreChange('aka', i, null);
                         } else {
-                          onScoreChange('ao', i, Math.min(10, Math.max(5, raw)));
+                          onScoreChange('ao', i, 1);
+                          onScoreChange('aka', i, -1);
                         }
                       }}
                       style={{
                         width: '64px',
-                        padding: '4px 6px',
-                        border: `1.5px solid ${isError ? 'var(--ao)' : 'var(--neutral-300)'}`,
+                        height: '32px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        border: `1.5px solid ${val === 1 ? 'var(--ao)' : isError ? 'var(--ao)' : 'var(--neutral-300)'}`,
                         borderRadius: '6px',
-                        textAlign: 'center',
-                        fontFamily: 'var(--font-mono)',
-                        fontWeight: 700,
-                        fontSize: '13px',
-                        outline: 'none',
-                        background: isDQ.ao ? 'var(--neutral-100)' : 'var(--shiro)',
+                        background: val === 1 ? 'var(--ao)' : isDQ.ao ? 'var(--neutral-100)' : 'var(--shiro)',
+                        color: val === 1 ? 'white' : 'var(--neutral-400)',
+                        cursor: finished || isDQ.ao ? 'not-allowed' : 'pointer',
+                        transition: 'all 0.2s'
                       }}
-                      placeholder="—"
-                    />
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1v12z" fill={val === 1 ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        <line x1="4" y1="22" x2="4" y2="15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                      </svg>
+                    </button>
                   )}
-                  <button
-                    type="button"
-                    disabled={finished || isDQ.ao}
-                    onClick={() => onDQJudge('ao', i)}
-                    style={{
-                      fontSize: '9px',
-                      fontWeight: 800,
-                      padding: '2px 5px',
-                      borderRadius: '3px',
-                      border: '1px solid rgba(26,77,181,0.3)',
-                      color: 'var(--ao)',
-                      background: 'transparent',
-                      cursor: finished || isDQ.ao ? 'not-allowed' : 'pointer',
-                      letterSpacing: '0.05em',
-                    }}
-                  >
-                    DQ
-                  </button>
+                  {!readonly && (
+                    <button
+                      type="button"
+                      disabled={finished || isDQ.ao}
+                      onClick={() => onDQJudge('ao', i)}
+                      style={{
+                        fontSize: '9px',
+                        fontWeight: 800,
+                        padding: '2px 5px',
+                        borderRadius: '3px',
+                        border: '1px solid rgba(26,77,181,0.3)',
+                        color: 'var(--ao)',
+                        background: 'transparent',
+                        cursor: finished || isDQ.ao ? 'not-allowed' : 'pointer',
+                        letterSpacing: '0.05em',
+                      }}
+                    >
+                      DQ
+                    </button>
+                  )}
                 </>
               )}
             </div>

@@ -11,7 +11,12 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
   const { id } = React.use(params);
   const searchParams = useSearchParams();
   const { user, role } = useAuth();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(`joined_${id}`) === 'true';
+    }
+    return false;
+  });
   const [error, setError] = useState('');
 
   const [compData, setCompData] = useState<any>(null);
@@ -19,9 +24,15 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
   // Admins or users with join link bypass passcode
   useEffect(() => {
     if (user || searchParams.get('join') === 'true') {
+      if (searchParams.get('join') === 'true') {
+        localStorage.setItem(`joined_${id}`, 'true');
+      }
+      if (user) {
+        localStorage.setItem(`joined_${id}`, 'true');
+      }
       setIsAuthenticated(true);
     }
-  }, [user, searchParams]);
+  }, [user, searchParams, id]);
 
   const [recentMatches, setRecentMatches] = useState<any[]>([]);
   const [matLeaderboards, setMatLeaderboards] = useState<Record<string, any[]>>({});
@@ -135,7 +146,12 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
             </span>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+        <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+          {user && (
+            <Link href={`/competitions/${id}/judge`} className="btn btn-secondary">
+              <Award size={16} style={{ marginRight: '8px' }} /> Judge Panel
+            </Link>
+          )}
           {role === 'admin' && (
             <>
               <button className="btn btn-secondary" onClick={handleShareLink}>
@@ -154,7 +170,7 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
         </div>
       </header>
 
-      <div className="bento-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--space-5)', marginBottom: 'var(--space-6)' }}>
+      <div className="bento-grid" style={{ marginBottom: 'var(--space-6)' }}>
         <div className="card bento-tile">
           <div className="text-micro">Total Entries</div>
           <div className="display-large">{compData?.athletesCount || 'N/A'}</div>
@@ -177,8 +193,8 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 'var(--space-6)', marginTop: 'var(--space-4)' }}>
-        <section style={{ gridColumn: 'span 8' }}>
+      <div className="comp-detail-grid">
+        <section className="comp-detail-main">
           <div className="flex-between" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-2)' }}>
             <h2>Recent Results</h2>
             <div style={{ display: 'flex', gap: '8px' }}>
@@ -274,7 +290,7 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
           </div>
         </section>
 
-        <section style={{ gridColumn: 'span 4' }}>
+        <section className="comp-detail-sidebar">
           <h2 style={{ marginBottom: 'var(--space-2)' }}>Mat Leaderboards</h2>
           {Object.keys(matLeaderboards).length === 0 ? (
             <div className="card" style={{ padding: '24px', textAlign: 'center', color: 'var(--neutral-500)' }}>

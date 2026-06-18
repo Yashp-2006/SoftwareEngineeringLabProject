@@ -442,6 +442,14 @@ nav {
   .mat-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+
+  .comp-detail-grid {
+    grid-template-columns: 1fr;
+  }
+  .comp-detail-main,
+  .comp-detail-sidebar {
+    grid-column: span 1;
+  }
 }
 
 /* Mobile (Max 768px) */
@@ -515,4 +523,40 @@ nav {
   input, select, button {
     min-height: 44px; /* Minimum Apple touch target */
   }
+
+  /* On mobile, buttons should NOT be 100% width inside flex-wrap containers */
+  .page-header .btn {
+    width: auto;
+  }
+
+  .comp-detail-grid {
+    grid-template-columns: 1fr;
+  }
+  .comp-detail-main,
+  .comp-detail-sidebar {
+    grid-column: span 1;
+  }
+}
+
+/* Competition Detail Grid */
+.comp-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: var(--space-6);
+  margin-top: var(--space-4);
+}
+.comp-detail-main {
+  grid-column: span 8;
+}
+.comp-detail-sidebar {
+  grid-column: span 4;
+}
+
+/* Spinning animation for loaders */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.spin {
+  animation: spin 1s linear infinite;
 }

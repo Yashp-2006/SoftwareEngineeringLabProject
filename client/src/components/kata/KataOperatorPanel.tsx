@@ -91,10 +91,9 @@ export default function KataOperatorPanel({
 
   const [tieModalOpen, setTieModalOpen] = useState(false);
 
-  // Team timer (5:00)
-  const [teamTimer, setTeamTimer] = useState(300);
+  // Kata Stopwatch
+  const [teamTimer, setTeamTimer] = useState(0);
   const [timerRunning, setTimerRunning] = useState(false);
-  const [timerWarning, setTimerWarning] = useState(false);
 
   // Sync state to RTDB
   const syncRTDB = useCallback(
@@ -154,23 +153,14 @@ export default function KataOperatorPanel({
     load();
   }, [competitionId, matchId, akaId, aoId, akaName, aoName]);
 
-  // Team timer
+  // Stopwatch
   useEffect(() => {
-    if (!isTeam || !timerRunning) return;
-    if (teamTimer <= 0) {
-      setTimerRunning(false);
-      toast.error('Time limit reached! Confirm DQ or proceed.');
-      return;
-    }
+    if (!timerRunning) return;
     const t = setInterval(() => {
-      setTeamTimer((s) => {
-        const next = s - 1;
-        if (next === 30) setTimerWarning(true);
-        return next;
-      });
+      setTeamTimer((s) => s + 1);
     }, 1000);
     return () => clearInterval(t);
-  }, [isTeam, timerRunning, teamTimer]);
+  }, [timerRunning]);
 
   const handleScoreChange = (side: 'aka' | 'ao', judgeIdx: number, value: number | null) => {
     if (boutFinished) return;
@@ -246,10 +236,7 @@ export default function KataOperatorPanel({
       phase: 'kata',
     });
     setBoutStarted(true);
-    if (isTeam) {
-      setTeamTimer(300);
-      setTimerWarning(false);
-    }
+    setTeamTimer(0);
     toast.success('Kata selections confirmed. Ready to score.');
   };
 
@@ -306,19 +293,27 @@ export default function KataOperatorPanel({
     });
 
     if (winner === 'tie_pending') {
-      setTieModalOpen(true);
-      toast('Tie detected — resolution required.', { icon: <Scale size={16} /> });
+      toast('Tie detected — requesting revote.', { icon: <Scale size={16} /> });
     } else {
       onMatchFinished(winner, { aka: votes.aka, ao: votes.ao }, selectedKata);
     }
   };
 
-  const handleTieResolve = async (winner: 'aka' | 'ao', method: string) => {
-    setTieModalOpen(false);
-    setKataWinner(winner);
-    await syncRTDB({ kataWinner: winner });
-    toast.success(`${winner.toUpperCase()} wins via ${method}`);
-    onMatchFinished(winner, voteResult ? { aka: voteResult.aka, ao: voteResult.ao } : { aka: 0, ao: 0 }, selectedKata);
+  const handleRequestRevote = async () => {
+    const zeroScores = initJudgeScores(numberOfJudges);
+    setAkaScores(zeroScores);
+    setAoScores(zeroScores);
+    setVoteResult(null);
+    setKataWinner(null);
+    setBoutFinished(false);
+    
+    await syncRTDB({
+      kataScores: { aka: zeroScores, ao: zeroScores },
+      kataVotes: null,
+      kataWinner: null,
+      boutFinished: false,
+    });
+    toast.success('Revote requested. Judges can now vote again.');
   };
 
   const handleCreateTieBreaker = async () => {
@@ -426,14 +421,14 @@ export default function KataOperatorPanel({
           )}
         </div>
 
-        {/* ── TEAM TIMER ── */}
-        {isTeam && boutStarted && !boutFinished && (
+        {/* ── PERFORMANCE STOPWATCH ── */}
+        {boutStarted && !boutFinished && (
           <div
             className="kata-panel-section"
             style={{
               padding: '16px',
-              background: timerWarning ? '#fef2f2' : 'var(--neutral-50)',
-              border: `1.5px solid ${timerWarning ? 'var(--aka)' : 'var(--neutral-200)'}`,
+              background: 'var(--neutral-50)',
+              border: '1.5px solid var(--neutral-200)',
               borderRadius: '12px',
               display: 'flex',
               alignItems: 'center',
@@ -442,7 +437,7 @@ export default function KataOperatorPanel({
             }}
           >
             <div>
-              <div style={{ fontSize: '11px', fontWeight: 800, color: timerWarning ? 'var(--aka)' : 'var(--neutral-500)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '2px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--neutral-500)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '2px' }}>
                 Performance Timer
               </div>
               <div
@@ -450,7 +445,7 @@ export default function KataOperatorPanel({
                   fontFamily: 'var(--font-mono)',
                   fontSize: '36px',
                   fontWeight: 800,
-                  color: timerWarning ? 'var(--aka)' : 'var(--neutral-900)',
+                  color: 'var(--neutral-900)',
                   lineHeight: 1,
                 }}
               >
@@ -591,6 +586,7 @@ export default function KataOperatorPanel({
               isDQ={isDQ}
               finished={boutFinished}
               errorCells={errorCells}
+              readonly={true}
               onScoreChange={handleScoreChange}
               onDQJudge={handleDQJudge}
             />
@@ -632,6 +628,26 @@ export default function KataOperatorPanel({
                     <div style={{ fontSize: '11px', color: 'var(--neutral-500)', marginTop: '2px' }}>
                       {voteResult.tied.length} tied judge{voteResult.tied.length > 1 ? 's' : ''} (J{voteResult.tied.map((j) => j + 1).join(', J')})
                     </div>
+                  )}
+                  {kataWinner === 'tie_pending' && (
+                    <button
+                      onClick={handleRequestRevote}
+                      className="kata-btn"
+                      style={{
+                        marginTop: '12px',
+                        padding: '8px 16px',
+                        background: '#d97706',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        textTransform: 'uppercase'
+                      }}
+                    >
+                      Request Revote
+                    </button>
                   )}
                 </div>
               </div>
@@ -684,17 +700,7 @@ export default function KataOperatorPanel({
         )}
       </div>
 
-      {/* ── TIE RESOLUTION MODAL ── */}
-      <TieResolutionModal
-        isOpen={tieModalOpen}
-        akaName={akaName}
-        aoName={aoName}
-        kataFormat={kataFormat}
-        isTeam={isTeam}
-        onResolve={handleTieResolve}
-        onCreateTieBreaker={handleCreateTieBreaker}
-        onClose={() => setTieModalOpen(false)}
-      />
+
     </>
   );
 }

@@ -943,7 +943,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                             <Combine size={16} /> Merge Categories
                           </button>
                           <button className="btn btn-secondary" onClick={() => setModalType('standard')}>
-                            <Plus size={16} /> Add Standard
+                            <Plus size={16} /> Add Category
                           </button>
                         </>
                       )}
@@ -1256,7 +1256,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         <div className="modal">
           <div className="modal-header">
             <h3>
-              {modalType === 'standard' && 'Add Standard Category'}
+              {modalType === 'standard' && 'Add Category'}
               {modalType === 'merge' && 'Merge Categories'}
               {modalType === 'bulkPassword' && 'Bulk Set Mat Passwords'}
             </h3>
@@ -1282,6 +1282,16 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                           <p style={{ fontSize: '11px', color: 'var(--neutral-500)', marginTop: '4px' }}>Kata categories do not use weight classes.</p>
                         )}
                       </div>
+                      {modalFormData.discipline === 'Kata' && (
+                        <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                          <label>Number of Judges</label>
+                          <select className="input-field" style={{ background: 'white' }} value={modalFormData.judgeCount || '3'} onChange={e => setModalFormData({...modalFormData, judgeCount: e.target.value})}>
+                            <option value="3">3 Judges</option>
+                            <option value="5">5 Judges</option>
+                            <option value="7">7 Judges</option>
+                          </select>
+                        </div>
+                      )}
                     </div>
                     <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
                       <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
@@ -1354,6 +1364,8 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                   maxAge: parseInt(modalFormData.maxAge) || 99,
                   minWeight: isKata ? 0 : (parseFloat(modalFormData.minWeight) || 0),
                   maxWeight: isKata ? 300 : (parseFloat(modalFormData.maxWeight) || 300),
+                  isKata: isKata,
+                  judgeCount: isKata ? (parseInt(modalFormData.judgeCount) || 3) : undefined,
                   entries: 0 
                 }]);
               } else if (modalType === 'merge' && modalFormData.name) {
