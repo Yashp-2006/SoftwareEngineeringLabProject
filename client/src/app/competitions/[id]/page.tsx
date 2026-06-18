@@ -147,9 +147,7 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
           </div>
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
-          <Link href={`/competitions/${id}/judge`} className="btn btn-secondary">
-            <Award size={16} style={{ marginRight: '8px' }} /> Judge Panel
-          </Link>
+
           {role === 'admin' && (
             <>
               <button className="btn btn-secondary" onClick={handleShareLink}>

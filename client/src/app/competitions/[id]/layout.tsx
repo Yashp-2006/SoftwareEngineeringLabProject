@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/components/auth/AuthProvider';
 
 export default function CompetitionLayout({
@@ -13,6 +13,7 @@ export default function CompetitionLayout({
   params: Promise<{ id: string }>;
 }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { role } = useAuth();
   const { id } = React.use(params);
 
@@ -29,31 +30,39 @@ export default function CompetitionLayout({
 
   const linkStyle = { background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' };
 
+  const joinParam = searchParams.get('join') === 'true' ? '?join=true' : '';
+
   return (
     <>
       <div className="sub-nav">
         <Link
-          href={`/competitions/${id}`}
+          href={`/competitions/${id}${joinParam}`}
           className={`sub-nav-link ${isRoot ? 'active' : ''}`}
         >
           Overview
         </Link>
+        <Link
+          href={`/competitions/${id}/judge${joinParam}`}
+          className={`sub-nav-link ${isActive('/judge') ? 'active' : ''}`}
+        >
+          Judge
+        </Link>
         {showCategories && (
           <Link
-            href={`/competitions/${id}/categories`}
+            href={`/competitions/${id}/categories${joinParam}`}
             className={`sub-nav-link ${isActive('/categories') ? 'active' : ''}`}
           >
             Categories
           </Link>
         )}
         <Link
-          href={`/competitions/${id}/bracket`}
+          href={`/competitions/${id}/bracket${joinParam}`}
           className={`sub-nav-link ${isActive('/bracket') ? 'active' : ''}`}
         >
           Tiesheet
         </Link>
         <Link
-          href={`/competitions/${id}/mats`}
+          href={`/competitions/${id}/mats${joinParam}`}
           className={`sub-nav-link ${isActive('/mats') ? 'active' : ''}`}
         >
           Mats
@@ -61,7 +70,7 @@ export default function CompetitionLayout({
 
         {showStaff && (
           <Link
-            href={`/competitions/${id}/staff`}
+            href={`/competitions/${id}/staff${joinParam}`}
             className={`sub-nav-link ${isActive('/staff') ? 'active' : ''}`}
           >
             Staff
@@ -70,7 +79,7 @@ export default function CompetitionLayout({
 
         {showAthletes && (
           <Link
-            href={`/competitions/${id}/athletes`}
+            href={`/competitions/${id}/athletes${joinParam}`}
             className={`sub-nav-link ${isActive('/athletes') ? 'active' : ''}`}
           >
             Athletes
@@ -79,7 +88,7 @@ export default function CompetitionLayout({
 
         {showMedals && (
           <Link
-            href={`/competitions/${id}/medals`}
+            href={`/competitions/${id}/medals${joinParam}`}
             className={`sub-nav-link ${isActive('/medals') ? 'active' : ''}`}
           >
             Medals
@@ -87,7 +96,7 @@ export default function CompetitionLayout({
         )}
 
         <Link
-          href={`/competitions/${id}/schedule`}
+          href={`/competitions/${id}/schedule${joinParam}`}
           className={`sub-nav-link ${isActive('/schedule') ? 'active' : ''}`}
         >
           Schedule
@@ -95,7 +104,7 @@ export default function CompetitionLayout({
 
         {showOperator && (
           <Link
-            href={`/competitions/${id}/operator`}
+            href={`/competitions/${id}/operator${joinParam}`}
             className={`sub-nav-link ${isActive('/operator') ? 'active' : ''}`}
             style={{ marginLeft: 'auto', color: isActive('/operator') ? 'var(--aka)' : 'var(--neutral-500)', fontWeight: 600 }}
           >
