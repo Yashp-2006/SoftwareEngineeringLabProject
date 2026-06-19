@@ -2,16 +2,16 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, Plus, X, Trash2 } from 'lucide-react';
+import { Search, Trophy, Zap } from 'lucide-react';
 import PageSkeleton from '@/components/layout/PageSkeleton';
+import SpecialCategoryModal from '@/components/SpecialCategoryModal';
 
 interface Athlete {
-  id: string;
+  id: string; // Document ID
+  playerId?: string; // Athlete ID from match node
   name: string;
   academy: string;
-  medalName?: 'Gold' | 'Silver' | 'Bronze';
   medal?: 'received' | 'not-received';
-  pool?: string | number;
 }
 
 interface Category {
@@ -21,6 +21,7 @@ interface Category {
   status: string;
   order: number;
   athletes: Athlete[];
+  matches: any[];
 }
 
 export default function MedalsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -30,14 +31,10 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
-  
-  const [addModalOpen, setAddModalOpen] = useState(false);
-  const [modalSearch, setModalSearch] = useState("");
-  const [selectedAthleteForModal, setSelectedAthleteForModal] = useState<Athlete | null>(null);
-  const [modalMedal, setModalMedal] = useState<'Gold'|'Silver'|'Bronze'>('Bronze');
 
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [athleteToDelete, setAthleteToDelete] = useState<string | null>(null);
+  // Special tiesheet modal state
+  const [specialModalOpen, setSpecialModalOpen] = useState(false);
+  const [specialCategoriesList, setSpecialCategoriesList] = useState<any[]>([]);
 
   useEffect(() => {
     let unsubCats: () => void;
@@ -49,16 +46,39 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
 
       const catQ = query(collection(db, 'competitions', id, 'categories'), orderBy('order'));
       unsubCats = onSnapshot(catQ, (catSnap) => {
-        const catList = catSnap.docs.map(d => ({
-          id: d.id,
-          name: d.data().name || '',
-          mat: d.data().mat || 'UNASSIGNED',
-          status: d.data().status || 'upcoming',
-          order: d.data().order || 0,
-          athletes: []
-        }));
+        const rawCats = catSnap.docs.map(d => {
+          const data = d.data() as any;
+          return {
+            id: d.id,
+            ...data,
+          };
+        });
 
-        setActiveCategoryId(prev => prev ?? catList[0]?.id ?? null);
+        // Keep a list of special categories for the modal
+        const specials = rawCats.filter(c => c.isSpecial);
+        setSpecialCategoriesList(specials);
+
+        const catList = rawCats
+          .filter(c => !c.isSpecial && (c.status === 'live' || c.status === 'completed'))
+          .map(d => ({
+            id: d.id,
+            name: d.name || '',
+            mat: d.mat || 'UNASSIGNED',
+            status: d.status || 'upcoming',
+            order: d.order || 0,
+            matches: d.matches || [],
+            athletes: []
+          }))
+          .sort((a, b) => {
+            if (a.status === 'completed' && b.status !== 'completed') return -1;
+            if (a.status !== 'completed' && b.status === 'completed') return 1;
+            return a.order - b.order;
+          });
+
+        setActiveCategoryId(prev => {
+          if (prev && catList.some(c => c.id === prev)) return prev;
+          return catList[0]?.id ?? null;
+        });
 
         catList.forEach(cat => {
           if (athleteUnsubs[cat.id]) return;
@@ -67,11 +87,10 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
           athleteUnsubs[cat.id] = onSnapshot(athQ, (athSnap) => {
             const athletes: Athlete[] = athSnap.docs.map(d => ({
               id: d.id,
+              playerId: d.data().playerId,
               name: d.data().name || '',
               academy: d.data().academy || '',
-              medalName: d.data().medalName,
               medal: d.data().medal,
-              pool: d.data().pool,
             }));
 
             setCategories(prev => {
@@ -106,92 +125,81 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
 
   const activeCategory = categories.find(c => c.id === activeCategoryId);
 
-  const winners = activeCategory?.athletes.filter(a => a.medalName) || [];
-  
-  const filteredWinners = winners.filter(a => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return a.name.toLowerCase().includes(q) || a.academy.toLowerCase().includes(q);
-  });
-
-  // Group winners by pool
+  // Group winners dynamically by pool
   const winnersByPool = React.useMemo(() => {
-    const groups: Record<string, Athlete[]> = {};
-    filteredWinners.forEach(a => {
-      const poolKey = a.pool ? String(a.pool) : 'No Pool';
-      if (!groups[poolKey]) groups[poolKey] = [];
-      groups[poolKey].push(a);
-    });
+    if (!activeCategory || !activeCategory.matches) return {};
+
+    const matches = activeCategory.matches;
+    const poolMap = new Map<string, any[]>();
+    for (const m of matches) {
+      let pool = '1';
+      if (m.id.startsWith('Pool')) {
+        pool = m.id.split('-')[0].replace('Pool', '');
+      }
+      if (!poolMap.has(pool)) poolMap.set(pool, []);
+      poolMap.get(pool)!.push(m);
+    }
+
+    const groups: Record<string, (Athlete & { medalName: string })[]> = {};
+
+    for (const [pool, poolMatches] of poolMap.entries()) {
+      const maxRound = Math.max(...poolMatches.map(m => m.round));
+      const finalsMatches = poolMatches.filter(m => m.round === maxRound);
+
+      const poolWinners: (Athlete & { medalName: string })[] = [];
+
+      for (const finalMatch of finalsMatches) {
+        if (finalMatch.status === 'completed' && finalMatch.winnerId) {
+          const goldWinnerId = finalMatch.winnerId;
+          const goldAthleteDoc = activeCategory.athletes.find(a => a.playerId === goldWinnerId || a.id === goldWinnerId);
+          if (goldAthleteDoc) {
+            poolWinners.push({ ...goldAthleteDoc, medalName: 'Gold' });
+          }
+        }
+      }
+
+      const poolKey = poolMap.size === 1 && pool === '1' ? 'General' : pool;
+      
+      const filteredPoolWinners = poolWinners.filter(a => {
+        if (!searchQuery) return true;
+        const q = searchQuery.toLowerCase();
+        return a.name.toLowerCase().includes(q) || a.academy.toLowerCase().includes(q);
+      });
+
+      if (filteredPoolWinners.length > 0) {
+        groups[poolKey] = filteredPoolWinners;
+      }
+    }
+
     return groups;
-  }, [filteredWinners]);
+  }, [activeCategory, searchQuery]);
 
   const poolKeys = Object.keys(winnersByPool).sort((a, b) => {
-    if (a === 'No Pool') return 1;
-    if (b === 'No Pool') return -1;
+    if (a === 'General') return 1;
+    if (b === 'General') return -1;
     return parseInt(a) - parseInt(b);
   });
 
-  const updateAthleteMedal = async (athleteId: string, updates: Partial<Athlete>) => {
-    // Optimistic
+  const totalWinnersCount = poolKeys.reduce((acc, pk) => acc + winnersByPool[pk].length, 0);
+
+  const updateAthleteMedalStatus = async (athleteId: string, status: 'received' | 'not-received') => {
+    // Optimistic update
     setCategories(prev => prev.map(cat => {
       if (cat.id !== activeCategoryId) return cat;
       return {
         ...cat,
-        athletes: cat.athletes.map(a => a.id === athleteId ? { ...a, ...updates } : a)
+        athletes: cat.athletes.map(a => a.id === athleteId ? { ...a, medal: status } : a)
       };
     }));
 
     try {
       const { db } = await import('@lib/firebase');
-      const { doc, updateDoc, deleteField } = await import('firebase/firestore');
+      const { doc, updateDoc } = await import('firebase/firestore');
       const athRef = doc(db, 'competitions', id, 'categories', activeCategoryId!, 'athletes', athleteId);
-      
-      const firestoreUpdates: any = { ...updates };
-      if (updates.medalName === undefined && Object.keys(updates).includes('medalName')) {
-          firestoreUpdates.medalName = deleteField();
-      }
-      if (updates.medal === undefined && Object.keys(updates).includes('medal')) {
-          firestoreUpdates.medal = deleteField();
-      }
-      
-      await updateDoc(athRef, firestoreUpdates);
+      await updateDoc(athRef, { medal: status });
     } catch (err) {
-      console.error('Failed to update medal', err);
+      console.error('Failed to update medal status', err);
     }
-  };
-
-  const handleMedalStatusChange = (athleteId: string, status: 'received' | 'not-received') => {
-    updateAthleteMedal(athleteId, { medal: status });
-  };
-
-  const openDeleteModal = (athleteId: string) => {
-    setAthleteToDelete(athleteId);
-    setDeleteModalOpen(true);
-  };
-
-  const confirmDelete = () => {
-    if (!athleteToDelete) return;
-    updateAthleteMedal(athleteToDelete, { medalName: undefined, medal: undefined });
-    setDeleteModalOpen(false);
-    setAthleteToDelete(null);
-  };
-
-  const availableAthletesForModal = activeCategory?.athletes.filter(a => 
-    !a.medalName &&
-    (a.name.toLowerCase().includes(modalSearch.toLowerCase()) || a.academy.toLowerCase().includes(modalSearch.toLowerCase()))
-  ) || [];
-
-  const addMedalist = () => {
-    if (!selectedAthleteForModal) return;
-    updateAthleteMedal(selectedAthleteForModal.id, { medalName: modalMedal, medal: 'not-received' });
-    setAddModalOpen(false);
-  };
-
-  const openAddModal = () => {
-    setModalSearch("");
-    setSelectedAthleteForModal(null);
-    setModalMedal("Bronze");
-    setAddModalOpen(true);
   };
 
   return (
@@ -211,6 +219,8 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
           box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
           position: sticky;
           top: 130px;
+          max-height: calc(100vh - 160px);
+          overflow-y: auto;
         }
         .category-button {
           width: 100%;
@@ -245,6 +255,8 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
           color: var(--neutral-500);
           font-weight: 600;
         }
+        .status-completed { color: #16a34a; }
+        .status-live { color: var(--aka); }
         .medals-panel {
           background: var(--shiro);
           border: 1px solid var(--neutral-300);
@@ -295,13 +307,13 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
           border-color: var(--ao);
           box-shadow: 0 0 0 3px rgba(26, 77, 181, 0.12);
         }
-        .add-btn {
+        .btn-action {
           display: inline-flex; align-items: center; gap: 6px;
-          padding: 8px 16px; background: var(--neutral-900); color: var(--shiro);
-          border: none; border-radius: 8px; font-size: 13px; font-weight: 600;
+          padding: 8px 16px; background: #d97706; color: white;
+          border: none; border-radius: 8px; font-size: 13px; font-weight: 700;
           cursor: pointer; transition: 0.2s; white-space: nowrap; height: 38px;
         }
-        .add-btn:hover { background: #000; }
+        .btn-action:hover { background: #b45309; }
         table.medal-table {
           width: 100%;
           border-collapse: collapse;
@@ -362,104 +374,24 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
           background: var(--aka-light);
           color: var(--aka);
         }
-        .remove-btn {
-          background: none;
-          border: none;
-          cursor: pointer;
-          color: var(--neutral-400);
-          padding: 6px;
-          border-radius: 6px;
-          transition: all 0.2s;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .remove-btn:hover {
-          color: var(--aka);
-          background: var(--aka-light);
-        }
         .empty-state {
           padding: var(--space-6);
           text-align: center;
           color: var(--neutral-500);
           font-size: 14px;
         }
-        
-        /* Modal Styles */
-        .modal-overlay {
-          position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-          background: rgba(0,0,0,0.5);
-          display: flex; align-items: center; justify-content: center;
-          z-index: 1000;
-          opacity: 0; pointer-events: none; transition: 0.2s;
-        }
-        .modal-overlay.active { opacity: 1; pointer-events: auto; }
-        
-        .modal {
-          background: var(--shiro);
-          width: 400px; max-width: 90%;
-          border-radius: 12px;
-          box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-          overflow: hidden;
-          transform: translateY(10px); transition: 0.2s;
-        }
-        .modal-overlay.active .modal { transform: translateY(0); }
-        
-        .modal-header {
-          padding: 16px 24px;
-          border-bottom: 1px solid var(--neutral-300);
-          display: flex; justify-content: space-between; align-items: center;
-        }
-        .modal-header h3 { margin: 0; font-size: 16px; font-weight: 600; }
-        .close-btn { background: none; border: none; cursor: pointer; color: var(--neutral-500); padding: 4px; display: flex; }
-        .close-btn:hover { color: var(--neutral-900); }
-        
-        .modal-body { padding: 24px; }
-        .form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; color: var(--neutral-700); }
-        .input-field {
-          width: 100%; height: 40px;
-          border: 1.5px solid var(--neutral-300); border-radius: 8px;
-          padding: 0 12px; font-size: 14px; font-family: var(--font-body); outline: none;
-        }
-        .input-field:focus { border-color: var(--ao); box-shadow: 0 0 0 3px rgba(26, 77, 181, 0.12); }
-        
-        .search-results {
-          margin-top: 8px; max-height: 160px; overflow-y: auto;
-          border: 1px solid var(--neutral-300); border-radius: 8px;
-          display: block; box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-        }
-        .search-result-item {
-          padding: 10px 12px; font-size: 13px; cursor: pointer;
-          border-bottom: 1px solid var(--neutral-100);
-        }
-        .search-result-item:last-child { border-bottom: none; }
-        .search-result-item:hover, .search-result-item.selected { background: var(--neutral-50); }
-        .search-result-item .academy { font-size: 11px; color: var(--neutral-500); margin-top: 2px; }
-        
-        .modal-footer {
-          padding: 16px 24px; border-top: 1px solid var(--neutral-300);
-          background: var(--neutral-50); display: flex; justify-content: flex-end; gap: 12px;
-        }
-        .btn-secondary {
-          padding: 8px 16px; background: white; border: 1px solid var(--neutral-300);
-          border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.2s;
-        }
-        .btn-secondary:hover { background: var(--neutral-50); }
-        .btn-primary {
-          padding: 8px 16px; background: var(--ao); color: white; border: none;
-          border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.2s;
-        }
-        .btn-primary:hover { background: #153c8e; }
-        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
         @media (max-width: 1100px) {
           .medals-layout { grid-template-columns: 1fr; }
           .category-panel {
             position: static;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            display: flex;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            max-height: none;
             gap: var(--space-2);
+            padding-bottom: var(--space-4);
           }
-          .category-button { margin-bottom: 0; }
+          .category-button { margin-bottom: 0; min-width: 220px; }
         }
       `}} />
 
@@ -469,7 +401,7 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
             <div className="breadcrumb">
               <Link href="/competitions" style={{ color: 'inherit', textDecoration: 'none' }}>Competitions</Link> / {id} / Operations
             </div>
-            <h1>Medal Tracking</h1>
+            <h1>Pool Winners & Finals</h1>
           </div>
         </header>
 
@@ -477,8 +409,8 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
           <PageSkeleton />
         ) : categories.length === 0 ? (
           <div className="card" style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
-            <h3 style={{ color: 'var(--neutral-900)', marginBottom: '8px' }}>No Categories Found</h3>
-            <p style={{ color: 'var(--neutral-500)' }}>Deploy the tournament setup to generate categories and track medals.</p>
+            <h3 style={{ color: 'var(--neutral-900)', marginBottom: '8px' }}>No Live or Completed Categories</h3>
+            <p style={{ color: 'var(--neutral-500)' }}>Only categories that are currently live or completed will appear here.</p>
           </div>
         ) : (
           <section className="medals-layout">
@@ -495,7 +427,7 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
                   <div className="category-name">{cat.name}</div>
                   <div className="category-meta">
                     <span>{cat.mat}</span>
-                    <span>{cat.status}</span>
+                    <span className={cat.status === 'completed' ? 'status-completed' : 'status-live'}>{cat.status}</span>
                   </div>
                 </button>
               ))}
@@ -505,7 +437,7 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
               <div className="medals-panel-header">
                 <div>
                   <h2>{activeCategory?.name}</h2>
-                  <div className="text-small">{activeCategory?.mat} • {activeCategory?.status} • {filteredWinners.length} medal winners</div>
+                  <div className="text-small">{activeCategory?.mat} • {activeCategory?.status} • {totalWinnersCount} pool winners</div>
                 </div>
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
                   <div className="search-wrap">
@@ -518,15 +450,19 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
                       onChange={e => setSearchQuery(e.target.value)}
                     />
                   </div>
-                  <button className="add-btn" onClick={openAddModal}>
-                    <Plus size={16} /> Add Medalist
+                  <button className="btn-action" onClick={() => setSpecialModalOpen(true)}>
+                    <Zap size={16} /> Create Finals Tiesheet
                   </button>
                 </div>
               </div>
 
               <div className="table-responsive">
               {poolKeys.length === 0 ? (
-                <div className="empty-state">No medal winners found for this filter.</div>
+                <div className="empty-state">
+                  <Trophy size={48} style={{ opacity: 0.2, margin: '0 auto 16px auto', display: 'block' }} />
+                  <div>No pool winners have been determined yet.</div>
+                  <div style={{ fontSize: '12px', marginTop: '4px' }}>Wait for the final matches in the pools to complete.</div>
+                </div>
               ) : (
                 poolKeys.map(poolKey => (
                   <div key={poolKey} style={{ marginBottom: '24px' }}>
@@ -545,7 +481,7 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
                       gap: '8px'
                     }}>
                       <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: 'var(--ao)' }}></span>
-                      {poolKey === 'No Pool' ? 'General' : `Pool ${poolKey}`}
+                      {poolKey === 'General' ? 'General' : `Pool ${poolKey}`}
                       <span style={{ fontWeight: 500, color: 'var(--neutral-400)', fontSize: '11px', textTransform: 'none', letterSpacing: 0 }}>({winnersByPool[poolKey].length} winner{winnersByPool[poolKey].length !== 1 ? 's' : ''})</span>
                     </div>
                     <table className="medal-table">
@@ -555,7 +491,6 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
                           <th className="text-micro">Academy</th>
                           <th className="text-micro">Medal</th>
                           <th className="text-micro">Medal Received</th>
-                          <th className="text-micro" style={{ width: '40px' }}></th>
                         </tr>
                       </thead>
                       <tbody>
@@ -568,22 +503,17 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
                               <div className="medal-control">
                                 <button 
                                   className={`medal-btn received ${athlete.medal === 'received' ? 'active' : ''}`}
-                                  onClick={() => handleMedalStatusChange(athlete.id, 'received')}
+                                  onClick={() => updateAthleteMedalStatus(athlete.id, 'received')}
                                 >
                                   Received
                                 </button>
                                 <button 
                                   className={`medal-btn not-received ${athlete.medal === 'not-received' ? 'active' : ''}`}
-                                  onClick={() => handleMedalStatusChange(athlete.id, 'not-received')}
+                                  onClick={() => updateAthleteMedalStatus(athlete.id, 'not-received')}
                                 >
                                   Not Received
                                 </button>
                               </div>
-                            </td>
-                            <td style={{ textAlign: 'right' }}>
-                              <button className="remove-btn" title="Remove Medalist" onClick={() => openDeleteModal(athlete.id)}>
-                                <Trash2 size={16} />
-                              </button>
                             </td>
                           </tr>
                         ))}
@@ -598,75 +528,17 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
         )}
       </main>
 
-      {/* Delete Confirmation Modal */}
-      <div className={`modal-overlay ${deleteModalOpen ? 'active' : ''}`} onClick={(e) => e.target === e.currentTarget && setDeleteModalOpen(false)}>
-        <div className="modal">
-          <div className="modal-header">
-            <h3>Remove Medalist</h3>
-            <button className="close-btn" onClick={() => setDeleteModalOpen(false)}><X size={20} /></button>
-          </div>
-          <div className="modal-body">
-            <p style={{ fontSize: '14px', color: 'var(--neutral-700)', margin: 0, lineHeight: 1.5 }}>
-              Are you sure you want to remove this athlete from the medals list?
-            </p>
-          </div>
-          <div className="modal-footer">
-            <button className="btn-secondary" onClick={() => setDeleteModalOpen(false)}>Cancel</button>
-            <button className="btn-primary" style={{ background: 'var(--aka)', color: 'white' }} onClick={confirmDelete}>Remove</button>
-          </div>
-        </div>
-      </div>
-
-      {/* Add Medalist Modal */}
-      <div className={`modal-overlay ${addModalOpen ? 'active' : ''}`} onClick={(e) => e.target === e.currentTarget && setAddModalOpen(false)}>
-        <div className="modal">
-          <div className="modal-header">
-            <h3>Add Medalist</h3>
-            <button className="close-btn" onClick={() => setAddModalOpen(false)}><X size={20} /></button>
-          </div>
-          <div className="modal-body">
-            <div className="form-group">
-              <label>Search Athlete</label>
-              <input 
-                type="text" 
-                className="input-field" 
-                placeholder="Type athlete name..."
-                value={selectedAthleteForModal ? selectedAthleteForModal.name : modalSearch}
-                onChange={(e) => {
-                  setModalSearch(e.target.value);
-                  setSelectedAthleteForModal(null);
-                }}
-              />
-              {modalSearch && !selectedAthleteForModal && (
-                <div className="search-results" style={{ display: 'block' }}>
-                  {availableAthletesForModal.length > 0 ? (
-                    availableAthletesForModal.map(a => (
-                      <div key={a.id} className="search-result-item" onClick={() => setSelectedAthleteForModal(a)}>
-                        <div>{a.name}</div>
-                        <div className="academy">{a.academy}</div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="search-result-item" style={{ color: 'var(--neutral-500)', cursor: 'default' }}>No matching athletes</div>
-                  )}
-                </div>
-              )}
-            </div>
-            <div className="form-group" style={{ marginTop: '16px' }}>
-              <label>Select Medal</label>
-              <select className="input-field" value={modalMedal} onChange={e => setModalMedal(e.target.value as any)}>
-                <option value="Gold">Gold</option>
-                <option value="Silver">Silver</option>
-                <option value="Bronze">Bronze</option>
-              </select>
-            </div>
-          </div>
-          <div className="modal-footer">
-            <button className="btn-secondary" onClick={() => setAddModalOpen(false)}>Cancel</button>
-            <button className="btn-primary" disabled={!selectedAthleteForModal} onClick={addMedalist}>Add Medalist</button>
-          </div>
-        </div>
-      </div>
+      {specialModalOpen && (
+        <SpecialCategoryModal
+          competitionId={id}
+          existingSpecialCats={specialCategoriesList}
+          standardCategories={categories}
+          onClose={() => setSpecialModalOpen(false)}
+          onCreated={(catId) => {
+            // The modal handles creation, we can just optionally navigate or do nothing
+          }}
+        />
+      )}
     </>
   );
 }
