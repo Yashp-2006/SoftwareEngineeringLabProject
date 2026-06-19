@@ -105,12 +105,12 @@ export function parseExcel(buffer: ArrayBuffer): AthleteRow[] {
           }
         }
         
-        if (k.includes('coach') || k.includes('instructor')) {
-          coachName = String(row[k]);
-        } else if (k.includes('phone') || k.includes('mobile') || k.includes('contact')) {
+        if (!phone && (k.includes('phone') || k.includes('mobile') || k.includes('contact') || k.includes('no.'))) {
           phone = String(row[k]);
-        } else if (k.includes('email') || k.includes('mail')) {
+        } else if (!email && (k.includes('email') || k.includes('mail'))) {
           email = String(row[k]);
+        } else if (!coachName && (k.includes('coach') || k.includes('instructor'))) {
+          coachName = String(row[k]);
         }
       }
 
