@@ -249,7 +249,6 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
     else if (akaScore === 0 && aoScore === 0) myVote = 'tie';
   }
 
-  const hasActiveMatch = liveData?.matchId && (liveData.akaName || liveData.aoName);
   const akaName = liveData?.akaName || 'AKA';
   const aoName = liveData?.aoName || 'AO';
 
@@ -274,38 +273,23 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '24px', overflow: 'hidden' }}>
         {loading ? (
           <PageSkeleton darkMode={true} />
-        ) : !hasActiveMatch ? (
-          /* ─── No Active Match: Show AKA vs AO placeholders ─── */
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '24px' }}>
-            <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
-              <div style={{ width: '120px', height: '120px', borderRadius: '24px', background: 'rgba(217,38,44,0.15)', border: '2px solid var(--aka)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ fontSize: '32px', fontWeight: 900, color: 'var(--aka)' }}>AKA</div>
-              </div>
-              <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--neutral-500)' }}>VS</div>
-              <div style={{ width: '120px', height: '120px', borderRadius: '24px', background: 'rgba(26,77,181,0.15)', border: '2px solid var(--ao)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ fontSize: '32px', fontWeight: 900, color: 'var(--ao)' }}>AO</div>
-              </div>
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--neutral-300)', marginBottom: '8px' }}>Waiting for Match on {matId}</div>
-              <div style={{ fontSize: '14px', color: 'var(--neutral-500)' }}>The operator will load the next match. Your voting buttons will activate automatically.</div>
-            </div>
-          </div>
         ) : (
-          /* ─── Active Match: Show voting flags ─── */
+          /* ─── Always Show voting flags ─── */
           <>
             {/* Competitor names banner */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', padding: '12px 16px', background: 'rgba(255,255,255,0.05)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'var(--aka)' }} />
-                <span style={{ fontWeight: 800, fontSize: '15px' }}>{akaName}</span>
+            {(liveData?.matchId || liveData?.akaName || liveData?.aoName) && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', padding: '12px 16px', background: 'rgba(255,255,255,0.05)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'var(--aka)' }} />
+                  <span style={{ fontWeight: 800, fontSize: '15px' }}>{akaName}</span>
+                </div>
+                <span style={{ fontSize: '12px', color: 'var(--neutral-500)', fontWeight: 700, letterSpacing: '0.1em' }}>VS</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontWeight: 800, fontSize: '15px' }}>{aoName}</span>
+                  <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'var(--ao)' }} />
+                </div>
               </div>
-              <span style={{ fontSize: '12px', color: 'var(--neutral-500)', fontWeight: 700, letterSpacing: '0.1em' }}>VS</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontWeight: 800, fontSize: '15px' }}>{aoName}</span>
-                <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'var(--ao)' }} />
-              </div>
-            </div>
+            )}
 
             {/* 5-second countdown overlay */}
             {liveData?.boutFinished && voteCountdown !== null && voteCountdown > 0 && (
