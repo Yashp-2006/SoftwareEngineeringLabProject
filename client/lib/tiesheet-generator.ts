@@ -140,9 +140,27 @@ export function parseExcel(buffer: ArrayBuffer): AthleteRow[] {
              const actualDate = new Date(excelEpoch.getTime() + Number(dobVal) * 86400000);
              parsedAge = new Date().getFullYear() - actualDate.getFullYear(); // Excel serial date
           } else {
-            const d = new Date(String(dobVal));
-            if (!isNaN(d.getTime())) {
-              parsedAge = new Date().getFullYear() - d.getFullYear(); // Parsable date string
+            const strVal = String(dobVal).trim();
+            const parts = strVal.split(/[-/\s]+/);
+            if (parts.length === 3) {
+              const p1 = Number(parts[0]);
+              // const p2 = Number(parts[1]); // Not strictly needed for age
+              const p3 = Number(parts[2]);
+              
+              let year = -1;
+              if (p1 > 1900) year = p1; // YYYY-MM-DD
+              else if (p3 > 1900) year = p3; // DD-MM-YYYY or MM/DD/YYYY
+              
+              if (year > 1900 && year <= new Date().getFullYear()) {
+                parsedAge = new Date().getFullYear() - year;
+              }
+            }
+            
+            if (isNaN(parsedAge)) {
+              const d = new Date(strVal);
+              if (!isNaN(d.getTime())) {
+                parsedAge = new Date().getFullYear() - d.getFullYear(); // Parsable date string fallback
+              }
             }
           }
         }

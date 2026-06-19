@@ -78,12 +78,20 @@ export default function CompetitionLayout({
         )}
 
         {showAthletes && (
-          <Link
-            href={`/competitions/${id}/athletes${joinParam}`}
-            className={`sub-nav-link ${isActive('/athletes') ? 'active' : ''}`}
-          >
-            Athletes
-          </Link>
+          <>
+            <Link
+              href={`/competitions/${id}/athletes${joinParam}`}
+              className={`sub-nav-link ${isActive('/athletes') ? 'active' : ''}`}
+            >
+              Athletes
+            </Link>
+            <Link
+              href={`/competitions/${id}/records${joinParam}`}
+              className={`sub-nav-link ${isActive('/records') ? 'active' : ''}`}
+            >
+              Records
+            </Link>
+          </>
         )}
 
         {showMedals && (
