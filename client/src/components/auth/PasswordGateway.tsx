@@ -19,12 +19,11 @@ export default function PasswordGateway({ children }: { children: React.ReactNod
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [targetName, setTargetName] = useState('Loading...');
-  const { role } = useAuth();
 
   useEffect(() => {
-    // Check if session storage already has the password authorized or if admin/viewer
+    // Check if session storage already has the password authorized
     const authed = sessionStorage.getItem(authKey);
-    if (authed === 'true' || role === 'admin' || role === 'audience' || role === 'guest_viewer' || !role) {
+    if (authed === 'true') {
       setIsAuthenticated(true);
     }
     
@@ -47,7 +46,7 @@ export default function PasswordGateway({ children }: { children: React.ReactNod
       }
     };
     fetchTarget();
-  }, [id, matId, authKey, role]);
+  }, [id, matId, authKey]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

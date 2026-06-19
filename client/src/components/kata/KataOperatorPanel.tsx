@@ -110,6 +110,40 @@ export default function KataOperatorPanel({
     [competitionId, matId]
   );
 
+  // Hydrate from RTDB on mount
+  useEffect(() => {
+    const hydrate = async () => {
+      try {
+        const { rtdb } = await import('@lib/firebase');
+        const { ref, get } = await import('firebase/database');
+        const r = ref(rtdb, `live_scores/${competitionId}/mats/${matId}`);
+        const snap = await get(r);
+        if (snap.exists()) {
+          const d = snap.val();
+          if (d.matchId === matchId && d.isKata) {
+            if (d.selectedKata) {
+              setSelectedKata(d.selectedKata);
+              setBoutStarted(true);
+            }
+            if (d.phase) setPhase(d.phase);
+            if (d.boutFinished) setBoutFinished(true);
+            if (d.kataWinner) setKataWinner(d.kataWinner);
+            if (d.kataScores) {
+               setAkaScores(d.kataScores.aka || initJudgeScores(numberOfJudges));
+               setAoScores(d.kataScores.ao || initJudgeScores(numberOfJudges));
+            }
+            if (d.fouls) setFouls({ aka: d.fouls.aka || [], ao: d.fouls.ao || [] });
+            if (d.isDQ) setIsDQ({ aka: !!d.isDQ.aka, ao: !!d.isDQ.ao });
+            if (d.kataVotes) setVoteResult({ aka: d.kataVotes.aka, ao: d.kataVotes.ao, tied: [] });
+          }
+        }
+      } catch (err) {
+        console.error('Failed to hydrate Kata state', err);
+      }
+    };
+    hydrate();
+  }, [competitionId, matId, matchId, numberOfJudges]);
+
   // Load kata usage history for repetition enforcement
   useEffect(() => {
     const load = async () => {
@@ -218,15 +252,14 @@ export default function KataOperatorPanel({
       return;
     }
 
-    try {
-      await fetch(`/api/competitions/${competitionId}/brackets/${categoryId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ matchId, selectedKata })
-      });
-    } catch (e) {
+    // Fire and forget API patch to prevent UI blocking
+    fetch(`/api/competitions/${competitionId}/brackets/${categoryId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ matchId, selectedKata })
+    }).catch(e => {
       console.error('Failed to save kata selection to match document', e);
-    }
+    });
 
     await syncRTDB({
       isKata: true,

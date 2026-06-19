@@ -81,21 +81,35 @@ const BracketNode = ({
           {match.aka && (
             <div className="metrics-row">
               {isKata ? (
-                <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-500)', padding: '6px 12px', background: 'var(--neutral-50)', borderRadius: '6px', marginTop: '4px', width: 'fit-content' }}>
-                  Kata Name: <span style={{ color: 'var(--aka)', fontWeight: 700 }}>{match.selectedKata?.aka?.name ? match.selectedKata.aka.name : 'Not Selected'}</span>
+                <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-500)', padding: '4px 10px', background: 'var(--neutral-50)', borderRadius: '6px', marginTop: '4px', width: 'fit-content' }}>
+                  {match.selectedKata?.aka?.name ? (
+                    <>Kata: <span style={{ color: 'var(--aka)', fontWeight: 700 }}>{match.selectedKata.aka.name}</span></>
+                  ) : (
+                    <span style={{ color: 'var(--neutral-400)' }}>&mdash;</span>
+                  )}
                 </div>
               ) : (
-                METRICS.map(m => (
-                  <React.Fragment key={m}>
-                    <MetricTag label={m} isAo={false} />
-                    {m === 'I' && <div style={{ width: 24 }} />}
-                  </React.Fragment>
-                ))
+                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '4px' }}>
+                  {match.akaIppon > 0 && <span className="stat-chip">I:{match.akaIppon}</span>}
+                  {match.akaWazaari > 0 && <span className="stat-chip">W:{match.akaWazaari}</span>}
+                  {match.akaYuko > 0 && <span className="stat-chip">Y:{match.akaYuko}</span>}
+                  {match.akaSenshu && <span className="stat-chip" style={{ background: '#fef3c7', color: '#b45309' }}>SENSHU</span>}
+                  {match.akaC1 > 0 && <span className="stat-chip" style={{ background: '#fee2e2', color: '#dc2626' }}>C1:{match.akaC1}</span>}
+                  {match.akaC2 > 0 && <span className="stat-chip" style={{ background: '#fee2e2', color: '#dc2626' }}>C2:{match.akaC2}</span>}
+                  {!match.akaIppon && !match.akaWazaari && !match.akaYuko && !match.akaSenshu && !match.akaC1 && !match.akaC2 && (
+                    METRICS.map(m => (
+                      <React.Fragment key={m}>
+                        <MetricTag label={m} isAo={false} />
+                        {m === 'I' && <div style={{ width: 16 }} />}
+                      </React.Fragment>
+                    ))
+                  )}
+                </div>
               )}
             </div>
           )}
         </div>
-        <div className="comp-score">{(match.akaScore !== undefined && match.akaScore !== null && match.akaScore !== '') ? match.akaScore : (match.aka ? 0 : '')}</div>
+        <div className="comp-score">{(match.akaScore !== undefined && match.akaScore !== null && match.akaScore !== '') ? match.akaScore : ''}</div>
       </div>
 
       {/* AO Row */}
@@ -114,21 +128,35 @@ const BracketNode = ({
           {match.ao && (
             <div className="metrics-row">
               {isKata ? (
-                <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-500)', padding: '6px 12px', background: 'var(--neutral-50)', borderRadius: '6px', marginTop: '4px', width: 'fit-content' }}>
-                  Kata Name: <span style={{ color: 'var(--ao)', fontWeight: 700 }}>{match.selectedKata?.ao?.name ? match.selectedKata.ao.name : 'Not Selected'}</span>
+                <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-500)', padding: '4px 10px', background: 'var(--neutral-50)', borderRadius: '6px', marginTop: '4px', width: 'fit-content' }}>
+                  {match.selectedKata?.ao?.name ? (
+                    <>Kata: <span style={{ color: 'var(--ao)', fontWeight: 700 }}>{match.selectedKata.ao.name}</span></>
+                  ) : (
+                    <span style={{ color: 'var(--neutral-400)' }}>&mdash;</span>
+                  )}
                 </div>
               ) : (
-                METRICS.map(m => (
-                  <React.Fragment key={m}>
-                    <MetricTag label={m} isAo={true} />
-                    {m === 'I' && <div style={{ width: 24 }} />}
-                  </React.Fragment>
-                ))
+                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '4px' }}>
+                  {match.aoIppon > 0 && <span className="stat-chip">I:{match.aoIppon}</span>}
+                  {match.aoWazaari > 0 && <span className="stat-chip">W:{match.aoWazaari}</span>}
+                  {match.aoYuko > 0 && <span className="stat-chip">Y:{match.aoYuko}</span>}
+                  {match.aoSenshu && <span className="stat-chip" style={{ background: '#fef3c7', color: '#b45309' }}>SENSHU</span>}
+                  {match.aoC1 > 0 && <span className="stat-chip" style={{ background: '#fee2e2', color: '#dc2626' }}>C1:{match.aoC1}</span>}
+                  {match.aoC2 > 0 && <span className="stat-chip" style={{ background: '#fee2e2', color: '#dc2626' }}>C2:{match.aoC2}</span>}
+                  {!match.aoIppon && !match.aoWazaari && !match.aoYuko && !match.aoSenshu && !match.aoC1 && !match.aoC2 && (
+                    METRICS.map(m => (
+                      <React.Fragment key={m}>
+                        <MetricTag label={m} isAo={true} />
+                        {m === 'I' && <div style={{ width: 16 }} />}
+                      </React.Fragment>
+                    ))
+                  )}
+                </div>
               )}
             </div>
           )}
         </div>
-        <div className="comp-score">{(match.aoScore !== undefined && match.aoScore !== null && match.aoScore !== '') ? match.aoScore : (match.ao ? 0 : '')}</div>
+        <div className="comp-score">{(match.aoScore !== undefined && match.aoScore !== null && match.aoScore !== '') ? match.aoScore : ''}</div>
       </div>
 
       {/* Match Footer */}
@@ -829,6 +857,7 @@ export default function FullscreenBracketModal({
         .metric-tag { padding: 2px 6px; border-radius: 4px; background: var(--neutral-100); color: var(--neutral-500); font-size: 9px; font-weight: 800; }
         .metric-tag.active-aka { background: var(--aka); color: var(--shiro); }
         .metric-tag.active-ao { background: var(--ao); color: var(--shiro); }
+        .stat-chip { display: inline-flex; align-items: center; gap: 2px; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 800; background: var(--neutral-100); color: var(--neutral-600); }
         .comp-score { font-family: var(--font-display); font-size: 24px; font-weight: 800; color: var(--neutral-900); display: flex; align-items: center; padding-left: 16px; }
 
         /* Match footer */

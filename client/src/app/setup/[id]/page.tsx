@@ -7,6 +7,7 @@ import { ArrowRight, Save, CheckCircle, Combine, Plus, Edit2, Trash2, Star, File
 import FullscreenBracketModal from '@/components/FullscreenBracketModal';
 import UndersizedPoolsModal from '@/components/UndersizedPoolsModal';
 import StaffAssignmentManager from '@/components/StaffAssignmentManager';
+import PageSkeleton from '@/components/layout/PageSkeleton';
 import { toast } from 'react-hot-toast';
 import ConfirmModal from '@/components/ConfirmModal';
 
@@ -24,7 +25,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
   const [deploying, setDeploying] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [importResult, setImportResult] = useState<{categoriesTotal: number; athletesImported: number} | null>(null);
-  const [modalType, setModalType] = useState<'standard'|'merge'|'bulkPassword'|null>(null);
+  const [modalType, setModalType] = useState<'standard'|'merge'|'bulkPassword'|'onspot'|null>(null);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [undersizedModalOpen, setUndersizedModalOpen] = useState(false);
   const [previewCatId, setPreviewCatId] = useState<string | null>(null);
@@ -933,6 +934,9 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                       <p className="text-small">{compRules === 'wkf' ? 'Generic weight and age divisions without complex prerequisite rules.' : 'Divisions for the tournament.'}</p>
                     </div>
                     <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                      <button className="btn btn-ghost" style={{ color: 'var(--status-live)', border: '1px dashed var(--status-live)' }} onClick={() => setModalType('onspot')}>
+                        <Plus size={16} /> On-Spot Entry
+                      </button>
                       {compRules === 'wkf' ? (
                         <button className="btn btn-secondary" onClick={handleMerge} disabled={selectedCats.size < 2}>
                           <Combine size={16} /> Merge Selected
@@ -1243,7 +1247,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
               )}
               <div className="category-manager">
                 <div className="cat-group">
-                  <StaffAssignmentManager competitionId={id} />
+                  <StaffAssignmentManager competitionId={id} isSetupMode={true} />
                 </div>
               </div>
             </section>
@@ -1259,6 +1263,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
               {modalType === 'standard' && 'Add Category'}
               {modalType === 'merge' && 'Merge Categories'}
               {modalType === 'bulkPassword' && 'Bulk Set Mat Passwords'}
+              {modalType === 'onspot' && 'On-Spot Entry'}
             </h3>
             <button className="close-btn" onClick={() => { setModalType(null); setModalFormData({}); }}><X size={16} /></button>
           </div>
@@ -1349,6 +1354,57 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                 <p className="text-small" style={{ color: 'var(--neutral-500)' }}>This will overwrite the password for all {matsCount} mats.</p>
               </>
             )}
+
+            {modalType === 'onspot' && (
+              <>
+                <div className="form-group">
+                  <label>Category</label>
+                  <select className="input-field" style={{ background: 'white' }} value={modalFormData.categoryId || ''} onChange={e => setModalFormData({...modalFormData, categoryId: e.target.value})}>
+                    <option value="">Select a category</option>
+                    {categories.map(cat => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Athlete Name</label>
+                  <input type="text" className="input-field" placeholder="e.g. John Doe" value={modalFormData.athleteName || ''} onChange={e => setModalFormData({...modalFormData, athleteName: e.target.value})} />
+                </div>
+                <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+                  <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                    <label>Academy / Club</label>
+                    <input type="text" className="input-field" placeholder="e.g. Tokyo Karate Club" value={modalFormData.academy || ''} onChange={e => setModalFormData({...modalFormData, academy: e.target.value})} />
+                  </div>
+                  <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                    <label>State / Country</label>
+                    <input type="text" className="input-field" placeholder="e.g. Maharashtra" value={modalFormData.state || ''} onChange={e => setModalFormData({...modalFormData, state: e.target.value})} />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+                  <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                    <label>Age</label>
+                    <input type="number" className="input-field" placeholder="18" value={modalFormData.age || ''} onChange={e => setModalFormData({...modalFormData, age: e.target.value})} />
+                  </div>
+                  <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                    <label>Weight (kg)</label>
+                    <input type="number" className="input-field" placeholder="75" value={modalFormData.weight || ''} onChange={e => setModalFormData({...modalFormData, weight: e.target.value})} />
+                  </div>
+                  <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                    <label>Gender</label>
+                    <select className="input-field" style={{ background: 'white' }} value={modalFormData.athleteGender || ''} onChange={e => setModalFormData({...modalFormData, athleteGender: e.target.value})}>
+                      <option value="">Any</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                    </select>
+                  </div>
+                </div>
+                <div style={{ padding: '12px', background: 'var(--neutral-50)', borderRadius: '8px', border: '1px dashed var(--neutral-300)' }}>
+                  <p className="text-small" style={{ margin: 0, color: 'var(--neutral-500)' }}>
+                    <strong>On-Spot Entry:</strong> This athlete will be added directly to the selected category. The tiesheet will need to be regenerated to include them.
+                  </p>
+                </div>
+              </>
+            )}
           </div>
           <div className="modal-footer">
             <button className="btn btn-secondary" onClick={() => { setModalType(null); setModalFormData({}); }}>Cancel</button>
@@ -1401,6 +1457,41 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                 } catch (err) {
                   console.error(err);
                   toast.error('Failed to bulk set passwords.');
+                }
+              } else if (modalType === 'onspot' && modalFormData.athleteName && modalFormData.categoryId) {
+                try {
+                  const { db } = await import('@lib/firebase');
+                  const { doc, setDoc, updateDoc, increment } = await import('firebase/firestore');
+                  
+                  const athleteId = `onspot-${Date.now()}`;
+                  const athleteData = {
+                    name: modalFormData.athleteName.trim(),
+                    academy: modalFormData.academy?.trim() || '',
+                    state: modalFormData.state?.trim() || '',
+                    age: modalFormData.age ? parseInt(modalFormData.age) : null,
+                    weight: modalFormData.weight ? parseFloat(modalFormData.weight) : null,
+                    gender: modalFormData.athleteGender || 'Any',
+                    categoryId: modalFormData.categoryId,
+                    isOnSpot: true,
+                    createdAt: new Date().toISOString(),
+                  };
+
+                  await setDoc(doc(db, 'competitions', id, 'athletes', athleteId), athleteData);
+                  
+                  // Increment the category entries count
+                  const catRef = doc(db, 'competitions', id, 'categories', modalFormData.categoryId);
+                  await updateDoc(catRef, { entries: increment(1) }).catch(() => {
+                    // If the category doc doesn't exist yet, create it
+                    setDoc(catRef, { entries: 1 }, { merge: true });
+                  });
+
+                  // Also update local state
+                  setCategories(prev => prev.map(c => c.id === modalFormData.categoryId ? { ...c, entries: (c.entries || 0) + 1 } : c));
+                  
+                  toast.success(`${modalFormData.athleteName} added on-spot to ${categories.find(c => c.id === modalFormData.categoryId)?.name || 'category'}!`);
+                } catch (err) {
+                  console.error('On-spot entry failed:', err);
+                  toast.error('Failed to add on-spot entry.');
                 }
               }
               setModalType(null);
@@ -1456,11 +1547,7 @@ function SetupBracketPreview({ competitionId, initialCategoryId, onClose }: {
     return () => unsub?.();
   }, [competitionId]);
 
-  if (loading) return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ background: 'white', borderRadius: '16px', padding: '32px', fontSize: '16px', fontWeight: 600 }}>Loading brackets…</div>
-    </div>
-  );
+  if (loading) return <PageSkeleton />;
 
   if (categories.length === 0) return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

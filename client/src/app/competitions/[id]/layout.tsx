@@ -23,7 +23,7 @@ export default function CompetitionLayout({
   // Role-based visibility
   const isAdminOrGuest = role === 'admin' || role === 'guest_viewer';
   const showCategories = isAdminOrGuest;
-  const showStaff = isAdminOrGuest;
+  const showStaff = true;
   const showAthletes = isAdminOrGuest || role === 'attendance_volunteer';
   const showMedals = isAdminOrGuest || role === 'medal_distributor';
   const showOperator = role === 'admin' || role === 'mat_operator';

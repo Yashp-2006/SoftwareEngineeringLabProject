@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Search, Plus, X, Trash2 } from 'lucide-react';
+import PageSkeleton from '@/components/layout/PageSkeleton';
 
 interface Athlete {
   id: string;
@@ -473,9 +474,7 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
         </header>
 
         {loading ? (
-          <div style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--neutral-500)' }}>
-            Loading categories and medals...
-          </div>
+          <PageSkeleton />
         ) : categories.length === 0 ? (
           <div className="card" style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
             <h3 style={{ color: 'var(--neutral-900)', marginBottom: '8px' }}>No Categories Found</h3>

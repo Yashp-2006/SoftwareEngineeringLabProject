@@ -27,8 +27,8 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
   }, []);
   
   // State
-  const [aka, setAka] = useState({ name: 'AKA', country: '', academy: '', score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false });
-  const [ao, setAo] = useState({ name: 'AO', country: '', academy: '', score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false });
+  const [aka, setAka] = useState({ name: 'AKA', country: '', academy: '', score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: '' });
+  const [ao, setAo] = useState({ name: 'AO', country: '', academy: '', score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: '' });
   const [timer, setTimer] = useState(180);
   const [matchDuration, setMatchDuration] = useState(180); // configurable
   const [running, setRunning] = useState(false);
@@ -265,21 +265,83 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
     setupQueue();
     return () => unsubscribe();
   }, [id]);
-
-  const loadMatch = (m: any) => {
+  const loadMatch = (m: any, isHydrating = false) => {
     setActiveMatchId(m.id);
-    setAka({ name: m.aka, country: m.akaCountry, academy: m.akaAcademy, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false });
-    setAo({ name: m.ao, country: m.aoCountry, academy: m.aoAcademy, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false });
+    setAka({ name: m.aka, country: m.akaCountry, academy: m.akaAcademy, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: m.akaId });
+    setAo({ name: m.ao, country: m.aoCountry, academy: m.aoAcademy, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: m.aoId });
     setTimer(matchDuration);
     setStatus('upcoming');
     setRound(1);
     setWinnerState(null);
+
+    const isKata = activeCategoryData?.isKata || activeCategoryName?.toLowerCase().includes('kata');
+
+    if (!isViewer && !isHydrating) {
+      try {
+        syncRTDB({
+          matchId: m.id,
+          categoryId: activeCategoryId,
+          displayId: m.displayId || m.id,
+          aka: m.aka || 'Empty',
+          ao: m.ao || 'Empty',
+          akaScore: 0,
+          aoScore: 0,
+          akaPenalties: 0,
+          aoPenalties: 0,
+          timer: matchDuration,
+          running: false,
+          status: 'upcoming',
+          round: 1,
+          isKata: !!isKata,
+          boutFinished: false,
+          winnerState: null,
+          kataScores: null,
+          kataVotes: null,
+          kataWinner: null,
+          selectedKata: null,
+          phase: 'kata'
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
   };
 
   useEffect(() => {
+    const matIdParam = new URLSearchParams(window.location.search).get('mat') || 'mat-1';
+
     if (queue.length > 0 && !activeMatchId) {
-      loadMatch(queue[0]);
+      const storedMatchId = sessionStorage.getItem(`activeMatch_${matIdParam}`);
+      const exists = queue.find(m => m.id === storedMatchId);
+      
+      if (exists) {
+        loadMatch(exists, true);
+        // Hydrate operator local state from RTDB
+        if (!isViewer) {
+          import('firebase/database').then(({ ref, get }) => {
+            import('@lib/firebase').then(({ rtdb }) => {
+              get(ref(rtdb, `live_scores/${id}/mats/${matIdParam}`)).then((snap) => {
+                 if (snap.exists()) {
+                    const d = snap.val();
+                    if (d.matchId === exists.id) {
+                       setAka(prev => ({ ...prev, score: d.scores?.aka || 0, yuko: d.akaStats?.yuko || 0, waza: d.akaStats?.waza || 0, ippon: d.akaStats?.ippon || 0, senshu: d.akaStats?.senshu || false, c1: d.akaPenalties?.c1 || false, c2: d.akaPenalties?.c2 || false, c3: d.akaPenalties?.c3 || false, hc: d.akaPenalties?.hc || false, h: d.akaPenalties?.h || false }));
+                       setAo(prev => ({ ...prev, score: d.scores?.ao || 0, yuko: d.aoStats?.yuko || 0, waza: d.aoStats?.waza || 0, ippon: d.aoStats?.ippon || 0, senshu: d.aoStats?.senshu || false, c1: d.aoPenalties?.c1 || false, c2: d.aoPenalties?.c2 || false, c3: d.aoPenalties?.c3 || false, hc: d.aoPenalties?.hc || false, h: d.aoPenalties?.h || false }));
+                       if (d.timerSeconds !== undefined) setTimer(d.timerSeconds);
+                       if (d.timerRunning !== undefined) setRunning(d.timerRunning);
+                       if (d.status) {
+                          setStatus(d.status === 'live' || d.status === 'paused' ? 'upcoming' : d.status);
+                       }
+                    }
+                 }
+              });
+            });
+          });
+        }
+      } else {
+        loadMatch(queue[0]);
+      }
     } else if (queue.length > 0 && activeMatchId) {
+       sessionStorage.setItem(`activeMatch_${matIdParam}`, activeMatchId);
        // Keep names in sync if edited externally
        const m = queue.find(q => q.id === activeMatchId);
        if (m) {
@@ -287,7 +349,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
          setAo(p => ({ ...p, name: m.ao, country: m.aoCountry, academy: m.aoAcademy }));
        }
     }
-  }, [queue, activeMatchId]);
+  }, [queue, activeMatchId, id, isViewer]);
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
     setDraggedIdx(index);

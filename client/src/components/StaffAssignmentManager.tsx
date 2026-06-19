@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, X } from 'lucide-react';
 import gsap from 'gsap';
+import { useAuth } from '@/components/auth/AuthProvider';
 
 export interface StaffAssignment {
   id: string;
@@ -41,13 +42,17 @@ const INITIAL_DATA: StaffAssignment[] = [
   { id: 'j3', type: 'judge', scope: 'MAT 02', scopeSubtitle: 'Judge 1', operator: 'Unassigned', role: 'Judge', coverage: 'All Matches on Mat 2' },
 ];
 
-export default function StaffAssignmentManager({ competitionId }: { competitionId: string }) {
+export default function StaffAssignmentManager({ competitionId, isSetupMode = false }: { competitionId: string, isSetupMode?: boolean }) {
+  const { role } = useAuth();
+  const isAdmin = role === 'admin';
   const [staffData, setStaffData] = useState<StaffAssignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [selectedAssignmentId, setSelectedAssignmentId] = useState<string | null>(null);
   const [selectedPerson, setSelectedPerson] = useState('');
   const [coverageInput, setCoverageInput] = useState('');
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [categories, setCategories] = useState<{id: string, name: string}[]>([]);
   const [isSeeding, setIsSeeding] = useState(false);
 
   useEffect(() => {
@@ -65,6 +70,10 @@ export default function StaffAssignmentManager({ competitionId }: { competitionI
         setStaffData(staff);
         setLoading(false);
       });
+
+      const { getDocs } = await import('firebase/firestore');
+      const catSnap = await getDocs(collection(db, 'competitions', competitionId, 'categories'));
+      setCategories(catSnap.docs.map(doc => ({ id: doc.id, name: doc.data().name || doc.id })));
     };
 
     setup();
@@ -93,6 +102,12 @@ export default function StaffAssignmentManager({ competitionId }: { competitionI
     const assignment = staffData.find(s => s.id === assignId);
     setSelectedPerson(assignment?.operator !== 'Unassigned' ? assignment?.operator || '' : '');
     setCoverageInput(assignment?.coverage || '');
+    if (assignment?.type === 'medal') {
+      setSelectedCategories(assignment.coverage ? assignment.coverage.split(', ') : []);
+    } else if (assignment?.type === 'attendance') {
+      // Keep track of the selected scope for attendance in a separate state, or reuse coverageInput
+      setCoverageInput(assignment.scope || '');
+    }
     setAssignModalOpen(true);
   };
 
@@ -115,7 +130,9 @@ export default function StaffAssignmentManager({ competitionId }: { competitionI
     };
 
     if (assignment.type === 'medal') {
-      updates.coverage = coverageInput;
+      updates.coverage = selectedCategories.join(', ');
+    } else if (assignment.type === 'attendance') {
+      updates.scope = coverageInput;
     }
 
     // Optimistic
@@ -387,15 +404,23 @@ export default function StaffAssignmentManager({ competitionId }: { competitionI
                         {s.operatorSubtitle && <><br /><span className="staff-meta">{s.operatorSubtitle}</span></>}
                       </td>
                       <td data-label="Current Category">
-                        {s.coverage}
-                        {s.scopeSubtitle && <><br /><span className="staff-meta">{s.scopeSubtitle}</span></>}
+                        {!isSetupMode ? (
+                          <>
+                            {s.coverage || 'Not started'}
+                            {s.scopeSubtitle && <><br /><span className="staff-meta">{s.scopeSubtitle}</span></>}
+                          </>
+                        ) : (
+                          <span className="staff-meta" style={{ fontStyle: 'italic' }}>Live status hidden during setup</span>
+                        )}
                       </td>
                       <td data-label="Actions">
-                        <div className="staff-actions">
-                          <button className="btn btn-ghost" onClick={() => openModal(s.id)}>
-                            {s.operator === 'Unassigned' ? 'Assign' : 'Reassign'}
-                          </button>
-                        </div>
+                        {isAdmin && (
+                          <div className="staff-actions">
+                            <button className="btn btn-ghost" onClick={() => openModal(s.id)}>
+                              {s.operator === 'Unassigned' ? 'Assign' : 'Reassign'}
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -436,11 +461,13 @@ export default function StaffAssignmentManager({ competitionId }: { competitionI
                         {s.scopeSubtitle}
                       </td>
                       <td data-label="Actions">
-                        <div className="staff-actions">
-                          <button className="btn btn-ghost" onClick={() => openModal(s.id)}>
-                            {s.operator === 'Unassigned' ? 'Assign' : 'Reassign'}
-                          </button>
-                        </div>
+                        {isAdmin && (
+                          <div className="staff-actions">
+                            <button className="btn btn-ghost" onClick={() => openModal(s.id)}>
+                              {s.operator === 'Unassigned' ? 'Assign' : 'Reassign'}
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -478,15 +505,23 @@ export default function StaffAssignmentManager({ competitionId }: { competitionI
                         {s.operatorSubtitle && <><br /><span className="staff-meta">{s.operatorSubtitle}</span></>}
                       </td>
                       <td data-label="Check-in">
-                        <strong>{s.coverage}</strong>
-                        {s.scopeSubtitle && <><br /><span className="staff-meta">{s.scopeSubtitle}</span></>}
+                        {!isSetupMode ? (
+                          <>
+                            <strong>{s.coverage || '0 / 0'}</strong>
+                            {s.scopeSubtitle && <><br /><span className="staff-meta">{s.scopeSubtitle}</span></>}
+                          </>
+                        ) : (
+                          <span className="staff-meta" style={{ fontStyle: 'italic' }}>Live status hidden during setup</span>
+                        )}
                       </td>
                       <td data-label="Actions">
-                        <div className="staff-actions">
-                          <button className="btn btn-ghost" onClick={() => openModal(s.id)}>
-                            {s.operator === 'Unassigned' ? 'Assign' : 'Reassign'}
-                          </button>
-                        </div>
+                        {isAdmin && (
+                          <div className="staff-actions">
+                            <button className="btn btn-ghost" onClick={() => openModal(s.id)}>
+                              {s.operator === 'Unassigned' ? 'Assign' : 'Reassign'}
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -523,11 +558,13 @@ export default function StaffAssignmentManager({ competitionId }: { competitionI
                       </td>
                       <td data-label="Coverage">{s.coverage}</td>
                       <td data-label="Actions">
-                        <div className="staff-actions">
-                          <button className="btn btn-ghost" onClick={() => openModal(s.id)}>
-                            {s.operator === 'Unassigned' ? 'Assign' : 'Reassign'}
-                          </button>
-                        </div>
+                        {isAdmin && (
+                          <div className="staff-actions">
+                            <button className="btn btn-ghost" onClick={() => openModal(s.id)}>
+                              {s.operator === 'Unassigned' ? 'Assign' : 'Reassign'}
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -558,8 +595,42 @@ export default function StaffAssignmentManager({ competitionId }: { competitionI
             <div className="assign-grid">
               {activeAssignment?.type === 'medal' ? (
                 <div className="assign-field full">
-                  <label>Coverage (Categories)</label>
-                  <input type="text" placeholder="e.g. All Junior Categories" required value={coverageInput} onChange={e => setCoverageInput(e.target.value)} />
+                  <label>Coverage (Select Categories)</label>
+                  <div style={{ maxHeight: '150px', overflowY: 'auto', border: '1.5px solid var(--neutral-300)', borderRadius: '10px', padding: '12px', background: 'var(--shiro)' }}>
+                    {categories.length === 0 ? (
+                      <p style={{ fontSize: '13px', color: 'var(--neutral-500)', margin: 0 }}>No categories found in this competition.</p>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {categories.map(cat => (
+                          <label key={cat.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0, textTransform: 'none', letterSpacing: 'normal', color: 'var(--neutral-700)' }}>
+                            <input 
+                              type="checkbox" 
+                              style={{ width: '16px', height: '16px' }}
+                              checked={selectedCategories.includes(cat.name)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedCategories(prev => [...prev, cat.name]);
+                                } else {
+                                  setSelectedCategories(prev => prev.filter(c => c !== cat.name));
+                                }
+                              }}
+                            />
+                            <span style={{ fontSize: '14px', fontWeight: 500 }}>{cat.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : activeAssignment?.type === 'attendance' ? (
+                <div className="assign-field full">
+                  <label>Assigned Category (Scope)</label>
+                  <select value={coverageInput} onChange={e => setCoverageInput(e.target.value)}>
+                    <option value="">Select Category</option>
+                    {categories.map(cat => (
+                      <option key={cat.id} value={cat.name}>{cat.name}</option>
+                    ))}
+                  </select>
                 </div>
               ) : (
                 <div className="assign-field full">

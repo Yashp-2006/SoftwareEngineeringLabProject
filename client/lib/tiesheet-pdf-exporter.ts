@@ -176,7 +176,7 @@ function drawAthleteRow(
     const prefixW = doc.getTextWidth(prefix);
     
     // Calculate total width to center it
-    const valText = kataName ? kataName.toUpperCase() : 'NOT SELECTED';
+    const valText = kataName ? kataName.toUpperCase() : '';
     doc.setFont('helvetica', 'bold');
     const valW = doc.getTextWidth(valText);
     const totalW = prefixW + valW;
@@ -185,8 +185,15 @@ function drawAthleteRow(
     doc.setTextColor(...GRAY_400);
     doc.text(prefix, startX, sy + 3.5);
     
-    doc.setTextColor(...color); // Use the competitor's color (red/blue)
-    doc.text(valText, startX + prefixW, sy + 3.5);
+    if (valText) {
+      doc.setTextColor(...color); // Use the competitor's color (red/blue)
+      doc.text(valText, startX + prefixW, sy + 3.5);
+    } else {
+      // Draw a blank underline for handwriting
+      doc.setDrawColor(...GRAY_400);
+      doc.setLineWidth(0.2);
+      doc.line(startX + prefixW, sy + 3.8, startX + prefixW + 40, sy + 3.8);
+    }
   }
 }
 

@@ -216,6 +216,31 @@ export default function BracketViewer({ matches, categoryName, isKata: propIsKat
           margin-left: 16px;
           margin-top: 4px;
         }
+        .comp-stats {
+          display: flex;
+          gap: 6px;
+          margin-top: 4px;
+          flex-wrap: wrap;
+        }
+        .stat-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 2px;
+          padding: 2px 6px;
+          border-radius: 4px;
+          font-size: 10px;
+          font-weight: 700;
+          background: var(--neutral-100);
+          color: var(--neutral-600);
+        }
+        .stat-chip.senshu {
+          background: #fef3c7;
+          color: #b45309;
+        }
+        .stat-chip.penalty {
+          background: #fee2e2;
+          color: #dc2626;
+        }
         .comp-kata-name {
           font-size: 13px;
           font-weight: 800;
@@ -308,25 +333,75 @@ export default function BracketViewer({ matches, categoryName, isKata: propIsKat
                             <div className="comp-info">
                               <div className="comp-name" style={{ color: m.aka ? 'inherit' : 'var(--neutral-400)' }}>{m.aka ? m.aka.name : 'No player assigned'}</div>
                               <div className="comp-team">{m.aka ? `${m.aka.state} • ${m.aka.academy}` : '—'}</div>
+                              {!isKata && m.aka && (
+                                <div className="comp-stats">
+                                  {(m.akaIppon > 0 || m.akaWazaari > 0 || m.akaYuko > 0) && (
+                                    <>
+                                      {m.akaIppon > 0 && <span className="stat-chip">I:{m.akaIppon}</span>}
+                                      {m.akaWazaari > 0 && <span className="stat-chip">W:{m.akaWazaari}</span>}
+                                      {m.akaYuko > 0 && <span className="stat-chip">Y:{m.akaYuko}</span>}
+                                    </>
+                                  )}
+                                  {m.akaSenshu && <span className="stat-chip senshu">SENSHU</span>}
+                                  {(m.akaC1 > 0 || m.akaC2 > 0) && (
+                                    <>
+                                      {m.akaC1 > 0 && <span className="stat-chip penalty">C1:{m.akaC1}</span>}
+                                      {m.akaC2 > 0 && <span className="stat-chip penalty">C2:{m.akaC2}</span>}
+                                    </>
+                                  )}
+                                </div>
+                              )}
                             </div>
-                            {isKata && (
-                              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-500)', padding: '6px 12px', background: 'var(--neutral-50)', borderRadius: '6px', marginTop: '4px', width: 'fit-content' }}>
-                                Kata Name: <span style={{ color: 'var(--aka)', fontWeight: 700 }}>{m.akaKata ? m.akaKata : 'Not Selected'}</span>
+                            {isKata && m.aka && (
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', marginLeft: '12px' }}>
+                                <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-500)', padding: '4px 10px', background: 'var(--neutral-50)', borderRadius: '6px' }}>
+                                  {m.akaKata ? m.akaKata : ''}
+                                </div>
+                                {(m.akaScore !== undefined && m.akaScore !== null) && (
+                                  <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--aka)' }}>
+                                    Flags: {m.akaScore}
+                                  </div>
+                                )}
                               </div>
                             )}
-                            <div className="comp-score">{(m.akaScore !== undefined && m.akaScore !== null && m.akaScore !== '') ? m.akaScore : (m.aka ? 0 : '')}</div>
+                            <div className="comp-score">{(m.akaScore !== undefined && m.akaScore !== null && m.akaScore !== '') ? m.akaScore : ''}</div>
                           </div>
                           <div className="competitor-row ao">
                             <div className="comp-info">
                               <div className="comp-name" style={{ color: m.ao ? 'inherit' : 'var(--neutral-400)' }}>{m.ao ? m.ao.name : 'No player assigned'}</div>
                               <div className="comp-team">{m.ao ? `${m.ao.state} • ${m.ao.academy}` : '—'}</div>
+                              {!isKata && m.ao && (
+                                <div className="comp-stats">
+                                  {(m.aoIppon > 0 || m.aoWazaari > 0 || m.aoYuko > 0) && (
+                                    <>
+                                      {m.aoIppon > 0 && <span className="stat-chip">I:{m.aoIppon}</span>}
+                                      {m.aoWazaari > 0 && <span className="stat-chip">W:{m.aoWazaari}</span>}
+                                      {m.aoYuko > 0 && <span className="stat-chip">Y:{m.aoYuko}</span>}
+                                    </>
+                                  )}
+                                  {m.aoSenshu && <span className="stat-chip senshu">SENSHU</span>}
+                                  {(m.aoC1 > 0 || m.aoC2 > 0) && (
+                                    <>
+                                      {m.aoC1 > 0 && <span className="stat-chip penalty">C1:{m.aoC1}</span>}
+                                      {m.aoC2 > 0 && <span className="stat-chip penalty">C2:{m.aoC2}</span>}
+                                    </>
+                                  )}
+                                </div>
+                              )}
                             </div>
-                            {isKata && (
-                              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-500)', padding: '6px 12px', background: 'var(--neutral-50)', borderRadius: '6px', marginTop: '4px', width: 'fit-content' }}>
-                                Kata Name: <span style={{ color: 'var(--ao)', fontWeight: 700 }}>{m.aoKata ? m.aoKata : 'Not Selected'}</span>
+                            {isKata && m.ao && (
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', marginLeft: '12px' }}>
+                                <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-500)', padding: '4px 10px', background: 'var(--neutral-50)', borderRadius: '6px' }}>
+                                  {m.aoKata ? m.aoKata : ''}
+                                </div>
+                                {(m.aoScore !== undefined && m.aoScore !== null) && (
+                                  <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--ao)' }}>
+                                    Flags: {m.aoScore}
+                                  </div>
+                                )}
                               </div>
                             )}
-                            <div className="comp-score">{(m.aoScore !== undefined && m.aoScore !== null && m.aoScore !== '') ? m.aoScore : (m.ao ? 0 : '')}</div>
+                            <div className="comp-score">{(m.aoScore !== undefined && m.aoScore !== null && m.aoScore !== '') ? m.aoScore : ''}</div>
                           </div>
                           <div className="match-footer">
                             <div className="text-micro" style={{ flex: 1, color: 'var(--neutral-400)', fontWeight: 700, letterSpacing: '0.1em' }}>

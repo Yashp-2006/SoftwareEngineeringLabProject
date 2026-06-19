@@ -6,24 +6,26 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { Lock, Unlock, Users, Calendar, Layout, Award, Edit3, Share2 } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { toast } from 'react-hot-toast';
+import PageSkeleton from '@/components/layout/PageSkeleton';
 
 export default function CompetitionDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
   const searchParams = useSearchParams();
   const { user, role } = useAuth();
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem(`joined_${id}`) === 'true';
-    }
-    return false;
-  });
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState('');
 
   const [compData, setCompData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   // Admins or users with join link bypass passcode
   useEffect(() => {
-    if (user || searchParams.get('join') === 'true') {
+    let joined = false;
+    if (typeof window !== 'undefined') {
+      joined = localStorage.getItem(`joined_${id}`) === 'true';
+    }
+
+    if (user || searchParams.get('join') === 'true' || joined) {
       if (searchParams.get('join') === 'true') {
         localStorage.setItem(`joined_${id}`, 'true');
       }
@@ -51,6 +53,7 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
         if (d.exists()) {
           setCompData(d.data());
         }
+        setLoading(false);
 
         unsubCats = onSnapshot(collection(db, 'competitions', id, 'categories'), (snap) => {
           let allMatches: any[] = [];
@@ -130,6 +133,10 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
         </div>
       </main>
     );
+  }
+
+  if (loading) {
+    return <PageSkeleton />;
   }
 
   return (

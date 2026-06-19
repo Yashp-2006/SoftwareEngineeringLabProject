@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Search } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/components/auth/AuthProvider';
+import PageSkeleton from '@/components/layout/PageSkeleton';
 
 interface Athlete {
   id: string;
@@ -432,9 +433,7 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
         </header>
 
         {loading ? (
-          <div style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--neutral-500)' }}>
-            Loading categories and athletes...
-          </div>
+          <PageSkeleton />
         ) : categories.length === 0 ? (
           <div className="card" style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
             <h3 style={{ color: 'var(--neutral-900)', marginBottom: '8px' }}>No Categories Found</h3>

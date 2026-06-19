@@ -67,6 +67,52 @@ export default function ScoreboardPage({ params }: { params: Promise<{ matchId: 
     return () => { if (unsubscribe) unsubscribe(); };
   }, [matchId]);
 
+  // Hydrate local state from RTDB kumite data (when connected to real competition)
+  useEffect(() => {
+    if (!rtdbData || rtdbData.isKata) return;
+    
+    // Update AKA state from RTDB
+    setAka(prev => ({
+      ...prev,
+      name: rtdbData.akaName || prev.name,
+      country: rtdbData.akaCountry || prev.country,
+      academy: rtdbData.akaAcademy || prev.academy,
+      score: rtdbData.scores?.aka ?? prev.score,
+      ippon: rtdbData.akaStats?.ippon ?? prev.ippon,
+      wazaari: rtdbData.akaStats?.waza ?? prev.wazaari,
+      yuko: rtdbData.akaStats?.yuko ?? prev.yuko,
+      c1: rtdbData.akaPenalties?.c1 ?? prev.c1,
+      c2: rtdbData.akaPenalties?.c2 ?? prev.c2,
+      senshu: rtdbData.akaStats?.senshu ?? prev.senshu,
+    }));
+    
+    // Update AO state from RTDB
+    setAo(prev => ({
+      ...prev,
+      name: rtdbData.aoName || prev.name,
+      country: rtdbData.aoCountry || prev.country,
+      academy: rtdbData.aoAcademy || prev.academy,
+      score: rtdbData.scores?.ao ?? prev.score,
+      ippon: rtdbData.aoStats?.ippon ?? prev.ippon,
+      wazaari: rtdbData.aoStats?.waza ?? prev.wazaari,
+      yuko: rtdbData.aoStats?.yuko ?? prev.yuko,
+      c1: rtdbData.aoPenalties?.c1 ?? prev.c1,
+      c2: rtdbData.aoPenalties?.c2 ?? prev.c2,
+      senshu: rtdbData.aoStats?.senshu ?? prev.senshu,
+    }));
+
+    // Update timer from RTDB
+    if (rtdbData.timerSeconds !== undefined) {
+      setTimer(rtdbData.timerSeconds);
+    }
+    if (rtdbData.timerRunning !== undefined) {
+      setRunning(rtdbData.timerRunning);
+    }
+    if (rtdbData.akaStats?.senshu || rtdbData.aoStats?.senshu) {
+      setSenshuClaimed(true);
+    }
+  }, [rtdbData]);
+
   // Timer Effect
   useEffect(() => {
     let interval: NodeJS.Timeout;
