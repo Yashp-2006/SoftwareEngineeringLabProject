@@ -51,6 +51,7 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
   const [selectedAssignmentId, setSelectedAssignmentId] = useState<string | null>(null);
   const [selectedPerson, setSelectedPerson] = useState('');
   const [coverageInput, setCoverageInput] = useState('');
+  const [scopeSubtitleInput, setScopeSubtitleInput] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [categories, setCategories] = useState<{id: string, name: string}[]>([]);
   const [isSeeding, setIsSeeding] = useState(false);
@@ -107,6 +108,9 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
     } else if (assignment?.type === 'attendance') {
       // Keep track of the selected scope for attendance in a separate state, or reuse coverageInput
       setCoverageInput(assignment.scope || '');
+    } else if (assignment?.type === 'judge') {
+      setCoverageInput(assignment.scope || '');
+      setScopeSubtitleInput(assignment.scopeSubtitle || '');
     }
     setAssignModalOpen(true);
   };
@@ -133,6 +137,9 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
       updates.coverage = selectedCategories.join(', ');
     } else if (assignment.type === 'attendance') {
       updates.scope = coverageInput;
+    } else if (assignment.type === 'judge') {
+      updates.scope = coverageInput;
+      updates.scopeSubtitle = scopeSubtitleInput;
     }
 
     // Optimistic
@@ -443,7 +450,7 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
               <table className="staff-table">
                 <thead>
                   <tr>
-                    <th>Mat</th>
+                    <th>Assigned Mat / Category</th>
                     <th>Judge Name</th>
                     <th>Position</th>
                     <th>Actions</th>
@@ -452,7 +459,7 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
                 <tbody>
                   {judgeStaff.map(s => (
                     <tr key={s.id}>
-                      <td data-label="Mat"><strong>{s.scope}</strong></td>
+                      <td data-label="Assigned Mat / Category"><strong>{s.scope}</strong></td>
                       <td data-label="Judge Name" className="staff-name">
                         {s.operator}
                         {s.operatorSubtitle && <><br /><span className="staff-meta">{s.operatorSubtitle}</span></>}
@@ -490,7 +497,7 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
               <table className="staff-table">
                 <thead>
                   <tr>
-                    <th>Category</th>
+                    <th>Assigned Category</th>
                     <th>Volunteer</th>
                     <th>Check-in</th>
                     <th>Actions</th>
@@ -499,7 +506,7 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
                 <tbody>
                   {attendanceStaff.map(s => (
                     <tr key={s.id}>
-                      <td data-label="Category">{s.scope}</td>
+                      <td data-label="Assigned Category">{s.scope}</td>
                       <td data-label="Volunteer" className="staff-name">
                         {s.operator}
                         {s.operatorSubtitle && <><br /><span className="staff-meta">{s.operatorSubtitle}</span></>}
@@ -624,7 +631,7 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
                 </div>
               ) : activeAssignment?.type === 'attendance' ? (
                 <div className="assign-field full">
-                  <label>Assigned Category (Scope)</label>
+                  <label>Assigned Category</label>
                   <select value={coverageInput} onChange={e => setCoverageInput(e.target.value)}>
                     <option value="">Select Category</option>
                     {categories.map(cat => (
@@ -632,6 +639,43 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
                     ))}
                   </select>
                 </div>
+              ) : activeAssignment?.type === 'judge' ? (
+                <>
+                  <div className="assign-field">
+                    <label>Assigned Mat / Category</label>
+                    <select value={coverageInput} onChange={e => setCoverageInput(e.target.value)}>
+                      <option value="">Select Mat or Category</option>
+                      <optgroup label="Mats">
+                        <option value="MAT 01">MAT 01</option>
+                        <option value="MAT 02">MAT 02</option>
+                        <option value="MAT 03">MAT 03</option>
+                        <option value="MAT 04">MAT 04</option>
+                        <option value="MAT 05">MAT 05</option>
+                        <option value="MAT 06">MAT 06</option>
+                        <option value="MAT 07">MAT 07</option>
+                        <option value="MAT 08">MAT 08</option>
+                      </optgroup>
+                      <optgroup label="Categories">
+                        {categories.map(cat => (
+                          <option key={cat.id} value={cat.name}>{cat.name}</option>
+                        ))}
+                      </optgroup>
+                    </select>
+                  </div>
+                  <div className="assign-field">
+                    <label>Position / Judge Number</label>
+                    <select value={scopeSubtitleInput} onChange={e => setScopeSubtitleInput(e.target.value)}>
+                      <option value="">Select Position</option>
+                      <option value="Judge 1">Judge 1</option>
+                      <option value="Judge 2">Judge 2</option>
+                      <option value="Judge 3">Judge 3</option>
+                      <option value="Judge 4">Judge 4</option>
+                      <option value="Judge 5">Judge 5</option>
+                      <option value="Match Supervisor">Match Supervisor</option>
+                      <option value="Tatami Manager">Tatami Manager</option>
+                    </select>
+                  </div>
+                </>
               ) : (
                 <div className="assign-field full">
                   <label>Assignment scope</label>
