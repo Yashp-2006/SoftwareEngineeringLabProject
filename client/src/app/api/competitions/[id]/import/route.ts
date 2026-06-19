@@ -74,8 +74,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const buffer = await file.arrayBuffer();
 
     let categoryMap: Map<string, any[]>;
+    let uniqueAthletesCount = 0;
     try {
-      categoryMap = parseExcelIntoCategories(buffer, specialCategories, wkfMode, customCategories);
+      const parsed = parseExcelIntoCategories(buffer, specialCategories, wkfMode, customCategories);
+      categoryMap = parsed.categoryMap;
+      uniqueAthletesCount = parsed.uniqueAthletesCount;
     } catch (parseErr: any) {
       console.error('[import/route] Excel parse error:', parseErr.message);
       return NextResponse.json(
@@ -186,7 +189,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }));
 
     await competitionRef.update({
-      athletesCount: athletesImported,
+      athletesCount: uniqueAthletesCount,
+      entriesCount: athletesImported,
       categoriesCount: categoryMap.size,
       updatedAt: new Date().toISOString()
     });
@@ -195,7 +199,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       success: true,
       categoriesCreated,
       categoriesTotal: categoryMap.size,
-      athletesImported,
+      athletesImported: uniqueAthletesCount,
+      entriesImported: athletesImported,
       poolSize,
       categories: returnedCategories,
     });

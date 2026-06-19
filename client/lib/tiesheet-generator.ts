@@ -243,7 +243,7 @@ export function parseExcelIntoCategories(
   specialCategories: SpecialCategoryRule[] = [],
   wkfMode: string = 'standard',
   customCategories: SpecialCategoryRule[] = []
-): Map<string, AthleteRow[]> {
+): { categoryMap: Map<string, AthleteRow[]>, uniqueAthletesCount: number } {
   const athletes = parseExcel(buffer);
   const categoryMap = new Map<string, AthleteRow[]>();
 
@@ -326,7 +326,7 @@ export function parseExcelIntoCategories(
     athletes.sort((a, b) => a.name.localeCompare(b.name));
   }
 
-  return categoryMap;
+  return { categoryMap, uniqueAthletesCount: athletes.length };
 }
 
 // ─── Category Determination ────────────────────────────────────────────────────
