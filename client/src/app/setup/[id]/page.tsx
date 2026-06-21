@@ -1375,9 +1375,19 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                     <label>Academy / Club</label>
                     <input type="text" className="input-field" placeholder="e.g. Tokyo Karate Club" value={modalFormData.academy || ''} onChange={e => setModalFormData({...modalFormData, academy: e.target.value})} />
                   </div>
+                </div>
+                <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
                   <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
-                    <label>State / Country</label>
+                    <label>Country</label>
+                    <input type="text" className="input-field" placeholder="e.g. India" value={modalFormData.country || ''} onChange={e => setModalFormData({...modalFormData, country: e.target.value})} />
+                  </div>
+                  <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                    <label>State</label>
                     <input type="text" className="input-field" placeholder="e.g. Maharashtra" value={modalFormData.state || ''} onChange={e => setModalFormData({...modalFormData, state: e.target.value})} />
+                  </div>
+                  <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                    <label>District</label>
+                    <input type="text" className="input-field" placeholder="e.g. Pune" value={modalFormData.district || ''} onChange={e => setModalFormData({...modalFormData, district: e.target.value})} />
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
@@ -1467,7 +1477,9 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                   const athleteData = {
                     name: modalFormData.athleteName.trim(),
                     academy: modalFormData.academy?.trim() || '',
+                    country: modalFormData.country?.trim() || '',
                     state: modalFormData.state?.trim() || '',
+                    district: modalFormData.district?.trim() || '',
                     age: modalFormData.age ? parseInt(modalFormData.age) : null,
                     weight: modalFormData.weight ? parseFloat(modalFormData.weight) : null,
                     gender: modalFormData.athleteGender || 'Any',

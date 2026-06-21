@@ -39,6 +39,10 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
   const [recentMatches, setRecentMatches] = useState<any[]>([]);
   const [matLeaderboards, setMatLeaderboards] = useState<Record<string, any[]>>({});
   
+  const [liveCategories, setLiveCategories] = useState<any[]>([]);
+  const [upcomingCategories, setUpcomingCategories] = useState<any[]>([]);
+  const [finishedCategories, setFinishedCategories] = useState<any[]>([]);
+
   const [filterType, setFilterType] = useState('all');
   const [filterGender, setFilterGender] = useState('all');
   const [filterMat, setFilterMat] = useState('all');
@@ -58,10 +62,19 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
         unsubCats = onSnapshot(collection(db, 'competitions', id, 'categories'), (snap) => {
           let allMatches: any[] = [];
           let matStats: Record<string, Record<string, { gold: number, silver: number, bronze: number, points: number }>> = {};
+          
+          let lCats: any[] = [];
+          let uCats: any[] = [];
+          let fCats: any[] = [];
 
           snap.docs.forEach(docSnap => {
             const cat = docSnap.data();
+            cat.id = docSnap.id;
             const matName = (cat.mat || 'Unassigned').toUpperCase();
+            
+            if (cat.status === 'live') lCats.push(cat);
+            else if (cat.status === 'done' || cat.status === 'completed') fCats.push(cat);
+            else uCats.push(cat);
 
             if (cat.matches) {
               const completed = cat.matches.filter((m: any) => m.status === 'completed').map((m: any) => ({
@@ -96,6 +109,9 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
           });
 
           setRecentMatches(allMatches.reverse().slice(0, 5));
+          setLiveCategories(lCats);
+          setUpcomingCategories(uCats);
+          setFinishedCategories(fCats);
 
           const formattedBoards: Record<string, any[]> = {};
           for (const mat of Object.keys(matStats).sort()) {
@@ -122,18 +138,6 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
       toast.success('Public join link copied to clipboard!');
     }
   };
-
-  if (!isAuthenticated) {
-    return (
-      <main className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 60px)' }}>
-        <div className="card" style={{ width: '100%', maxWidth: '400px', textAlign: 'center', padding: 'var(--space-6)' }}>
-          <Lock style={{ width: '48px', height: '48px', color: 'var(--neutral-400)', margin: '0 auto var(--space-4)' }} />
-          <h2 style={{ marginBottom: 'var(--space-2)' }}>Private Event</h2>
-          <p className="text-small" style={{ marginBottom: 'var(--space-5)' }}>Please use the public join link provided by the tournament organizer to view live results.</p>
-        </div>
-      </main>
-    );
-  }
 
   if (loading) {
     return <PageSkeleton />;
@@ -198,6 +202,48 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
 
       <div className="comp-detail-grid">
         <section className="comp-detail-main">
+          {liveCategories.length > 0 && (
+            <>
+              <h2 style={{ marginBottom: 'var(--space-2)' }}>Live Categories</h2>
+              <div className="card" style={{ padding: '0', overflow: 'hidden', marginBottom: 'var(--space-6)' }}>
+                {liveCategories.map(cat => (
+                  <div key={cat.id} style={{ padding: '12px 24px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ fontWeight: 500 }}>{cat.name}</span>
+                    <span style={{ color: 'var(--aka)', fontWeight: 600 }}>{cat.mat || 'Unassigned'}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {upcomingCategories.length > 0 && (
+            <>
+              <h2 style={{ marginBottom: 'var(--space-2)' }}>Upcoming Categories (Next 5)</h2>
+              <div className="card" style={{ padding: '0', overflow: 'hidden', marginBottom: 'var(--space-6)' }}>
+                {upcomingCategories.slice(0, 5).map(cat => (
+                  <div key={cat.id} style={{ padding: '12px 24px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', justifyContent: 'space-between' }}>
+                    <span>{cat.name}</span>
+                    <span style={{ color: 'var(--neutral-500)' }}>{cat.mat || 'Unassigned'}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {finishedCategories.length > 0 && (
+            <>
+              <h2 style={{ marginBottom: 'var(--space-2)' }}>Finished Categories (Last 5)</h2>
+              <div className="card" style={{ padding: '0', overflow: 'hidden', marginBottom: 'var(--space-6)' }}>
+                {finishedCategories.slice(0, 5).map(cat => (
+                  <div key={cat.id} style={{ padding: '12px 24px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', justifyContent: 'space-between' }}>
+                    <span>{cat.name}</span>
+                    <span style={{ color: 'var(--neutral-500)' }}>{cat.mat || 'Unassigned'}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
           <div className="flex-between" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-2)' }}>
             <h2>Recent Results</h2>
             <div style={{ display: 'flex', gap: '8px' }}>

@@ -82,7 +82,25 @@ export function parseExcel(buffer: ArrayBuffer): AthleteRow[] {
         row[key.trim().toLowerCase()] = rawRow[key];
       }
       
-      const rawWeight = row['weight'] ?? row['weight (kg)'] ?? row['weight(kg)'] ?? 0;
+      // Weight: try multiple header variants and fuzzy matching
+      let rawWeight: any = 0;
+      for (const k of Object.keys(row)) {
+        if (k === 'weight' || k === 'weight (kg)' || k === 'weight(kg)' || k === 'weight (kgs)' ||
+            k === 'weight(kgs)' || k === 'body weight' || k === 'wt' || k === 'wt (kg)' ||
+            k === 'wt(kg)' || k === 'weight in kg' || k === 'weight kg') {
+          rawWeight = row[k];
+          break;
+        }
+      }
+      // Fallback: any column containing "weight" that isn't min/max weight
+      if (rawWeight === 0) {
+        for (const k of Object.keys(row)) {
+          if (k.includes('weight') && !k.includes('min') && !k.includes('max') && !k.includes('category')) {
+            rawWeight = row[k];
+            break;
+          }
+        }
+      }
       
       let parsedName = '';
       let parsedAcademy = '';
@@ -92,25 +110,57 @@ export function parseExcel(buffer: ArrayBuffer): AthleteRow[] {
       let phone = '';
       let email = '';
 
+      // Pass 1: Name and Academy detection
       for (const k of Object.keys(row)) {
         if (!parsedAcademy && (k.includes('academy') || k.includes('club') || k.includes('team') || k.includes('dojo') || k.includes('school') || k.includes('organization') || k.includes('association') || k.includes('dojo/organization')) && !k.includes('id')) {
           parsedAcademy = String(row[k]);
-        } else if (k.includes('first name') || k === 'first') {
+        }
+        if (k.includes('first name') || k === 'first') {
           parsedFirst = String(row[k]);
         } else if (k.includes('last name') || k === 'last' || k === 'surname') {
           parsedLast = String(row[k]);
         } else if (!parsedName && (k.includes('name') || k.includes('athlete') || k.includes('player') || k.includes('participant') || k.includes('competitor'))) {
-          if (!k.includes('coach')) {
+          if (!k.includes('coach') && !k.includes('instructor')) {
             parsedName = String(row[k]);
           }
         }
-        
-        if (!phone && (k.includes('phone') || k.includes('mobile') || k.includes('contact') || k.includes('no.'))) {
-          phone = String(row[k]);
-        } else if (!email && (k.includes('email') || k.includes('mail'))) {
-          email = String(row[k]);
-        } else if (!coachName && (k.includes('coach') || k.includes('instructor'))) {
+      }
+
+      // Pass 2: Coach name (independent pass — avoids being swallowed by phone/email)
+      for (const k of Object.keys(row)) {
+        if (!coachName && (k.includes('coach') || k.includes('instructor') || k.includes('sensei') || k.includes('trainer'))) {
           coachName = String(row[k]);
+          break;
+        }
+      }
+
+      // Pass 3: Phone number (independent pass — broader matching)
+      for (const k of Object.keys(row)) {
+        if (!phone && (k.includes('phone') || k.includes('mobile') || k.includes('cell') || k.includes('telephone') || k.includes('tel no') || k === 'tel' || k.includes('contact no') || k.includes('contact number') || k === 'number' || k === 'no' || k.includes('whatsapp'))) {
+          // Skip columns that are clearly not phone numbers (e.g. "contact person", "contact name")
+          if (k.includes('person') || k.includes('name') || k.includes('email') || k.includes('address')) continue;
+          // Phone numbers may be stored as numbers in Excel — avoid scientific notation
+          const rawPhone = row[k];
+          phone = (typeof rawPhone === 'number') ? rawPhone.toFixed(0) : String(rawPhone).trim();
+          break;
+        }
+      }
+      // Fallback: any column containing 'contact' that isn't name/person/email
+      if (!phone) {
+        for (const k of Object.keys(row)) {
+          if (k.includes('contact') && !k.includes('person') && !k.includes('name') && !k.includes('email') && !k.includes('address')) {
+            const rawPhone2 = row[k];
+            phone = (typeof rawPhone2 === 'number') ? rawPhone2.toFixed(0) : String(rawPhone2).trim();
+            break;
+          }
+        }
+      }
+
+      // Pass 4: Email (independent pass)
+      for (const k of Object.keys(row)) {
+        if (!email && (k.includes('email') || k.includes('e-mail') || k === 'mail' || k.includes('email id') || k.includes('email address'))) {
+          email = String(row[k]);
+          break;
         }
       }
 
@@ -213,7 +263,8 @@ export function parseExcel(buffer: ArrayBuffer): AthleteRow[] {
           `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         name: parsedName,
         gender: String(row['gender'] ?? row['sex'] ?? 'male').trim().toLowerCase(),
-        weight: parseFloat(String(rawWeight)) || 0,
+        // Strip unit suffixes from weight values (e.g. "75 kg", "75kg", "75 lbs")
+        weight: parseFloat(String(rawWeight).replace(/\s*(kg|kgs|lbs?|kilos?)\s*/gi, '').trim()) || 0,
         age: parsedAge,
         country: String(row['country'] || row['nation'] || row['nationality'] || ''),
         state: String(row['state'] || row['region'] || row['province'] || ''),
@@ -221,9 +272,9 @@ export function parseExcel(buffer: ArrayBuffer): AthleteRow[] {
         academy: parsedAcademy,
         interestSpecial: String(row['interest special'] || row['special interest'] || row['notes'] || ''),
         events,
-        coachName: coachName || undefined,
+        coachName: coachName ? coachName.trim() : undefined,
         phone: phone || undefined,
-        email: email || undefined
+        email: email ? email.trim() : undefined
       });
     }
   }

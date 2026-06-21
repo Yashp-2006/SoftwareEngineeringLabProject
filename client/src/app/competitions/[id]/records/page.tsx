@@ -84,7 +84,7 @@ export default function PlayerRecordsPage({ params }: { params: Promise<{ id: st
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingRecord || role === 'guest_viewer') return;
+    if (!editingRecord || role !== 'admin') return;
     setSaving(true);
     
     try {
@@ -287,7 +287,7 @@ export default function PlayerRecordsPage({ params }: { params: Promise<{ id: st
                           <div>{record.email || ''}</div>
                         </td>
                         <td>
-                          {role !== 'guest_viewer' && (
+                          {role === 'admin' && (
                             <button className="edit-btn" onClick={() => setEditingRecord({...record})}>
                               <Edit size={14} /> Edit
                             </button>

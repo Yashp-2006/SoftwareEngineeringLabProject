@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Maximize2, X, Play, Pause, RotateCcw } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
 import KataLiveScoreboard, { deriveJudgeVotes } from '@/components/kata/KataLiveScoreboard';
+import KumiteLiveScoreboard from '@/components/kumite/KumiteLiveScoreboard';
 
 type FighterState = {
   name: string;
@@ -289,33 +290,6 @@ export default function ScoreboardPage({ params }: { params: Promise<{ matchId: 
   return (
     <div style={{ backgroundColor: 'var(--kuro)', color: 'var(--shiro)', height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <style dangerouslySetInnerHTML={{ __html: `
-        .scoreboard-container { flex: 1; display: grid; grid-template-columns: 1fr 320px 1fr; height: 100%; position: relative; }
-        .side { height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: var(--space-8); position: relative; transition: background-color 0.3s ease; }
-        .side.aka { background: var(--aka); }
-        .side.ao { background: var(--ao); }
-        .athlete-name { font-family: var(--font-display); font-size: 120px; line-height: 1; text-transform: uppercase; text-align: center; margin-bottom: var(--space-2); text-shadow: 0 4px 12px rgba(0,0,0,0.3); }
-        .athlete-country { font-family: var(--font-display); font-size: 32px; color: rgba(255,255,255,0.7); letter-spacing: 0.1em; margin-bottom: var(--space-8); }
-        .score-wrap { position: relative; display: flex; align-items: center; justify-content: center; }
-        .score { font-family: var(--font-display); font-size: 380px; line-height: 0.8; margin: 0; color: var(--shiro); }
-        .points-detail { display: flex; gap: var(--space-6); margin-top: var(--space-8); }
-        .point-item { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); }
-        .point-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; opacity: 0.8; }
-        .point-value { font-family: var(--font-display); font-size: 48px; }
-        .penalties { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); margin-top: var(--space-8); width: 100%; max-width: 400px; }
-        .penalty-group { display: flex; flex-direction: column; gap: var(--space-2); cursor: pointer; }
-        .penalty-title { font-size: 11px; font-weight: 700; text-transform: uppercase; opacity: 0.6; text-align: center; }
-        .penalty-dots { display: flex; justify-content: center; gap: var(--space-2); }
-        .dot { width: 18px; height: 18px; border-radius: 50%; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4); transition: all 0.3s ease; }
-        .dot.active { background: var(--shiro); box-shadow: 0 0 10px var(--shiro); }
-        .senshu { position: absolute; top: 40px; font-family: var(--font-display); font-size: 24px; background: var(--shiro); color: var(--kuro); padding: 4px 12px; border-radius: 4px; opacity: 0; transition: opacity 0.3s ease; }
-        .senshu.active { opacity: 1; }
-        .center-column { display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: var(--space-6) 0; background: var(--kuro); border-left: 1px solid var(--neutral-900); border-right: 1px solid var(--neutral-900); z-index: 10; }
-        .logo { font-family: var(--font-display); font-size: 32px; color: var(--shiro); letter-spacing: 0.1em; }
-        .timer-wrap { display: flex; flex-direction: column; align-items: center; gap: var(--space-4); }
-        .timer { font-family: var(--font-mono); font-size: 96px; font-weight: 700; color: var(--status-live); }
-        .match-info { text-align: center; }
-        .match-number { font-family: var(--font-display); font-size: 24px; color: var(--neutral-500); margin-bottom: var(--space-2); }
-        .category { font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--neutral-300); text-transform: uppercase; max-width: 200px; }
         .controls-overlay { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); padding: var(--space-4) var(--space-6); border-radius: 100px; display: flex; gap: var(--space-6); border: 1px solid var(--neutral-700); opacity: 0; pointer-events: none; transition: all 0.3s ease; z-index: 100; }
         body:hover .controls-overlay { opacity: 1; pointer-events: auto; }
         .control-group { display: flex; align-items: center; gap: var(--space-3); }
@@ -323,12 +297,6 @@ export default function ScoreboardPage({ params }: { params: Promise<{ matchId: 
         .control-btn:hover { background: var(--neutral-700); transform: translateY(-1px); }
         .key-hint { font-size: 10px; background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; color: var(--neutral-300); }
         .fullscreen-btn { position: fixed; top: 24px; right: 24px; z-index: 100; background: rgba(0,0,0,0.5); border: 1px solid var(--neutral-700); color: var(--shiro); padding: 8px; border-radius: 8px; cursor: pointer; }
-        .winner-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.5s ease; }
-        .winner-overlay.active { opacity: 1; pointer-events: auto; }
-        .winner-name { font-family: var(--font-display); font-size: 160px; text-transform: uppercase; margin-bottom: var(--space-2); }
-        .winner-label { font-family: var(--font-display); font-size: 48px; color: var(--status-live); letter-spacing: 0.2em; }
-        .winner-aka .winner-name { color: var(--aka); }
-        .winner-ao .winner-name { color: var(--ao); }
       `}} />
 
       <ConfirmModal
@@ -344,115 +312,44 @@ export default function ScoreboardPage({ params }: { params: Promise<{ matchId: 
         <Maximize2 size={16} />
       </button>
 
-      <div className={`winner-overlay ${winnerOverlay.classMode} ${winnerOverlay.active ? 'active' : ''}`}>
-        <div className="winner-label">MATCH WINNER</div>
-        <div className="winner-name">{winnerOverlay.winner}</div>
-        <button className="control-btn" style={{ marginTop: '40px' }} onClick={() => setWinnerOverlay({ ...winnerOverlay, active: false })}>
-          <X size={16} /> Close
-        </button>
-      </div>
-
-      <div className="scoreboard-container">
-        {/* AKA SIDE */}
-        <div className="side aka">
-          <div className={`senshu ${aka.senshu ? 'active' : ''}`}>SENSHU</div>
-          <div className="athlete-name">{aka.name}</div>
-          <div className="athlete-country">{[aka.academy, aka.country || 'JAPAN'].filter(Boolean).join(' • ').toUpperCase()}</div>
-          
-          <div className="score-wrap">
-            <div className="score">{aka.score}</div>
+      <div style={{ flex: 1, position: 'relative' }}>
+        <KumiteLiveScoreboard
+          akaName={aka.name}
+          aoName={ao.name}
+          akaAcademy={aka.academy}
+          aoAcademy={ao.academy}
+          akaCountry={aka.country}
+          aoCountry={ao.country}
+          akaScore={aka.score}
+          aoScore={ao.score}
+          akaIppon={aka.ippon}
+          aoIppon={ao.ippon}
+          akaWazaari={aka.wazaari}
+          aoWazaari={ao.wazaari}
+          akaYuko={aka.yuko}
+          aoYuko={ao.yuko}
+          akaC1={aka.c1}
+          aoC1={ao.c1}
+          akaC2={aka.c2}
+          aoC2={ao.c2}
+          akaSenshu={aka.senshu}
+          aoSenshu={ao.senshu}
+          timerDisplay={formatTime(timer)}
+          timerColor={timer <= 15 ? 'var(--aka)' : 'var(--status-live)'}
+          matchStatus={timer === 0 ? 'TIME OVER' : running ? 'MATCH LIVE' : timer === 180 ? 'PRE-MATCH' : 'PAUSED'}
+          title="TAIKAIX"
+          categoryName={rtdbData?.currentCategory || "KUMITE CATEGORY"}
+          matchId={rtdbData?.displayId || `MAT ${new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('mat')?.replace('mat-', '').padStart(2, '0') || '01'}`}
+          winnerName={winnerOverlay.active ? winnerOverlay.winner : undefined}
+          winnerColor={winnerOverlay.classMode === 'winner-aka' ? 'aka' : winnerOverlay.classMode === 'winner-ao' ? 'ao' : undefined}
+        />
+        {winnerOverlay.active && (
+          <div style={{ position: 'absolute', bottom: '24px', left: '50%', transform: 'translateX(-50%)', zIndex: 300 }}>
+            <button className="control-btn" onClick={() => setWinnerOverlay({ ...winnerOverlay, active: false })}>
+              <X size={16} /> Close Winner Screen
+            </button>
           </div>
-
-          <div className="points-detail">
-            <div className="point-item">
-              <div className="point-label">Ippon</div>
-              <div className="point-value">{aka.ippon}</div>
-            </div>
-            <div className="point-item">
-              <div className="point-label">Waza-ari</div>
-              <div className="point-value">{aka.wazaari}</div>
-            </div>
-            <div className="point-item">
-              <div className="point-label">Yuko</div>
-              <div className="point-value">{aka.yuko}</div>
-            </div>
-          </div>
-
-          <div className="penalties">
-            <div className="penalty-group" onClick={() => addPenalty('aka', 'c1')}>
-              <div className="penalty-title">Category 1</div>
-              <div className="penalty-dots">
-                {renderDots(aka.c1)}
-              </div>
-            </div>
-            <div className="penalty-group" onClick={() => addPenalty('aka', 'c2')}>
-              <div className="penalty-title">Category 2</div>
-              <div className="penalty-dots">
-                {renderDots(aka.c2)}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* CENTER COLUMN */}
-        <div className="center-column">
-          <div className="logo">TAIKAIX</div>
-          
-          <div className="timer-wrap">
-            <div className="timer" style={{ color: timer <= 15 ? 'var(--aka)' : 'var(--status-live)' }}>
-              {formatTime(timer)}
-            </div>
-            <div style={{ textTransform: 'uppercase', fontSize: '12px', letterSpacing: '0.2em', color: running ? 'var(--status-live)' : 'var(--neutral-500)' }}>
-              {timer === 0 ? 'TIME OVER' : running ? 'MATCH LIVE' : timer === 180 ? 'PRE-MATCH' : 'PAUSED'}
-            </div>
-          </div>
-
-          <div className="match-info">
-            <div className="match-number">MAT 01 - MATCH 42</div>
-            <div className="category">Senior Male Kumite -75kg</div>
-          </div>
-        </div>
-
-        {/* AO SIDE */}
-        <div className="side ao">
-          <div className={`senshu ${ao.senshu ? 'active' : ''}`}>SENSHU</div>
-          <div className="athlete-name">{ao.name}</div>
-          <div className="athlete-country">{[ao.academy, ao.country || 'JAPAN'].filter(Boolean).join(' • ').toUpperCase()}</div>
-          
-          <div className="score-wrap">
-            <div className="score">{ao.score}</div>
-          </div>
-
-          <div className="points-detail">
-            <div className="point-item">
-              <div className="point-label">Ippon</div>
-              <div className="point-value">{ao.ippon}</div>
-            </div>
-            <div className="point-item">
-              <div className="point-label">Waza-ari</div>
-              <div className="point-value">{ao.wazaari}</div>
-            </div>
-            <div className="point-item">
-              <div className="point-label">Yuko</div>
-              <div className="point-value">{ao.yuko}</div>
-            </div>
-          </div>
-
-          <div className="penalties">
-            <div className="penalty-group" onClick={() => addPenalty('ao', 'c1')}>
-              <div className="penalty-title">Category 1</div>
-              <div className="penalty-dots">
-                {renderDots(ao.c1)}
-              </div>
-            </div>
-            <div className="penalty-group" onClick={() => addPenalty('ao', 'c2')}>
-              <div className="penalty-title">Category 2</div>
-              <div className="penalty-dots">
-                {renderDots(ao.c2)}
-              </div>
-            </div>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* CONTROLS OVERLAY */}

@@ -141,6 +141,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
             district: a.district,
             academy: a.academy,
             interestSpecial: a.interestSpecial,
+            coachName: a.coachName || '',
+            phone: a.phone || '',
+            email: a.email || '',
           })),
           matches: matches.map(m => ({
             id: m.id,

@@ -21,12 +21,14 @@ const BracketNode = ({
   isHighlighted = false,
   onPromote,
   isKata = false,
+  isAdmin = false,
 }: {
   match: any;
   mats: string[];
   isHighlighted?: boolean;
   onPromote?: (matchId: string, winnerId: string, nextMatchId: string | null, byeFor?: 'aka' | 'ao') => void;
   isKata?: boolean;
+  isAdmin?: boolean;
 }) => {
   const [showPromoteMenu, setShowPromoteMenu] = useState(false);
   const isLive = match.status === 'live';
@@ -174,7 +176,7 @@ const BracketNode = ({
                 </span>
               ) : `MATCH ${match.matchNumber}`}
             </div>
-            {onPromote && !isCompleted && (
+            {isAdmin && onPromote && !isCompleted && (
               <div style={{ position: 'relative' }}>
                 <button
                   className="btn-promote"
@@ -252,6 +254,8 @@ const BracketNode = ({
   );
 };
 
+import { useAuth } from '@/components/auth/AuthProvider';
+
 // --- BracketViewer: the zoomable bracket canvas ---
 export function BracketViewer({
   matches,
@@ -274,6 +278,8 @@ export function BracketViewer({
   onNavigateToMatch?: (categoryId: string, matchId: string) => void;
   onPromote?: (matchId: string, winnerId: string, nextMatchId: string | null, byeFor?: 'aka' | 'ao') => void;
 }) {
+  const { role } = useAuth();
+  const isAdmin = role === 'admin';
   const availablePools = Array.from(new Set((matches || []).filter(m => m.id.startsWith('Pool')).map(m => m.id.split('-')[0].replace('Pool', '')))).sort((a, b) => parseInt(a) - parseInt(b));
   const [selectedPool, setSelectedPool] = useState<string | null>(null);
 
@@ -555,7 +561,7 @@ export function BracketViewer({
               <div key={rIdx} className="bracket-round">
                 {roundMatches.map((m: any) => (
                   <div key={m.id} className="match-wrapper" ref={(el) => { if (el) (el as any).__matchId = m.id; }}>
-                    <BracketNode match={m} mats={mats} onPromote={onPromote} isHighlighted={m.id === activeHighlight} isKata={isKata} />
+                    <BracketNode match={m} mats={mats} onPromote={onPromote} isHighlighted={m.id === activeHighlight} isKata={isKata} isAdmin={isAdmin} />
                   </div>
                 ))}
               </div>
@@ -576,6 +582,7 @@ export default function FullscreenBracketModal({
   firstRoundOnly = false,
   onPromote,
   onAssignMat,
+  isAdmin = false,
 }: {
   categories: Array<{ id: string; name: string; matches: any[]; isKata?: boolean; athletes?: any[]; status?: string; mat?: string }>;
   initialCategoryId?: string;
@@ -585,6 +592,7 @@ export default function FullscreenBracketModal({
   firstRoundOnly?: boolean;
   onPromote?: (matchId: string, winnerId: string, nextMatchId: string | null, byeFor?: 'aka' | 'ao') => void;
   onAssignMat?: (categoryId: string, mat: string) => void;
+  isAdmin?: boolean;
 }) {
   const activeCatIdState = initialCategoryId || (categories[0]?.id ?? null);
   const [activeCatId, setActiveCatId] = useState(activeCatIdState);
@@ -930,10 +938,12 @@ export default function FullscreenBracketModal({
               {showMobileSidebar ? <X size={20} /> : <Target size={20} />}
             </button>
             Tiesheet — {activeCategory?.name || 'Select Category'}
-            {activeCategory && onAssignMat && (
+            {isAdmin && activeCategory && onAssignMat && (
               <select 
+                className="fsb-mat-select"
                 value={activeCategory.mat || ''}
                 onChange={(e) => onAssignMat(activeCategory.id, e.target.value)}
+                title="Assign Mat"
                 style={{
                   fontSize: '14px', padding: '4px 12px', borderRadius: '8px',
                   border: '1px solid var(--neutral-300)', fontFamily: 'var(--font-body)',

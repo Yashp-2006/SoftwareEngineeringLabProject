@@ -6,7 +6,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '@lib/firebase';
 import { useRouter, usePathname } from 'next/navigation';
 
-export type UserRole = 'admin' | 'guest_viewer' | 'attendance_volunteer' | 'mat_operator' | 'medal_distributor' | 'audience' | null;
+export type UserRole = 'admin' | 'guest_viewer' | 'attendance_volunteer' | 'mat_operator' | 'medal_distributor' | 'judge' | 'audience' | null;
 
 interface AuthContextType {
   user: User | null;
@@ -35,11 +35,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const userDoc = await getDoc(userDocRef);
           
           if (userDoc.exists()) {
-            // No longer upgrading audience to admin for developer convenience
             const currentRole = userDoc.data().role;
             setRole(currentRole as UserRole);
 
-            // Update latest user info
             await setDoc(userDocRef, {
               email: currentUser.email,
               displayName: currentUser.displayName || null,
@@ -48,7 +46,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               lastLoginAt: new Date().toISOString()
             }, { merge: true });
           } else {
-            // First time login - default to audience
             await setDoc(userDocRef, {
               uid: currentUser.uid,
               email: currentUser.email,
@@ -62,7 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         } catch (error) {
           console.error("Error fetching user role:", error);
-          setRole('audience'); // Fallback safely
+          setRole('audience');
         }
       } else {
         setRole(null);
@@ -76,44 +73,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!loading) {
-      // 1. Unauthenticated Users
       if (!user) {
         const isStrictAdminRoute = pathname === '/' || pathname.startsWith('/setup') || pathname.startsWith('/users') || pathname.startsWith('/profile');
-        const isPortalRoute = pathname.includes('/staff') || pathname.includes('/medals');
+        const isProtectedCompetitionRoute = pathname.includes('/staff') || pathname.includes('/medals') || pathname.includes('/judge') || pathname.includes('/operator') || pathname.includes('/athletes') || pathname.includes('/records') || pathname.includes('/categories');
         
-        if (isStrictAdminRoute || isPortalRoute) {
+        if (isStrictAdminRoute || isProtectedCompetitionRoute) {
           if (pathname === '/') {
             router.push('/competitions');
           } else {
             router.push('/login');
           }
         }
-        return; // Exit early
+        return;
       }
 
-      // 2. Authenticated Users routing logic based on Role
       if (user && role) {
-        // Prevent going to login if already logged in
         if (pathname === '/login') {
           router.push('/');
           return;
         }
 
-        // Restrict Admin-only routes
+        const isAdminOrGuest = role === 'admin' || role === 'guest_viewer';
         const isAdminRoute = pathname === '/' || pathname.startsWith('/setup') || pathname.startsWith('/users');
-        if (isAdminRoute && role !== 'admin' && role !== 'guest_viewer') {
-          router.push('/competitions'); // Kick non-admins out to public directory
+        
+        if (isAdminRoute && !isAdminOrGuest) {
+          router.push('/competitions');
           return;
         }
 
         // Restrict Specific Portals
-        if (pathname.includes('/operator') && role !== 'mat_operator' && role !== 'admin' && role !== 'guest_viewer') {
+        if (pathname.includes('/operator') && role !== 'mat_operator' && !isAdminOrGuest) {
           router.push('/competitions');
         }
-        if (pathname.includes('/staff') && role !== 'attendance_volunteer' && role !== 'admin' && role !== 'guest_viewer') {
+        if (pathname.includes('/judge') && role !== 'judge' && !isAdminOrGuest) {
           router.push('/competitions');
         }
-        if (pathname.includes('/medals') && role !== 'medal_distributor' && role !== 'admin' && role !== 'guest_viewer') {
+        if (pathname.includes('/staff') && !isAdminOrGuest) {
+          router.push('/competitions');
+        }
+        if (pathname.includes('/records') && !isAdminOrGuest) {
+          router.push('/competitions');
+        }
+        if (pathname.includes('/categories') && !isAdminOrGuest) {
+          router.push('/competitions');
+        }
+        if (pathname.includes('/medals') && role !== 'medal_distributor' && !isAdminOrGuest) {
+          router.push('/competitions');
+        }
+        if (pathname.includes('/athletes') && role !== 'attendance_volunteer' && !isAdminOrGuest) {
           router.push('/competitions');
         }
       }

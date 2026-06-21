@@ -162,8 +162,8 @@ export default function ProfilePage() {
               </div>
               <div className="comp-status">
                 <span className="status-chip status-done" style={{ background: 'var(--neutral-100)', color: 'var(--neutral-500)' }}>Completed</span>
-                <Link href="/archive/tokyo-masters" className="btn btn-ghost" style={{ padding: '8px' }}>
-                  <FileText size={16} />
+                <Link href="/archives/tokyo-masters" className="btn btn-ghost" style={{ padding: '8px' }}>
+                  <ExternalLink size={16} />
                 </Link>
               </div>
             </div>
@@ -181,7 +181,7 @@ export default function ProfilePage() {
               </div>
               <div className="comp-status">
                 <span className="status-chip status-done" style={{ background: 'var(--neutral-100)', color: 'var(--neutral-500)' }}>Completed</span>
-                <Link href="/archive/nagoya-open" className="btn btn-ghost" style={{ padding: '8px' }}>
+                <Link href="/archives/nagoya-open" className="btn btn-ghost" style={{ padding: '8px' }}>
                   <FileText size={16} />
                 </Link>
               </div>

@@ -7,6 +7,7 @@ import PasswordGateway from '@/components/auth/PasswordGateway';
 import { toast } from 'react-hot-toast';
 import KataOperatorPanel from '@/components/kata/KataOperatorPanel';
 import KataLiveScoreboard, { deriveJudgeVotes } from '@/components/kata/KataLiveScoreboard';
+import KumiteLiveScoreboard from '@/components/kumite/KumiteLiveScoreboard';
 import { useAuth } from '@/components/auth/AuthProvider';
 
 export default function OperatorPortal({ params }: { params: Promise<{ id: string }> }) {
@@ -1230,99 +1231,38 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
               ) : (
                 <>
                 {isViewer ? (
-                  <div id="ops-display-container" style={{ background: '#fdfbfb', padding: '24px 0', borderBottom: '1px solid var(--neutral-200)', overflowX: 'auto', display: 'flex', justifyContent: 'center' }}>
-                    <div style={{ minWidth: '1000px', transform: 'scale(0.85)', transformOrigin: 'top center', marginBottom: '-60px' }}>
-                      <div className="fs-body" style={{ display: winnerState ? 'flex' : 'grid', height: winnerState ? '100%' : 'auto' }}>
-                        {winnerState ? (
-                          <div style={{ flex: 1, padding: '24px 0', display: 'flex', flexDirection: 'column' }}>
-                            <div className={`fs-winner-showcase ${winnerState.color}`}>
-                              <div className="fs-winner-title">{winnerState.color === 'aka' ? 'AKA WINS' : 'AO WINS'}</div>
-                              <div className="fs-winner-points">{winnerState.points}</div>
-                              <div className="fs-winner-name">{winnerState.name}</div>
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            {/* AKA STATS */}
-                            <div className="fs-stat-col">
-                              <div className="fs-stat-card"><div className="fs-stat-label">Yuko</div><div className="fs-stat-value aka">{aka.yuko}</div></div>
-                              <div className="fs-stat-card"><div className="fs-stat-label">Waza</div><div className="fs-stat-value aka">{aka.waza}</div></div>
-                              <div className="fs-stat-card"><div className="fs-stat-label">Ippon</div><div className="fs-stat-value aka">{aka.ippon}</div></div>
-                              <div className={`fs-stat-card ${aka.senshu ? 'active-senshu aka' : ''}`}><div className="fs-stat-label" style={{margin:0, color: aka.senshu ? '#fff' : 'inherit'}}>Senshu</div></div>
-                            </div>
-
-                            {/* AKA CARD */}
-                            <article className="fs-fighter">
-                              <div className="fs-fighter-head aka">
-                                <div className="fs-lane">AKA</div>
-                                <div className="fs-name">{aka.name}</div>
-                              </div>
-                              <div className="fs-score-stage">
-                                <div className="fs-main-score aka">{aka.score}</div>
-                              </div>
-                              <div className="fs-fighter-foot">
-                                <div className="fs-pen-title">Penalties</div>
-                                <div className="fs-penalties">
-                                  {['c1', 'c2', 'c3', 'hc', 'h'].map((p) => (
-                                    <span className="fs-pen-slot" key={p}>
-                                      <span className="fs-pen-code">{p.toUpperCase()}</span>
-                                      <span className={`fs-pen-dot aka ${(aka as any)[p] ? 'active' : ''}`}></span>
-                                    </span>
-                                  ))}
-                                </div>
-                                <div className="fs-academy">{aka.academy}</div>
-                              </div>
-                            </article>
-
-                            {/* MIDDLE */}
-                            <div className="fs-mid">
-                              <span className="fs-round-pill">Round {round}</span>
-                              {compData?.scoreboardLogo && (
-                                <div style={{ margin: 'auto 0', width: '160px', height: '160px', borderRadius: '24px', overflow: 'hidden', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                  <img src={compData.scoreboardLogo} alt="Competition Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                                </div>
-                              )}
-                              <div className="fs-timer-label" style={{ marginTop: compData?.scoreboardLogo ? 'auto' : 'auto' }}>Time Remaining</div>
-                              <div className="fs-timer" style={{ color: timer <= 10 ? 'var(--aka)' : 'inherit' }}>{mins}:{secs}</div>
-                              <div className="fs-status-wrap">
-                                <div className="fs-status-label">Match Status</div>
-                                <span className="fs-status-pill">{status}</span>
-                              </div>
-                            </div>
-
-                            {/* AO CARD */}
-                            <article className="fs-fighter">
-                              <div className="fs-fighter-head ao">
-                                <div className="fs-lane">AO</div>
-                                <div className="fs-name">{ao.name}</div>
-                              </div>
-                              <div className="fs-score-stage">
-                                <div className="fs-main-score ao">{ao.score}</div>
-                              </div>
-                              <div className="fs-fighter-foot">
-                                <div className="fs-pen-title">Penalties</div>
-                                <div className="fs-penalties">
-                                  {['c1', 'c2', 'c3', 'hc', 'h'].map((p) => (
-                                    <span className="fs-pen-slot" key={p}>
-                                      <span className="fs-pen-code">{p.toUpperCase()}</span>
-                                      <span className={`fs-pen-dot ao ${(ao as any)[p] ? 'active' : ''}`}></span>
-                                    </span>
-                                  ))}
-                                </div>
-                                <div className="fs-academy">{ao.academy}</div>
-                              </div>
-                            </article>
-
-                            {/* AO STATS */}
-                            <div className="fs-stat-col">
-                              <div className="fs-stat-card"><div className="fs-stat-label">Yuko</div><div className="fs-stat-value">{ao.yuko}</div></div>
-                              <div className="fs-stat-card"><div className="fs-stat-label">Waza</div><div className="fs-stat-value">{ao.waza}</div></div>
-                              <div className="fs-stat-card"><div className="fs-stat-label">Ippon</div><div className="fs-stat-value">{ao.ippon}</div></div>
-                              <div className={`fs-stat-card ${ao.senshu ? 'active-senshu ao' : ''}`}><div className="fs-stat-label" style={{margin:0, color: ao.senshu ? '#fff' : 'inherit'}}>Senshu</div></div>
-                            </div>
-                          </>
-                        )}
-                      </div>
+                  <div id="ops-display-container" style={{ padding: '24px', background: '#fdfbfb', borderBottom: '1px solid var(--neutral-200)', display: 'flex', justifyContent: 'center' }}>
+                    <div style={{ width: '100%', maxWidth: '1200px', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 12px 32px rgba(0,0,0,0.1)' }}>
+                      <KumiteLiveScoreboard
+                        akaName={aka.name}
+                        aoName={ao.name}
+                        akaAcademy={aka.academy}
+                        aoAcademy={ao.academy}
+                        akaCountry={aka.country}
+                        aoCountry={ao.country}
+                        akaScore={aka.score}
+                        aoScore={ao.score}
+                        akaIppon={aka.ippon}
+                        aoIppon={ao.ippon}
+                        akaWazaari={aka.waza}
+                        aoWazaari={ao.waza}
+                        akaYuko={aka.yuko}
+                        aoYuko={ao.yuko}
+                        akaC1={aka.c1}
+                        aoC1={ao.c1}
+                        akaC2={aka.c2}
+                        aoC2={ao.c2}
+                        akaSenshu={aka.senshu}
+                        aoSenshu={ao.senshu}
+                        timerDisplay={`${mins}:${secs}`}
+                        timerColor={timer <= 15 ? 'var(--aka)' : 'var(--status-live)'}
+                        matchStatus={timer === 0 ? 'TIME OVER' : running ? 'MATCH LIVE' : timer === matchDuration ? 'PRE-MATCH' : 'PAUSED'}
+                        title={compData?.name || 'TAIKAIX'}
+                        categoryName={activeCategoryName || 'KUMITE'}
+                        matchId={`MAT ${new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('mat')?.replace('mat-', '').padStart(2, '0') || '01'} - ${queue.find(m => m.id === activeMatchId)?.displayId || '—'}`}
+                        winnerName={winnerState ? winnerState.name : undefined}
+                        winnerColor={winnerState ? winnerState.color : undefined}
+                      />
                     </div>
                   </div>
                 ) : (
@@ -1369,7 +1309,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
               </div>
               )}
 
-              {!isViewer && (
+              {!isViewer && !activeCategoryData?.isKata && (
               <div className="ops-controls">
                 <div className="round-ops-strip" style={{ borderBottom: '1px solid var(--neutral-200)', background: 'var(--shiro)' }}>
                   <div style={{ fontWeight: 700, fontSize: '14px' }}>Round Operations</div>

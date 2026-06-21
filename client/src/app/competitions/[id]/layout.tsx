@@ -21,12 +21,15 @@ export default function CompetitionLayout({
   const isRoot = pathname === `/competitions/${id}`;
 
   // Role-based visibility
+  const isAdmin = role === 'admin';
   const isAdminOrGuest = role === 'admin' || role === 'guest_viewer';
-  const showCategories = isAdminOrGuest;
-  const showStaff = true;
-  const showAthletes = isAdminOrGuest || role === 'attendance_volunteer';
-  const showMedals = isAdminOrGuest || role === 'medal_distributor';
-  const showOperator = role === 'admin' || role === 'mat_operator';
+  const showCategories = isAdmin;
+  const showStaff = isAdmin;
+  const showAthletes = isAdmin || role === 'attendance_volunteer';
+  const showRecords = isAdmin;
+  const showMedals = isAdmin || role === 'medal_distributor';
+  const showOperator = isAdmin || role === 'mat_operator';
+  const showJudge = isAdmin || role === 'judge';
 
   const linkStyle = { background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' };
 
@@ -41,12 +44,14 @@ export default function CompetitionLayout({
         >
           Overview
         </Link>
-        <Link
-          href={`/competitions/${id}/judge${joinParam}`}
-          className={`sub-nav-link ${isActive('/judge') ? 'active' : ''}`}
-        >
-          Judge
-        </Link>
+        {showJudge && (
+          <Link
+            href={`/competitions/${id}/judge${joinParam}`}
+            className={`sub-nav-link ${isActive('/judge') ? 'active' : ''}`}
+          >
+            Judge
+          </Link>
+        )}
         {showCategories && (
           <Link
             href={`/competitions/${id}/categories${joinParam}`}
@@ -78,20 +83,21 @@ export default function CompetitionLayout({
         )}
 
         {showAthletes && (
-          <>
-            <Link
-              href={`/competitions/${id}/athletes${joinParam}`}
-              className={`sub-nav-link ${isActive('/athletes') ? 'active' : ''}`}
-            >
-              Athletes
-            </Link>
-            <Link
-              href={`/competitions/${id}/records${joinParam}`}
-              className={`sub-nav-link ${isActive('/records') ? 'active' : ''}`}
-            >
-              Records
-            </Link>
-          </>
+          <Link
+            href={`/competitions/${id}/athletes${joinParam}`}
+            className={`sub-nav-link ${isActive('/athletes') ? 'active' : ''}`}
+          >
+            Athletes
+          </Link>
+        )}
+
+        {showRecords && (
+          <Link
+            href={`/competitions/${id}/records${joinParam}`}
+            className={`sub-nav-link ${isActive('/records') ? 'active' : ''}`}
+          >
+            Records
+          </Link>
         )}
 
         {showMedals && (
