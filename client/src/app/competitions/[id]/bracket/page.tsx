@@ -563,8 +563,8 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
             setModalOpen(false);
             setHighlightMatchId(null);
           }}
-          onPromote={handlePromote}
-          onAssignMat={handleAssignMat}
+          onPromote={role === 'admin' ? handlePromote : undefined}
+          onAssignMat={role === 'admin' ? handleAssignMat : undefined}
         />
       )}
 

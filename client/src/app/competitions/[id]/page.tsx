@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/components/auth/AuthProvider';
-import { Lock, Unlock, Users, Calendar, Layout, Award, Edit3, Share2 } from 'lucide-react';
+import { Lock, Unlock, Users, Calendar, Layout, Award, Edit3, Share2, Eye, EyeOff } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import PageSkeleton from '@/components/layout/PageSkeleton';
@@ -14,6 +14,9 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
   const { user, role } = useAuth();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState('');
+  const [passwordInput, setPasswordInput] = useState('');
+  const [showPasswordInput, setShowPasswordInput] = useState(false);
+  const [checkingPassword, setCheckingPassword] = useState(false);
 
   const [compData, setCompData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -35,6 +38,35 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
       setIsAuthenticated(true);
     }
   }, [user, searchParams, id]);
+
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!passwordInput.trim()) return;
+    setCheckingPassword(true);
+    setError('');
+    try {
+      const { db } = await import('@lib/firebase');
+      const { doc, getDoc } = await import('firebase/firestore');
+      const snap = await getDoc(doc(db, 'competitions', id));
+      if (snap.exists()) {
+        const actualPassword = snap.data().password;
+        if (actualPassword && actualPassword === passwordInput) {
+          localStorage.setItem(`joined_${id}`, 'true');
+          setIsAuthenticated(true);
+          setError('');
+          toast.success('Access granted!');
+        } else {
+          setError('Incorrect password. Please try again.');
+        }
+      } else {
+        setError('Competition not found.');
+      }
+    } catch (err) {
+      setError('An error occurred. Please try again.');
+    } finally {
+      setCheckingPassword(false);
+    }
+  };
 
   const [recentMatches, setRecentMatches] = useState<any[]>([]);
   const [matLeaderboards, setMatLeaderboards] = useState<Record<string, any[]>>({});
@@ -141,6 +173,71 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
 
   if (loading) {
     return <PageSkeleton />;
+  }
+
+  // Show password gate for unauthenticated viewers
+  if (!isAuthenticated && !user) {
+    return (
+      <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+        <div style={{ background: 'var(--shiro)', padding: '40px 48px', borderRadius: '16px', width: '100%', maxWidth: '440px', boxShadow: '0 8px 32px rgba(0,0,0,0.10)', border: '1px solid var(--neutral-200)', textAlign: 'center' }}>
+          <div style={{ display: 'inline-flex', padding: '14px', background: 'rgba(217, 38, 44, 0.08)', borderRadius: '50%', color: 'var(--aka)', marginBottom: '20px' }}>
+            <Lock size={28} />
+          </div>
+          <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '8px' }}>{compData?.name || 'This Competition'}</h2>
+          <p style={{ color: 'var(--neutral-500)', fontSize: '14px', marginBottom: '28px', lineHeight: 1.6 }}>
+            This is a private event. Enter the competition password to view live results, tiesheets, and mats.
+          </p>
+          <form onSubmit={handlePasswordSubmit}>
+            <div style={{ position: 'relative', marginBottom: '12px' }}>
+              <input
+                type={showPasswordInput ? 'text' : 'password'}
+                placeholder="Enter competition password..."
+                value={passwordInput}
+                onChange={e => setPasswordInput(e.target.value)}
+                autoFocus
+                style={{ 
+                  width: '100%', 
+                  height: '44px', 
+                  padding: '0 44px 0 14px', 
+                  border: `1.5px solid ${error ? 'var(--aka)' : 'var(--neutral-300)'}`, 
+                  borderRadius: '10px', 
+                  fontSize: '14px', 
+                  fontFamily: 'inherit',
+                  outline: 'none',
+                  background: 'var(--shiro)',
+                  color: 'var(--neutral-900)',
+                  boxSizing: 'border-box',
+                  transition: 'border-color 0.2s'
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPasswordInput(s => !s)}
+                style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--neutral-500)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+              >
+                {showPasswordInput ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            {error && <p style={{ color: 'var(--aka)', fontSize: '12px', marginBottom: '12px', textAlign: 'left' }}>{error}</p>}
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={checkingPassword}
+              style={{ width: '100%', justifyContent: 'center' }}
+            >
+              <Lock size={15} style={{ marginRight: '8px' }} />
+              {checkingPassword ? 'Verifying...' : 'Access Competition'}
+            </button>
+          </form>
+          <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid var(--neutral-200)' }}>
+            <p style={{ fontSize: '13px', color: 'var(--neutral-400)', marginBottom: '12px' }}>Have a join link?</p>
+            <Link href="/login" style={{ fontSize: '13px', color: 'var(--ao)', fontWeight: 600, textDecoration: 'none' }}>
+              Sign in with your account instead →
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

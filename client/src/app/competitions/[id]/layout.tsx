@@ -1,8 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/components/auth/AuthProvider';
 
 export default function CompetitionLayout({
@@ -14,13 +14,37 @@ export default function CompetitionLayout({
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { role } = useAuth();
+  const router = useRouter();
+  const { role, user, loading: authLoading } = useAuth();
   const { id } = React.use(params);
 
   const isActive = (segment: string) => pathname.includes(segment);
   const isRoot = pathname === `/competitions/${id}`;
 
-  // Role-based visibility
+  // Redirect unauthenticated viewers trying to access sub-pages directly
+  // The overview page handles the password gate itself; sub-pages redirect back to it
+  useEffect(() => {
+    if (authLoading) return;
+    if (user) return; // signed-in users are always allowed
+
+    const isJoined = typeof window !== 'undefined' && localStorage.getItem(`joined_${id}`) === 'true';
+    const hasJoinParam = searchParams.get('join') === 'true';
+
+    if (hasJoinParam) {
+      // Store the join token
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(`joined_${id}`, 'true');
+      }
+      return;
+    }
+
+    // If on a sub-page (not overview) and not authenticated, redirect to overview
+    if (!isRoot && !isJoined) {
+      router.replace(`/competitions/${id}`);
+    }
+  }, [authLoading, user, id, isRoot, searchParams, router]);
+
+  // Role-based visibility — requires active sign-in for staff tabs
   const isAdmin = role === 'admin';
   const isAdminOrGuest = role === 'admin' || role === 'guest_viewer';
   const showCategories = isAdmin;
@@ -29,7 +53,8 @@ export default function CompetitionLayout({
   const showRecords = isAdmin;
   const showMedals = isAdmin || role === 'medal_distributor';
   const showOperator = isAdmin || role === 'mat_operator';
-  const showJudge = isAdmin || role === 'judge';
+  // Judge tab only visible for signed-in users with judge or admin role
+  const showJudge = !!user && (isAdmin || role === 'judge');
 
   const linkStyle = { background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' };
 
