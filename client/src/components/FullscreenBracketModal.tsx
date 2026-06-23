@@ -71,7 +71,7 @@ const BracketNode = ({
       <div className={`competitor-row aka${isCompleted && match.winnerId && match.winnerId !== akaId ? ' loser' : ''}${isCompleted && match.winnerId && match.winnerId === akaId ? ' winner' : ''}`}>
         <div className="comp-info">
           <div className="comp-name">
-            {match.aka ? match.aka.name.toUpperCase() : (
+            {match.aka ? (match.aka.name || '').toUpperCase() : (
               match.akaFromMatchId ? <span style={{ color: 'var(--neutral-400)', fontStyle: 'normal' }}>WINNER M{match.akaFromMatchId}</span> : <span style={{ color: 'var(--neutral-400)' }}>No player assigned</span>
             )}
           </div>
@@ -118,7 +118,7 @@ const BracketNode = ({
       <div className={`competitor-row ao${isCompleted && match.winnerId && match.winnerId !== aoId ? ' loser' : ''}${isCompleted && match.winnerId && match.winnerId === aoId ? ' winner' : ''}`}>
         <div className="comp-info">
           <div className="comp-name">
-            {match.ao ? match.ao.name.toUpperCase() : (
+            {match.ao ? (match.ao.name || '').toUpperCase() : (
               match.aoFromMatchId ? <span style={{ color: 'var(--neutral-400)', fontStyle: 'normal' }}>WINNER M{match.aoFromMatchId}</span> : <span style={{ color: 'var(--neutral-400)' }}>No player assigned</span>
             )}
           </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Search } from 'lucide-react';
 import { toast } from 'react-hot-toast';
@@ -38,6 +38,7 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
   const [loading, setLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [addingAthlete, setAddingAthlete] = useState(false);
+  const addingAthleteRef = useRef(false);
   const [addForm, setAddForm] = useState({
     name: '', academy: '', age: '', weight: '', gender: 'Male', categoryId: '',
     phone: '', email: '', coachName: '', interestSpecialIds: [] as string[]
@@ -202,6 +203,8 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
 
   const handleAddAthlete = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (addingAthleteRef.current) return; // prevent double-submit
+    addingAthleteRef.current = true;
     setAddingAthlete(true);
     try {
       const res = await fetch(`/api/competitions/${id}/athletes/add`, {
@@ -231,6 +234,7 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
     } catch (err: any) {
       toast.error(`Failed to add athlete: ${err.message}`);
     } finally {
+      addingAthleteRef.current = false;
       setAddingAthlete(false);
     }
   };
