@@ -7,6 +7,7 @@ import { Lock, Unlock, Users, Calendar, Layout, Award, Edit3, Share2, Eye, EyeOf
 import { useSearchParams } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import PageSkeleton from '@/components/layout/PageSkeleton';
+import OnSpotEntryModal from '@/components/OnSpotEntryModal';
 
 export default function CompetitionDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
@@ -20,6 +21,7 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
 
   const [compData, setCompData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [onSpotModalOpen, setOnSpotModalOpen] = useState(false);
 
   // Admins or users with join link bypass passcode
   useEffect(() => {
@@ -267,9 +269,14 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
             </>
           )}
           {role === 'admin' && (
-            <button className="btn btn-primary">
-              <Layout size={16} style={{ marginRight: '8px' }} /> Start Next Match
-            </button>
+            <>
+              <button className="btn btn-secondary" onClick={() => setOnSpotModalOpen(true)}>
+                + On-Spot Entry
+              </button>
+              <button className="btn btn-primary">
+                <Layout size={16} style={{ marginRight: '8px' }} /> Start Next Match
+              </button>
+            </>
           )}
         </div>
       </header>
@@ -466,6 +473,14 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
           )}
         </section>
       </div>
+
+      {onSpotModalOpen && (
+        <OnSpotEntryModal
+          competitionId={id}
+          categories={[...liveCategories, ...upcomingCategories, ...finishedCategories]}
+          onClose={() => setOnSpotModalOpen(false)}
+        />
+      )}
     </main>
   );
 }

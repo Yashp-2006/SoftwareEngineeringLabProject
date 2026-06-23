@@ -381,7 +381,7 @@ export default function DashboardPage() {
             <button className="btn btn-secondary">
               <i data-lucide="download" style={{ width: '18px' }}></i> Export Report
             </button>
-            <Link href="/setup/new" className="btn btn-primary" style={{ textDecoration: 'none' }}>
+            <Link href="/competitions" className="btn btn-primary" style={{ textDecoration: 'none' }}>
               <i data-lucide="plus" style={{ width: '18px' }}></i> New Competition
             </Link>
           </div>

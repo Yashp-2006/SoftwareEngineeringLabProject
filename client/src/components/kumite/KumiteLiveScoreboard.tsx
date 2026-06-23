@@ -101,15 +101,14 @@ export default function KumiteLiveScoreboard({
         .kls-win-ao { color: var(--ao); }
       `}} />
 
-      <div className={\`kls-overlay \${winnerName ? 'active' : ''}\`}>
+      <div className={`kls-overlay ${winnerName ? 'active' : ''}`}>
         <div className="kls-win-label">MATCH WINNER</div>
-        <div className={\`kls-win-name \${winnerColor === 'aka' ? 'kls-win-aka' : 'kls-win-ao'}\`}>{winnerName}</div>
+        <div className={`kls-win-name ${winnerColor === 'aka' ? 'kls-win-aka' : 'kls-win-ao'}`}>{winnerName}</div>
       </div>
 
       <div className="kls-container">
-        {/* AKA SIDE */}
         <div className="kls-side aka">
-          <div className={\`kls-senshu \${akaSenshu ? 'active' : ''}\`}>SENSHU</div>
+          <div className={`kls-senshu ${akaSenshu ? 'active' : ''}`}>SENSHU</div>
           <div className="kls-name">{akaName}</div>
           <div className="kls-country">{[akaAcademy, akaCountry || 'JAPAN'].filter(Boolean).join(' • ').toUpperCase()}</div>
           
@@ -165,7 +164,7 @@ export default function KumiteLiveScoreboard({
 
         {/* AO SIDE */}
         <div className="kls-side ao">
-          <div className={\`kls-senshu \${aoSenshu ? 'active' : ''}\`}>SENSHU</div>
+          <div className={`kls-senshu ${aoSenshu ? 'active' : ''}`}>SENSHU</div>
           <div className="kls-name">{aoName}</div>
           <div className="kls-country">{[aoAcademy, aoCountry || 'JAPAN'].filter(Boolean).join(' • ').toUpperCase()}</div>
           

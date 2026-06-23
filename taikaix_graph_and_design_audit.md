@@ -1,6 +1,6 @@
 # TaikaiX Frontend — Graphify Knowledge Graph + Design Coverage Audit
 
-> **Last Updated:** 2026-05-31 — reflects current state of the **Next.js production client** (`client/src/app/`)
+> **Last Updated:** 2026-06-23 — reflects current state of the **Next.js production client** (`client/src/app/`)
 > **Original graph was built against:** HTML prototype archive (`TaiKaiX Frontend/`) — now superseded
 >
 > **Outputs in:** [`c:\Users\Yash\Desktop\VS Code\TaikaiX\agent-related\graphify-out\`](file:///c:/Users/Yash/Desktop/VS%20Code/TaikaiX/agent-related/graphify-out/)
@@ -42,6 +42,7 @@
 - **Live Scoring Architecture:** Wired the real-time scoring pipeline using Firebase RTDB (`live_scores/{id}/mats/{matId}`), allowing operators to push updates and scoreboards to instantly reflect them.
 - **Dynamic Brackets:** Implemented dynamic tiesheet generation with automatic bye-handling, pool-wise extraction, and auto-medaling upon category completion.
 - **UI/UX Polish:** Completed implementation for 19 out of 21 planned routes, maintaining the original design system (AKA/AO tokens, Bento grids, responsive layouts).
+- **Bug Fixes (June 23):** Fixed tiesheet preview pool filtering bug showing all matches combined, and enabled tiesheet regeneration button in Setup phase 3.
 - **Bug Fixes:** Resolved RTDB path mismatches, protected the `/debug` route, removed misleading empty route directories, fixed CSV import logic, and wired the dashboard homepage.
 
 ---
@@ -335,7 +336,7 @@ The Next.js app introduced several routes **not** in the original 18-screen spec
 ---
 
 > [!NOTE]
-> **Kata Implementation Phase (June 2026)** � ? **IMPLEMENTED:**
+> **Kata Implementation Phase (June 2026)** � ? **IMPLEMENTED:**
 > - Full tiesheet generation for Elimination, Round-Robin, and Two-Pool systems.
 > - WKF Seed placement mapping.
 > - Isolated Operator Panel for Kata featuring 102 WKF selection, live vote scoring grid, and Bunkai timing.
