@@ -332,20 +332,20 @@ export function BracketViewer({
   const poolsKey = availablePools.join(',');
   const [prevPoolsKey, setPrevPoolsKey] = useState(poolsKey);
 
-  if (activeHighlight !== prevActiveHighlight || poolsKey !== prevPoolsKey) {
-    setPrevActiveHighlight(activeHighlight);
-    setPrevPoolsKey(poolsKey);
-    if (availablePools.length > 0) {
-      if (activeHighlight && activeHighlight.startsWith('Pool')) {
-        const highlightPool = activeHighlight.split('-')[0].replace('Pool', '');
-        if (availablePools.includes(highlightPool)) {
-          setSelectedPool(highlightPool);
-        }
-      } else if (!selectedPool || !availablePools.includes(selectedPool)) {
-        setSelectedPool(availablePools[0]);
+  // Auto-select the first available pool (or switch when highlight changes)
+  useEffect(() => {
+    if (availablePools.length === 0) return;
+    if (activeHighlight && activeHighlight.startsWith('Pool')) {
+      const highlightPool = activeHighlight.split('-')[0].replace('Pool', '');
+      if (availablePools.includes(highlightPool)) {
+        setSelectedPool(highlightPool);
+        return;
       }
     }
-  }
+    // Default: select pool 1 (or first available)
+    setSelectedPool(prev => (prev && availablePools.includes(prev)) ? prev : availablePools[0]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [poolsKey, activeHighlight]);
 
   const filteredMatches = (availablePools.length > 0 && selectedPool)
     ? (matches || []).filter(m => m.id.startsWith(`Pool${selectedPool}-`))
