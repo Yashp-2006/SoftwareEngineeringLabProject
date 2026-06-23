@@ -30,6 +30,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
   const [undersizedModalOpen, setUndersizedModalOpen] = useState(false);
   const [previewCatId, setPreviewCatId] = useState<string | null>(null);
   const [downloadingTiesheets, setDownloadingTiesheets] = useState(false);
+  const [regeneratingTiesheets, setRegeneratingTiesheets] = useState(false);
   const [modalFormData, setModalFormData] = useState<any>({});
   const [compName, setCompName] = useState<string>('Loading...');
   const [compVenue, setCompVenue] = useState<string>('');
@@ -392,6 +393,47 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
       toast.error('Failed to generate tiesheets: ' + e.message);
     } finally {
       setDownloadingTiesheets(false);
+    }
+  };
+
+  const handleRegenerateTiesheets = async () => {
+    if (regeneratingTiesheets) return;
+    setRegeneratingTiesheets(true);
+    const toastId = toast.loading('Regenerating tiesheets...');
+    try {
+      const { db } = await import('@lib/firebase');
+      const { collection, getDocs } = await import('firebase/firestore');
+      const snap = await getDocs(collection(db, 'competitions', id, 'categories'));
+      const cats = snap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
+      const standardCats = cats.filter(c => !c.isSpecial && (c.athletes?.length ?? 0) > 0);
+      if (standardCats.length === 0) {
+        toast.dismiss(toastId);
+        toast.error('No categories with athletes found. Import athletes first.');
+        return;
+      }
+      let ok = 0; let fail = 0;
+      await Promise.all(standardCats.map(async (cat) => {
+        try {
+          const res = await fetch(`/api/competitions/${id}/brackets/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ categoryId: cat.id, poolSize, compType }),
+          });
+          const json = await res.json();
+          if (json.success) ok++; else fail++;
+        } catch { fail++; }
+      }));
+      toast.dismiss(toastId);
+      if (fail === 0) {
+        toast.success(`Tiesheets regenerated for ${ok} categories!`);
+      } else {
+        toast.success(`Regenerated ${ok} categories. ${fail} skipped (no athletes).`);
+      }
+    } catch (e: any) {
+      toast.dismiss(toastId);
+      toast.error('Failed to regenerate: ' + e.message);
+    } finally {
+      setRegeneratingTiesheets(false);
     }
   };
 
@@ -1204,7 +1246,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                         {importResult ? importResult.athletesImported : 'N/A'} Athletes {importResult ? 'Imported' : ''} • Pool size: {poolSize}
                       </p>
                     </div>
-                    <div style={{ display: 'flex', gap: '8px' }}>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                       <button
                         className="btn btn-secondary"
                         onClick={() => setUndersizedModalOpen(true)}
@@ -1212,6 +1254,13 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                       >
                         <Combine size={16} style={{ marginRight: '6px' }} />
                         Manage Undersized Pools
+                      </button>
+                      <button
+                        className="btn btn-primary"
+                        onClick={() => { setPreviewCatId(null); setPreviewModalOpen(true); }}
+                      >
+                        <Eye size={16} style={{ marginRight: '8px' }} />
+                        Preview Tiesheets
                       </button>
                       <button
                         className="btn btn-secondary"
@@ -1222,11 +1271,14 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                         {downloadingTiesheets ? 'Generating...' : 'Download Tiesheets'}
                       </button>
                       <button
-                        className="btn btn-primary"
-                        onClick={() => { setPreviewCatId(null); setPreviewModalOpen(true); }}
+                        className="btn btn-secondary"
+                        style={{ color: 'var(--aka)', borderColor: 'var(--aka)' }}
+                        onClick={handleRegenerateTiesheets}
+                        disabled={regeneratingTiesheets || (!importResult && categories.length === 0)}
+                        title="Re-run bracket generation for all categories. Use this if tiesheets didn't load correctly."
                       >
-                        <Eye size={16} style={{ marginRight: '8px' }} />
-                        Open Preview
+                        <RefreshCw size={16} style={{ marginRight: '6px' }} />
+                        {regeneratingTiesheets ? 'Regenerating...' : 'Regenerate Tiesheets'}
                       </button>
                     </div>
                   </div>
