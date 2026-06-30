@@ -35,6 +35,10 @@ type KumiteLiveScoreboardProps = {
 
   winnerName?: string;
   winnerColor?: 'aka' | 'ao';
+
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
+  onBack?: () => void;
 };
 
 export default function KumiteLiveScoreboard({
@@ -42,7 +46,8 @@ export default function KumiteLiveScoreboard({
   akaScore, aoScore, akaIppon, aoIppon, akaWazaari, aoWazaari, akaYuko, aoYuko,
   akaC1, aoC1, akaC2, aoC2, akaSenshu, aoSenshu,
   timerDisplay, timerColor, matchStatus, title = 'TAIKAIX', categoryName = '', matchId = '',
-  winnerName, winnerColor
+  winnerName, winnerColor,
+  isFullscreen, onToggleFullscreen, onBack
 }: KumiteLiveScoreboardProps) {
 
   const renderDots = (count: number) => {
@@ -55,6 +60,13 @@ export default function KumiteLiveScoreboard({
     <div className="kls-root">
       <style dangerouslySetInnerHTML={{ __html: `
         .kls-root { container-type: inline-size; width: 100%; height: 100%; min-height: 300px; display: flex; flex-direction: column; background: var(--kuro); color: var(--shiro); font-family: var(--font-body); overflow: hidden; }
+        .kls-header { display: flex; justify-content: space-between; align-items: center; padding: 2cqw 4cqw; flex-shrink: 0; z-index: 10; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .kls-title { font-size: 2cqw; font-weight: 800; color: var(--shiro); line-height: 1.2; }
+        .kls-subtitle { font-size: 1cqw; font-weight: 700; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 0.5cqw; }
+        .kls-header-actions { display: flex; gap: 1cqw; }
+        .kls-btn { display: inline-flex; align-items: center; gap: 0.5cqw; padding: 0.8cqw 1.2cqw; border-radius: 0.5cqw; font-size: 1cqw; font-weight: 600; cursor: pointer; border: 1px solid rgba(255,255,255,0.2); background: transparent; color: var(--shiro); transition: all 0.2s; }
+        .kls-btn:hover { background: rgba(255,255,255,0.1); }
+        
         .kls-container { flex: 1; display: grid; grid-template-columns: 1fr minmax(15cqw, 20cqw) 1fr; position: relative; }
         
         .kls-side { display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 4cqw; position: relative; transition: background-color 0.3s ease; }
@@ -105,6 +117,23 @@ export default function KumiteLiveScoreboard({
         <div className="kls-win-label">MATCH WINNER</div>
         <div className={`kls-win-name ${winnerColor === 'aka' ? 'kls-win-aka' : 'kls-win-ao'}`}>{winnerName}</div>
       </div>
+
+      {(title || categoryName || onToggleFullscreen || onBack) && (
+        <div className="kls-header">
+          <div>
+            <div className="kls-title">{title}</div>
+            <div className="kls-subtitle">{categoryName} • {matchId}</div>
+          </div>
+          <div className="kls-header-actions">
+            {onToggleFullscreen && (
+              <button className="kls-btn" onClick={onToggleFullscreen}>
+                {isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+              </button>
+            )}
+            {onBack && <button className="kls-btn" onClick={onBack}>← Return</button>}
+          </div>
+        </div>
+      )}
 
       <div className="kls-container">
         <div className="kls-side aka">
