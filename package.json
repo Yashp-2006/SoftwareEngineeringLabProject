@@ -1,0 +1,25 @@
+{
+  "name": "taikaix",
+  "version": "1.0.0",
+  "description": "> Karate tournament operations console — live scoring, brackets, athlete management, and archival analytics.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Yashp-2006/TaiKaiX.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Yashp-2006/TaiKaiX/issues"
+  },
+  "homepage": "https://github.com/Yashp-2006/TaiKaiX#readme",
+  "workspaces": [
+    "client",
+    "backend",
+    "database"
+  ]
+}

@@ -64,10 +64,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
   const saveDraft = async (targetPhase: number) => {
     setIsSaving(true);
     try {
-      const { doc, setDoc } = await import('firebase/firestore');
-      const { db } = await import('@lib/firebase');
-
-      // Firestore rejects `undefined` values — strip them out recursively
+      // Clean undefined values for Zod and API
       const stripUndefined = (obj: any): any => {
         if (Array.isArray(obj)) return obj.map(stripUndefined);
         if (obj !== null && typeof obj === 'object') {
@@ -80,24 +77,35 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         return obj;
       };
 
-      await setDoc(doc(db, 'competitions', id, 'drafts', 'setup'), stripUndefined({
-        compName,
+      const payload = stripUndefined({
+        competitionId: id,
+        compName: compName || 'Untitled',
         matsCount,
         poolSize,
-        compRules,
+        compRules: compRules || 'custom',
         compType,
         bronzeRule,
         wkfMode,
         wkfKataJudgeCount,
         categories,
-        importResult: importResult ?? null,
-        scoreboardLogo,
+        importResult: importResult ?? undefined,
+        scoreboardLogo: scoreboardLogo ?? undefined,
         lastActivePhase: targetPhase,
-        highestPhase: Math.max(highestPhase, targetPhase),
-        updatedAt: new Date().toISOString()
-      }), { merge: true });
+        highestPhase: Math.max(highestPhase, targetPhase)
+      });
+
+      const res = await fetch('/api/gateway', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'saveSetupDraft', payload })
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        console.error('API Gateway Error:', err);
+      }
     } catch (err) {
-      console.error('Error saving draft:', err);
+      console.error('Error saving draft via API Gateway:', err);
     } finally {
       setIsSaving(false);
     }
@@ -120,7 +128,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
 
   const handleWkfModeChange = async (mode: string) => {
     setWkfMode(mode);
-    const { generateWkfCategories } = await import('@lib/wkf-categories');
+    const { generateWkfCategories } = await import('@taikaix/backend/lib/wkf-categories');
     setCategories(generateWkfCategories(mode).map(name => {
       const isKata = name.toLowerCase().includes('kata');
       return { id: name, name, entries: 0, isKata, judgeCount: isKata ? wkfKataJudgeCount : undefined };
@@ -178,7 +186,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
           if (data.mats !== undefined) setMatsCount(data.mats);
           
           if (data.rules === 'wkf') {
-            const { generateWkfCategories } = await import('@lib/wkf-categories');
+            const { generateWkfCategories } = await import('@taikaix/backend/lib/wkf-categories');
             const { collection, getDocs } = await import('firebase/firestore');
             const catSnap = await getDocs(collection(db, 'competitions', id, 'categories'));
             
@@ -420,7 +428,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         toast.error('No categories found. Import athletes first.');
         return;
       }
-      const { exportTiesheetsPDF } = await import('@lib/tiesheet-pdf-exporter');
+      const { exportTiesheetsPDF } = await import('@taikaix/backend/services/tiesheet-pdf-exporter');
       await exportTiesheetsPDF({
         competitionName: compName,
         categories: cats.map((c: any) => ({
@@ -487,119 +495,33 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
   const handleDeploy = async () => {
     setDeploying(true);
     try {
-      const { db } = await import('@lib/firebase');
-      const { writeBatch, doc, collection, getDocs } = await import('firebase/firestore');
-      
-      const catsSnapshot = await getDocs(collection(db, 'competitions', id, 'categories'));
-      const existingCatsMap: Record<string, any> = {};
-      catsSnapshot.docs.forEach(d => {
-        existingCatsMap[d.data().name] = d.ref;
+      const payload = {
+        competitionId: id,
+        compName,
+        matsCount,
+        poolSize,
+        compRules,
+        compType,
+        bronzeRule,
+        wkfMode,
+        wkfKataJudgeCount,
+        categories,
+        hideEmpty,
+        scoreboardLogo: scoreboardLogo ?? undefined
+      };
+
+      const res = await fetch('/api/gateway', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'deployTournament', payload })
       });
 
-      const batch = writeBatch(db);
-      
-      const allCats = [
-        ...categories.filter(c => hideEmpty ? (c.entries || 0) > 0 : true).map(c => ({...c, isSpecial: false}))
-      ];
-      const numMats = (matsCount as number) || 1;
-      
-      // --- Read timing config from competition doc ---
-      const { getDoc } = await import('firebase/firestore');
-      const compDocSnap = await getDoc(doc(db, 'competitions', id));
-      const compDocData = compDocSnap.exists() ? compDocSnap.data() : {};
-
-      // Parse start time (e.g. '09:00') into total minutes
-      const parseTimeMins = (t: string) => {
-        if (!t) return 9 * 60; // default 09:00
-        const [h, m] = t.split(':').map(Number);
-        return h * 60 + (m || 0);
-      };
-      const configStartMins = parseTimeMins(compDocData.startTime || '09:00');
-      const configEstMins = parseInt(compDocData.estMinsPerCategory) || 0;
-
-      // Auto-distribute evenly across mats starting at configStartMins
-      // Use total minutes from midnight to avoid hour overflow
-      const matTotalMins = Array.from({ length: numMats }).map(() => configStartMins);
-      
-      allCats.forEach((cat, index) => {
-        const matIndex = index % numMats;
-        const matName = `MAT ${String(matIndex + 1).padStart(2, '0')}`;
-        // Use configEstMins if set, otherwise fall back to entries-based estimate
-        const estimatedDuration = configEstMins > 0
-          ? configEstMins
-          : Math.min((cat.entries || 1) * 2, 90);
-        
-        const startTotalMins = matTotalMins[matIndex];
-        const endTotalMins = startTotalMins + estimatedDuration;
-        matTotalMins[matIndex] = endTotalMins;
-
-        const fmtTime = (totalMins: number) => {
-          const h = Math.floor(totalMins / 60) % 24;
-          const m = totalMins % 60;
-          return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-        };
-
-        const startTimeStr = fmtTime(startTotalMins);
-        const endTimeStr = fmtTime(endTotalMins);
-        
-        const catRef = existingCatsMap[cat.name] || doc(collection(db, 'competitions', id, 'categories'));
-        
-        const updateData: any = {
-          name: cat.name,
-          entries: cat.entries || 0,
-          status: 'upcoming',
-          mat: matName,
-          estimatedDuration: estimatedDuration,
-          scheduledStartTime: startTimeStr,
-          scheduledEndTime: endTimeStr,
-          order: index,
-          isSpecial: cat.isSpecial
-        };
-        
-        if (cat.name.toLowerCase().includes('kata')) {
-          updateData.isKata = true;
-          updateData.judgeCount = cat.judgeCount || wkfKataJudgeCount || 3;
-          updateData.numberOfJudges = cat.judgeCount || wkfKataJudgeCount || 3;
-        }
-
-        if (cat.isSpecial) {
-          if (cat.medal !== undefined) updateData.medal = cat.medal;
-          if (cat.minAge !== undefined) updateData.minAge = cat.minAge;
-          if (cat.maxAge !== undefined) updateData.maxAge = cat.maxAge;
-          if (cat.minWeight !== undefined) updateData.minWeight = cat.minWeight;
-          if (cat.maxWeight !== undefined) updateData.maxWeight = cat.maxWeight;
-        }
-
-        if (existingCatsMap[cat.name]) {
-          batch.update(catRef, updateData);
-        } else {
-          batch.set(catRef, updateData);
-        }
-      });
-
-      // Auto-seed mats matching matsCount
-      for (let i = 1; i <= numMats; i++) {
-        const matRef = doc(db, 'competitions', id, 'mats', `mat-${i}`);
-        batch.set(matRef, { name: `MAT ${String(i).padStart(2, '0')}`, order: i }, { merge: true });
+      if (!res.ok) {
+        const err = await res.json();
+        console.error('API Gateway Error:', err);
+        throw new Error('Deployment failed');
       }
-      
-      const compUpdateData: any = {
-        name: compName,
-        mats: (matsCount as number) || 1,
-        type: compType,
-        bronzeRule: bronzeRule,
-        isSetupComplete: true,
-        status: 'live',
-        updatedAt: new Date().toISOString()
-      };
-      
-      if (scoreboardLogo) {
-        compUpdateData.scoreboardLogo = scoreboardLogo;
-      }
-      
-      batch.update(doc(db, 'competitions', id), compUpdateData);
-      
-      await batch.commit();
+
       toast.success("Deployment successful! Schedule generated and saved.");
       window.location.href = `/competitions/${id}`;
     } catch (err) {
@@ -1367,7 +1289,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         </div>
       </main>
 
-      <div className={`modal-overlay ${modalType ? 'active' : ''}`}>
+      <div className={`modal-overlay ${(modalType && modalType !== 'editCategory') ? 'active' : ''}`}>
         <div className="modal">
           <div className="modal-header">
             <h3>

@@ -95,6 +95,13 @@
 - Fixed all remaining React Doctor bugs including a CSRF vulnerability (Side effect in GET handler in test-db) and State Synced to a Prop Inside an Effect bugs in ConfirmModal and FullscreenBracketModal.
 - Transformed chart UI (pie chart) to utilize a premium OKLCH color palette that blends with the --aka and --ao brand colors.
 
+## Update 2026-06-30
+- Decoupled the backend business logic and database connectivity from the Next.js frontend code.
+- Created a dedicated `@taikaix/backend` npm workspace in the `/backend` folder containing Firebase Admin logic, Redis caching, Algolia searches, Zod Schemas, WKF logic, and Tie-sheet generator files.
+- Configured Next.js 16 (Turbopack) to natively support external directory resolution for the workspace.
+- Refactored Kata UI operator portal to consolidate Kata Selection, Disqualification options, Rest Timers, and Match Selection simultaneously on a single live screen.
+- Removed legacy "round" concepts entirely from Kata rendering.
+- Re-linked components and resolved all TypeScript errors caused by the removal of outdated data models.
+- Verified build and production readiness.
 
 - Committed all changes and deployed to Vercel for production readiness.
-

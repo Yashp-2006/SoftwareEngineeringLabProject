@@ -1,34 +1,35 @@
-import * as admin from 'firebase-admin';
+import { getApps, getApp, initializeApp, cert } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
+import { getDatabase } from 'firebase-admin/database';
+import { getAuth } from 'firebase-admin/auth';
 
-// Initialize the Firebase Admin SDK if it hasn't been initialized yet.
-// Using a singleton pattern to prevent "already exists" errors in serverless environments.
-if (!admin.apps.length) {
-  try {
-    // Parse the private key correctly, replacing escaped newlines.
-    const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY
-      ? process.env.FIREBASE_ADMIN_PRIVATE_KEY.replace(/\\n/g, '\n')
-      : undefined;
-
-    if (!process.env.FIREBASE_ADMIN_PROJECT_ID || !process.env.FIREBASE_ADMIN_CLIENT_EMAIL || !privateKey) {
-      throw new Error('Missing Firebase Admin environment variables. Please check .env.local');
-    }
-
-    admin.initializeApp({
-      credential: admin.credential.cert({
+function initAdmin() {
+  if (getApps().length > 0) return getApp();
+  
+  const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY
+    ? process.env.FIREBASE_ADMIN_PRIVATE_KEY.replace(/\\n/g, '\n')
+    : undefined;
+    
+  if (process.env.FIREBASE_ADMIN_PROJECT_ID) {
+    return initializeApp({
+      credential: cert({
         projectId: process.env.FIREBASE_ADMIN_PROJECT_ID,
         clientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
-        privateKey,
+        privateKey: privateKey,
       }),
-      databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL // Need RTDB URL for admin as well
+      databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL || 'https://dummy.firebaseio.com'
     });
-    
-    console.log('Firebase Admin SDK initialized successfully.');
-  } catch (error) {
-    console.error('Firebase Admin SDK initialization error', error);
   }
+  
+  // Dummy initialization for Next.js build time
+  return initializeApp({ 
+    projectId: 'dummy-project',
+    databaseURL: 'https://dummy.firebaseio.com'
+  });
 }
 
-// Export the instances for use in API routes
-export const adminDb = admin.firestore();
-export const adminRtdb = admin.database();
-export const adminAuth = admin.auth();
+const app = initAdmin();
+
+export const adminDb = getFirestore(app);
+export const adminAuth = getAuth(app);
+export const adminRtdb = getDatabase(app);

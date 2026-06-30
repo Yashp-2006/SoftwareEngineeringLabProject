@@ -1,0 +1,24 @@
+{
+  "name": "@taikaix/backend",
+  "version": "1.0.0",
+  "description": "Server-side utilities, typed helpers, middleware, and shared logic used by the Next.js API routes.",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@upstash/redis": "^1.38.0",
+    "algoliasearch": "^5.55.1",
+    "firebase": "^12.15.0",
+    "firebase-admin": "^14.1.0",
+    "jspdf": "^4.2.1",
+    "xlsx": "^0.18.5",
+    "zod": "^4.4.3"
+  }
+}

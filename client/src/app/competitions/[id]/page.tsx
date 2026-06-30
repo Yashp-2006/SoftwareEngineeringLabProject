@@ -8,6 +8,7 @@ import { useSearchParams } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import PageSkeleton from '@/components/layout/PageSkeleton';
 import OnSpotEntryModal from '@/components/OnSpotEntryModal';
+import { Download } from 'lucide-react';
 
 export default function CompetitionDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
@@ -86,10 +87,13 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
     const fetchComp = async () => {
       try {
         const { db } = await import('@lib/firebase');
-        const { doc, getDoc, collection, onSnapshot } = await import('firebase/firestore');
-        const d = await getDoc(doc(db, 'competitions', id));
-        if (d.exists()) {
-          setCompData(d.data());
+        const { collection, onSnapshot } = await import('firebase/firestore');
+
+        // Fetch from cached API Gateway instead of direct Firestore getDoc
+        const res = await fetch(`/api/competitions/${id}/public`);
+        if (res.ok) {
+          const data = await res.json();
+          setCompData(data);
         }
         setLoading(false);
 
@@ -170,6 +174,41 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
       const url = `${window.location.origin}/competitions/${id}?join=true`;
       navigator.clipboard.writeText(url);
       toast.success('Public join link copied to clipboard!');
+    }
+  };
+
+  const handleExportPreset = async () => {
+    try {
+      const { db } = await import('@lib/firebase');
+      const { collection, getDocs } = await import('firebase/firestore');
+      const snap = await getDocs(collection(db, 'competitions', id, 'categories'));
+      const cats = snap.docs.map(d => ({ id: d.id, ...d.data() as any }));
+      
+      const preset = cats.map(c => ({
+        name: c.name,
+        discipline: c.discipline,
+        gender: c.gender,
+        minAge: c.minAge,
+        maxAge: c.maxAge,
+        minWeight: c.minWeight,
+        maxWeight: c.maxWeight,
+        isKata: c.isKata,
+        judgeCount: c.judgeCount,
+        minGrade: c.minGrade,
+        maxGrade: c.maxGrade
+      }));
+
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(preset, null, 2));
+      const downloadAnchorNode = document.createElement('a');
+      downloadAnchorNode.setAttribute("href", dataStr);
+      downloadAnchorNode.setAttribute("download", `${compData?.name || 'custom'}_preset.json`);
+      document.body.appendChild(downloadAnchorNode);
+      downloadAnchorNode.click();
+      downloadAnchorNode.remove();
+      toast.success('Preset exported successfully!');
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to export preset');
     }
   };
 
@@ -262,6 +301,9 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
             <>
               <button className="btn btn-secondary" onClick={handleShareLink}>
                 <Share2 size={16} style={{ marginRight: '8px' }} /> Share Join Link
+              </button>
+              <button className="btn btn-secondary" onClick={handleExportPreset}>
+                <Download size={16} style={{ marginRight: '8px' }} /> Export Preset
               </button>
               <Link href={`/setup/${id}`} className="btn btn-primary">
                 <Edit3 size={16} /> Setup Wizard

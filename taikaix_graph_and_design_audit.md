@@ -350,6 +350,12 @@ The Next.js app introduced several routes **not** in the original 18-screen spec
 - Validated React codebase with React Doctor and resolved issues like anti-pattern state synchronization inside useEffect loops and side-effects within GET route handlers.
 - Polished PieChart elements with custom OKLCH colors, bringing them perfectly into the brand guideline (--aka/--ao).
 
+## Update 2026-06-30
+- Decoupled backend business logic and database connectivity from the Next.js frontend code.
+- Created a dedicated `@taikaix/backend` npm workspace containing Firebase Admin logic, Redis caching, Algolia searches, Zod Schemas, WKF logic, and Tie-sheet generators.
+- Configured Next.js 16 (Turbopack) to natively support external directory resolution for the new workspace architecture.
+- Re-linked and fixed all TypeScript errors caused by the removal of outdated data models.
+- Refactored Kata UI operator portal to consolidate Kata Selection, Disqualification options, Rest Timers, and Match Selection simultaneously on a single live screen. Removed legacy "round" concepts from Kata.
+- Cleaned up loose files: migrated dummy data to `database/` and rewriting scripts to `client/`.
 
-- Deployed production-ready application to Vercel incorporating all UI/UX and React Doctor fixes.
-
+- Deployed production-ready application to Vercel incorporating all NPM Workspace updates.

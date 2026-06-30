@@ -146,14 +146,31 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
     setStaffData(prev => prev.map(s => s.id === selectedAssignmentId ? { ...s, ...updates } as StaffAssignment : s));
     closeModal();
 
-    // Persist
     try {
-      const { db } = await import('@lib/firebase');
-      const { doc, updateDoc } = await import('firebase/firestore');
-      const staffRef = doc(db, 'competitions', competitionId, 'staff', selectedAssignmentId);
-      await updateDoc(staffRef, updates);
+      const payload = {
+        competitionId,
+        assignmentId: selectedAssignmentId,
+        updates
+      };
+
+      const res = await fetch('/api/gateway', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'assignStaff', payload })
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        // Rollback optimistic update
+        setStaffData(prev => prev.map(s => s.id === selectedAssignmentId ? assignment : s));
+        console.error('API Gateway Error:', errorData);
+        alert(errorData.error || 'Failed to assign staff. It might be already assigned or locked.');
+      }
     } catch (err) {
       console.error('Failed to update assignment', err);
+      // Rollback optimistic update
+      setStaffData(prev => prev.map(s => s.id === selectedAssignmentId ? assignment : s));
+      alert('Network error while assigning staff.');
     }
   };
 

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Maximize, ArrowLeft, Play, Pause, Flag, RotateCw } from 'lucide-react';
+import { Maximize, ArrowLeft, Play, Pause, Flag, RotateCw, Coffee } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import PasswordGateway from '@/components/auth/PasswordGateway';
 import { toast } from 'react-hot-toast';
@@ -37,6 +37,8 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
   const [round, setRound] = useState(1);
   const [kataVotes, setKataVotes] = useState<{ aka: number, ao: number } | null>(null);
   const [kataWinner, setKataWinner] = useState<string | null>(null);
+  const [restTimer, setRestTimer] = useState(0);
+  const [restRunning, setRestRunning] = useState(false);
 
   const [queue, setQueue] = useState<any[]>([]);
   const [allCompletedMatches, setAllCompletedMatches] = useState<any[]>([]);
@@ -108,6 +110,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
       akaPenalties: { c1: aka.c1, c2: aka.c2, c3: aka.c3, hc: aka.hc, h: aka.h },
       aoPenalties:  { c1: ao.c1,  c2: ao.c2,  c3: ao.c3,  hc: ao.hc,  h: ao.h  },
       timerSeconds: timer, timerRunning: running, timeRemaining: `${mm}:${ss}`,
+      restTimerSeconds: restTimer, restTimerRunning: restRunning,
     };
 
     // Immediate sync for non-timer events (score/status/penalty changes)
@@ -391,6 +394,16 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
     }
     return () => clearInterval(interval);
   }, [running, timer]);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (restRunning && restTimer > 0) {
+      interval = setInterval(() => setRestTimer(t => t - 1), 1000);
+    } else if (restTimer === 0 && restRunning) {
+      setRestRunning(false);
+    }
+    return () => clearInterval(interval);
+  }, [restRunning, restTimer]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && (window as any).lucide) {
@@ -765,7 +778,6 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
               })() : Array(kataJudgeCount).fill(null)}
               akaFlags={kataVotes?.aka || 0}
               aoFlags={kataVotes?.ao || 0}
-              round={round}
               timeRemaining={`${Math.floor(timer / 60).toString().padStart(2, '0')}:${(timer % 60).toString().padStart(2, '0')}`}
               matchStatus={status === 'finished' ? 'COMPLETED' : (running ? 'LIVE' : status.toUpperCase())}
               logoUrl={compData?.scoreboardLogo}
@@ -1129,7 +1141,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
               <div className="ops-header">
                 <div>
                   <div style={{ color: 'var(--neutral-500)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Current Category</div>
-                  <div style={{ fontWeight: 700, fontSize: '15px' }}>{activeCategoryName || 'No Active Category'} {activeCategoryData?.isKata && <span style={{ marginLeft: 6, padding: '2px 8px', background: '#dbeafe', color: '#1e40af', borderRadius: 4, fontSize: 11, fontWeight: 800 }}>KATA</span>}</div>
+                  <div style={{ fontWeight: 700, fontSize: '15px' }}>{activeCategoryName || 'No Active Category'} {(activeCategoryData?.isKata || activeCategoryName?.toLowerCase().includes('kata')) && <span style={{ marginLeft: 6, padding: '2px 8px', background: '#dbeafe', color: '#1e40af', borderRadius: 4, fontSize: 11, fontWeight: 800 }}>KATA</span>}</div>
                 </div>
                 <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
                   <div style={{ textAlign: 'right' }}>
@@ -1140,7 +1152,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
               </div>
 
               {/* ── KATA GATE: If category isKata, render KataOperatorPanel; otherwise render existing Kumite controls ── */}
-              {activeCategoryData?.isKata && activeMatchId ? (
+              {(activeCategoryData?.isKata || activeCategoryName?.toLowerCase().includes('kata')) && activeMatchId ? (
                 <div id="ops-display-container" style={{ padding: '24px', background: 'white' }}>
                   {isViewer ? (
                     <div style={{ padding: '24px', background: 'var(--neutral-900)', borderRadius: '12px', display: 'flex', justifyContent: 'center', gap: '32px', color: 'white' }}>
@@ -1169,11 +1181,34 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                         </div>
 
                         <div className="ops-side ops-center">
-                          <div style={{ border: '1px solid var(--neutral-300)', padding: '4px 16px', borderRadius: '999px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '24px' }}>Round {round}</div>
-                          <div style={{ color: 'var(--neutral-500)', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px' }}>Remaining</div>
-                          <div className={`ops-timer ${running ? 'live' : ''}`}>{Math.floor(timer / 60).toString().padStart(2, '0')}:{(timer % 60).toString().padStart(2, '0')}</div>
-                          <div style={{ color: 'var(--neutral-500)', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '6px' }}>Match Status</div>
-                          <div style={{ background: 'var(--neutral-100)', padding: '6px 12px', borderRadius: '999px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--neutral-600)' }}>{status}</div>
+                          <div style={{ border: '1px solid var(--neutral-300)', padding: '4px 16px', borderRadius: '999px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '24px' }}>
+                            Match {queue.find(m => m.id === activeMatchId)?.displayId || '—'}
+                          </div>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '16px' }}>
+                            <Coffee size={14} color="#f59e0b" />
+                            {restRunning && restTimer > 0 ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '16px', fontWeight: 700, color: '#f59e0b', minWidth: '40px', textAlign: 'center' }}>
+                                  {Math.floor(restTimer / 60)}:{(restTimer % 60).toString().padStart(2, '0')}
+                                </span>
+                                <button className="btn-round" onClick={() => { setRestRunning(false); setRestTimer(0); }}>Stop Rest</button>
+                              </div>
+                            ) : (
+                              <div style={{ display: 'flex', gap: '4px' }}>
+                                <button className="btn-round" onClick={() => { setRestTimer(30); setRestRunning(true); }} style={{ padding: '4px 8px', fontSize: '11px' }}>30s</button>
+                                <button className="btn-round" onClick={() => { setRestTimer(60); setRestRunning(true); }} style={{ padding: '4px 8px', fontSize: '11px' }}>60s</button>
+                              </div>
+                            )}
+                          </div>
+                          <>
+                            <div style={{ color: 'var(--neutral-500)', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px' }}>Match Timer</div>
+                            <div className={`ops-timer ${running ? 'live' : ''}`}>{Math.floor(timer / 60).toString().padStart(2, '0')}:{(timer % 60).toString().padStart(2, '0')}</div>
+                            <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                              <button className="btn-round" onClick={() => setRunning(true)}><Play size={12} /></button>
+                              <button className="btn-round" onClick={() => setRunning(false)}><Pause size={12} /></button>
+                              <button className="btn-round" onClick={() => { setTimer(180); setRunning(false); }}>Reset</button>
+                            </div>
+                          </>
                         </div>
 
                         <div className="ops-side ao">
@@ -1284,7 +1319,9 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                 </div>
 
                 <div className="ops-side ops-center">
-                  <div style={{ border: '1px solid var(--neutral-300)', padding: '4px 16px', borderRadius: '999px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '24px' }}>Round {round}</div>
+                  <div style={{ border: '1px solid var(--neutral-300)', padding: '4px 16px', borderRadius: '999px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '24px' }}>
+                    Match {queue.find(m => m.id === activeMatchId)?.displayId || '—'}
+                  </div>
                   <div style={{ color: 'var(--neutral-500)', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px' }}>Remaining</div>
                   <div className={`ops-timer ${running ? 'live' : ''}`}>{mins}:{secs}</div>
                   <div style={{ color: 'var(--neutral-500)', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '6px' }}>Match Status</div>
@@ -1309,26 +1346,28 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
               </div>
               )}
 
-              {!isViewer && !activeCategoryData?.isKata && (
+              {!isViewer && !(activeCategoryData?.isKata || activeCategoryName?.toLowerCase().includes('kata')) && (
               <div className="ops-controls">
                 <div className="round-ops-strip" style={{ borderBottom: '1px solid var(--neutral-200)', background: 'var(--shiro)' }}>
-                  <div style={{ fontWeight: 700, fontSize: '14px' }}>Round Operations</div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button className="btn-round" onClick={() => setRunning(true)}><Play size={14} /> Start Round</button>
-                    <button className="btn-round" onClick={() => setRunning(false)}><Pause size={14} /> Stop Round</button>
-                    <button className="btn-round" onClick={() => {
-                       setRound(r => r + 1);
-                       setAka(p => ({ ...p, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false }));
-                       setAo(p => ({ ...p, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false }));
-                       setTimer(matchDuration);
-                       setRunning(false);
-                    }}>New Round</button>
-                    <button className="btn-round" style={{ color: 'var(--aka)', borderColor: 'rgba(225,29,72,0.3)' }} onClick={() => {
-                      setAka(p => ({ ...p, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false }));
-                      setAo(p => ({ ...p, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false }));
-                      setTimer(matchDuration);
-                      setRunning(false);
-                    }}>↺ Reset Round</button>
+                  <div style={{ fontWeight: 700, fontSize: '14px', color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Coffee size={14} /> Rest Timer
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    {restRunning && restTimer > 0 ? (
+                      <>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '16px', fontWeight: 700, color: '#f59e0b', minWidth: '40px', textAlign: 'center' }}>
+                          {Math.floor(restTimer / 60)}:{(restTimer % 60).toString().padStart(2, '0')}
+                        </span>
+                        <button className="btn-round" onClick={() => { setRestRunning(false); setRestTimer(0); }}>Stop Rest</button>
+                      </>
+                    ) : (
+                      <>
+                        <button className="btn-round" onClick={() => { setRestTimer(30); setRestRunning(true); }}>30s</button>
+                        <button className="btn-round" onClick={() => { setRestTimer(60); setRestRunning(true); }}>60s</button>
+                        <button className="btn-round" onClick={() => { setRestTimer(90); setRestRunning(true); }}>90s</button>
+                        <button className="btn-round" onClick={() => { setRestTimer(120); setRestRunning(true); }}>2m</button>
+                      </>
+                    )}
                   </div>
                 </div>
                 <div className="round-ops-strip" style={{ flexWrap: 'wrap', gap: '12px' }}>
@@ -1365,6 +1404,9 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                     <span style={{ fontSize: '12px', color: 'var(--neutral-500)' }}>sec</span>
                   </div>
                   <div style={{ display: 'flex', gap: '8px' }}>
+                    <button className="btn-round" onClick={() => setRunning(true)}><Play size={14} /> Start Timer</button>
+                    <button className="btn-round" onClick={() => setRunning(false)}><Pause size={14} /> Stop Timer</button>
+                    <div style={{ width: '1px', background: 'var(--neutral-200)', margin: '0 8px' }}></div>
                     <button className="btn-round" onClick={handleNextMatch}>Next Match</button>
                     <button className="btn-round" onClick={handleFinishMatch}><Flag size={14} /> Finish Match</button>
                     <button className="btn-round" style={{ color: 'var(--aka)', borderColor: 'rgba(225,29,72,0.3)' }} onClick={() => {

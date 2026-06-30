@@ -44,24 +44,20 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
   const fetchSchedule = async () => {
     setSyncing(true);
     try {
-      const { db } = await import('@lib/firebase');
-      const { collection, getDocs, query, orderBy } = await import('firebase/firestore');
-      
-      const q = query(collection(db, 'competitions', id, 'categories'), orderBy('order'));
-      const snapshot = await getDocs(q);
-      const cats = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          category: data.name,
-          mat: data.mat,
-          start: data.scheduledStartTime,
-          end: data.scheduledEndTime,
-          status: data.status
-        } as CategorySchedule;
-      });
-      setScheduleData(cats);
-      setLastSync(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+      const res = await fetch(`/api/competitions/${id}/schedule`);
+      if (res.ok) {
+        const data = await res.json();
+        const cats = data.categories.map((c: any) => ({
+          id: c.id,
+          category: c.name,
+          mat: c.mat,
+          start: c.scheduledStartTime,
+          end: c.scheduledEndTime,
+          status: c.status
+        })) as CategorySchedule[];
+        setScheduleData(cats);
+        setLastSync(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -192,16 +188,25 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
 
     setSavingOrder(true);
     try {
-      const { db } = await import('@lib/firebase');
-      const { doc, writeBatch } = await import('firebase/firestore');
-      const batch = writeBatch(db);
-      for (const row of changed) {
-        batch.update(doc(db, 'competitions', id, 'categories', row.id), {
+      const payload = {
+        competitionId: id,
+        changes: changed.map(row => ({
+          id: row.id,
           scheduledStartTime: row.start || null,
           scheduledEndTime: row.end || null,
-        });
+        }))
+      };
+
+      const res = await fetch('/api/gateway', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'updateSchedule', payload })
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to update schedule');
       }
-      await batch.commit();
+
       toast.success(`Schedule updated — ${changed.length} slot${changed.length === 1 ? '' : 's'} shifted`);
     } catch (err) {
       console.error(err);

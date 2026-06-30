@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '@lib/firebase-admin';
-import { generateBracket, PoolSize } from '@lib/tiesheet-generator';
+import { adminDb } from '@taikaix/backend/lib/firebase-admin';
+import { generateBracket, PoolSize } from '@taikaix/backend/services/tiesheet-generator';
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {

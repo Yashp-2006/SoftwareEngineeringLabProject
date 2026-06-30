@@ -71,6 +71,8 @@ export default function ScoreboardPage({ params }: { params: Promise<{ matchId: 
 
   // RTDB listener for live data (when connected to a real competition)
   const [rtdbData, setRtdbData] = useState<any>(null);
+  const [isConnecting, setIsConnecting] = useState(true);
+  
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
     const setup = async () => {
@@ -78,16 +80,21 @@ export default function ScoreboardPage({ params }: { params: Promise<{ matchId: 
         const params = new URLSearchParams(window.location.search);
         const competitionId = params.get('competition');
         const matId = params.get('mat');
-        if (!competitionId || !matId) return; // No RTDB params, stay in demo mode
+        if (!competitionId || !matId) {
+          setIsConnecting(false);
+          return; // No RTDB params, stay in demo mode
+        }
 
         const { ref, onValue } = await import('firebase/database');
         const { rtdb } = await import('@lib/firebase');
         const matRef = ref(rtdb, `live_scores/${competitionId}/mats/${matId}`);
         unsubscribe = onValue(matRef, (snapshot) => {
           setRtdbData(snapshot.val());
+          setIsConnecting(false);
         });
       } catch (err) {
         console.error('Scoreboard RTDB setup failed:', err);
+        setIsConnecting(false);
       }
     };
     setup();

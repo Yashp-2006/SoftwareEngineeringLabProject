@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { parseExcelIntoCategories, generateBracket, PoolSize } from '@lib/tiesheet-generator';
+import { parseExcelIntoCategories, generateBracket, PoolSize } from '@taikaix/backend/services/tiesheet-generator';
 import { rateLimiter } from '@lib/rate-limiter';
-import { adminDb } from '@lib/firebase-admin';
+import { adminDb } from '@taikaix/backend/lib/firebase-admin';
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {

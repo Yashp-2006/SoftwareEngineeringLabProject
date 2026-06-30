@@ -31,7 +31,7 @@ export interface KataLiveScoreboardProps {
   aoFlags: number;
 
   // Center column
-  round?: number;
+  matchId?: string;
   timeRemaining: string; // "03:00"
   matchStatus: string;   // "UPCOMING" | "LIVE" | "COMPLETED" etc.
   logoUrl?: string;
@@ -63,7 +63,7 @@ export default function KataLiveScoreboard({
   judgeVotes,
   akaFlags,
   aoFlags,
-  round,
+
   timeRemaining,
   matchStatus,
   logoUrl,
@@ -193,9 +193,7 @@ export default function KataLiveScoreboard({
 
           {/* Center Column */}
           <div className="kls-center">
-            {round != null && (
-              <div className="kls-round-pill">Round {round}</div>
-            )}
+
             {logoUrl && (
               <div className="kls-logo-wrap">
                 <img src={logoUrl} alt="Competition Logo" className="kls-logo-img" />

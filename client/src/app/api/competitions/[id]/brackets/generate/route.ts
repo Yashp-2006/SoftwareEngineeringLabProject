@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { generateBracket, seedSpecialCategory, PoolSize, CategoryDoc } from '@lib/tiesheet-generator';
-import { adminDb } from '@lib/firebase-admin';
+import { generateBracket, seedSpecialCategory, PoolSize, CategoryDoc } from '@taikaix/backend/services/tiesheet-generator';
+import { adminDb } from '@taikaix/backend/lib/firebase-admin';
 
 /**
  * POST /api/competitions/{id}/brackets/generate

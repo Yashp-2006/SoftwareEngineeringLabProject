@@ -8,7 +8,7 @@ import { toast } from 'react-hot-toast';
 // but since this is a client component, we can import it statically if it's safe.
 // To be safe, we'll fetch it via an API call OR import it if it's isomorphic.
 // tiesheet-generator is in lib, which is isomorphic.
-import { buildSingleElimination } from '@lib/tiesheet-generator';
+import { buildSingleElimination } from '@taikaix/backend/services/tiesheet-generator';
 
 interface UndersizedPoolsModalProps {
   isOpen: boolean;

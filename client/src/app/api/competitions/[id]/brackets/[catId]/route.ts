@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '@lib/firebase-admin';
+import { adminDb } from '@taikaix/backend/lib/firebase-admin';
 
 /**
  * PATCH /api/competitions/{id}/brackets/{catId}
@@ -111,7 +111,7 @@ export async function PATCH(
     }
 
     // Auto-advance players in subsequent matches if they face empty brackets
-    const { propagateByesAndWinners } = await import('@lib/tiesheet-generator');
+    const { propagateByesAndWinners } = await import('@taikaix/backend/services/tiesheet-generator');
     propagateByesAndWinners(matches);
 
 

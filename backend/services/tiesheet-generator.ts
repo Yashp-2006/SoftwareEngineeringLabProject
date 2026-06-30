@@ -556,8 +556,13 @@ export function sortAthletesByRegion(athletes: AthleteRow[], compType: string): 
  * This mathematically guarantees that athletes from the same regions/academies
  * are placed in opposite halves/quarters of the tiesheet.
  */
-export function separateAthletes(athletes: AthleteRow[], compType: string = 'international', poolSize: number = 8): AthleteRow[] {
-  if (athletes.length <= 1) return [...athletes];
+export function separateAthletes(
+  athletes: AthleteRow[], 
+  compType: string = 'international', 
+  poolSize: number = 8,
+  padToBracketSize: boolean = false
+): (AthleteRow | null)[] {
+  if (athletes.length <= 1) return padToBracketSize ? [athletes[0] || null, null] : [...athletes];
 
   // 1. Sort athletes so teammates are adjacent
   const sorted = sortAthletesByRegion(athletes, compType);
@@ -583,6 +588,11 @@ export function separateAthletes(athletes: AthleteRow[], compType: string = 'int
   // mapped back to the sequence, OR we can let buildSingleElimination handle the nulls!
   // But wait, the existing code expects a compacted array and handles byes internally.
   // So we just return the athletes ordered by their slot sequence appearance!
+  if (padToBracketSize) {
+    return slots;
+  }
+
+  // Flatten the slots to remove nulls, creating the final interleaved list for R1 matches.
   const seededAthletes: AthleteRow[] = [];
   for (let i = 0; i < bracketSize; i++) {
     if (slots[i] !== null) {
@@ -678,8 +688,8 @@ function buildRoundRobin(athletes: AthleteRow[], compType: string): MatchNode[] 
 }
 
 export function buildSingleElimination(athletes: AthleteRow[], compType: string, poolSize: PoolSize): MatchNode[] {
-  const separated = separateAthletes(athletes, compType, poolSize);
-  const totalR1Slots = poolSize;   // e.g. 8 pool size → 4 R1 matches
+  const separated = separateAthletes(athletes, compType, poolSize, true);
+  const totalR1Slots = Math.max(poolSize, separated.length);   // e.g. 8 pool size → 4 R1 matches
   const totalR1Matches = totalR1Slots / 2;
 
   const matches: MatchNode[] = [];
