@@ -15,29 +15,47 @@ const FlagIcon = ({ color, size = 120 }: { color: string; size?: number }) => (
   </svg>
 );
 
+// Convert display mat label (e.g. "MAT 01") → RTDB key (e.g. "mat-1")
+function matLabelToId(label: string): string {
+  const num = parseInt(label.replace(/\D/g, ''), 10);
+  return `mat-${num}`;
+}
+
 export default function JudgePanel({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
   const { user, loading: authLoading } = useAuth();
 
-  const [matId, setMatId] = useState<string | null>(null);
+  // Display labels for mat selection
+  const [matLabel, setMatLabel] = useState<string | null>(null);
+  // Actual RTDB mat ID derived from label
+  const matId = matLabel ? matLabelToId(matLabel) : null;
+
   const [judgeIndex, setJudgeIndex] = useState<number | null>(null);
   
   const [liveData, setLiveData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  // Track whether we've received at least one RTDB snapshot after mat selection
+  const [rtdbReady, setRtdbReady] = useState(false);
 
   // 5-second countdown state
   const [voteCountdown, setVoteCountdown] = useState<number | null>(null);
   const [pendingVote, setPendingVote] = useState<'aka' | 'ao' | null>(null);
   const [voteSubmitted, setVoteSubmitted] = useState(false);
 
-  // Dynamic judge count from the live match data
-  const configuredJudgeCount = liveData?.numberOfJudges || null;
+  // Dynamic judge count from the live match data — fallback to 7 until we have data
+  const configuredJudgeCount = liveData?.numberOfJudges ?? null;
 
+  // Listen to RTDB whenever matId changes (even before judge is selected)
   useEffect(() => {
-    if (!matId || judgeIndex === null) return;
-    
+    if (!matId) {
+      setLiveData(null);
+      setRtdbReady(false);
+      return;
+    }
+
     let unsub: () => void;
     setLoading(true);
+    setRtdbReady(false);
 
     const setup = async () => {
       try {
@@ -52,16 +70,18 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
             setLiveData(null);
           }
           setLoading(false);
+          setRtdbReady(true);
         });
       } catch (err) {
         console.error('Failed to listen to live scores', err);
         setLoading(false);
+        setRtdbReady(true);
       }
     };
 
     setup();
     return () => { if (unsub) unsub(); };
-  }, [id, matId, judgeIndex]);
+  }, [id, matId]);
 
   // 5-second countdown timer when bout finishes
   useEffect(() => {
@@ -168,14 +188,17 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
   }
 
   // ─── Mat & Judge Selection ──────────────────────────────────────────
-  // Use available mats
-  const mats = ['MAT 01', 'MAT 02', 'MAT 03', 'MAT 04', 'MAT 05', 'MAT 06', 'MAT 07', 'MAT 08'];
+  // Display labels — these are the user-facing mat names
+  const matLabels = ['MAT 01', 'MAT 02', 'MAT 03', 'MAT 04', 'MAT 05', 'MAT 06', 'MAT 07', 'MAT 08'];
   
-  // Dynamic judge count — use configured count from live data, otherwise show selection UI
+  // Determine how many judges to show:
+  // - If we have RTDB data, use its numberOfJudges
+  // - While loading, show a spinner
+  // - If no RTDB data yet (mat selected but no live match), default to 7
   const judgeCount = configuredJudgeCount || 7;
   const judges = Array.from({ length: judgeCount }, (_, i) => i);
 
-  if (!matId || judgeIndex === null) {
+  if (!matLabel || judgeIndex === null) {
     return (
       <main className="container" style={{ maxWidth: '600px', paddingTop: 'var(--space-8)' }}>
         <div className="card">
@@ -190,14 +213,15 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
+            {/* Step 1: Select Mat */}
             <div>
               <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>1. Select Mat</label>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
-                {mats.map(m => (
+                {matLabels.map(m => (
                   <button 
                     key={m}
-                    className={`btn ${matId === m ? 'btn-primary' : 'btn-secondary'}`}
-                    onClick={() => setMatId(m)}
+                    className={`btn ${matLabel === m ? 'btn-primary' : 'btn-secondary'}`}
+                    onClick={() => { setMatLabel(m); setJudgeIndex(null); setVoteCountdown(null); setPendingVote(null); setVoteSubmitted(false); }}
                     style={{ padding: '12px 8px', fontSize: '13px' }}
                   >
                     {m}
@@ -206,15 +230,30 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
               </div>
             </div>
 
+            {/* Step 2: Select Judge Position */}
             <div>
               <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>2. Select Position</label>
-              <p style={{ fontSize: '12px', color: 'var(--neutral-500)', marginBottom: '8px' }}>
-                {configuredJudgeCount 
-                  ? `This match has ${configuredJudgeCount} judges configured.`
-                  : 'Showing all positions. Select your mat first to see configured count.'
-                }
-              </p>
-              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(judges.length, 7)}, 1fr)`, gap: '8px' }}>
+              
+              {/* Status info below the label */}
+              {!matLabel ? (
+                <p style={{ fontSize: '12px', color: 'var(--neutral-500)', marginBottom: '8px' }}>
+                  Select a mat above to see available judge positions.
+                </p>
+              ) : loading && !rtdbReady ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: 'var(--neutral-500)', fontSize: '13px' }}>
+                  <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
+                  Loading mat data...
+                </div>
+              ) : (
+                <p style={{ fontSize: '12px', color: 'var(--neutral-500)', marginBottom: '8px' }}>
+                  {configuredJudgeCount
+                    ? `This match has ${configuredJudgeCount} judges configured. Select your position.`
+                    : `No active match on ${matLabel}. Showing all 7 positions.`
+                  }
+                </p>
+              )}
+
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(judgeCount, 7)}, 1fr)`, gap: '8px', opacity: !matLabel ? 0.4 : 1, pointerEvents: !matLabel ? 'none' : 'auto' }}>
                 {judges.map(j => (
                   <button 
                     key={j}
@@ -235,6 +274,10 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
             </div>
           </div>
         </div>
+
+        <style>{`
+          @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        `}</style>
       </main>
     );
   }
@@ -259,11 +302,11 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
           <Award size={24} color="#3b82f6" />
           <div>
             <div style={{ fontSize: '16px', fontWeight: 800, letterSpacing: '0.05em' }}>LIVE JUDGE PANEL</div>
-            <div style={{ fontSize: '12px', color: 'var(--neutral-400)' }}>{matId} · Judge {judgeIndex + 1}</div>
+            <div style={{ fontSize: '12px', color: 'var(--neutral-400)' }}>{matLabel} · Judge {judgeIndex + 1}</div>
           </div>
         </div>
         <button 
-          onClick={() => { setMatId(null); setJudgeIndex(null); setVoteCountdown(null); setPendingVote(null); setVoteSubmitted(false); }}
+          onClick={() => { setMatLabel(null); setJudgeIndex(null); setVoteCountdown(null); setPendingVote(null); setVoteSubmitted(false); setLiveData(null); setRtdbReady(false); }}
           style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: 'var(--shiro)', padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
         >
           Change Mat
@@ -271,8 +314,11 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
       </header>
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '24px', overflow: 'hidden' }}>
-        {loading ? (
-          <PageSkeleton darkMode={true} />
+        {loading && !rtdbReady ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, gap: '16px', color: 'var(--neutral-400)' }}>
+            <Loader2 size={40} style={{ animation: 'spin 1s linear infinite' }} />
+            <span style={{ fontSize: '16px', fontWeight: 600 }}>Connecting to live mat...</span>
+          </div>
         ) : (
           /* ─── Always Show voting flags ─── */
           <>
@@ -288,6 +334,14 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
                   <span style={{ fontWeight: 800, fontSize: '15px' }}>{aoName}</span>
                   <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'var(--ao)' }} />
                 </div>
+              </div>
+            )}
+
+            {/* No active match notice */}
+            {!liveData && rtdbReady && (
+              <div style={{ textAlign: 'center', padding: '24px', marginBottom: '16px', background: 'rgba(255,255,255,0.05)', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--neutral-400)' }}>No active match on {matLabel}</div>
+                <div style={{ fontSize: '12px', color: 'var(--neutral-500)', marginTop: '4px' }}>Waiting for match to start...</div>
               </div>
             )}
 
@@ -310,6 +364,7 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
               <style>{`
                 .judge-buttons { flex-direction: column; }
                 @media (min-width: 768px) { .judge-buttons { flex-direction: row; } }
+                @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
               `}</style>
               <button
                 onClick={() => handleFlagVote('aka')}

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Maximize2, X, Play, Pause, RotateCcw } from 'lucide-react';
+import { Maximize2, X, Play, Pause, RotateCcw, Coffee } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
 import KataLiveScoreboard, { deriveJudgeVotes } from '@/components/kata/KataLiveScoreboard';
 import KumiteLiveScoreboard from '@/components/kumite/KumiteLiveScoreboard';
@@ -33,6 +33,32 @@ export default function ScoreboardPage({ params }: { params: Promise<{ matchId: 
   const [running, setRunning] = useState(false);
   const [senshuClaimed, setSenshuClaimed] = useState(false);
   
+  // ─── Rest Timer State ────────────────────────────────────────────
+  const [restTimer, setRestTimer] = useState(0);
+  const [restRunning, setRestRunning] = useState(false);
+
+  // Rest timer effect
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (restRunning && restTimer > 0) {
+      interval = setInterval(() => setRestTimer(t => t - 1), 1000);
+    } else if (restRunning && restTimer <= 0) {
+      setRestRunning(false);
+    }
+    return () => clearInterval(interval);
+  }, [restRunning, restTimer]);
+
+  const startRest = useCallback((seconds: number) => {
+    setRestTimer(seconds);
+    setRestRunning(true);
+  }, []);
+
+  const formatRestTime = (t: number) => {
+    const m = Math.floor(t / 60).toString().padStart(2, '0');
+    const s = (t % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
+
   const [winnerOverlay, setWinnerOverlay] = useState<{ active: boolean, winner: string, classMode: string }>({
     active: false, winner: '', classMode: ''
   });
@@ -299,6 +325,17 @@ export default function ScoreboardPage({ params }: { params: Promise<{ matchId: 
         .fullscreen-btn { position: fixed; top: 24px; right: 24px; z-index: 100; background: rgba(0,0,0,0.5); border: 1px solid var(--neutral-700); color: var(--shiro); padding: 8px; border-radius: 8px; cursor: pointer; }
       `}} />
 
+      {/* REST TIMER OVERLAY */}
+      {restRunning && restTimer > 0 && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+          <div style={{ background: 'rgba(0,0,0,0.85)', borderRadius: '24px', padding: '40px 64px', textAlign: 'center', border: '2px solid rgba(255,255,255,0.15)' }}>
+            <div style={{ fontSize: '14px', fontWeight: 700, letterSpacing: '0.2em', color: 'var(--neutral-300)', textTransform: 'uppercase', marginBottom: '12px' }}>Rest Period</div>
+            <div style={{ fontSize: '96px', fontWeight: 900, fontFamily: 'var(--font-mono)', color: restTimer <= 10 ? 'var(--aka)' : '#f59e0b', lineHeight: 1 }}>{formatRestTime(restTimer)}</div>
+            <div style={{ marginTop: '12px', fontSize: '13px', color: 'var(--neutral-400)' }}>Next match begins soon</div>
+          </div>
+        </div>
+      )}
+
       <ConfirmModal
         isOpen={confirmState.isOpen}
         title={confirmState.title}
@@ -352,34 +389,57 @@ export default function ScoreboardPage({ params }: { params: Promise<{ matchId: 
         )}
       </div>
 
-      {/* CONTROLS OVERLAY */}
+      {/* CONTROLS OVERLAY — hidden for kata (kata uses KataLiveScoreboard controls) */}
       <div className="controls-overlay">
-        <div className="control-group">
-          <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--aka)' }}>AKA</span>
-          <button className="control-btn" onClick={() => addPoint('aka', 1)}>+1 <span className="key-hint">1</span></button>
-          <button className="control-btn" onClick={() => addPoint('aka', 2)}>+2 <span className="key-hint">2</span></button>
-          <button className="control-btn" onClick={() => addPoint('aka', 3)}>+3 <span className="key-hint">3</span></button>
-          <button className="control-btn" onClick={() => addPenalty('aka', 'c1')} title="Add C1 Penalty (Shift+1)">C1</button>
-          <button className="control-btn" onClick={() => addPenalty('aka', 'c2')} title="Add C2 Penalty (Shift+2)">C2</button>
-        </div>
-        
-        <div className="control-group">
-          <button className="control-btn" onClick={toggleTimer}>
-            {running ? <><Pause size={16} /> <span>Pause</span></> : <><Play size={16} /> <span>Start</span></>}
-            <span className="key-hint">Space</span>
-          </button>
-          <button className="control-btn" onClick={resetAll}>
-            <RotateCcw size={16} /> <span>Reset</span> <span className="key-hint">R</span>
-          </button>
-        </div>
+        {!rtdbData?.isKata && (
+          <>
+            <div className="control-group">
+              <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--aka)' }}>AKA</span>
+              <button className="control-btn" onClick={() => addPoint('aka', 1)}>+1 <span className="key-hint">1</span></button>
+              <button className="control-btn" onClick={() => addPoint('aka', 2)}>+2 <span className="key-hint">2</span></button>
+              <button className="control-btn" onClick={() => addPoint('aka', 3)}>+3 <span className="key-hint">3</span></button>
+              <button className="control-btn" onClick={() => addPenalty('aka', 'c1')} title="Add C1 Penalty (Shift+1)">C1</button>
+              <button className="control-btn" onClick={() => addPenalty('aka', 'c2')} title="Add C2 Penalty (Shift+2)">C2</button>
+            </div>
+            
+            <div className="control-group">
+              <button className="control-btn" onClick={toggleTimer}>
+                {running ? <><Pause size={16} /> <span>Pause</span></> : <><Play size={16} /> <span>Start</span></>}
+                <span className="key-hint">Space</span>
+              </button>
+              <button className="control-btn" onClick={resetAll}>
+                <RotateCcw size={16} /> <span>Reset</span> <span className="key-hint">R</span>
+              </button>
+            </div>
 
-        <div className="control-group">
-          <button className="control-btn" onClick={() => addPenalty('ao', 'c1')} title="Add C1 Penalty (Shift+Q)">C1</button>
-          <button className="control-btn" onClick={() => addPenalty('ao', 'c2')} title="Add C2 Penalty (Shift+W)">C2</button>
-          <button className="control-btn" onClick={() => addPoint('ao', 1)}>+1 <span className="key-hint">Q</span></button>
-          <button className="control-btn" onClick={() => addPoint('ao', 2)}>+2 <span className="key-hint">W</span></button>
-          <button className="control-btn" onClick={() => addPoint('ao', 3)}>+3 <span className="key-hint">E</span></button>
-          <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--ao)' }}>AO</span>
+            <div className="control-group">
+              <button className="control-btn" onClick={() => addPenalty('ao', 'c1')} title="Add C1 Penalty (Shift+Q)">C1</button>
+              <button className="control-btn" onClick={() => addPenalty('ao', 'c2')} title="Add C2 Penalty (Shift+W)">C2</button>
+              <button className="control-btn" onClick={() => addPoint('ao', 1)}>+1 <span className="key-hint">Q</span></button>
+              <button className="control-btn" onClick={() => addPoint('ao', 2)}>+2 <span className="key-hint">W</span></button>
+              <button className="control-btn" onClick={() => addPoint('ao', 3)}>+3 <span className="key-hint">E</span></button>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--ao)' }}>AO</span>
+            </div>
+          </>
+        )}
+
+        {/* Rest Timer Controls — visible for both kumite and kata */}
+        <div className="control-group" style={{ borderLeft: '1px solid rgba(255,255,255,0.15)', paddingLeft: '16px' }}>
+          <Coffee size={14} style={{ color: '#f59e0b' }} />
+          <span style={{ fontSize: '11px', fontWeight: 700, color: '#f59e0b' }}>REST</span>
+          {restRunning && restTimer > 0 ? (
+            <>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', fontWeight: 700, color: '#f59e0b', minWidth: '42px', textAlign: 'center' }}>{formatRestTime(restTimer)}</span>
+              <button className="control-btn" onClick={() => { setRestRunning(false); setRestTimer(0); }} style={{ fontSize: '11px', padding: '4px 8px' }}>Stop</button>
+            </>
+          ) : (
+            <>
+              <button className="control-btn" onClick={() => startRest(30)} style={{ fontSize: '11px', padding: '4px 8px' }}>30s</button>
+              <button className="control-btn" onClick={() => startRest(60)} style={{ fontSize: '11px', padding: '4px 8px' }}>60s</button>
+              <button className="control-btn" onClick={() => startRest(90)} style={{ fontSize: '11px', padding: '4px 8px' }}>90s</button>
+              <button className="control-btn" onClick={() => startRest(120)} style={{ fontSize: '11px', padding: '4px 8px' }}>2m</button>
+            </>
+          )}
         </div>
       </div>
     </div>

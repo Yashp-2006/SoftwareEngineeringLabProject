@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Search } from 'lucide-react';
+import { Search, GripVertical } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 interface CategorySchedule {
   id: string;
@@ -25,6 +26,9 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
   const [filterGender, setFilterGender] = useState("all");
   const [syncing, setSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<string>("--:--");
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const [savingOrder, setSavingOrder] = useState(false);
 
   // Fetch competition metadata
   useEffect(() => {
@@ -135,6 +139,79 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
     
     return matchesText && matchesMat && matchesType && matchesGender;
   }).sort((a, b) => toMinutes(a.start) - toMinutes(b.start));
+
+  // ─── Drag & Drop handlers ────────────────────────────────────────────
+  const handleDragStart = (e: React.DragEvent<HTMLTableRowElement>, idx: number) => {
+    setDragIdx(idx);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLTableRowElement>, idx: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverIdx(idx);
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLTableRowElement>, dropIdx: number) => {
+    e.preventDefault();
+    setDragOverIdx(null);
+    if (dragIdx === null || dragIdx === dropIdx) { setDragIdx(null); return; }
+
+    // ── Chain recalculation ──────────────────────────────────────────────
+    // Build the new ordered list of categories after the drag.
+    // All items are kept in the same sorted array, but the dragged row
+    // is removed from its original slot and inserted at the drop slot.
+    // Time slots are then reassigned based on position: the item now at
+    // position i receives the time that was originally at position i.
+    const ordered = [...filteredData];
+    const [dragged] = ordered.splice(dragIdx, 1);
+    ordered.splice(dropIdx, 0, dragged);
+
+    // Collect the original time slots (in position order) BEFORE the move.
+    const originalSlots = filteredData.map(row => ({ start: row.start, end: row.end }));
+
+    // Assign original slot[i] to the item now at position i.
+    const reassigned = ordered.map((row, i) => ({
+      ...row,
+      start: originalSlots[i].start,
+      end: originalSlots[i].end,
+    }));
+
+    // Apply to local scheduleData immediately (optimistic update)
+    setScheduleData(prev => {
+      const idToNew = new Map(reassigned.map(r => [r.id, r]));
+      return prev.map(row => idToNew.has(row.id) ? idToNew.get(row.id)! : row);
+    });
+    setDragIdx(null);
+
+    // Persist all changed rows to Firestore in one batch
+    const changed = reassigned.filter((row, i) =>
+      row.start !== filteredData[i]?.start || row.end !== filteredData[i]?.end
+    );
+    if (changed.length === 0) return;
+
+    setSavingOrder(true);
+    try {
+      const { db } = await import('@lib/firebase');
+      const { doc, writeBatch } = await import('firebase/firestore');
+      const batch = writeBatch(db);
+      for (const row of changed) {
+        batch.update(doc(db, 'competitions', id, 'categories', row.id), {
+          scheduledStartTime: row.start || null,
+          scheduledEndTime: row.end || null,
+        });
+      }
+      await batch.commit();
+      toast.success(`Schedule updated — ${changed.length} slot${changed.length === 1 ? '' : 's'} shifted`);
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to save schedule order.');
+    } finally {
+      setSavingOrder(false);
+    }
+  };
+
+  const handleDragEnd = () => { setDragIdx(null); setDragOverIdx(null); };
 
   return (
     <>
@@ -309,6 +386,18 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
           .schedule-tools { width: 100%; }
           .schedule-select { flex: 1; }
         }
+        .drag-handle {
+          cursor: grab;
+          color: var(--neutral-400);
+          display: flex;
+          align-items: center;
+          padding: 4px;
+          border-radius: 4px;
+          transition: color 0.15s;
+        }
+        .drag-handle:hover { color: var(--neutral-700); background: var(--neutral-100); }
+        .schedule-table tbody tr.dragging { opacity: 0.4; }
+        .schedule-table tbody tr.drag-over { outline: 2px dashed var(--ao); outline-offset: -2px; background: rgba(26,77,181,0.05); }
       `}} />
 
       <main className="container">
@@ -355,7 +444,7 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
           <div className="schedule-header">
             <div>
               <h2 style={{ margin: 0 }}>Chronological Category Schedule</h2>
-              <div className="text-small">Read-only list based on assignments saved in Categories.</div>
+              <div className="text-small">Drag rows to reorder — times are swapped and saved automatically.</div>
             </div>
             <div className="schedule-tools">
               <div className="search-wrap">
@@ -393,6 +482,7 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
             <table className="schedule-table">
               <thead>
                 <tr>
+                  <th className="text-micro" style={{ width: '36px' }}></th>
                   <th className="text-micro">Category Name</th>
                   <th className="text-micro">Mat</th>
                   <th className="text-micro">Estimated Time</th>
@@ -403,8 +493,22 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
                 {filteredData.length === 0 ? (
                   <tr><td colSpan={4} className="empty-row">No categories match the current filters.</td></tr>
                 ) : (
-                    filteredData.map(row => (
-                    <tr key={row.id}>
+                    filteredData.map((row, idx) => (
+                    <tr
+                      key={row.id}
+                      draggable
+                      onDragStart={e => handleDragStart(e, idx)}
+                      onDragOver={e => handleDragOver(e, idx)}
+                      onDrop={e => handleDrop(e, idx)}
+                      onDragEnd={handleDragEnd}
+                      className={[
+                        dragIdx === idx ? 'dragging' : '',
+                        dragOverIdx === idx && dragIdx !== idx ? 'drag-over' : ''
+                      ].join(' ')}
+                    >
+                      <td style={{ width: '36px', padding: '14px 8px 14px 16px' }}>
+                        <div className="drag-handle"><GripVertical size={16} /></div>
+                      </td>
                       <td>
                         <div className="category-name">{row.category}</div>
                         <div style={{ fontSize: '10px', color: 'var(--neutral-500)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '2px' }}>

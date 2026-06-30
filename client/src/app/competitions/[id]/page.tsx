@@ -308,14 +308,50 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
         <section className="comp-detail-main">
           {liveCategories.length > 0 && (
             <>
-              <h2 style={{ marginBottom: 'var(--space-2)' }}>Live Categories</h2>
-              <div className="card" style={{ padding: '0', overflow: 'hidden', marginBottom: 'var(--space-6)' }}>
-                {liveCategories.map(cat => (
-                  <div key={cat.id} style={{ padding: '12px 24px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ fontWeight: 500 }}>{cat.name}</span>
-                    <span style={{ color: 'var(--aka)', fontWeight: 600 }}>{cat.mat || 'Unassigned'}</span>
-                  </div>
-                ))}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: 'var(--space-2)' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(217,38,44,0.08)', color: 'var(--aka)', padding: '4px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--aka)', display: 'inline-block', animation: 'pulse 1.5s ease-in-out infinite' }}></span>
+                  LIVE
+                </span>
+                <h2 style={{ margin: 0, fontSize: '18px' }}>Live Now — {liveCategories.length} categor{liveCategories.length === 1 ? 'y' : 'ies'}</h2>
+              </div>
+              <div className="card" style={{ padding: '0', overflow: 'hidden', marginBottom: 'var(--space-6)', border: '2px solid rgba(217,38,44,0.25)' }}>
+                {liveCategories.map((cat, idx) => {
+                  const totalMatches = cat.matches?.length || 0;
+                  const completedMatches = cat.matches?.filter((m: any) => m.status === 'completed').length || 0;
+                  const pct = totalMatches > 0 ? Math.round((completedMatches / totalMatches) * 100) : 0;
+                  const isKata = cat.name?.toLowerCase().includes('kata');
+                  return (
+                    <div key={cat.id} style={{ padding: '14px 24px', borderBottom: idx < liveCategories.length - 1 ? '1px solid var(--neutral-100)' : 'none', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--aka)', display: 'inline-block', flexShrink: 0, animation: 'pulse 1.5s ease-in-out infinite' }}></span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <span style={{ fontWeight: 700, fontSize: '14px' }}>{cat.name}</span>
+                          <span style={{ fontSize: '10px', fontWeight: 800, padding: '2px 7px', borderRadius: '4px', background: isKata ? '#eff6ff' : '#fff1f2', color: isKata ? '#1d4ed8' : '#be123c', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                            {isKata ? 'KATA' : 'KUMITE'}
+                          </span>
+                        </div>
+                        {totalMatches > 0 && (
+                          <div style={{ marginTop: '6px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+                              <span style={{ fontSize: '11px', color: 'var(--neutral-500)' }}>{completedMatches}/{totalMatches} matches done</span>
+                              <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--aka)' }}>{pct}%</span>
+                            </div>
+                            <div style={{ height: '4px', background: 'var(--neutral-100)', borderRadius: '2px', overflow: 'hidden' }}>
+                              <div style={{ height: '100%', background: 'var(--aka)', borderRadius: '2px', width: `${pct}%`, transition: 'width 0.3s' }}></div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', fontWeight: 700, color: 'var(--neutral-600)', background: 'var(--neutral-100)', padding: '4px 10px', borderRadius: '6px' }}>{cat.mat || 'Unassigned'}</span>
+                        <Link href={`/competitions/${id}/brackets?cat=${cat.id}`} className="btn btn-ghost" style={{ padding: '6px 12px', fontSize: '12px', color: 'var(--aka)', border: '1px solid rgba(217,38,44,0.3)' }}>
+                          View Bracket →
+                        </Link>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </>
           )}

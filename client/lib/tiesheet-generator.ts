@@ -779,32 +779,86 @@ export function buildSingleElimination(athletes: AthleteRow[], compType: string,
  * then Pool 2 gets the remainder. This avoids thin pools with many ghost slots.
  */
 function buildMultiPool(athletes: AthleteRow[], compType: string, poolSize: PoolSize): MatchNode[] {
-  const poolCount = Math.ceil(athletes.length / poolSize);
   const allMatches: MatchNode[] = [];
 
-  // Sort athletes by region so teammates are separated across pools.
+  // ── Step 1: Sort by region so teammates end up adjacent ──────────────────
   const sorted = sortAthletesByRegion(athletes, compType);
 
-  // Sequential filling: Pool 1 gets athletes[0..poolSize-1], Pool 2 gets the rest.
-  // To still interleave teammates across pools while sequential-filling,
-  // we use a strided assignment: athlete at sorted index i goes to pool floor(i/poolSize).
-  // This keeps Pool 1 at full capacity and Pool 2 at whatever remains.
+  // ── Step 2: Interleaved (round-robin) distribution ───────────────────────
+  // athlete[0] → pool 0, athlete[1] → pool 1, ... , athlete[N] → pool 0
+  // This keeps pool sizes as equal as possible and spreads same-region
+  // athletes evenly — they're never both clumped in the same pool.
+  const poolCount = Math.ceil(athletes.length / poolSize);
   const pools: AthleteRow[][] = Array.from({ length: poolCount }, () => []);
-  sorted.forEach((ath, idx) => {
-    const poolIdx = Math.min(Math.floor(idx / poolSize), poolCount - 1);
-    pools[poolIdx].push(ath);
-  });
+  sorted.forEach((ath, idx) => pools[idx % poolCount].push(ath));
 
+  // ── Step 3: Merge under-2 pools (prevents BYE-only athletes) ─────────────
+  // A pool with 0 or 1 athlete cannot generate a real match.
+  // Merge those athletes into the nearest pool that still has room.
+  // We iterate repeatedly until no singleton pools remain.
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (let p = pools.length - 1; p >= 0; p--) {
+      if (pools[p].length <= 1) {
+        changed = true;
+        const overflow = pools.splice(p, 1)[0]; // remove this pool
+        if (overflow.length === 1) {
+          // Donate the lone athlete to the largest remaining pool.
+          // They will then have enough partners for real matches.
+          let largestIdx = 0;
+          for (let q = 1; q < pools.length; q++) {
+            if (pools[q].length > pools[largestIdx].length) largestIdx = q;
+          }
+          if (pools.length > 0) pools[largestIdx].push(...overflow);
+          // else: only 1 pool left — this athlete joins the only pool
+        }
+        break; // restart scan since indices shifted
+      }
+    }
+  }
+
+  // ── Step 4: Build matches per pool ───────────────────────────────────────
+  // Use the most appropriate generator for each pool's actual size:
+  //   2 athletes          → direct match
+  //   3–5 athletes        → round robin (everyone faces everyone once)
+  //   ≥6 athletes         → single elimination (padded to poolSize with byes)
   for (let p = 0; p < pools.length; p++) {
+    const pool = pools[p];
+    if (pool.length === 0) continue;
+
     const poolLabel = `${p + 1}`;
-    const poolMatches = buildSingleElimination(pools[p], compType, poolSize);
+    let poolMatches: MatchNode[];
+
+    if (pool.length === 2) {
+      const sep = separateAthletes(pool, compType);
+      poolMatches = [{
+        id: 'R1-M1',
+        round: 1,
+        matchNumber: 1,
+        aka: sep[0],
+        ao: sep[1],
+        akaFromMatchId: null,
+        aoFromMatchId: null,
+        akaScore: 0,
+        aoScore: 0,
+        winnerId: null,
+        nextMatchId: null,
+        status: 'upcoming',
+        mat: null,
+      }];
+    } else if (pool.length <= 5) {
+      poolMatches = buildRoundRobin(pool, compType);
+    } else {
+      poolMatches = buildSingleElimination(pool, compType, poolSize);
+    }
 
     // Re-ID all matches to include pool label
     for (const m of poolMatches) {
       m.id = `Pool${poolLabel}-${m.id}`;
       if (m.akaFromMatchId) m.akaFromMatchId = `Pool${poolLabel}-${m.akaFromMatchId}`;
-      if (m.aoFromMatchId) m.aoFromMatchId = `Pool${poolLabel}-${m.aoFromMatchId}`;
-      if (m.nextMatchId) m.nextMatchId = `Pool${poolLabel}-${m.nextMatchId}`;
+      if (m.aoFromMatchId)  m.aoFromMatchId  = `Pool${poolLabel}-${m.aoFromMatchId}`;
+      if (m.nextMatchId)    m.nextMatchId    = `Pool${poolLabel}-${m.nextMatchId}`;
       allMatches.push(m);
     }
   }

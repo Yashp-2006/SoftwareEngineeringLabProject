@@ -29,6 +29,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
   const [importResult, setImportResult] = useState<{categoriesTotal: number; athletesImported: number} | null>(null);
   const [modalType, setModalType] = useState<'standard'|'merge'|'bulkPassword'|'onspot'|'editCategory'|null>(null);
   const [editCatId, setEditCatId] = useState<string | null>(null);
+  const [editCatData, setEditCatData] = useState<any>(null);
   const [editCatName, setEditCatName] = useState<string>('');
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [undersizedModalOpen, setUndersizedModalOpen] = useState(false);
@@ -275,6 +276,48 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
   const bulkSetMatPasswords = () => {
     setModalFormData({ password: '' });
     setModalType('bulkPassword');
+  };
+
+  const handleExportPreset = () => {
+    if (categories.length === 0) {
+      toast.error('No categories to export');
+      return;
+    }
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(categories, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", `${compRules}_preset.json`);
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+  };
+
+  const handleImportPreset = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const imported = JSON.parse(event.target?.result as string);
+        if (Array.isArray(imported)) {
+          const newCats = imported.map(cat => ({
+            ...cat,
+            id: Math.random().toString(36).substring(2, 9),
+            entries: 0,
+            athletes: []
+          }));
+          setCategories(prev => [...prev, ...newCats]);
+          toast.success(`Imported ${newCats.length} categories`);
+        } else {
+          toast.error('Invalid preset format');
+        }
+      } catch (err) {
+        toast.error('Failed to parse preset file');
+      }
+      e.target.value = '';
+    };
+    reader.readAsText(file);
   };
 
   const maxPhase = compRules === 'wkf' ? 5 : 6;
@@ -989,6 +1032,13 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                         </button>
                       ) : (
                         <>
+                          <button className="btn btn-ghost" onClick={handleExportPreset}>
+                            <Download size={16} /> Export Preset
+                          </button>
+                          <button className="btn btn-ghost" onClick={() => document.getElementById('preset-upload')?.click()}>
+                            <UploadCloud size={16} /> Import Preset
+                          </button>
+                          <input type="file" id="preset-upload" style={{ display: 'none' }} accept=".json" onChange={handleImportPreset} />
                           <button className="btn btn-ghost" onClick={() => setModalType('merge')}>
                             <Combine size={16} /> Merge Categories
                           </button>
@@ -1081,7 +1131,12 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                             </td>
                             <td>{cat.entries}</td>
                             <td style={{ textAlign: 'right' }}>
-                              <button className="btn btn-ghost" style={{ padding: '4px' }} onClick={() => { setEditCatId(cat.id); setEditCatName(cat.name); setModalType('editCategory'); }}><Edit2 size={16} /></button>
+                              <button className="btn btn-ghost" style={{ padding: '4px' }} onClick={() => {
+                                setEditCatId(cat.id);
+                                setEditCatName(cat.name);
+                                setEditCatData({ ...cat });
+                                setModalType('editCategory');
+                              }}><Edit2 size={16} /></button>
                               <button className="btn btn-ghost" style={{ padding: '4px', color: 'var(--aka)' }} onClick={() => setCategories(categories.filter(c => c.id !== cat.id))}><Trash2 size={16} /></button>
                             </td>
                           </tr>
@@ -1474,16 +1529,163 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         </div>
       </div>
 
-      {modalType === 'editCategory' && editCatId && (
-        <EditCategoryModal
-          competitionId={id}
-          categoryId={editCatId}
-          categoryName={editCatName}
-          onClose={() => { setModalType(null); setEditCatId(null); }}
-          onCategoryUpdated={(updatedCat) => {
-            setCategories(prev => prev.map(c => c.id === updatedCat.id ? { ...c, ...updatedCat } : c));
-          }}
-        />
+      {modalType === 'editCategory' && editCatId && editCatData && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+          <div className="card" style={{ width: '100%', maxWidth: '520px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-5)' }}>
+              <h3 style={{ margin: 0 }}>Edit Category</h3>
+              <button className="btn btn-ghost" style={{ padding: '4px' }} onClick={() => { setModalType(null); setEditCatId(null); setEditCatData(null); }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+              {/* Name */}
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="text-micro" style={{ display: 'block', marginBottom: '6px' }}>Category Name</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  value={editCatData.name || ''}
+                  onChange={e => setEditCatData((p: any) => ({ ...p, name: e.target.value }))}
+                  style={{ marginBottom: 0 }}
+                />
+              </div>
+
+              {/* Discipline */}
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="text-micro" style={{ display: 'block', marginBottom: '6px' }}>Discipline</label>
+                <select
+                  className="input-field"
+                  value={editCatData.discipline || 'Kumite'}
+                  onChange={e => setEditCatData((p: any) => ({ ...p, discipline: e.target.value, isKata: e.target.value === 'Kata' }))}
+                  style={{ marginBottom: 0 }}
+                >
+                  <option value="Kumite">Kumite</option>
+                  <option value="Kata">Kata</option>
+                </select>
+              </div>
+
+              {/* Gender */}
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="text-micro" style={{ display: 'block', marginBottom: '6px' }}>Gender</label>
+                <select
+                  className="input-field"
+                  value={editCatData.gender || 'Any'}
+                  onChange={e => setEditCatData((p: any) => ({ ...p, gender: e.target.value }))}
+                  style={{ marginBottom: 0 }}
+                >
+                  <option value="Any">Any</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                </select>
+              </div>
+
+              {/* Age Range */}
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="text-micro" style={{ display: 'block', marginBottom: '6px' }}>Age Range</label>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ fontSize: '11px', color: 'var(--neutral-500)', display: 'block', marginBottom: '4px' }}>Min Age</label>
+                    <input
+                      type="number"
+                      className="input-field"
+                      min={0}
+                      max={99}
+                      value={editCatData.minAge ?? 0}
+                      onChange={e => setEditCatData((p: any) => ({ ...p, minAge: parseInt(e.target.value) || 0 }))}
+                      style={{ marginBottom: 0 }}
+                    />
+                  </div>
+                  <span style={{ color: 'var(--neutral-400)', marginTop: '16px' }}>—</span>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ fontSize: '11px', color: 'var(--neutral-500)', display: 'block', marginBottom: '4px' }}>Max Age</label>
+                    <input
+                      type="number"
+                      className="input-field"
+                      min={0}
+                      max={99}
+                      value={editCatData.maxAge ?? 99}
+                      onChange={e => setEditCatData((p: any) => ({ ...p, maxAge: parseInt(e.target.value) || 99 }))}
+                      style={{ marginBottom: 0 }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Weight Range — only for Kumite */}
+              {(editCatData.discipline !== 'Kata' && !(editCatData.isKata)) && (
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="text-micro" style={{ display: 'block', marginBottom: '6px' }}>Weight Range (kg)</label>
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '11px', color: 'var(--neutral-500)', display: 'block', marginBottom: '4px' }}>Min Weight</label>
+                      <input
+                        type="number"
+                        className="input-field"
+                        min={0}
+                        value={editCatData.minWeight ?? 0}
+                        onChange={e => setEditCatData((p: any) => ({ ...p, minWeight: parseFloat(e.target.value) || 0 }))}
+                        style={{ marginBottom: 0 }}
+                      />
+                    </div>
+                    <span style={{ color: 'var(--neutral-400)', marginTop: '16px' }}>—</span>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '11px', color: 'var(--neutral-500)', display: 'block', marginBottom: '4px' }}>Max Weight</label>
+                      <input
+                        type="number"
+                        className="input-field"
+                        min={0}
+                        value={editCatData.maxWeight ?? 300}
+                        onChange={e => setEditCatData((p: any) => ({ ...p, maxWeight: parseFloat(e.target.value) || 300 }))}
+                        style={{ marginBottom: 0 }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Judge Count — only for Kata */}
+              {(editCatData.discipline === 'Kata' || editCatData.isKata) && (
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="text-micro" style={{ display: 'block', marginBottom: '6px' }}>Kata Judge Count</label>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    {[3, 5, 7].map(count => (
+                      <label key={count} style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: '8px 16px', border: `1.5px solid ${editCatData.judgeCount === count ? 'var(--primary)' : 'var(--neutral-200)'}`, borderRadius: '8px', fontWeight: 600, fontSize: '14px', background: editCatData.judgeCount === count ? 'var(--primary-light, #eff6ff)' : 'transparent' }}>
+                        <input
+                          type="radio"
+                          name="edit-judgeCount"
+                          value={count}
+                          checked={(editCatData.judgeCount || 3) === count}
+                          onChange={() => setEditCatData((p: any) => ({ ...p, judgeCount: count }))}
+                          style={{ display: 'none' }}
+                        />
+                        {count} Judges
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'flex-end', marginTop: 'var(--space-5)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--neutral-100)' }}>
+              <button className="btn btn-secondary" onClick={() => { setModalType(null); setEditCatId(null); setEditCatData(null); }}>Cancel</button>
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  if (!editCatData.name?.trim()) { toast.error('Category name cannot be empty.'); return; }
+                  setCategories(prev => prev.map(c => c.id === editCatId ? { ...c, ...editCatData, name: editCatData.name.trim() } : c));
+                  setModalType(null);
+                  setEditCatId(null);
+                  setEditCatData(null);
+                  toast.success('Category updated.');
+                }}
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {modalType === 'onspot' && (
