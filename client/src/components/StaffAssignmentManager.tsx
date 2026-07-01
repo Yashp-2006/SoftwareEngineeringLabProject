@@ -696,12 +696,12 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
               ) : (
                 <div className="assign-field full">
                   <label>Assignment scope</label>
-                  <input type="text" value={`${activeAssignment?.scope || ''} ${activeAssignment?.scopeSubtitle ? '(' + activeAssignment.scopeSubtitle + ')' : ''}`} disabled />
+                  <input type="text" value={`${activeAssignment?.scope || ''} ${activeAssignment?.scopeSubtitle ? '(' + activeAssignment.scopeSubtitle + ')' : ''}`} readOnly disabled />
                 </div>
               )}
               <div className="assign-field">
                 <label>Role</label>
-                <input type="text" value={activeAssignment?.role || ''} disabled />
+                <input type="text" value={activeAssignment?.role || ''} readOnly disabled />
               </div>
               <div className="assign-field">
                 <label>Assign to</label>

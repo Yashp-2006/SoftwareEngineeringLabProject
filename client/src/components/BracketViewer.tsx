@@ -67,11 +67,9 @@ export default function BracketViewer({ matches, categoryName, isKata: propIsKat
     currentRound++;
   }
 
-  if (!matches || matches.length === 0) return <div>No matches generated.</div>;
-
   const isKata = propIsKata !== undefined ? propIsKata : (categoryName?.toLowerCase().includes('kata') || false);
 
-  // ── SVG Connector Computation ──
+  // ── SVG Connector Computation ── (must stay above early return to satisfy Rules of Hooks)
   const computeConnectors = useCallback(() => {
     if (!canvasRef.current || rounds.length < 2) {
       setConnectors([]);
@@ -119,6 +117,9 @@ export default function BracketViewer({ matches, categoryName, isKata: propIsKat
     observer.observe(canvasRef.current);
     return () => observer.disconnect();
   }, [computeConnectors]);
+
+  // Early return AFTER all hooks so React sees a consistent hook call order
+  if (!matches || matches.length === 0) return <div>No matches generated.</div>;
 
   return (
     <>

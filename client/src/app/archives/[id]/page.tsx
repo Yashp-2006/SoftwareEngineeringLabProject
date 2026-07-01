@@ -4,16 +4,18 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Download, ExternalLink, Filter } from 'lucide-react';
 import FullscreenBracketModal from '@/components/FullscreenBracketModal';
+import dynamic from 'next/dynamic';
 import {
   Chart as ChartJS,
   ArcElement,
   Tooltip,
   Legend,
 } from 'chart.js';
-import { Pie } from 'react-chartjs-2';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
+// Dynamically load react-chartjs-2 Pie component (client-side only, code-split)
+const Pie = dynamic(() => import('react-chartjs-2').then(m => ({ default: m.Pie })), { ssr: false });
 export default function ArchiveDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
   const [compData, setCompData] = useState<any>(null);

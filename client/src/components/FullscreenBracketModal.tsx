@@ -1,9 +1,12 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { X, Search, ZoomIn, ZoomOut, Maximize, Target, LayoutTemplate, Swords, CheckCircle2, ArrowRight, Check, MinusCircle, PlusCircle } from 'lucide-react';
 
 const METRICS = ['S', 'Y', 'W', 'I', 'C1', 'C2', 'C3', 'HC', 'H'];
+
+// Stable empty array default — prevents new reference on every render (fixes memo breakage)
+const EMPTY_MATS: string[] = [];
 
 // --- MetricTag: read-only scoring tag (S, Y, W, etc.) ---
 const MetricTag = ({ label, isAo, isActive = false }: { label: string; isAo: boolean; isActive?: boolean }) => {
@@ -261,7 +264,7 @@ export function BracketViewer({
   matches,
   categoryName,
   isKata,
-  mats = [],
+  mats = EMPTY_MATS,
   firstRoundOnly = false,
   highlightMatchId,
   allCategories,
@@ -357,11 +360,10 @@ export function BracketViewer({
   const viewportRef = useRef<HTMLDivElement>(null);
   const [connectors, setConnectors] = useState<Array<{x1:number;y1:number;x2:number;y2:number;xMid:number}>>([]);
 
-  const [prevCategoryName, setPrevCategoryName] = useState(categoryName);
-  if (categoryName !== prevCategoryName) {
-    setPrevCategoryName(categoryName);
+  // Reset manual zoom when category changes (useEffect instead of render-phase setState)
+  useEffect(() => {
     setIsManualZoom(false);
-  }
+  }, [categoryName]);
 
   const adjustZoom = (delta: number) => {
     setIsManualZoom(true);
@@ -382,11 +384,17 @@ export function BracketViewer({
     setZoom(scale);
   }, [isManualZoom]);
 
+  // Store fitToScreen in a ref so the resize listener doesn't re-subscribe every render
+  const fitToScreenRef = useRef(fitToScreen);
+  fitToScreenRef.current = fitToScreen;
+
   useEffect(() => {
-    const t = setTimeout(fitToScreen, 200);
-    window.addEventListener('resize', fitToScreen);
-    return () => { clearTimeout(t); window.removeEventListener('resize', fitToScreen); };
-  }, [filteredMatches, fitToScreen]);
+    const stableFit = () => fitToScreenRef.current();
+    const t = setTimeout(stableFit, 200);
+    window.addEventListener('resize', stableFit);
+    return () => { clearTimeout(t); window.removeEventListener('resize', stableFit); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredMatches]); // intentionally omits fitToScreen — handled via ref above
 
   // Group matches by round
   const roundMap = new Map<number, any[]>();
@@ -578,7 +586,7 @@ export default function FullscreenBracketModal({
   initialCategoryId,
   highlightMatchId,
   onClose,
-  mats = [],
+  mats = EMPTY_MATS,
   firstRoundOnly = false,
   onPromote,
   onAssignMat,

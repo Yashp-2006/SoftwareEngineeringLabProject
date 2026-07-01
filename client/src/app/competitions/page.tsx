@@ -295,9 +295,7 @@ export default function CompetitionsPage() {
                               { name: "Osaka Regional Qualifier", type: "regional", rules: "wkf", status: "upcoming", mats: 2, createdAt: new Date().toISOString() }
                             ];
                             
-                            for (const d of dummies) {
-                              await addDoc(collection(db, 'competitions'), d);
-                            }
+                            await Promise.all(dummies.map(d => addDoc(collection(db, 'competitions'), d)));
                             toast.success('Added dummy competitions');
                           } catch (err) {
                             console.error(err);

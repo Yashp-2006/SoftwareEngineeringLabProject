@@ -23,18 +23,12 @@ export default function ConfirmModal({
   onConfirm,
   onCancel
 }: ConfirmModalProps) {
+  // isRendered stays true for 200ms after closing to allow exit animation
   const [isRendered, setIsRendered] = useState(isOpen);
-  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
-
-  if (isOpen !== prevIsOpen) {
-    setPrevIsOpen(isOpen);
-    if (isOpen) {
-      setIsRendered(true);
-    }
-  }
 
   useEffect(() => {
     if (isOpen) {
+      setIsRendered(true);
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
@@ -104,10 +98,11 @@ export default function ConfirmModal({
           <h3 className="confirm-title">{title}</h3>
           <p className="confirm-message">{message}</p>
           <div className="confirm-actions">
-            <button className="btn btn-ghost" onClick={onCancel}>
+            <button type="button" className="btn btn-ghost" onClick={onCancel}>
               {cancelText}
             </button>
-            <button 
+            <button
+              type="button"
               className={`btn ${isDestructive ? 'btn-primary' : 'btn-primary'}`} 
               style={isDestructive ? { background: 'var(--aka)', borderColor: 'var(--aka)' } : {}}
               onClick={onConfirm}

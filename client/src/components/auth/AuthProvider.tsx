@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '@lib/firebase';
@@ -42,7 +42,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               email: currentUser.email,
               displayName: currentUser.displayName || null,
               photoURL: currentUser.photoURL || null,
-              role: currentRole,
+              // Note: 'role' is intentionally NOT written here.
+              // Role is server-authoritative — we read it above but never write it
+              // from the client to prevent privilege escalation.
               lastLoginAt: new Date().toISOString()
             }, { merge: true });
           } else {
@@ -127,8 +129,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user, role, loading, pathname, router]);
 
+  const ctxValue = useMemo(
+    () => ({ user, role, loading }),
+    [user, role, loading]
+  );
+
   return (
-    <AuthContext.Provider value={{ user, role, loading }}>
+    <AuthContext.Provider value={ctxValue}>
       {!loading && children}
     </AuthContext.Provider>
   );
