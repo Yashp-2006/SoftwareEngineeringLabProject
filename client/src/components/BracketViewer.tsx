@@ -161,8 +161,9 @@ export default function BracketViewer({ matches, categoryName, isKata: propIsKat
           display: flex;
           flex-direction: column;
           justify-content: space-around;
-          min-width: 300px;
+          min-width: 320px;
           position: relative;
+          flex: 1;
         }
         .round-header {
           font-family: var(--font-display);
@@ -313,10 +314,11 @@ export default function BracketViewer({ matches, categoryName, isKata: propIsKat
                       key={i}
                       d={`M${c.x1},${c.y1} L${c.xMid},${c.y1} L${c.xMid},${c.y2} L${c.x2},${c.y2}`}
                       fill="none"
+                      style={{ fill: 'none', fillOpacity: 0 }}
                       stroke="var(--neutral-300)"
                       strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
+                      strokeLinecap="square"
+                      strokeLinejoin="miter"
                     />
                   ))}
                 </svg>

@@ -95,6 +95,10 @@ export default function KataOperatorPanel({
   const [teamTimer, setTeamTimer] = useState(0);
   const [timerRunning, setTimerRunning] = useState(false);
 
+  // Rest Timer
+  const [restTimer, setRestTimer] = useState(0);
+  const [restRunning, setRestRunning] = useState(false);
+
   // Sync state to RTDB
   const syncRTDB = useCallback(
     async (patch: Record<string, any>) => {
@@ -195,6 +199,15 @@ export default function KataOperatorPanel({
     }, 1000);
     return () => clearInterval(t);
   }, [timerRunning]);
+
+  // Rest Timer
+  useEffect(() => {
+    if (!restRunning || restTimer <= 0) return;
+    const t = setInterval(() => {
+      setRestTimer((s) => s > 0 ? s - 1 : 0);
+    }, 1000);
+    return () => clearInterval(t);
+  }, [restRunning, restTimer]);
 
   const handleScoreChange = (side: 'aka' | 'ao', judgeIdx: number, value: number | null) => {
     if (boutFinished) return;
@@ -465,7 +478,7 @@ export default function KataOperatorPanel({
               borderRadius: '12px',
               display: 'flex',
               alignItems: 'center',
-              gap: '16px',
+              gap: '24px',
               transition: 'background 0.4s ease, border-color 0.4s ease',
             }}
           >
@@ -543,35 +556,60 @@ export default function KataOperatorPanel({
                 </div>
               )}
             </div>
+
+            <div style={{ height: '40px', width: '1px', background: 'var(--neutral-300)', margin: '0 8px' }} />
+
+            <div>
+              <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--neutral-500)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '2px' }}>
+                Rest Timer
+              </div>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                {restRunning && restTimer > 0 ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '24px', fontWeight: 800, color: '#f59e0b', minWidth: '40px', textAlign: 'center' }}>
+                      {Math.floor(restTimer / 60)}:{(restTimer % 60).toString().padStart(2, '0')}
+                    </span>
+                    <button type="button" className="kata-btn" onClick={() => { setRestRunning(false); setRestTimer(0); }} style={{ padding: '6px 12px', borderRadius: '6px', background: 'var(--neutral-200)', border: 'none', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}>Stop</button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button type="button" className="kata-btn" onClick={() => { setRestTimer(30); setRestRunning(true); }} style={{ padding: '6px 12px', borderRadius: '6px', background: 'rgba(245, 158, 11, 0.1)', color: '#d97706', border: '1px solid rgba(245, 158, 11, 0.2)', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>30s</button>
+                    <button type="button" className="kata-btn" onClick={() => { setRestTimer(60); setRestRunning(true); }} style={{ padding: '6px 12px', borderRadius: '6px', background: 'rgba(245, 158, 11, 0.1)', color: '#d97706', border: '1px solid rgba(245, 158, 11, 0.2)', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>60s</button>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
         {/* ── KATA SELECTION ── */}
-        {!boutStarted && (
-          <div className="kata-panel-section" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--neutral-700)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              Kata Selection
-            </div>
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-              <KataSelectionRow
-                side="aka"
-                playerName={akaName}
-                academy={akaAcademy}
-                allowedKataNumbers={allowedKataNumbers}
-                selectedKata={selectedKata.aka}
-                usageMap={akaUsageMap}
-                onSelect={(kata) => setSelectedKata((prev) => ({ ...prev, aka: kata }))}
-              />
-              <KataSelectionRow
-                side="ao"
-                playerName={aoName}
-                academy={aoAcademy}
-                allowedKataNumbers={allowedKataNumbers}
-                selectedKata={selectedKata.ao}
-                usageMap={aoUsageMap}
-                onSelect={(kata) => setSelectedKata((prev) => ({ ...prev, ao: kata }))}
-              />
-            </div>
+        <div className="kata-panel-section" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--neutral-700)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            Kata Selection
+          </div>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            <KataSelectionRow
+              side="aka"
+              playerName={akaName}
+              academy={akaAcademy}
+              allowedKataNumbers={allowedKataNumbers}
+              selectedKata={selectedKata.aka}
+              usageMap={akaUsageMap}
+              onSelect={(kata) => setSelectedKata((prev) => ({ ...prev, aka: kata }))}
+              disabled={boutFinished}
+            />
+            <KataSelectionRow
+              side="ao"
+              playerName={aoName}
+              academy={aoAcademy}
+              allowedKataNumbers={allowedKataNumbers}
+              selectedKata={selectedKata.ao}
+              usageMap={aoUsageMap}
+              onSelect={(kata) => setSelectedKata((prev) => ({ ...prev, ao: kata }))}
+              disabled={boutFinished}
+            />
+          </div>
+          {!boutStarted && (
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <button
                 type="button"
@@ -593,8 +631,8 @@ export default function KataOperatorPanel({
                 Confirm Selections →
               </button>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* ── SCORE GRID ── */}
         {boutStarted && (

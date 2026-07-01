@@ -382,7 +382,15 @@ export function BracketViewer({
     const cW = canvasRef.current.offsetWidth;
     const cH = canvasRef.current.offsetHeight;
     if (cW === 0 || cH === 0) return;
-    const scale = Math.max(0.2, Math.min(1.2, Math.min(vW / cW, vH / cH)));
+    
+    // Scale to fit the bounding box
+    const scale = Math.max(0.2, Math.min(2.0, Math.min(vW / cW, vH / cH)));
+    
+    // Eliminate blank space by dynamically expanding the flex container
+    // to exactly match the scaled viewport dimensions
+    canvasRef.current.style.minWidth = `${vW / scale}px`;
+    canvasRef.current.style.minHeight = `${vH / scale}px`;
+    
     setZoom(scale);
   }, [isManualZoom]);
 
@@ -559,10 +567,11 @@ export function BracketViewer({
                     key={i}
                     d={`M${c.x1},${c.y1} L${c.xMid},${c.y1} L${c.xMid},${c.y2} L${c.x2},${c.y2}`}
                     fill="none"
+                    style={{ fill: 'none', fillOpacity: 0 }}
                     stroke="var(--neutral-300)"
                     strokeWidth={2 / zoom}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+                    strokeLinecap="square"
+                    strokeLinejoin="miter"
                   />
                 ))}
               </svg>
@@ -814,14 +823,21 @@ export default function FullscreenBracketModal({
         }
         .bv-canvas {
           display: flex;
-          gap: 120px;
-          padding: var(--space-6);
-          align-items: flex-start;
+          justify-content: space-between;
+          padding: 48px;
+          align-items: stretch;
           position: relative;
         }
 
         /* Bracket round */
-        .bracket-round { display: flex; flex-direction: column; gap: 60px; min-width: 300px; }
+        .bracket-round { 
+          display: flex; 
+          flex-direction: column; 
+          justify-content: space-around; 
+          min-width: 320px; 
+          position: relative; 
+          flex: 1; 
+        }
         .round-header {
           font-family: var(--font-display);
           font-size: 20px;

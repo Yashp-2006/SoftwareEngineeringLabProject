@@ -62,7 +62,7 @@ export default function LiveMatPage({ params }: { params: Promise<{ matId: strin
               status: val.status || 'standby',
               timerSeconds: val.timerSeconds ?? 0,
               timerRunning: val.timerRunning ?? false,
-              isKata: val.isKata || false,
+              isKata: val.isKata || (val.currentCategory && val.currentCategory.toLowerCase().includes('kata')) || false,
               kataPhase: val.phase,
               kataScores: val.kataScores,
               kataVotes: val.kataVotes,

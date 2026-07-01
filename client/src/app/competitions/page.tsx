@@ -480,14 +480,23 @@ export default function CompetitionsPage() {
                     </button>
                   </div>
                 ) : (
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    style={{ width: '100%', justifyContent: 'center', gap: '8px' }}
-                    onClick={() => document.getElementById('preset-upload-create')?.click()}
-                  >
-                    <UploadCloud size={16} /> Choose Preset File (.json)
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ width: '100%', justifyContent: 'center', gap: '8px' }}
+                      onClick={() => document.getElementById('preset-upload-create')?.click()}
+                    >
+                      <UploadCloud size={16} /> Choose Preset File (.json)
+                    </button>
+                    <input
+                      id="preset-upload-create"
+                      type="file"
+                      accept=".json"
+                      style={{ display: 'none' }}
+                      onChange={handlePresetUpload}
+                    />
+                  </>
                 )}
                 <input
                   type="file"

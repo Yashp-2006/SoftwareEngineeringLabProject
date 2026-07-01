@@ -53,6 +53,10 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
   const [filterGender, setFilterGender] = useState<'all'|'male'|'female'>('all');
   const [filterDiscipline, setFilterDiscipline] = useState<'all'|'kata'|'kumite'>('all');
   const [hideEmpty, setHideEmpty] = useState<boolean>(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
   const [isSaving, setIsSaving] = useState(false);
   const [confirmState, setConfirmState] = useState<{
@@ -534,9 +538,40 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
 
   // Note: handleFinalize no longer needed — categories are saved by the API on import
 
+  const handleDragStart = (e: React.DragEvent<HTMLTableRowElement>, idx: number) => {
+    setDragIdx(idx);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLTableRowElement>, idx: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverIdx(idx);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLTableRowElement>, dropIdx: number) => {
+    e.preventDefault();
+    setDragOverIdx(null);
+    if (dragIdx === null || dragIdx === dropIdx) { setDragIdx(null); return; }
+
+    setCategories(prev => {
+      const newCats = [...prev];
+      const originalDragIdx = newCats.findIndex(c => c.id === filteredCategories[dragIdx].id);
+      const originalDropIdx = newCats.findIndex(c => c.id === filteredCategories[dropIdx].id);
+      
+      if (originalDragIdx !== -1 && originalDropIdx !== -1) {
+        const [removed] = newCats.splice(originalDragIdx, 1);
+        newCats.splice(originalDropIdx, 0, removed);
+      }
+      return newCats;
+    });
+    setDragIdx(null);
+  };
+
   const filteredCategories = categories.filter(c => {
     if (hideEmpty && (!c.entries || c.entries === 0)) return false;
     const lowerName = c.name.toLowerCase();
+    if (searchQuery && !lowerName.includes(searchQuery.toLowerCase())) return false;
     if (filterGender === 'female' && !lowerName.includes('female')) return false;
     if (filterGender === 'male' && (!lowerName.includes('male') || lowerName.includes('female'))) return false;
     const isKata = lowerName.endsWith('kata') || lowerName.includes(' kata ');
@@ -973,6 +1008,16 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                   </div>
 
                   <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                    <div className="search-bar" style={{ display: 'flex', alignItems: 'center', background: 'var(--shiro)', border: '1px solid var(--neutral-300)', borderRadius: '8px', padding: '0 12px', height: '36px', flex: 1, minWidth: '200px' }}>
+                      <Search size={16} style={{ color: 'var(--neutral-500)', marginRight: '8px' }} />
+                      <input 
+                        type="text" 
+                        placeholder="Search categories..." 
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        style={{ border: 'none', outline: 'none', background: 'transparent', width: '100%', fontSize: '14px' }}
+                      />
+                    </div>
                     <select className="input-field" style={{ width: '160px', height: '36px', marginBottom: 0 }} value={filterGender} onChange={e => setFilterGender(e.target.value as any)}>
                       <option value="all">All Genders</option>
                       <option value="male">Male</option>
@@ -993,6 +1038,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                     <table className="cat-table">
                       <thead style={{ position: 'sticky', top: 0, background: 'var(--shiro)', zIndex: 10 }}>
                         <tr>
+                          <th style={{ width: '32px' }}></th>
                           {compRules === 'wkf' && <th style={{ width: '40px' }}></th>}
                           <th>Category Name</th>
                           <th>Discipline</th>
@@ -1003,7 +1049,20 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                       </thead>
                       <tbody>
                         {filteredCategories.map((cat, idx) => (
-                          <tr key={cat.id || idx}>
+                          <tr 
+                            key={cat.id || idx}
+                            draggable
+                            onDragStart={e => handleDragStart(e, idx)}
+                            onDragOver={e => handleDragOver(e, idx)}
+                            onDrop={e => handleDrop(e, idx)}
+                            style={{ 
+                              opacity: dragIdx === idx ? 0.5 : 1,
+                              borderTop: dragOverIdx === idx && dragIdx !== null && dragIdx > idx ? '2px solid var(--ao)' : 'none',
+                              borderBottom: dragOverIdx === idx && dragIdx !== null && dragIdx < idx ? '2px solid var(--ao)' : 'none',
+                              cursor: 'move'
+                            }}
+                          >
+                            <td style={{ color: 'var(--neutral-400)', cursor: 'grab' }}><GripVertical size={16} /></td>
                             {compRules === 'wkf' && (
                               <td>
                                 <input 

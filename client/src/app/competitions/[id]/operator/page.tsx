@@ -1072,50 +1072,6 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                     </div>
                   ) : (
                     <>
-                      <div id="ops-display-container" className="ops-display" style={{ marginBottom: '24px' }}>
-                        <div className="ops-side aka">
-                          <div className="ops-country">{aka.country}</div>
-                          <div className="ops-name">{aka.name}</div>
-                          <div className="ops-academy">{aka.academy}</div>
-                        </div>
-
-                        <div className="ops-side ops-center">
-                          <div style={{ border: '1px solid var(--neutral-300)', padding: '4px 16px', borderRadius: '999px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '24px' }}>
-                            Match {queue.find(m => m.id === activeMatchId)?.displayId || '—'}
-                          </div>
-                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '16px' }}>
-                            <Coffee size={14} color="#f59e0b" />
-                            {restRunning && restTimer > 0 ? (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '16px', fontWeight: 700, color: '#f59e0b', minWidth: '40px', textAlign: 'center' }}>
-                                  {Math.floor(restTimer / 60)}:{(restTimer % 60).toString().padStart(2, '0')}
-                                </span>
-                                <button type="button" className="btn-round" onClick={() => { setRestRunning(false); setRestTimer(0); }}>Stop Rest</button>
-                              </div>
-                            ) : (
-                              <div style={{ display: 'flex', gap: '4px' }}>
-                                <button type="button" className="btn-round" onClick={() => { setRestTimer(30); setRestRunning(true); }} style={{ padding: '4px 8px', fontSize: '11px' }}>30s</button>
-                                <button type="button" className="btn-round" onClick={() => { setRestTimer(60); setRestRunning(true); }} style={{ padding: '4px 8px', fontSize: '11px' }}>60s</button>
-                              </div>
-                            )}
-                          </div>
-                          <>
-                            <div style={{ color: 'var(--neutral-500)', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px' }}>Match Timer</div>
-                            <div className={`ops-timer ${running ? 'live' : ''}`}>{Math.floor(timer / 60).toString().padStart(2, '0')}:{(timer % 60).toString().padStart(2, '0')}</div>
-                            <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                              <button type="button" className="btn-round" onClick={() => setRunning(true)}><Play size={12} /></button>
-                              <button type="button" className="btn-round" onClick={() => setRunning(false)}><Pause size={12} /></button>
-                              <button type="button" className="btn-round" onClick={() => { setTimer(180); setRunning(false); }}>Reset</button>
-                            </div>
-                          </>
-                        </div>
-
-                        <div className="ops-side ao">
-                          <div className="ops-country">{ao.country}</div>
-                          <div className="ops-name">{ao.name}</div>
-                          <div className="ops-academy">{ao.academy}</div>
-                        </div>
-                      </div>
 
                       <KataOperatorPanel
                         competitionId={id}

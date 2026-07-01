@@ -55,12 +55,18 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [categories, setCategories] = useState<{id: string, name: string}[]>([]);
   const [isSeeding, setIsSeeding] = useState(false);
+  const [matsList, setMatsList] = useState<string[]>(['MAT 01', 'MAT 02', 'MAT 03', 'MAT 04', 'MAT 05', 'MAT 06', 'MAT 07', 'MAT 08']);
 
   useEffect(() => {
     let unsub: () => void;
     const setup = async () => {
       const { db } = await import('@lib/firebase');
-      const { collection, onSnapshot, query } = await import('firebase/firestore');
+      const { collection, onSnapshot, query, getDoc, doc } = await import('firebase/firestore');
+
+      const compSnap = await getDoc(doc(db, 'competitions', competitionId));
+      const matsCount = compSnap.data()?.mats || 8;
+      const matsArray = Array.from({ length: matsCount }, (_, i) => `MAT ${(i + 1).toString().padStart(2, '0')}`);
+      setMatsList(matsArray);
 
       const staffQ = query(collection(db, 'competitions', competitionId, 'staff'));
       unsub = onSnapshot(staffQ, (snap) => {
@@ -663,14 +669,9 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
                     <select value={coverageInput} onChange={e => setCoverageInput(e.target.value)}>
                       <option value="">Select Mat or Category</option>
                       <optgroup label="Mats">
-                        <option value="MAT 01">MAT 01</option>
-                        <option value="MAT 02">MAT 02</option>
-                        <option value="MAT 03">MAT 03</option>
-                        <option value="MAT 04">MAT 04</option>
-                        <option value="MAT 05">MAT 05</option>
-                        <option value="MAT 06">MAT 06</option>
-                        <option value="MAT 07">MAT 07</option>
-                        <option value="MAT 08">MAT 08</option>
+                        {matsList.map(mat => (
+                          <option key={mat} value={mat}>{mat}</option>
+                        ))}
                       </optgroup>
                       <optgroup label="Categories">
                         {categories.map(cat => (
@@ -704,21 +705,18 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
                 <input type="text" value={activeAssignment?.role || ''} readOnly disabled />
               </div>
               <div className="assign-field">
-                <label>Assign to</label>
-                <select required value={selectedPerson} onChange={e => setSelectedPerson(e.target.value)}>
-                  <option value="">Select staff member</option>
-                  <option>Lucas Rossi</option>
-                  <option>Amina Ndiaye</option>
-                  <option>Kenji Sato</option>
-                  <option>Yumi Tanaka</option>
-                  <option>Maria Garcia</option>
-                  <option>Rafael Silva</option>
-                  <option>Aiko Mori</option>
-                  <option>Elena Costa</option>
-                  <option>Yuki Tanaka</option>
-                  <option>Kenji Nakamura</option>
-                  <option value="Unassigned">Unassigned</option>
-                </select>
+                <label>Assign to (Type 'Unassigned' to clear)</label>
+                <input 
+                  type="text" 
+                  required 
+                  value={selectedPerson} 
+                  onChange={e => setSelectedPerson(e.target.value)} 
+                  placeholder="Enter staff member's name..."
+                  list="staff-suggestions"
+                />
+                <datalist id="staff-suggestions">
+                  <option value="Unassigned" />
+                </datalist>
               </div>
             </div>
             <div className="assign-footer">
