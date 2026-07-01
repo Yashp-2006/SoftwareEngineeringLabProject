@@ -50,11 +50,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           } else {
             // eslint-disable-next-line react-doctor/firebase-client-owned-authz-field
             await setDoc(userDocRef, {
-              uid: currentUser.uid,
               email: currentUser.email,
               displayName: currentUser.displayName || null,
               photoURL: currentUser.photoURL || null,
-              // Note: 'role' is server-owned. Absence of role implies 'audience'.
               createdAt: new Date().toISOString(),
               lastLoginAt: new Date().toISOString()
             });

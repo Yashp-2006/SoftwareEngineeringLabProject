@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, Save, CheckCircle, Combine, Plus, Edit2, Trash2, Star, FileSpreadsheet, RefreshCw, Key, ChevronDown, Eye, EyeOff, UploadCloud, X, Download } from 'lucide-react';
+import { ArrowRight, Save, CheckCircle, Combine, Plus, Edit2, Trash2, Star, FileSpreadsheet, RefreshCw, Key, ChevronDown, Eye, EyeOff, UploadCloud, X, Download, Search, GripVertical } from 'lucide-react';
 import FullscreenBracketModal from '@/components/FullscreenBracketModal';
 import UndersizedPoolsModal from '@/components/UndersizedPoolsModal';
 import StaffAssignmentManager from '@/components/StaffAssignmentManager';
