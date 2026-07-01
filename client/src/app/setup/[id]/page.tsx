@@ -616,10 +616,10 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
             <h1>Tournament Setup Wizard</h1>
           </div>
           <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
-            <button className="btn btn-secondary" onClick={() => saveDraft(activePhase)} disabled={isSaving}>
+            <button type="button" className="btn btn-secondary" onClick={() => saveDraft(activePhase)} disabled={isSaving}>
               <Save size={16} /> {isSaving ? 'Saving...' : 'Save Draft'}
             </button>
-            <button className="btn btn-primary" onClick={handleDeploy} disabled={!importResult}>
+            <button type="button" className="btn btn-primary" onClick={handleDeploy} disabled={!importResult}>
               <CheckCircle size={16} /> Finalize Setup
             </button>
           </div>
@@ -633,7 +633,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
               <p className="text-small" style={{ marginTop: '4px' }}>Move through five phases and skip straight to review if you already know what to fix.</p>
             </div>
             <div>
-              <button className="btn btn-ghost" onClick={() => { setIsReviewMode(true); setActivePhase(maxPhase); }}>
+              <button type="button" className="btn btn-ghost" onClick={() => { setIsReviewMode(true); setActivePhase(maxPhase); }}>
                 Skip to Review <ArrowRight size={16} style={{ marginLeft: '6px' }} />
               </button>
             </div>
@@ -648,7 +648,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
               const isCompleted = highestPhase > phaseNum || isReviewMode;
               const isActive = activePhase === phaseNum;
               return (
-                <button
+                <button type="button"
                   key={phaseNum}
                   className={`wizard-step ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}
                   onClick={() => setPhase(phaseNum)}
@@ -666,8 +666,8 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
           <div className="wizard-actions">
             <div className="text-small">Step {activePhase} of {maxPhase}</div>
             <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
-              <button className="btn btn-ghost" disabled={activePhase === 1} onClick={handleBack}>Back</button>
-              <button className="btn btn-primary" disabled={activePhase === maxPhase} onClick={handleNext}>Next</button>
+              <button type="button" className="btn btn-ghost" disabled={activePhase === 1} onClick={handleBack}>Back</button>
+              <button type="button" className="btn btn-primary" disabled={activePhase === maxPhase} onClick={handleNext}>Next</button>
             </div>
           </div>
 
@@ -680,8 +680,8 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                   <p className="text-small" style={{ marginTop: '4px' }}>All sections are unlocked. Edit any step and the tiesheet preview will flag for regeneration.</p>
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <button className="btn btn-ghost" onClick={() => setPhase(4)}>Return to Step 4</button>
-                  <button className="btn btn-primary" disabled={deploying} onClick={handleDeploy}>
+                  <button type="button" className="btn btn-ghost" onClick={() => setPhase(4)}>Return to Step 4</button>
+                  <button type="button" className="btn btn-primary" disabled={deploying} onClick={handleDeploy}>
                     {deploying ? 'Deploying...' : 'Deploy Tournament'}
                   </button>
                 </div>
@@ -806,7 +806,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                         <p className="text-small" style={{ marginBottom: 'var(--space-4)' }}>Supports .csv, .xls, .xlsx (Max 10MB)</p>
                       </>
                     )}
-                    <button className="btn btn-primary" disabled={uploading}>
+                    <button type="button" className="btn btn-primary" disabled={uploading}>
                       {uploading ? 'Processing...' : importResult ? 'Upload Another File' : 'Browse Files'}
                     </button>
                     <input type="file" id="excel-upload" style={{ display: 'none' }} accept=".csv, .xls, .xlsx" onChange={handleFileUpload} />
@@ -879,7 +879,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                         <p className="text-small" style={{ marginTop: '4px' }}>Upload a 1:1 ratio logo to display on all live scoreboards.</p>
                       </div>
                       {scoreboardLogo && (
-                        <button className="btn btn-ghost" onClick={() => setScoreboardLogo(null)} style={{ color: 'var(--aka)' }}>
+                        <button type="button" className="btn btn-ghost" onClick={() => setScoreboardLogo(null)} style={{ color: 'var(--aka)' }}>
                           <Trash2 size={14} style={{ marginRight: '6px' }}/> Remove
                         </button>
                       )}
@@ -904,7 +904,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                       <h3>Mat Security</h3>
                       <p className="text-small">Set unique access passwords for each mat score table.</p>
                     </div>
-                    <button className="btn btn-ghost" onClick={bulkSetMatPasswords}>
+                    <button type="button" className="btn btn-ghost" onClick={bulkSetMatPasswords}>
                       <Key size={16} /> Bulk Set
                     </button>
                   </div>
@@ -945,26 +945,26 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                       <p className="text-small">{compRules === 'wkf' ? 'Generic weight and age divisions without complex prerequisite rules.' : 'Divisions for the tournament.'}</p>
                     </div>
                     <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
-                      <button className="btn btn-ghost" style={{ color: 'var(--status-live)', border: '1px dashed var(--status-live)' }} onClick={() => setModalType('onspot')}>
+                      <button type="button" className="btn btn-ghost" style={{ color: 'var(--status-live)', border: '1px dashed var(--status-live)' }} onClick={() => setModalType('onspot')}>
                         <Plus size={16} /> On-Spot Entry
                       </button>
                       {compRules === 'wkf' ? (
-                        <button className="btn btn-secondary" onClick={handleMerge} disabled={selectedCats.size < 2}>
+                        <button type="button" className="btn btn-secondary" onClick={handleMerge} disabled={selectedCats.size < 2}>
                           <Combine size={16} /> Merge Selected
                         </button>
                       ) : (
                         <>
-                          <button className="btn btn-ghost" onClick={handleExportPreset}>
+                          <button type="button" className="btn btn-ghost" onClick={handleExportPreset}>
                             <Download size={16} /> Export Preset
                           </button>
-                          <button className="btn btn-ghost" onClick={() => document.getElementById('preset-upload')?.click()}>
+                          <button type="button" className="btn btn-ghost" onClick={() => document.getElementById('preset-upload')?.click()}>
                             <UploadCloud size={16} /> Import Preset
                           </button>
                           <input type="file" id="preset-upload" style={{ display: 'none' }} accept=".json" onChange={handleImportPreset} />
-                          <button className="btn btn-ghost" onClick={() => setModalType('merge')}>
+                          <button type="button" className="btn btn-ghost" onClick={() => setModalType('merge')}>
                             <Combine size={16} /> Merge Categories
                           </button>
-                          <button className="btn btn-secondary" onClick={() => setModalType('standard')}>
+                          <button type="button" className="btn btn-secondary" onClick={() => setModalType('standard')}>
                             <Plus size={16} /> Add Category
                           </button>
                         </>
@@ -1053,13 +1053,13 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                             </td>
                             <td>{cat.entries}</td>
                             <td style={{ textAlign: 'right' }}>
-                              <button className="btn btn-ghost" style={{ padding: '4px' }} onClick={() => {
+                              <button type="button" className="btn btn-ghost" style={{ padding: '4px' }} onClick={() => {
                                 setEditCatId(cat.id);
                                 setEditCatName(cat.name);
                                 setEditCatData({ ...cat });
                                 setModalType('editCategory');
                               }}><Edit2 size={16} /></button>
-                              <button className="btn btn-ghost" style={{ padding: '4px', color: 'var(--aka)' }} onClick={() => setCategories(categories.filter(c => c.id !== cat.id))}><Trash2 size={16} /></button>
+                              <button type="button" className="btn btn-ghost" style={{ padding: '4px', color: 'var(--aka)' }} onClick={() => setCategories(categories.filter(c => c.id !== cat.id))}><Trash2 size={16} /></button>
                             </td>
                           </tr>
                         ))}
@@ -1142,7 +1142,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                           <p className="text-small" style={{ marginTop: '4px' }}>Upload a 1:1 ratio logo to display on all live scoreboards.</p>
                         </div>
                         {scoreboardLogo && (
-                          <button className="btn btn-ghost" onClick={() => setScoreboardLogo(null)} style={{ color: 'var(--aka)' }}>
+                          <button type="button" className="btn btn-ghost" onClick={() => setScoreboardLogo(null)} style={{ color: 'var(--aka)' }}>
                             <Trash2 size={14} style={{ marginRight: '6px' }}/> Remove
                           </button>
                         )}
@@ -1168,7 +1168,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                       <h3>Mat Security</h3>
                       <p className="text-small">Set unique access passwords for each mat score table.</p>
                     </div>
-                    <button className="btn btn-ghost" onClick={bulkSetMatPasswords}>
+                    <button type="button" className="btn btn-ghost" onClick={bulkSetMatPasswords}>
                       <Key size={16} /> Bulk Set
                     </button>
                   </div>
@@ -1228,7 +1228,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                       </p>
                     </div>
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      <button
+                      <button type="button"
                         className="btn btn-secondary"
                         onClick={() => setUndersizedModalOpen(true)}
                         disabled={!importResult && categories.length === 0}
@@ -1236,14 +1236,14 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                         <Combine size={16} style={{ marginRight: '6px' }} />
                         Manage Undersized Pools
                       </button>
-                      <button
+                      <button type="button"
                         className="btn btn-primary"
                         onClick={() => { setPreviewCatId(null); setPreviewModalOpen(true); }}
                       >
                         <Eye size={16} style={{ marginRight: '8px' }} />
                         Preview Tiesheets
                       </button>
-                      <button
+                      <button type="button"
                         className="btn btn-secondary"
                         onClick={handleDownloadTiesheets}
                         disabled={downloadingTiesheets || (!importResult && categories.length === 0)}
@@ -1251,7 +1251,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                         <Download size={16} style={{ marginRight: '6px' }} />
                         {downloadingTiesheets ? 'Generating...' : 'Download Tiesheets'}
                       </button>
-                      <button
+                      <button type="button"
                         className="btn btn-secondary"
                         style={{ color: 'var(--aka)', borderColor: 'var(--aka)' }}
                         onClick={handleRegenerateTiesheets}
@@ -1298,7 +1298,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
               {modalType === 'bulkPassword' && 'Bulk Set Mat Passwords'}
               {modalType === 'onspot' && 'On-Spot Entry'}
             </h3>
-            <button className="close-btn" onClick={() => { setModalType(null); setModalFormData({}); }}><X size={16} /></button>
+            <button type="button" className="close-btn" onClick={() => { setModalType(null); setModalFormData({}); }}><X size={16} /></button>
           </div>
           <div className="modal-body">
             {modalType === 'standard' && (
@@ -1391,8 +1391,8 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
 
           </div>
           <div className="modal-footer">
-            <button className="btn btn-secondary" onClick={() => { setModalType(null); setModalFormData({}); }}>Cancel</button>
-            <button className="btn btn-primary" onClick={async () => {
+            <button type="button" className="btn btn-secondary" onClick={() => { setModalType(null); setModalFormData({}); }}>Cancel</button>
+            <button type="button" className="btn btn-primary" onClick={async () => {
               if (modalType === 'standard' && modalFormData.name) {
                 const isKata = (modalFormData.discipline || 'Kumite') === 'Kata';
                 setCategories([...categories, { 
@@ -1456,7 +1456,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
           <div className="card" style={{ width: '100%', maxWidth: '520px', maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-5)' }}>
               <h3 style={{ margin: 0 }}>Edit Category</h3>
-              <button className="btn btn-ghost" style={{ padding: '4px' }} onClick={() => { setModalType(null); setEditCatId(null); setEditCatData(null); }}>
+              <button type="button" className="btn btn-ghost" style={{ padding: '4px' }} onClick={() => { setModalType(null); setEditCatId(null); setEditCatData(null); }}>
                 <X size={18} />
               </button>
             </div>
@@ -1591,8 +1591,8 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
             </div>
 
             <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'flex-end', marginTop: 'var(--space-5)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--neutral-100)' }}>
-              <button className="btn btn-secondary" onClick={() => { setModalType(null); setEditCatId(null); setEditCatData(null); }}>Cancel</button>
-              <button
+              <button type="button" className="btn btn-secondary" onClick={() => { setModalType(null); setEditCatId(null); setEditCatData(null); }}>Cancel</button>
+              <button type="button"
                 className="btn btn-primary"
                 onClick={() => {
                   if (!editCatData.name?.trim()) { toast.error('Category name cannot be empty.'); return; }
@@ -1673,7 +1673,7 @@ function SetupBracketPreview({ competitionId, initialCategoryId, onClose }: {
     <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ background: 'white', borderRadius: '16px', padding: '32px' }}>
         <p>No categories found. Import an Excel file first.</p>
-        <button className="btn btn-secondary" onClick={onClose} style={{ marginTop: '16px' }}>Close</button>
+        <button type="button" className="btn btn-secondary" onClick={onClose} style={{ marginTop: '16px' }}>Close</button>
       </div>
     </div>
   );

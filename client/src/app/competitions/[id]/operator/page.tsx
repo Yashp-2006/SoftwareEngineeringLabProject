@@ -1013,12 +1013,12 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
             {!isViewer && (
               <>
-                <button className="btn btn-primary" onClick={handleStartCategory}><Play size={16} /> Start Category</button>
-                <button className="btn btn-secondary" onClick={handleFinishCategory}><Flag size={16} /> Finish Category</button>
-                <button className="btn btn-secondary" onClick={handleNextCategory}>Next Category</button>
+                <button type="button" className="btn btn-primary" onClick={handleStartCategory}><Play size={16} /> Start Category</button>
+                <button type="button" className="btn btn-secondary" onClick={handleFinishCategory}><Flag size={16} /> Finish Category</button>
+                <button type="button" className="btn btn-secondary" onClick={handleNextCategory}>Next Category</button>
               </>
             )}
-            <button className="btn btn-primary" onClick={() => {
+            <button type="button" className="btn btn-primary" onClick={() => {
               document.documentElement.requestFullscreen().catch(()=>{});
             }}>
               <Maximize size={16} /> View Scoreboard Fullscreen
@@ -1083,12 +1083,12 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: '16px', fontWeight: 700, color: '#f59e0b', minWidth: '40px', textAlign: 'center' }}>
                                   {Math.floor(restTimer / 60)}:{(restTimer % 60).toString().padStart(2, '0')}
                                 </span>
-                                <button className="btn-round" onClick={() => { setRestRunning(false); setRestTimer(0); }}>Stop Rest</button>
+                                <button type="button" className="btn-round" onClick={() => { setRestRunning(false); setRestTimer(0); }}>Stop Rest</button>
                               </div>
                             ) : (
                               <div style={{ display: 'flex', gap: '4px' }}>
-                                <button className="btn-round" onClick={() => { setRestTimer(30); setRestRunning(true); }} style={{ padding: '4px 8px', fontSize: '11px' }}>30s</button>
-                                <button className="btn-round" onClick={() => { setRestTimer(60); setRestRunning(true); }} style={{ padding: '4px 8px', fontSize: '11px' }}>60s</button>
+                                <button type="button" className="btn-round" onClick={() => { setRestTimer(30); setRestRunning(true); }} style={{ padding: '4px 8px', fontSize: '11px' }}>30s</button>
+                                <button type="button" className="btn-round" onClick={() => { setRestTimer(60); setRestRunning(true); }} style={{ padding: '4px 8px', fontSize: '11px' }}>60s</button>
                               </div>
                             )}
                           </div>
@@ -1096,9 +1096,9 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                             <div style={{ color: 'var(--neutral-500)', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px' }}>Match Timer</div>
                             <div className={`ops-timer ${running ? 'live' : ''}`}>{Math.floor(timer / 60).toString().padStart(2, '0')}:{(timer % 60).toString().padStart(2, '0')}</div>
                             <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                              <button className="btn-round" onClick={() => setRunning(true)}><Play size={12} /></button>
-                              <button className="btn-round" onClick={() => setRunning(false)}><Pause size={12} /></button>
-                              <button className="btn-round" onClick={() => { setTimer(180); setRunning(false); }}>Reset</button>
+                              <button type="button" className="btn-round" onClick={() => setRunning(true)}><Play size={12} /></button>
+                              <button type="button" className="btn-round" onClick={() => setRunning(false)}><Pause size={12} /></button>
+                              <button type="button" className="btn-round" onClick={() => { setTimer(180); setRunning(false); }}>Reset</button>
                             </div>
                           </>
                         </div>
@@ -1145,8 +1145,8 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                       />
                       {/* Kata Next Match / Reset controls */}
                       <div style={{ display: 'flex', gap: '8px', marginTop: '16px', justifyContent: 'flex-end' }}>
-                        <button className="btn-round" onClick={handleNextMatch}>Next Match</button>
-                        <button className="btn-round" style={{ color: 'var(--aka)', borderColor: 'rgba(225,29,72,0.3)' }} onClick={() => {
+                        <button type="button" className="btn-round" onClick={handleNextMatch}>Next Match</button>
+                        <button type="button" className="btn-round" style={{ color: 'var(--aka)', borderColor: 'rgba(225,29,72,0.3)' }} onClick={() => {
                           setRound(1); setWinnerState(null);
                           const next = queue.find(m => m.id !== activeMatchId);
                           if (next) loadMatch(next);
@@ -1250,14 +1250,14 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                         <span style={{ fontFamily: 'var(--font-mono)', fontSize: '16px', fontWeight: 700, color: '#f59e0b', minWidth: '40px', textAlign: 'center' }}>
                           {Math.floor(restTimer / 60)}:{(restTimer % 60).toString().padStart(2, '0')}
                         </span>
-                        <button className="btn-round" onClick={() => { setRestRunning(false); setRestTimer(0); }}>Stop Rest</button>
+                        <button type="button" className="btn-round" onClick={() => { setRestRunning(false); setRestTimer(0); }}>Stop Rest</button>
                       </>
                     ) : (
                       <>
-                        <button className="btn-round" onClick={() => { setRestTimer(30); setRestRunning(true); }}>30s</button>
-                        <button className="btn-round" onClick={() => { setRestTimer(60); setRestRunning(true); }}>60s</button>
-                        <button className="btn-round" onClick={() => { setRestTimer(90); setRestRunning(true); }}>90s</button>
-                        <button className="btn-round" onClick={() => { setRestTimer(120); setRestRunning(true); }}>2m</button>
+                        <button type="button" className="btn-round" onClick={() => { setRestTimer(30); setRestRunning(true); }}>30s</button>
+                        <button type="button" className="btn-round" onClick={() => { setRestTimer(60); setRestRunning(true); }}>60s</button>
+                        <button type="button" className="btn-round" onClick={() => { setRestTimer(90); setRestRunning(true); }}>90s</button>
+                        <button type="button" className="btn-round" onClick={() => { setRestTimer(120); setRestRunning(true); }}>2m</button>
                       </>
                     )}
                   </div>
@@ -1296,12 +1296,12 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                     <span style={{ fontSize: '12px', color: 'var(--neutral-500)' }}>sec</span>
                   </div>
                   <div style={{ display: 'flex', gap: '8px' }}>
-                    <button className="btn-round" onClick={() => setRunning(true)}><Play size={14} /> Start Timer</button>
-                    <button className="btn-round" onClick={() => setRunning(false)}><Pause size={14} /> Stop Timer</button>
+                    <button type="button" className="btn-round" onClick={() => setRunning(true)}><Play size={14} /> Start Timer</button>
+                    <button type="button" className="btn-round" onClick={() => setRunning(false)}><Pause size={14} /> Stop Timer</button>
                     <div style={{ width: '1px', background: 'var(--neutral-200)', margin: '0 8px' }}></div>
-                    <button className="btn-round" onClick={handleNextMatch}>Next Match</button>
-                    <button className="btn-round" onClick={handleFinishMatch}><Flag size={14} /> Finish Match</button>
-                    <button className="btn-round" style={{ color: 'var(--aka)', borderColor: 'rgba(225,29,72,0.3)' }} onClick={() => {
+                    <button type="button" className="btn-round" onClick={handleNextMatch}>Next Match</button>
+                    <button type="button" className="btn-round" onClick={handleFinishMatch}><Flag size={14} /> Finish Match</button>
+                    <button type="button" className="btn-round" style={{ color: 'var(--aka)', borderColor: 'rgba(225,29,72,0.3)' }} onClick={() => {
                       setRound(1);
                       setAka(p => ({ ...p, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false }));
                       setAo(p => ({ ...p, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false }));
@@ -1317,46 +1317,46 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                   {/* AKA Controls */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <div className="control-row" style={{ margin: 0 }}>
-                      <button className="btn-score aka" style={{ background: 'rgba(225,29,72,0.05)', borderColor: 'rgba(225,29,72,0.2)' }} onClick={() => addPoint('aka', 1)}>+1 Yuko</button>
-                      <button className="btn-score aka" style={{ background: 'rgba(225,29,72,0.05)', borderColor: 'rgba(225,29,72,0.2)' }} onClick={() => addPoint('aka', 2)}>+2 Waza</button>
-                      <button className="btn-score aka" style={{ background: 'rgba(225,29,72,0.05)', borderColor: 'rgba(225,29,72,0.2)' }} onClick={() => addPoint('aka', 3)}>+3 Ippon</button>
+                      <button type="button" className="btn-score aka" style={{ background: 'rgba(225,29,72,0.05)', borderColor: 'rgba(225,29,72,0.2)' }} onClick={() => addPoint('aka', 1)}>+1 Yuko</button>
+                      <button type="button" className="btn-score aka" style={{ background: 'rgba(225,29,72,0.05)', borderColor: 'rgba(225,29,72,0.2)' }} onClick={() => addPoint('aka', 2)}>+2 Waza</button>
+                      <button type="button" className="btn-score aka" style={{ background: 'rgba(225,29,72,0.05)', borderColor: 'rgba(225,29,72,0.2)' }} onClick={() => addPoint('aka', 3)}>+3 Ippon</button>
                     </div>
                     <div className="control-row" style={{ margin: 0 }}>
-                      <button className="btn-score aka minus" style={{ background: 'rgba(225,29,72,0.05)', borderColor: 'rgba(225,29,72,0.2)' }} onClick={() => addPoint('aka', -1)}>-1 Yuko</button>
-                      <button className="btn-score aka minus" style={{ background: 'rgba(225,29,72,0.05)', borderColor: 'rgba(225,29,72,0.2)' }} onClick={() => addPoint('aka', -2)}>-2 Waza</button>
-                      <button className="btn-score aka minus" style={{ background: 'rgba(225,29,72,0.05)', borderColor: 'rgba(225,29,72,0.2)' }} onClick={() => addPoint('aka', -3)}>-3 Ippon</button>
+                      <button type="button" className="btn-score aka minus" style={{ background: 'rgba(225,29,72,0.05)', borderColor: 'rgba(225,29,72,0.2)' }} onClick={() => addPoint('aka', -1)}>-1 Yuko</button>
+                      <button type="button" className="btn-score aka minus" style={{ background: 'rgba(225,29,72,0.05)', borderColor: 'rgba(225,29,72,0.2)' }} onClick={() => addPoint('aka', -2)}>-2 Waza</button>
+                      <button type="button" className="btn-score aka minus" style={{ background: 'rgba(225,29,72,0.05)', borderColor: 'rgba(225,29,72,0.2)' }} onClick={() => addPoint('aka', -3)}>-3 Ippon</button>
                     </div>
                     <div className="control-row" style={{ flexWrap: 'wrap', marginTop: '12px' }}>
-                      <button className="btn-pen" onClick={() => toggleSenshu('aka')} style={{ background: aka.senshu ? 'var(--aka)' : 'var(--shiro)', color: aka.senshu ? '#fff' : 'var(--neutral-900)', borderColor: aka.senshu ? 'var(--aka)' : 'var(--neutral-300)', flex: '1 1 45%' }}>Senshu (AKA)</button>
-                      <button className="btn-pen" style={{ color: 'var(--aka)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('aka', 'c1')}>+ Penalty (C1)</button>
-                      <button className="btn-pen" style={{ color: 'var(--aka)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('aka', 'c2')}>+ Penalty (C2)</button>
-                      <button className="btn-pen" style={{ color: 'var(--aka)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('aka', 'c3')}>+ Penalty (C3)</button>
-                      <button className="btn-pen" style={{ color: 'var(--aka)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('aka', 'hc')}>+ Penalty (HC)</button>
-                      <button className="btn-pen" style={{ color: 'var(--aka)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('aka', 'h')}>+ Penalty (H)</button>
-                      <button className="btn-pen" style={{ color: 'var(--shiro)', flex: '1 1 45%', background: 'var(--aka)', borderColor: 'var(--aka)', fontWeight: 800 }} onClick={() => handleDisqualify('aka')}>Disqualify AKA</button>
+                      <button type="button" className="btn-pen" onClick={() => toggleSenshu('aka')} style={{ background: aka.senshu ? 'var(--aka)' : 'var(--shiro)', color: aka.senshu ? '#fff' : 'var(--neutral-900)', borderColor: aka.senshu ? 'var(--aka)' : 'var(--neutral-300)', flex: '1 1 45%' }}>Senshu (AKA)</button>
+                      <button type="button" className="btn-pen" style={{ color: 'var(--aka)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('aka', 'c1')}>+ Penalty (C1)</button>
+                      <button type="button" className="btn-pen" style={{ color: 'var(--aka)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('aka', 'c2')}>+ Penalty (C2)</button>
+                      <button type="button" className="btn-pen" style={{ color: 'var(--aka)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('aka', 'c3')}>+ Penalty (C3)</button>
+                      <button type="button" className="btn-pen" style={{ color: 'var(--aka)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('aka', 'hc')}>+ Penalty (HC)</button>
+                      <button type="button" className="btn-pen" style={{ color: 'var(--aka)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('aka', 'h')}>+ Penalty (H)</button>
+                      <button type="button" className="btn-pen" style={{ color: 'var(--shiro)', flex: '1 1 45%', background: 'var(--aka)', borderColor: 'var(--aka)', fontWeight: 800 }} onClick={() => handleDisqualify('aka')}>Disqualify AKA</button>
                     </div>
                   </div>
 
                   {/* AO Controls */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <div className="control-row" style={{ margin: 0 }}>
-                      <button className="btn-score ao" style={{ background: 'rgba(26,77,181,0.05)', borderColor: 'rgba(26,77,181,0.2)' }} onClick={() => addPoint('ao', 1)}>+1 Yuko</button>
-                      <button className="btn-score ao" style={{ background: 'rgba(26,77,181,0.05)', borderColor: 'rgba(26,77,181,0.2)' }} onClick={() => addPoint('ao', 2)}>+2 Waza</button>
-                      <button className="btn-score ao" style={{ background: 'rgba(26,77,181,0.05)', borderColor: 'rgba(26,77,181,0.2)' }} onClick={() => addPoint('ao', 3)}>+3 Ippon</button>
+                      <button type="button" className="btn-score ao" style={{ background: 'rgba(26,77,181,0.05)', borderColor: 'rgba(26,77,181,0.2)' }} onClick={() => addPoint('ao', 1)}>+1 Yuko</button>
+                      <button type="button" className="btn-score ao" style={{ background: 'rgba(26,77,181,0.05)', borderColor: 'rgba(26,77,181,0.2)' }} onClick={() => addPoint('ao', 2)}>+2 Waza</button>
+                      <button type="button" className="btn-score ao" style={{ background: 'rgba(26,77,181,0.05)', borderColor: 'rgba(26,77,181,0.2)' }} onClick={() => addPoint('ao', 3)}>+3 Ippon</button>
                     </div>
                     <div className="control-row" style={{ margin: 0 }}>
-                      <button className="btn-score ao minus" style={{ background: 'rgba(26,77,181,0.05)', borderColor: 'rgba(26,77,181,0.2)' }} onClick={() => addPoint('ao', -1)}>-1 Yuko</button>
-                      <button className="btn-score ao minus" style={{ background: 'rgba(26,77,181,0.05)', borderColor: 'rgba(26,77,181,0.2)' }} onClick={() => addPoint('ao', -2)}>-2 Waza</button>
-                      <button className="btn-score ao minus" style={{ background: 'rgba(26,77,181,0.05)', borderColor: 'rgba(26,77,181,0.2)' }} onClick={() => addPoint('ao', -3)}>-3 Ippon</button>
+                      <button type="button" className="btn-score ao minus" style={{ background: 'rgba(26,77,181,0.05)', borderColor: 'rgba(26,77,181,0.2)' }} onClick={() => addPoint('ao', -1)}>-1 Yuko</button>
+                      <button type="button" className="btn-score ao minus" style={{ background: 'rgba(26,77,181,0.05)', borderColor: 'rgba(26,77,181,0.2)' }} onClick={() => addPoint('ao', -2)}>-2 Waza</button>
+                      <button type="button" className="btn-score ao minus" style={{ background: 'rgba(26,77,181,0.05)', borderColor: 'rgba(26,77,181,0.2)' }} onClick={() => addPoint('ao', -3)}>-3 Ippon</button>
                     </div>
                     <div className="control-row" style={{ flexWrap: 'wrap', marginTop: '12px' }}>
-                      <button className="btn-pen" onClick={() => toggleSenshu('ao')} style={{ background: ao.senshu ? 'var(--ao)' : 'var(--shiro)', color: ao.senshu ? '#fff' : 'var(--neutral-900)', borderColor: ao.senshu ? 'var(--ao)' : 'var(--neutral-300)', flex: '1 1 45%' }}>Senshu (AO)</button>
-                      <button className="btn-pen" style={{ color: 'var(--ao)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('ao', 'c1')}>+ Penalty (C1)</button>
-                      <button className="btn-pen" style={{ color: 'var(--ao)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('ao', 'c2')}>+ Penalty (C2)</button>
-                      <button className="btn-pen" style={{ color: 'var(--ao)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('ao', 'c3')}>+ Penalty (C3)</button>
-                      <button className="btn-pen" style={{ color: 'var(--ao)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('ao', 'hc')}>+ Penalty (HC)</button>
-                      <button className="btn-pen" style={{ color: 'var(--ao)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('ao', 'h')}>+ Penalty (H)</button>
-                      <button className="btn-pen" style={{ color: 'var(--shiro)', flex: '1 1 45%', background: 'var(--aka)', borderColor: 'var(--aka)', fontWeight: 800 }} onClick={() => handleDisqualify('ao')}>Disqualify AO</button>
+                      <button type="button" className="btn-pen" onClick={() => toggleSenshu('ao')} style={{ background: ao.senshu ? 'var(--ao)' : 'var(--shiro)', color: ao.senshu ? '#fff' : 'var(--neutral-900)', borderColor: ao.senshu ? 'var(--ao)' : 'var(--neutral-300)', flex: '1 1 45%' }}>Senshu (AO)</button>
+                      <button type="button" className="btn-pen" style={{ color: 'var(--ao)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('ao', 'c1')}>+ Penalty (C1)</button>
+                      <button type="button" className="btn-pen" style={{ color: 'var(--ao)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('ao', 'c2')}>+ Penalty (C2)</button>
+                      <button type="button" className="btn-pen" style={{ color: 'var(--ao)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('ao', 'c3')}>+ Penalty (C3)</button>
+                      <button type="button" className="btn-pen" style={{ color: 'var(--ao)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('ao', 'hc')}>+ Penalty (HC)</button>
+                      <button type="button" className="btn-pen" style={{ color: 'var(--ao)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('ao', 'h')}>+ Penalty (H)</button>
+                      <button type="button" className="btn-pen" style={{ color: 'var(--shiro)', flex: '1 1 45%', background: 'var(--aka)', borderColor: 'var(--aka)', fontWeight: 800 }} onClick={() => handleDisqualify('ao')}>Disqualify AO</button>
                     </div>
                   </div>
 
@@ -1392,7 +1392,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                     ))}
                   </select>
                   {!isViewer && (
-                  <button 
+                  <button type="button" 
                     className="btn btn-secondary" 
                     onClick={() => { setTempQueue([...queue]); setShowEditModal(true); }}
                     style={{ fontSize: '13px', padding: '6px 16px', background: 'var(--shiro)' }}
@@ -1512,7 +1512,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
               <div id="mat-leaderboard-container" style={{ background: 'var(--shiro)', borderRadius: '16px', padding: '16px', border: '1px solid var(--neutral-200)', boxShadow: '0 4px 12px rgba(0,0,0,0.02)', marginBottom: '24px' }}>
                 <div className="lb-title" style={{ fontSize: '11px', fontWeight: 800, color: 'var(--neutral-500)', textTransform: 'uppercase', marginBottom: '16px', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>Mat Leaderboard</div>
-                  <button onClick={() => {
+                  <button type="button" onClick={() => {
                     const el = document.getElementById('mat-leaderboard-container');
                     if (el && el.requestFullscreen) {
                       el.requestFullscreen();
@@ -1585,7 +1585,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                           <div style={{ fontWeight: 700, fontSize: '14px' }}>{cat.name}</div>
                           <div style={{ fontSize: '11px', color: 'var(--neutral-500)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: '2px' }}>SKIPPED</div>
                         </div>
-                        <button
+                        <button type="button"
                           className="btn btn-secondary"
                           style={{ fontSize: '12px', padding: '5px 12px', whiteSpace: 'nowrap' }}
                           onClick={() => handleRestoreSkipped(cat.id, cat.name)}
@@ -1645,7 +1645,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
           <div className="modal" style={{ background: 'var(--shiro)', width: '600px', borderRadius: '16px', overflow: 'hidden', display: 'flex', flexDirection: 'column', maxHeight: '80vh', boxShadow: '0 24px 48px rgba(0,0,0,0.1)' }}>
             <div className="modal-header" style={{ padding: '24px', borderBottom: '1px solid var(--neutral-200)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ fontSize: '20px', fontWeight: 800, margin: 0 }}>Edit Full Match Queue</h3>
-              <button className="close-btn" onClick={() => setShowEditModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--neutral-500)' }}><span style={{fontSize:'20px'}}>×</span></button>
+              <button type="button" className="close-btn" onClick={() => setShowEditModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--neutral-500)' }}><span style={{fontSize:'20px'}}>×</span></button>
             </div>
             <div className="modal-body" style={{ overflowY: 'auto', flex: 1 }}>
               <div className="table-responsive">
@@ -1705,8 +1705,8 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
               </div>
             </div>
             <div className="modal-footer" style={{ padding: '24px', borderTop: '1px solid var(--neutral-200)', display: 'flex', justifyContent: 'flex-end', gap: '12px', background: 'var(--neutral-50)' }}>
-              <button className="btn btn-secondary" onClick={() => setShowEditModal(false)} style={{ fontSize: '13px', fontWeight: 600 }}>Cancel</button>
-              <button className="btn btn-primary" onClick={() => { setQueue(tempQueue); setShowEditModal(false); }} style={{ fontSize: '13px', fontWeight: 600 }}>Save Changes</button>
+              <button type="button" className="btn btn-secondary" onClick={() => setShowEditModal(false)} style={{ fontSize: '13px', fontWeight: 600 }}>Cancel</button>
+              <button type="button" className="btn btn-primary" onClick={() => { setQueue(tempQueue); setShowEditModal(false); }} style={{ fontSize: '13px', fontWeight: 600 }}>Save Changes</button>
             </div>
           </div>
         </div>

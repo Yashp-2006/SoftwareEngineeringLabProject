@@ -132,7 +132,7 @@ export default function EditCategoryModal({ competitionId, categoryId, categoryN
           <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Edit2 size={24} /> Manage Category
           </h2>
-          <button className="btn-close" onClick={onClose}><X size={24} /></button>
+          <button type="button" className="btn-close" onClick={onClose}><X size={24} /></button>
         </div>
 
         <div className="modal-body" style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
@@ -155,7 +155,7 @@ export default function EditCategoryModal({ competitionId, categoryId, categoryN
                 onChange={e => setNameInput(e.target.value)}
                 style={{ flex: 1, marginBottom: 0 }}
               />
-              <button 
+              <button type="button" 
                 className="btn btn-secondary" 
                 onClick={handleSaveCategoryName}
                 disabled={isSaving || nameInput === categoryName}
@@ -220,10 +220,10 @@ export default function EditCategoryModal({ competitionId, categoryId, categoryN
                               />
                             </td>
                             <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                              <button className="btn btn-ghost" style={{ padding: '4px', color: 'var(--status-live)' }} onClick={() => saveEdit(athlete)}>
+                              <button type="button" className="btn btn-ghost" style={{ padding: '4px', color: 'var(--status-live)' }} onClick={() => saveEdit(athlete)}>
                                 <CheckCircle size={18} />
                               </button>
-                              <button className="btn btn-ghost" style={{ padding: '4px' }} onClick={() => setEditingAthleteId(null)}>
+                              <button type="button" className="btn btn-ghost" style={{ padding: '4px' }} onClick={() => setEditingAthleteId(null)}>
                                 <XCircle size={18} />
                               </button>
                             </td>
@@ -236,10 +236,10 @@ export default function EditCategoryModal({ competitionId, categoryId, categoryN
                             <td>{athlete.age || '-'}</td>
                             <td>{athlete.weight ? `${athlete.weight}kg` : '-'}</td>
                             <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                              <button className="btn btn-ghost" style={{ padding: '4px' }} onClick={() => startEdit(athlete)}>
+                              <button type="button" className="btn btn-ghost" style={{ padding: '4px' }} onClick={() => startEdit(athlete)}>
                                 <Edit2 size={16} />
                               </button>
-                              <button className="btn btn-ghost" style={{ padding: '4px', color: '#be123c' }} onClick={() => handleRemoveAthlete(athlete)}>
+                              <button type="button" className="btn btn-ghost" style={{ padding: '4px', color: '#be123c' }} onClick={() => handleRemoveAthlete(athlete)}>
                                 <Trash2 size={16} />
                               </button>
                             </td>

@@ -364,19 +364,19 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
               {role === 'admin' && (
-                <button className="btn-create-special" onClick={() => setSpecialModalOpen(true)}>
+                <button type="button" className="btn-create-special" onClick={() => setSpecialModalOpen(true)}>
                   <Star size={14} />
                   Create Special Tiesheet
                 </button>
               )}
               {role === 'admin' && (
-                <button className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={() => setIsAddModalOpen(true)}>
+                <button type="button" className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={() => setIsAddModalOpen(true)}>
                   <UserPlus size={16} />
                   Add On-Spot Entry
                 </button>
               )}
               {categories.length > 0 && role === 'admin' && (
-                <button 
+                <button type="button" 
                   className="btn btn-secondary" 
                   style={{ display: 'flex', alignItems: 'center', gap: '8px' }} 
                   onClick={handleDownloadTiesheets}
@@ -387,7 +387,7 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
                 </button>
               )}
               {categories.length > 0 && (
-                <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={() => openModal()}>
+                <button type="button" className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={() => openModal()}>
                   <Eye size={16} />
                   Open All Brackets
                 </button>
@@ -434,7 +434,7 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
                     }}
                   />
                   {searchQuery && (
-                    <button 
+                    <button type="button" 
                       onClick={() => { setSearchQuery(''); setIsDropdownOpen(false); }}
                       style={{ position: 'absolute', right: '10px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--neutral-400)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                     >
@@ -715,7 +715,7 @@ function TiesheetCard({ cat, onClick, isSpecial = false }: { cat: any; onClick: 
         <div style={{ fontSize: '11px', color: '#92400e', fontWeight: 600 }}>🥇 Seeded from: {cat.medal}</div>
       )}
       <div className="tiesheet-card-footer">
-        <button className="btn-view-tiesheet">
+        <button type="button" className="btn-view-tiesheet">
           <Eye size={12} />
           View Tiesheet
         </button>

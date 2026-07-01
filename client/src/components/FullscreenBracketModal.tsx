@@ -181,7 +181,7 @@ const BracketNode = ({
             </div>
             {isAdmin && onPromote && !isCompleted && (
               <div style={{ position: 'relative' }}>
-                <button
+                <button type="button"
                   className="btn-promote"
                   title="Promote winner"
                   onClick={handlePromoteClick}
@@ -199,7 +199,7 @@ const BracketNode = ({
                       Promote to Next Round
                     </div>
                     {hasAka && (
-                      <button
+                      <button type="button"
                         onClick={() => { onPromote(match.id, akaId, match.nextMatchId); setShowPromoteMenu(false); }}
                         style={{ width: '100%', padding: '10px 12px', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: 700, color: 'var(--aka)', textAlign: 'left' }}
                         onMouseEnter={e => (e.currentTarget.style.background = 'var(--aka-light)')}
@@ -210,7 +210,7 @@ const BracketNode = ({
                       </button>
                     )}
                     {hasAo && (
-                      <button
+                      <button type="button"
                         onClick={() => { onPromote(match.id, aoId, match.nextMatchId); setShowPromoteMenu(false); }}
                         style={{ width: '100%', padding: '10px 12px', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: 700, color: 'var(--ao)', textAlign: 'left' }}
                         onMouseEnter={e => (e.currentTarget.style.background = 'var(--ao-light)')}
@@ -222,7 +222,7 @@ const BracketNode = ({
                     )}
                     {(hasAka || hasAo) && <div style={{ height: '1px', background: 'var(--neutral-100)' }} />}
                     {hasAka && (
-                      <button
+                      <button type="button"
                         onClick={() => { onPromote(match.id, akaId, match.nextMatchId, 'ao'); setShowPromoteMenu(false); }}
                         style={{ width: '100%', padding: '8px 12px', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', fontWeight: 600, color: 'var(--neutral-500)', textAlign: 'left' }}
                         onMouseEnter={e => (e.currentTarget.style.background = 'var(--neutral-50)')}
@@ -232,7 +232,7 @@ const BracketNode = ({
                       </button>
                     )}
                     {hasAo && (
-                      <button
+                      <button type="button"
                         onClick={() => { onPromote(match.id, aoId, match.nextMatchId, 'aka'); setShowPromoteMenu(false); }}
                         style={{ width: '100%', padding: '8px 12px', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', fontWeight: 600, color: 'var(--neutral-500)', textAlign: 'left' }}
                         onMouseEnter={e => (e.currentTarget.style.background = 'var(--neutral-50)')}
@@ -506,7 +506,7 @@ export function BracketViewer({
               style={{ width: '180px', padding: '4px 30px 4px 10px', borderRadius: '6px', border: '1px solid var(--neutral-300)', background: 'var(--shiro)', fontSize: '11px', color: 'var(--neutral-900)', outline: 'none' }}
             />
             {localSearch && (
-              <button 
+              <button type="button" 
                 onClick={() => { setLocalSearch(''); setIsDropdownOpen(false); }}
                 style={{ position: 'absolute', right: '8px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--neutral-400)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
               >
@@ -942,7 +942,7 @@ export default function FullscreenBracketModal({
         {/* Modal Header */}
         <div className="fsb-header">
           <div className="fsb-title" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <button className="fsb-mobile-toggle" style={{ display: 'none' }} onClick={() => setShowMobileSidebar(!showMobileSidebar)}>
+            <button type="button" className="fsb-mobile-toggle" style={{ display: 'none' }} onClick={() => setShowMobileSidebar(!showMobileSidebar)}>
               {showMobileSidebar ? <X size={20} /> : <Target size={20} />}
             </button>
             Tiesheet — {activeCategory?.name || 'Select Category'}
@@ -964,7 +964,7 @@ export default function FullscreenBracketModal({
               </select>
             )}
           </div>
-          <button className="fsb-close" onClick={onClose} title="Close (Esc)">
+          <button type="button" className="fsb-close" onClick={onClose} title="Close (Esc)">
             <X size={18} />
           </button>
         </div>
@@ -978,7 +978,7 @@ export default function FullscreenBracketModal({
               <div className="fsb-sidebar-title">
                 <span>Categories ({filteredSidebarCats.length}/{categories.length})</span>
                 {(sbFilterDiscipline !== 'all' || sbFilterGender !== 'all' || sbFilterMat !== 'all') && (
-                  <button
+                  <button type="button"
                     onClick={() => { setSbFilterDiscipline('all'); setSbFilterGender('all'); setSbFilterMat('all'); }}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '9px', fontWeight: 700, color: 'var(--aka)', letterSpacing: '0.08em', textTransform: 'uppercase', padding: 0 }}
                   >Clear</button>
@@ -987,11 +987,11 @@ export default function FullscreenBracketModal({
 
               {/* Discipline filter */}
               <div className="fsb-filter-row">
-                <button
+                <button type="button"
                   className={`fsb-filter-chip${sbFilterDiscipline === 'kata' ? ' active-kata' : ''}`}
                   onClick={() => setSbFilterDiscipline(sbFilterDiscipline === 'kata' ? 'all' : 'kata')}
                 >Kata</button>
-                <button
+                <button type="button"
                   className={`fsb-filter-chip${sbFilterDiscipline === 'kumite' ? ' active-kumite' : ''}`}
                   onClick={() => setSbFilterDiscipline(sbFilterDiscipline === 'kumite' ? 'all' : 'kumite')}
                 >Kumite</button>
@@ -999,11 +999,11 @@ export default function FullscreenBracketModal({
                 <div className="fsb-filter-sep" />
 
                 {/* Gender filter */}
-                <button
+                <button type="button"
                   className={`fsb-filter-chip${sbFilterGender === 'male' ? ' active-gender' : ''}`}
                   onClick={() => setSbFilterGender(sbFilterGender === 'male' ? 'all' : 'male')}
                 >Male</button>
-                <button
+                <button type="button"
                   className={`fsb-filter-chip${sbFilterGender === 'female' ? ' active-gender' : ''}`}
                   onClick={() => setSbFilterGender(sbFilterGender === 'female' ? 'all' : 'female')}
                 >Female</button>
@@ -1013,7 +1013,7 @@ export default function FullscreenBracketModal({
               {assignedMats.length > 0 && (
                 <div className="fsb-filter-row" style={{ paddingTop: 0 }}>
                   {assignedMats.map(mat => (
-                    <button
+                    <button type="button"
                       key={mat}
                       className={`fsb-filter-chip${sbFilterMat === mat ? ' active-mat' : ''}`}
                       onClick={() => setSbFilterMat(sbFilterMat === mat ? 'all' : mat)}

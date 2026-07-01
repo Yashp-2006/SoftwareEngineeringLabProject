@@ -96,7 +96,7 @@ export default function SpecialCategoryModal({
               <div style={{ fontSize: '12px', color: '#6b7280' }}>Seed from completed standard tiesheets</div>
             </div>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}><X size={20} /></button>
+          <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}><X size={20} /></button>
         </div>
 
         <div style={{ padding: '24px', maxHeight: '60vh', overflowY: 'auto' }}>
@@ -117,7 +117,7 @@ export default function SpecialCategoryModal({
                 {(['Gold', 'Silver', 'Bronze'] as const).map(m => {
                   const isSelected = newMedals.includes(m);
                   return (
-                    <button
+                    <button type="button"
                       key={m}
                       onClick={() => {
                         if (isSelected) {
@@ -172,7 +172,7 @@ export default function SpecialCategoryModal({
             <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '8px' }}>Pool Size</label>
             <div style={{ display: 'flex', gap: '8px' }}>
               {[4, 8, 16, 32].map(n => (
-                <button key={n} onClick={() => setPoolSize(n)} style={{
+                <button type="button" key={n} onClick={() => setPoolSize(n)} style={{
                   padding: '7px 16px', fontWeight: 700, fontSize: '13px', borderRadius: '7px', cursor: 'pointer',
                   border: `2px solid ${poolSize === n ? '#3b82f6' : '#e5e7eb'}`,
                   background: poolSize === n ? '#eff6ff' : 'white', color: poolSize === n ? '#1d4ed8' : '#374151'
@@ -184,8 +184,8 @@ export default function SpecialCategoryModal({
 
         {/* Footer */}
         <div style={{ padding: '16px 24px', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '10px', background: '#f9fafb' }}>
-          <button onClick={onClose} style={{ padding: '9px 18px', border: '1px solid #d1d5db', borderRadius: '8px', background: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
-          <button
+          <button type="button" onClick={onClose} style={{ padding: '9px 18px', border: '1px solid #d1d5db', borderRadius: '8px', background: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
+          <button type="button"
             onClick={handleCreateAndGenerate}
             disabled={!newName.trim() || creatingNew}
             style={{ padding: '9px 20px', background: creatingNew || !newName.trim() ? '#e5e7eb' : '#d97706', color: creatingNew || !newName.trim() ? '#9ca3af' : 'white', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: creatingNew || !newName.trim() ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}

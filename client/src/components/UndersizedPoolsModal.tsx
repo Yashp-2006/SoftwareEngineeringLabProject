@@ -180,7 +180,7 @@ export default function UndersizedPoolsModal({ isOpen, onClose, compId, poolSize
   return (
     <div className="modal-overlay">
       <div className="modal-content" style={{ maxWidth: '600px' }}>
-        <button className="modal-close" onClick={onClose}><X size={20} /></button>
+        <button type="button" className="modal-close" onClick={onClose}><X size={20} /></button>
         <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <AlertTriangle size={24} color="#f59e0b" /> Manage Undersized Pools
         </h2>
@@ -217,7 +217,7 @@ export default function UndersizedPoolsModal({ isOpen, onClose, compId, poolSize
                       <option key={t} value={t}>Merge into {t}</option>
                     ))}
                   </select>
-                  <button 
+                  <button type="button" 
                     className="btn btn-primary" 
                     disabled={processing || data.availableTargets.length === 0}
                     onClick={() => {
@@ -227,7 +227,7 @@ export default function UndersizedPoolsModal({ isOpen, onClose, compId, poolSize
                   >
                     <Combine size={16} /> Merge
                   </button>
-                  <button 
+                  <button type="button" 
                     className="btn btn-ghost" 
                     style={{ color: 'var(--aka)' }}
                     disabled={processing}
