@@ -360,10 +360,12 @@ export function BracketViewer({
   const viewportRef = useRef<HTMLDivElement>(null);
   const [connectors, setConnectors] = useState<Array<{x1:number;y1:number;x2:number;y2:number;xMid:number}>>([]);
 
-  // Reset manual zoom when category changes (useEffect instead of render-phase setState)
-  useEffect(() => {
+  // Reset manual zoom when category changes (render-phase state adjustment)
+  const [prevCategoryName, setPrevCategoryName] = useState(categoryName);
+  if (categoryName !== prevCategoryName) {
+    setPrevCategoryName(categoryName);
     setIsManualZoom(false);
-  }, [categoryName]);
+  }
 
   const adjustZoom = (delta: number) => {
     setIsManualZoom(true);

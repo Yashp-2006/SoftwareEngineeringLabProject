@@ -25,22 +25,17 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
   const [onSpotModalOpen, setOnSpotModalOpen] = useState(false);
 
   // Admins or users with join link bypass passcode
-  useEffect(() => {
-    let joined = false;
-    if (typeof window !== 'undefined') {
-      joined = localStorage.getItem(`joined_${id}`) === 'true';
-    }
+  const joinParam = searchParams.get('join') === 'true';
+  const joinedStorage = typeof window !== 'undefined' && localStorage.getItem(`joined_${id}`) === 'true';
 
-    if (user || searchParams.get('join') === 'true' || joined) {
-      if (searchParams.get('join') === 'true') {
+  if (!isAuthenticated && (user || joinParam || joinedStorage)) {
+    if (typeof window !== 'undefined') {
+      if (joinParam || user) {
         localStorage.setItem(`joined_${id}`, 'true');
       }
-      if (user) {
-        localStorage.setItem(`joined_${id}`, 'true');
-      }
-      setIsAuthenticated(true);
     }
-  }, [user, searchParams, id]);
+    setIsAuthenticated(true);
+  }
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

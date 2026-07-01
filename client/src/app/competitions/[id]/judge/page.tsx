@@ -45,17 +45,19 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
   // Dynamic judge count from the live match data — fallback to 7 until we have data
   const configuredJudgeCount = liveData?.numberOfJudges ?? null;
 
+  const [prevMatId, setPrevMatId] = useState<string | null>(null);
+  if (matId !== prevMatId) {
+    setPrevMatId(matId);
+    setLiveData(null);
+    setRtdbReady(false);
+    if (matId) setLoading(true);
+  }
+
   // Listen to RTDB whenever matId changes (even before judge is selected)
   useEffect(() => {
-    if (!matId) {
-      setLiveData(null);
-      setRtdbReady(false);
-      return;
-    }
+    if (!matId) return;
 
     let unsub: () => void;
-    setLoading(true);
-    setRtdbReady(false);
 
     const setup = async () => {
       try {

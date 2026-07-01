@@ -339,6 +339,18 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
     }
   };
 
+  const [prevQueue, setPrevQueue] = useState(queue);
+  if (queue !== prevQueue) {
+    setPrevQueue(queue);
+    if (activeMatchId) {
+       const m = queue.find(q => q.id === activeMatchId);
+       if (m) {
+         setAka(p => ({ ...p, name: m.aka, country: m.akaCountry, academy: m.akaAcademy }));
+         setAo(p => ({ ...p, name: m.ao, country: m.aoCountry, academy: m.aoAcademy }));
+       }
+    }
+  }
+
   useEffect(() => {
     const matIdParam = new URLSearchParams(window.location.search).get('mat') || 'mat-1';
 
@@ -374,13 +386,8 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
       }
     } else if (queue.length > 0 && activeMatchId) {
        sessionStorage.setItem(`activeMatch_${matIdParam}`, activeMatchId);
-       // Keep names in sync if edited externally
-       const m = queue.find(q => q.id === activeMatchId);
-       if (m) {
-         setAka(p => ({ ...p, name: m.aka, country: m.akaCountry, academy: m.akaAcademy }));
-         setAo(p => ({ ...p, name: m.ao, country: m.aoCountry, academy: m.aoAcademy }));
-       }
     }
+
   }, [queue, activeMatchId, id, isViewer]);
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
