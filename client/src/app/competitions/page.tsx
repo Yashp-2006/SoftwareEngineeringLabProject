@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Search, Plus, Edit3, Archive, Trash2, ArrowRight, X, Eye, EyeOff } from 'lucide-react';
+import { Search, Plus, Edit3, Archive, Trash2, ArrowRight, X, Eye, EyeOff, UploadCloud, FileJson } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { toast } from 'react-hot-toast';
 import ConfirmModal from '@/components/ConfirmModal';
@@ -15,6 +15,8 @@ export default function CompetitionsPage() {
     name: '', dates: '', venue: '', type: 'national', rules: 'wkf', mats: '6', password: '',
     startTime: '09:00', endTime: '18:00', estMinsPerCategory: '60'
   });
+  const [presetCategories, setPresetCategories] = useState<any[] | null>(null);
+  const [presetFileName, setPresetFileName] = useState<string>('');
   const { user, role, loading: authLoading } = useAuth();
   
   const [competitions, setCompetitions] = useState<any[]>([]);
@@ -101,6 +103,39 @@ export default function CompetitionsPage() {
         }
       }
     });
+  };
+
+  const handlePresetUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPresetFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const imported = JSON.parse(event.target?.result as string);
+        if (Array.isArray(imported) && imported.length > 0) {
+          // Sanitize: strip entries/athletes so they start fresh
+          const cleaned = imported.map((cat: any) => ({
+            ...cat,
+            id: Math.random().toString(36).substring(2, 9),
+            entries: 0,
+            athletes: []
+          }));
+          setPresetCategories(cleaned);
+          toast.success(`Preset loaded: ${cleaned.length} categories ready`);
+        } else {
+          toast.error('Invalid preset format — expected a JSON array');
+          setPresetCategories(null);
+          setPresetFileName('');
+        }
+      } catch {
+        toast.error('Failed to parse preset file');
+        setPresetCategories(null);
+        setPresetFileName('');
+      }
+      e.target.value = '';
+    };
+    reader.readAsText(file);
   };
 
   return (
@@ -406,12 +441,68 @@ export default function CompetitionsPage() {
               </div>
               <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
                 <label>Rule Settings</label>
-                <select id="new-comp-rules" className="input-field" style={{ background: 'white' }} value={formData.rules} onChange={e => setFormData(p => ({ ...p, rules: e.target.value }))}>
-                  <option value="wkf">WKF Settings</option>
-                  <option value="custom">Custom Settings</option>
+                <select
+                  id="new-comp-rules"
+                  className="input-field"
+                  style={{ background: 'white' }}
+                  value={formData.rules}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setFormData(p => ({ ...p, rules: val }));
+                    // Clear preset if switching away from import_preset
+                    if (val !== 'import_preset') {
+                      setPresetCategories(null);
+                      setPresetFileName('');
+                    }
+                  }}
+                >
+                  <option value="wkf">WKF</option>
+                  <option value="custom">Custom</option>
+                  <option value="import_preset">Import Preset</option>
                 </select>
               </div>
             </div>
+
+            {/* Inline Preset Upload — shown only when Import Preset is selected */}
+            {formData.rules === 'import_preset' && (
+              <div style={{ marginBottom: '16px' }}>
+                {presetCategories ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'var(--neutral-50)', border: '1.5px solid var(--ao)', borderRadius: '8px', padding: '10px 14px' }}>
+                    <FileJson size={16} style={{ color: 'var(--ao)', flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--neutral-900)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{presetFileName}</div>
+                      <div style={{ fontSize: '12px', color: 'var(--neutral-500)' }}>{presetCategories.length} categories will be pre-loaded in setup</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { setPresetCategories(null); setPresetFileName(''); }}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--neutral-400)', padding: '4px', display: 'flex', flexShrink: 0 }}
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ width: '100%', justifyContent: 'center', gap: '8px' }}
+                    onClick={() => document.getElementById('preset-upload-create')?.click()}
+                  >
+                    <UploadCloud size={16} /> Choose Preset File (.json)
+                  </button>
+                )}
+                <input
+                  type="file"
+                  id="preset-upload-create"
+                  accept=".json"
+                  style={{ display: 'none' }}
+                  onChange={handlePresetUpload}
+                />
+                <p style={{ fontSize: '12px', color: 'var(--neutral-500)', marginTop: '6px', marginBottom: 0 }}>
+                  Upload a preset exported from a previous tournament to pre-populate categories in setup.
+                </p>
+              </div>
+            )}
 
             <div className="form-group">
               <label>Number of Mats</label>
@@ -466,18 +557,24 @@ export default function CompetitionsPage() {
             </div>
           </div>
           <div className="modal-footer">
-            <button className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>Cancel</button>
+            <button className="btn btn-secondary" onClick={() => { setIsModalOpen(false); setPresetCategories(null); setPresetFileName(''); }}>Cancel</button>
             <button className="btn btn-primary" onClick={async () => {
               const { name, dates, venue, type, rules, mats, password, startTime, endTime, estMinsPerCategory } = formData;
               if (!name.trim()) { toast.error('Competition name is required'); return; }
               if (!password.trim()) { toast.error('A password is required to protect this competition'); return; }
+              if (rules === 'import_preset' && (!presetCategories || presetCategories.length === 0)) {
+                toast.error('Please upload a preset file before creating'); return;
+              }
               
               try {
-                const { collection, addDoc } = await import('firebase/firestore');
+                const { collection, addDoc, doc, setDoc } = await import('firebase/firestore');
                 const { db } = await import('@lib/firebase');
                 
                 const compData = {
-                  name, dates, venue, type, rules, mats: parseInt(mats),
+                  name, dates, venue, type,
+                  // Store as 'custom' so the setup wizard treats it as custom with preset categories
+                  rules: rules === 'import_preset' ? 'custom' : rules,
+                  mats: parseInt(mats),
                   password,
                   startTime: startTime || '09:00',
                   endTime: endTime || '18:00',
@@ -486,10 +583,31 @@ export default function CompetitionsPage() {
                   createdAt: new Date().toISOString()
                 };
                 
-                await addDoc(collection(db, 'competitions'), compData);
+                const newDocRef = await addDoc(collection(db, 'competitions'), compData);
+
+                // If a preset was loaded, save it as the setup draft so the wizard picks it up
+                if (presetCategories && presetCategories.length > 0) {
+                  await setDoc(
+                    doc(db, 'competitions', newDocRef.id, 'drafts', 'setup'),
+                    {
+                      compName: name,
+                      compRules: rules,
+                      compType: type,
+                      matsCount: parseInt(mats),
+                      categories: presetCategories,
+                      lastActivePhase: 1,
+                      highestPhase: 1,
+                      createdFromPreset: true,
+                      presetLoadedAt: new Date().toISOString()
+                    }
+                  );
+                }
+
                 toast.success('Competition created successfully!');
                 setIsModalOpen(false);
                 setFormData({ name: '', dates: '', venue: '', type: 'national', rules: 'wkf', mats: '6', password: '', startTime: '09:00', endTime: '18:00', estMinsPerCategory: '60' });
+                setPresetCategories(null);
+                setPresetFileName('');
               } catch (err) {
                 console.error(err);
                 toast.error('Failed to create competition');
