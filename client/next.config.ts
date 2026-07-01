@@ -4,7 +4,7 @@ import { join } from "path";
 
 // Load environment variables from the root workspace
 config({ path: join(process.cwd(), '../.env') });
-const nextConfig: NextConfig = {
+const nextConfig: any = {
   typescript: {
     ignoreBuildErrors: true,
   },

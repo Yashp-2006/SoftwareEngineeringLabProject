@@ -455,8 +455,8 @@ export default function CompetitionsPage() {
                   }}
                 >
                   <option value="wkf">WKF</option>
-                  <option value="custom">Custom</option>
-                  <option value="import_preset">Import Preset</option>
+                  <option value="custom">Custom Settings</option>
+                  <option value="import_preset">Import Custom Preset</option>
                 </select>
               </div>
             </div>
