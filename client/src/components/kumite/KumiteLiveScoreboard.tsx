@@ -39,6 +39,10 @@ type KumiteLiveScoreboardProps = {
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
   onBack?: () => void;
+  
+  isKata?: boolean;
+  akaKataName?: string;
+  aoKataName?: string;
 };
 
 export default function KumiteLiveScoreboard({
@@ -47,7 +51,8 @@ export default function KumiteLiveScoreboard({
   akaC1, aoC1, akaC2, aoC2, akaSenshu, aoSenshu,
   timerDisplay, timerColor, matchStatus, title = 'TAIKAIX', categoryName = '', matchId = '',
   winnerName, winnerColor,
-  isFullscreen, onToggleFullscreen, onBack
+  isFullscreen, onToggleFullscreen, onBack,
+  isKata, akaKataName, aoKataName
 }: KumiteLiveScoreboardProps) {
 
   const renderDots = (count: number) => {
@@ -136,40 +141,39 @@ export default function KumiteLiveScoreboard({
       )}
 
       <div className="kls-container">
-        <div className="kls-side aka">
-          <div className={`kls-senshu ${akaSenshu ? 'active' : ''}`}>SENSHU</div>
+        <div className={`kls-side aka ${winnerColor === 'aka' ? 'kls-winner-glow' : ''} ${winnerColor === 'ao' ? 'kls-loser-dim' : ''}`}>
+          {akaSenshu && !isKata && <div className="kls-senshu active">SENSHU</div>}
+          <div className="kls-country">{akaCountry || 'AKA'}</div>
           <div className="kls-name">{akaName}</div>
-          <div className="kls-country">{[akaAcademy, akaCountry || 'JAPAN'].filter(Boolean).join(' • ').toUpperCase()}</div>
           
-          <div className="kls-score-wrap">
-            <div className="kls-score">{akaScore}</div>
-          </div>
-
-          <div className="kls-points">
-            <div className="kls-pt-item">
-              <div className="kls-pt-label">Ippon</div>
-              <div className="kls-pt-val">{akaIppon}</div>
+          {isKata ? (
+            <div style={{ marginTop: '2cqw', padding: '1cqw 2cqw', background: 'rgba(255,255,255,0.1)', borderRadius: '1cqw', textAlign: 'center' }}>
+              <div style={{ fontSize: '1cqw', fontWeight: 700, opacity: 0.7, textTransform: 'uppercase', marginBottom: '0.5cqw' }}>Kata</div>
+              <div style={{ fontSize: '2.5cqw', fontWeight: 800, fontFamily: 'var(--font-display)', minHeight: '3cqw' }}>{akaKataName || '—'}</div>
             </div>
-            <div className="kls-pt-item">
-              <div className="kls-pt-label">Waza-ari</div>
-              <div className="kls-pt-val">{akaWazaari}</div>
-            </div>
-            <div className="kls-pt-item">
-              <div className="kls-pt-label">Yuko</div>
-              <div className="kls-pt-val">{akaYuko}</div>
-            </div>
-          </div>
-
-          <div className="kls-pens">
-            <div className="kls-pen-grp">
-              <div className="kls-pen-title">Category 1</div>
-              <div className="kls-pen-dots">{renderDots(akaC1)}</div>
-            </div>
-            <div className="kls-pen-grp">
-              <div className="kls-pen-title">Category 2</div>
-              <div className="kls-pen-dots">{renderDots(akaC2)}</div>
-            </div>
-          </div>
+          ) : (
+            <>
+              <div className="kls-score-wrap">
+                <h2 className="kls-score">{akaScore}</h2>
+              </div>
+              <div className="kls-points">
+                <div className="kls-pt-item"><span className="kls-pt-label">Y</span><span className="kls-pt-val">{akaYuko}</span></div>
+                <div className="kls-pt-item"><span className="kls-pt-label">W</span><span className="kls-pt-val">{akaWazaari}</span></div>
+                <div className="kls-pt-item"><span className="kls-pt-label">I</span><span className="kls-pt-val">{akaIppon}</span></div>
+              </div>
+              
+              <div className="kls-pens">
+                <div className="kls-pen-grp">
+                  <div className="kls-pen-title">Category 1</div>
+                  <div className="kls-pen-dots">{renderDots(akaC1)}</div>
+                </div>
+                <div className="kls-pen-grp">
+                  <div className="kls-pen-title">Category 2</div>
+                  <div className="kls-pen-dots">{renderDots(akaC2)}</div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* CENTER COLUMN */}
@@ -192,40 +196,40 @@ export default function KumiteLiveScoreboard({
         </div>
 
         {/* AO SIDE */}
-        <div className="kls-side ao">
-          <div className={`kls-senshu ${aoSenshu ? 'active' : ''}`}>SENSHU</div>
+        <div className={`kls-side ao ${winnerColor === 'ao' ? 'kls-winner-glow' : ''} ${winnerColor === 'aka' ? 'kls-loser-dim' : ''}`}>
+          {aoSenshu && !isKata && <div className="kls-senshu active">SENSHU</div>}
+          <div className="kls-country">{aoCountry || 'AO'}</div>
           <div className="kls-name">{aoName}</div>
-          <div className="kls-country">{[aoAcademy, aoCountry || 'JAPAN'].filter(Boolean).join(' • ').toUpperCase()}</div>
           
-          <div className="kls-score-wrap">
-            <div className="kls-score">{aoScore}</div>
-          </div>
-
-          <div className="kls-points">
-            <div className="kls-pt-item">
-              <div className="kls-pt-label">Ippon</div>
-              <div className="kls-pt-val">{aoIppon}</div>
+          {isKata ? (
+            <div style={{ marginTop: '2cqw', padding: '1cqw 2cqw', background: 'rgba(255,255,255,0.1)', borderRadius: '1cqw', textAlign: 'center' }}>
+              <div style={{ fontSize: '1cqw', fontWeight: 700, opacity: 0.7, textTransform: 'uppercase', marginBottom: '0.5cqw' }}>Kata</div>
+              <div style={{ fontSize: '2.5cqw', fontWeight: 800, fontFamily: 'var(--font-display)', minHeight: '3cqw' }}>{aoKataName || '—'}</div>
             </div>
-            <div className="kls-pt-item">
-              <div className="kls-pt-label">Waza-ari</div>
-              <div className="kls-pt-val">{aoWazaari}</div>
-            </div>
-            <div className="kls-pt-item">
-              <div className="kls-pt-label">Yuko</div>
-              <div className="kls-pt-val">{aoYuko}</div>
-            </div>
-          </div>
-
-          <div className="kls-pens">
-            <div className="kls-pen-grp">
-              <div className="kls-pen-title">Category 1</div>
-              <div className="kls-pen-dots">{renderDots(aoC1)}</div>
-            </div>
-            <div className="kls-pen-grp">
-              <div className="kls-pen-title">Category 2</div>
-              <div className="kls-pen-dots">{renderDots(aoC2)}</div>
-            </div>
-          </div>
+          ) : (
+            <>
+              <div className="kls-score-wrap">
+                <h2 className="kls-score">{aoScore}</h2>
+              </div>
+              
+              <div className="kls-points">
+                <div className="kls-pt-item"><span className="kls-pt-label">Y</span><span className="kls-pt-val">{aoYuko}</span></div>
+                <div className="kls-pt-item"><span className="kls-pt-label">W</span><span className="kls-pt-val">{aoWazaari}</span></div>
+                <div className="kls-pt-item"><span className="kls-pt-label">I</span><span className="kls-pt-val">{aoIppon}</span></div>
+              </div>
+              
+              <div className="kls-pens">
+                <div className="kls-pen-grp">
+                  <div className="kls-pen-title">Category 1</div>
+                  <div className="kls-pen-dots">{renderDots(aoC1)}</div>
+                </div>
+                <div className="kls-pen-grp">
+                  <div className="kls-pen-title">Category 2</div>
+                  <div className="kls-pen-dots">{renderDots(aoC2)}</div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

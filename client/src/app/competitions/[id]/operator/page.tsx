@@ -11,6 +11,7 @@ import KumiteLiveScoreboard from '@/components/kumite/KumiteLiveScoreboard';
 import { useAuth } from '@/components/auth/AuthProvider';
 import ScaleWrapper from '@/components/ScaleWrapper';
 import { Suspense } from 'react';
+import { KATA_LIST } from '@/lib/kata-list';
 
 export default function OperatorPortal({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
@@ -96,6 +97,8 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
       console.error('Failed to sync RTDB', err);
     }
   }, [id]);
+
+  const isKata = activeCategoryData?.isKata || activeCategoryName?.toLowerCase().includes('kata');
 
   useEffect(() => {
     const mm = Math.floor(timer / 60).toString().padStart(2, '0');
@@ -1056,135 +1059,15 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                   <div style={{ fontWeight: 700, fontSize: '15px' }}>{activeCategoryName || 'No Active Category'} {(activeCategoryData?.isKata || activeCategoryName?.toLowerCase().includes('kata')) && <span style={{ marginLeft: 6, padding: '2px 8px', background: '#dbeafe', color: '#1e40af', borderRadius: 4, fontSize: 11, fontWeight: 800 }}>KATA</span>}</div>
                 </div>
                 <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                  <div style={{ textAlign: 'right' }}>
+                <div style={{ textAlign: 'right' }}>
                     <div style={{ color: 'var(--neutral-500)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Match ID</div>
                     <div style={{ fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{queue.find(m => m.id === activeMatchId)?.displayId || '—'}</div>
                   </div>
                 </div>
               </div>
 
-              {/* ── KATA GATE: If category isKata, render KataOperatorPanel; otherwise render existing Kumite controls ── */}
-              {(activeCategoryData?.isKata || activeCategoryName?.toLowerCase().includes('kata')) && activeMatchId ? (
-                <div id="ops-display-container" style={{ padding: '24px', background: 'white' }}>
-                  {isViewer ? (
-                    <div style={{ width: '100%', height: 'calc(100vh - 200px)', minHeight: '600px', background: '#000', borderRadius: '16px', overflow: 'hidden' }}>
-                      <ScaleWrapper>
-                        <KataLiveScoreboard
-                          akaName={aka.name}
-                          aoName={ao.name}
-                          akaAcademy={aka.academy}
-                          aoAcademy={ao.academy}
-                          akaCountry={aka.country}
-                          aoCountry={ao.country}
-                          akaKataName={selectedKata?.aka?.name}
-                          aoKataName={selectedKata?.ao?.name}
-                          numberOfJudges={kataJudgeCount}
-                          judgeVotes={derivedKataData.judgeVotes}
-                          akaFlags={kataVotes?.aka ?? derivedKataData.akaFlags}
-                          aoFlags={kataVotes?.ao ?? derivedKataData.aoFlags}
-                          timeRemaining={`${Math.floor(timer / 60).toString().padStart(2, '0')}:${(timer % 60).toString().padStart(2, '0')}`}
-                          matchStatus={status === 'finished' ? 'COMPLETED' : (running ? 'LIVE' : status.toUpperCase())}
-                          logoUrl={compData?.scoreboardLogo}
-                          title={`Mat ${matNum} — Kata Scoreboard`}
-                          subtitle={`${compData?.name || 'Tournament'} • ${activeCategoryName || 'Kata'}`}
-                          onToggleFullscreen={() => {
-                            if (document.fullscreenElement) {
-                              document.exitFullscreen().catch(() => {});
-                            } else {
-                              document.documentElement.requestFullscreen().catch(() => {});
-                            }
-                          }}
-                          isFullscreen={isFullscreen}
-                          onBack={() => {
-                            window.location.href = `/competitions/${id}/mats`;
-                          }}
-                          kataWinner={winnerState ? winnerState.color : (kataWinner as any)}
-                          winnerName={winnerState?.name}
-                        />
-                      </ScaleWrapper>
-                    </div>
-                  ) : (
-                    <>
-
-                      <KataOperatorPanel
-                        competitionId={id}
-                        categoryId={activeCategoryId!}
-                        matchId={activeMatchId}
-                        matId={typeof window !== 'undefined' ? (new URLSearchParams(window.location.search).get('mat') || 'mat-1') : 'mat-1'}
-                        akaName={aka.name}
-                        aoName={ao.name}
-                        akaAcademy={aka.academy}
-                        aoAcademy={ao.academy}
-                        akaId={queue.find(m => m.id === activeMatchId)?.akaId}
-                        aoId={queue.find(m => m.id === activeMatchId)?.aoId}
-                        numberOfJudges={activeCategoryData?.numberOfJudges || 5}
-                        allowedKataNumbers={activeCategoryData?.allowedKataList || []}
-                        kataFormat={activeCategoryData?.kataFormat || 'elimination'}
-                        isTeam={activeCategoryData?.isTeam || false}
-                        onMatchFinished={(winner, votes, selectedKata) => {
-                          const currentMatch = queue.find(m => m.id === activeMatchId);
-                          const winnerId = winner === 'aka' ? currentMatch?.akaId : currentMatch?.aoId;
-                          if (currentMatch) {
-                            setRecentMatches(prev => [{ ...currentMatch, status: 'completed', winnerId, kataVotes: votes }, ...prev].slice(0, 3));
-                            setQueue(prev => prev.filter(m => m.id !== activeMatchId));
-                          }
-                          setWinnerState({ color: winner, name: winner === 'aka' ? aka.name : ao.name, academy: winner === 'aka' ? aka.academy : ao.academy, points: votes[winner] });
-                          fetch(`/api/competitions/${id}/brackets/${activeCategoryId}`, {
-                            method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ matchId: activeMatchId, winnerId, selectedKata }),
-                          }).then(r => r.json()).then(data => {
-                            if (data.success) toast.success('Kata bout result saved!');
-                            else toast.error('Failed to save result: ' + data.error);
-                          }).catch(() => toast.error('Network error saving kata result'));
-                        }}
-                      />
-                      {/* Kata Timer & Operations Controls */}
-                      <div className="ops-controls" style={{ borderTop: '1px solid var(--neutral-200)', marginTop: '24px' }}>
-                        <div className="round-ops-strip" style={{ borderBottom: '1px solid var(--neutral-200)', background: 'var(--shiro)' }}>
-                          <div style={{ fontWeight: 700, fontSize: '14px', color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Coffee size={14} /> Rest Timer
-                          </div>
-                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                            {restRunning && restTimer > 0 ? (
-                              <>
-                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '16px', fontWeight: 700, color: '#f59e0b', minWidth: '40px', textAlign: 'center' }}>
-                                  {Math.floor(restTimer / 60)}:{(restTimer % 60).toString().padStart(2, '0')}
-                                </span>
-                                <button type="button" className="btn-round" onClick={() => { setRestRunning(false); setRestTimer(0); }}>Stop Rest</button>
-                              </>
-                            ) : (
-                              <>
-                                <button type="button" className="btn-round" onClick={() => { setRestTimer(30); setRestRunning(true); }}>30s</button>
-                                <button type="button" className="btn-round" onClick={() => { setRestTimer(60); setRestRunning(true); }}>60s</button>
-                                <button type="button" className="btn-round" onClick={() => { setRestTimer(90); setRestRunning(true); }}>90s</button>
-                                <button type="button" className="btn-round" onClick={() => { setRestTimer(120); setRestRunning(true); }}>2m</button>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                        <div className="round-ops-strip" style={{ flexWrap: 'wrap', gap: '12px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontWeight: 700, fontSize: '14px' }}>
-                            Kata Match Operations
-                          </div>
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            <button type="button" className="btn-round" onClick={() => setRunning(true)}><Play size={14} /> Start Timer</button>
-                            <button type="button" className="btn-round" onClick={() => setRunning(false)}><Pause size={14} /> Stop Timer</button>
-                            <div style={{ width: '1px', background: 'var(--neutral-200)', margin: '0 8px' }}></div>
-                            <button type="button" className="btn-round" onClick={handleNextMatch}>Next Match</button>
-                            <button type="button" className="btn-round" style={{ color: 'var(--aka)', borderColor: 'rgba(225,29,72,0.3)' }} onClick={() => {
-                              setRound(1); setWinnerState(null); setTimer(0); setRunning(false);
-                              const next = queue.find(m => m.id !== activeMatchId);
-                              if (next) loadMatch(next);
-                            }}>↺ Reset / Load Next</button>
-                          </div>
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-              ) : (
-                <>
+              {/* ── UNIFIED SCOREBOARD RENDERING ── */}
+              <>
                 {isViewer ? (
                   <div id="ops-display-container" style={{ padding: '24px', background: '#fdfbfb', borderBottom: '1px solid var(--neutral-200)', display: 'flex', justifyContent: 'center' }}>
                     <div style={{ width: '100%', height: 'calc(100vh - 200px)', minHeight: '600px', background: '#000', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 12px 32px rgba(0,0,0,0.1)' }}>
@@ -1218,6 +1101,9 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                           matchId={`MAT ${new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('mat')?.replace('mat-', '').padStart(2, '0') || '01'} - ${queue.find(m => m.id === activeMatchId)?.displayId || '—'}`}
                           winnerName={winnerState ? winnerState.name : undefined}
                           winnerColor={winnerState ? winnerState.color : undefined}
+                          isKata={!!isKata}
+                          akaKataName={selectedKata?.aka?.name}
+                          aoKataName={selectedKata?.ao?.name}
                         />
                       </ScaleWrapper>
                     </div>
@@ -1228,22 +1114,59 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                   <div className="ops-country">{aka.country}</div>
                   <div className="ops-name">{aka.name}</div>
                   <div className="ops-academy">{aka.academy}</div>
-                  <div className="ops-score-num aka">{aka.score}</div>
-                  <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--neutral-500)', textTransform: 'uppercase', marginBottom: '8px' }}>Penalties</div>
-                  <div className="penalty-track">
-                    {['c1', 'c2', 'c3', 'hc', 'h'].map((p) => (
-                      <div className="pen-slot" key={p}>
-                        <span className="pen-code">{p.toUpperCase()}</span>
-                        <div className={`pen-dot ${(aka as any)[p] ? 'active' : ''}`} onClick={() => !isViewer && togglePenalty('aka', p as any)}></div>
+                  {!isKata && <div className="ops-score-num aka">{aka.score}</div>}
+                  
+                  {isKata ? (
+                    <div style={{ marginTop: '24px', width: '100%' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--neutral-500)', textTransform: 'uppercase', marginBottom: '8px' }}>Selected Kata</div>
+                      <select 
+                        value={selectedKata?.aka?.name || ''} 
+                        onChange={e => {
+                          const kata = KATA_LIST.find(k => k.name === e.target.value);
+                          setSelectedKata((prev: any) => ({ ...prev, aka: kata || null }));
+                          syncRTDB({ selectedKata: { ...selectedKata, aka: kata || null } });
+                        }}
+                        style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--neutral-300)' }}
+                      >
+                        <option value="">Select Kata...</option>
+                        {KATA_LIST.map(k => <option key={k.number} value={k.name}>{k.name}</option>)}
+                      </select>
+                      <button onClick={() => {
+                        const confirmDQ = window.confirm('Are you sure you want to disqualify AKA?');
+                        if (confirmDQ) {
+                          setWinnerState({ color: 'ao', name: ao.name, academy: ao.academy, points: 0 });
+                          setStatus('finished');
+                          setRunning(false);
+                          syncRTDB({ winnerName: ao.name, winnerColor: 'ao', matchStatus: 'COMPLETED', timerRunning: false });
+                          toast.success('AKA Disqualified. AO Wins.');
+                        }
+                      }} style={{ marginTop: '16px', background: 'var(--aka)', color: 'white', border: 'none', padding: '10px 12px', borderRadius: '6px', fontWeight: 700, width: '100%', cursor: 'pointer' }}>Disqualify AKA</button>
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--neutral-500)', textTransform: 'uppercase', marginBottom: '8px', marginTop: '16px' }}>Penalties</div>
+                      <div className="penalty-track">
+                        {['c1', 'c2', 'c3', 'hc', 'h'].map((p) => (
+                          <div className="pen-slot" key={p}>
+                            <span className="pen-code">{p.toUpperCase()}</span>
+                            <div className={`pen-dot ${(aka as any)[p] ? 'active' : ''}`} onClick={() => !isViewer && togglePenalty('aka', p as any)}></div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    </>
+                  )}
                 </div>
 
                 <div className="ops-side ops-center">
                   <div style={{ border: '1px solid var(--neutral-300)', padding: '4px 16px', borderRadius: '999px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '24px' }}>
                     Match {queue.find(m => m.id === activeMatchId)?.displayId || '—'}
                   </div>
+                  {!isKata && (
+                    <>
+                      <div style={{ color: 'var(--neutral-500)', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px' }}>Round</div>
+                      <div style={{ background: 'var(--neutral-100)', padding: '6px 12px', borderRadius: '999px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--neutral-600)', marginBottom: '24px' }}>{round}</div>
+                    </>
+                  )}
                   <div style={{ color: 'var(--neutral-500)', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px' }}>Remaining</div>
                   <div className={`ops-timer ${running ? 'live' : ''}`}>{mins}:{secs}</div>
                   <div style={{ color: 'var(--neutral-500)', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '6px' }}>Match Status</div>
@@ -1254,21 +1177,52 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                   <div className="ops-country">{ao.country}</div>
                   <div className="ops-name">{ao.name}</div>
                   <div className="ops-academy">{ao.academy}</div>
-                  <div className="ops-score-num ao">{ao.score}</div>
-                  <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--neutral-500)', textTransform: 'uppercase', marginBottom: '8px' }}>Penalties</div>
-                  <div className="penalty-track">
-                    {['c1', 'c2', 'c3', 'hc', 'h'].map((p) => (
-                      <div className="pen-slot" key={p}>
-                        <span className="pen-code">{p.toUpperCase()}</span>
-                        <div className={`pen-dot ${(ao as any)[p] ? 'active' : ''}`} onClick={() => !isViewer && togglePenalty('ao', p as any)}></div>
+                  {!isKata && <div className="ops-score-num ao">{ao.score}</div>}
+                  
+                  {isKata ? (
+                    <div style={{ marginTop: '24px', width: '100%' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--neutral-500)', textTransform: 'uppercase', marginBottom: '8px' }}>Selected Kata</div>
+                      <select 
+                        value={selectedKata?.ao?.name || ''} 
+                        onChange={e => {
+                          const kata = KATA_LIST.find(k => k.name === e.target.value);
+                          setSelectedKata((prev: any) => ({ ...prev, ao: kata || null }));
+                          syncRTDB({ selectedKata: { ...selectedKata, ao: kata || null } });
+                        }}
+                        style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--neutral-300)' }}
+                      >
+                        <option value="">Select Kata...</option>
+                        {KATA_LIST.map(k => <option key={k.number} value={k.name}>{k.name}</option>)}
+                      </select>
+                      <button onClick={() => {
+                        const confirmDQ = window.confirm('Are you sure you want to disqualify AO?');
+                        if (confirmDQ) {
+                          setWinnerState({ color: 'aka', name: aka.name, academy: aka.academy, points: 0 });
+                          setStatus('finished');
+                          setRunning(false);
+                          syncRTDB({ winnerName: aka.name, winnerColor: 'aka', matchStatus: 'COMPLETED', timerRunning: false });
+                          toast.success('AO Disqualified. AKA Wins.');
+                        }
+                      }} style={{ marginTop: '16px', background: 'var(--ao)', color: 'white', border: 'none', padding: '10px 12px', borderRadius: '6px', fontWeight: 700, width: '100%', cursor: 'pointer' }}>Disqualify AO</button>
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--neutral-500)', textTransform: 'uppercase', marginBottom: '8px', marginTop: '16px' }}>Penalties</div>
+                      <div className="penalty-track">
+                        {['c1', 'c2', 'c3', 'hc', 'h'].map((p) => (
+                          <div className="pen-slot" key={p}>
+                            <span className="pen-code">{p.toUpperCase()}</span>
+                            <div className={`pen-dot ${(ao as any)[p] ? 'active' : ''}`} onClick={() => !isViewer && togglePenalty('ao', p as any)}></div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    </>
+                  )}
                 </div>
               </div>
               )}
 
-              {!isViewer && !(activeCategoryData?.isKata || activeCategoryName?.toLowerCase().includes('kata')) && (
+              {!isViewer && (
               <div className="ops-controls">
                 <div className="round-ops-strip" style={{ borderBottom: '1px solid var(--neutral-200)', background: 'var(--shiro)' }}>
                   <div style={{ fontWeight: 700, fontSize: '14px', color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1335,10 +1289,12 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                       setRound(1);
                       setAka(p => ({ ...p, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false }));
                       setAo(p => ({ ...p, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false }));
+                      setSelectedKata(null);
                       setTimer(matchDuration);
                       setRunning(false);
                       setStatus('upcoming');
                       setWinnerState(null);
+                      syncRTDB({ selectedKata: null });
                     }}>↺ Reset Match</button>
                   </div>
                 </div>
@@ -1346,55 +1302,116 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                   
                   {/* AKA Controls */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <div className="control-row" style={{ margin: 0 }}>
-                      <button type="button" className="btn-score aka" style={{ background: 'rgba(225,29,72,0.05)', borderColor: 'rgba(225,29,72,0.2)' }} onClick={() => addPoint('aka', 1)}>+1 Yuko</button>
-                      <button type="button" className="btn-score aka" style={{ background: 'rgba(225,29,72,0.05)', borderColor: 'rgba(225,29,72,0.2)' }} onClick={() => addPoint('aka', 2)}>+2 Waza</button>
-                      <button type="button" className="btn-score aka" style={{ background: 'rgba(225,29,72,0.05)', borderColor: 'rgba(225,29,72,0.2)' }} onClick={() => addPoint('aka', 3)}>+3 Ippon</button>
-                    </div>
-                    <div className="control-row" style={{ margin: 0 }}>
-                      <button type="button" className="btn-score aka minus" style={{ background: 'rgba(225,29,72,0.05)', borderColor: 'rgba(225,29,72,0.2)' }} onClick={() => addPoint('aka', -1)}>-1 Yuko</button>
-                      <button type="button" className="btn-score aka minus" style={{ background: 'rgba(225,29,72,0.05)', borderColor: 'rgba(225,29,72,0.2)' }} onClick={() => addPoint('aka', -2)}>-2 Waza</button>
-                      <button type="button" className="btn-score aka minus" style={{ background: 'rgba(225,29,72,0.05)', borderColor: 'rgba(225,29,72,0.2)' }} onClick={() => addPoint('aka', -3)}>-3 Ippon</button>
-                    </div>
-                    <div className="control-row" style={{ flexWrap: 'wrap', marginTop: '12px' }}>
-                      <button type="button" className="btn-pen" onClick={() => toggleSenshu('aka')} style={{ background: aka.senshu ? 'var(--aka)' : 'var(--shiro)', color: aka.senshu ? '#fff' : 'var(--neutral-900)', borderColor: aka.senshu ? 'var(--aka)' : 'var(--neutral-300)', flex: '1 1 45%' }}>Senshu (AKA)</button>
-                      <button type="button" className="btn-pen" style={{ color: 'var(--aka)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('aka', 'c1')}>+ Penalty (C1)</button>
-                      <button type="button" className="btn-pen" style={{ color: 'var(--aka)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('aka', 'c2')}>+ Penalty (C2)</button>
-                      <button type="button" className="btn-pen" style={{ color: 'var(--aka)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('aka', 'c3')}>+ Penalty (C3)</button>
-                      <button type="button" className="btn-pen" style={{ color: 'var(--aka)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('aka', 'hc')}>+ Penalty (HC)</button>
-                      <button type="button" className="btn-pen" style={{ color: 'var(--aka)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('aka', 'h')}>+ Penalty (H)</button>
-                      <button type="button" className="btn-pen" style={{ color: 'var(--shiro)', flex: '1 1 45%', background: 'var(--aka)', borderColor: 'var(--aka)', fontWeight: 800 }} onClick={() => handleDisqualify('aka')}>Disqualify AKA</button>
-                    </div>
+                    {isKata ? (
+                      <div style={{ padding: '16px', background: 'rgba(225,29,72,0.05)', border: '1px solid rgba(225,29,72,0.2)', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <div>
+                          <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--neutral-500)', textTransform: 'uppercase', marginBottom: '8px' }}>Selected Kata</div>
+                          <select 
+                            value={selectedKata?.aka?.name || ''} 
+                            onChange={e => {
+                              const kata = KATA_LIST.find(k => k.name === e.target.value);
+                              setSelectedKata((prev: any) => ({ ...prev, aka: kata || null }));
+                              syncRTDB({ selectedKata: { ...selectedKata, aka: kata || null } });
+                            }}
+                            style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--neutral-300)', fontWeight: 700 }}
+                          >
+                            <option value="">Select Kata...</option>
+                            {KATA_LIST.map(k => <option key={k.number} value={k.name}>{k.name}</option>)}
+                          </select>
+                        </div>
+                        <button onClick={() => {
+                          const confirmDQ = window.confirm('Are you sure you want to disqualify AKA?');
+                          if (confirmDQ) {
+                            setWinnerState({ color: 'ao', name: ao.name, academy: ao.academy, points: 0 });
+                            setStatus('finished');
+                            setRunning(false);
+                            syncRTDB({ winnerName: ao.name, winnerColor: 'ao', matchStatus: 'COMPLETED', timerRunning: false });
+                            toast.success('AKA Disqualified. AO Wins.');
+                          }
+                        }} style={{ background: 'var(--aka)', color: 'white', border: 'none', padding: '12px', borderRadius: '6px', fontWeight: 700, cursor: 'pointer' }}>Disqualify AKA</button>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="control-row" style={{ margin: 0 }}>
+                          <button type="button" className="btn-score aka" style={{ background: 'rgba(225,29,72,0.05)', borderColor: 'rgba(225,29,72,0.2)' }} onClick={() => addPoint('aka', 1)}>+1 Yuko</button>
+                          <button type="button" className="btn-score aka" style={{ background: 'rgba(225,29,72,0.05)', borderColor: 'rgba(225,29,72,0.2)' }} onClick={() => addPoint('aka', 2)}>+2 Waza</button>
+                          <button type="button" className="btn-score aka" style={{ background: 'rgba(225,29,72,0.05)', borderColor: 'rgba(225,29,72,0.2)' }} onClick={() => addPoint('aka', 3)}>+3 Ippon</button>
+                        </div>
+                        <div className="control-row" style={{ margin: 0 }}>
+                          <button type="button" className="btn-score aka minus" style={{ background: 'rgba(225,29,72,0.05)', borderColor: 'rgba(225,29,72,0.2)' }} onClick={() => addPoint('aka', -1)}>-1 Yuko</button>
+                          <button type="button" className="btn-score aka minus" style={{ background: 'rgba(225,29,72,0.05)', borderColor: 'rgba(225,29,72,0.2)' }} onClick={() => addPoint('aka', -2)}>-2 Waza</button>
+                          <button type="button" className="btn-score aka minus" style={{ background: 'rgba(225,29,72,0.05)', borderColor: 'rgba(225,29,72,0.2)' }} onClick={() => addPoint('aka', -3)}>-3 Ippon</button>
+                        </div>
+                        <div className="control-row" style={{ flexWrap: 'wrap', marginTop: '12px' }}>
+                          <button type="button" className="btn-pen" onClick={() => toggleSenshu('aka')} style={{ background: aka.senshu ? 'var(--aka)' : 'var(--shiro)', color: aka.senshu ? '#fff' : 'var(--neutral-900)', borderColor: aka.senshu ? 'var(--aka)' : 'var(--neutral-300)', flex: '1 1 45%' }}>Senshu (AKA)</button>
+                          <button type="button" className="btn-pen" style={{ color: 'var(--aka)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('aka', 'c1')}>+ Penalty (C1)</button>
+                          <button type="button" className="btn-pen" style={{ color: 'var(--aka)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('aka', 'c2')}>+ Penalty (C2)</button>
+                          <button type="button" className="btn-pen" style={{ color: 'var(--aka)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('aka', 'c3')}>+ Penalty (C3)</button>
+                          <button type="button" className="btn-pen" style={{ color: 'var(--aka)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('aka', 'hc')}>+ Penalty (HC)</button>
+                          <button type="button" className="btn-pen" style={{ color: 'var(--aka)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('aka', 'h')}>+ Penalty (H)</button>
+                          <button type="button" className="btn-pen" style={{ color: 'var(--shiro)', flex: '1 1 45%', background: 'var(--aka)', borderColor: 'var(--aka)', fontWeight: 800 }} onClick={() => handleDisqualify('aka')}>Disqualify AKA</button>
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   {/* AO Controls */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <div className="control-row" style={{ margin: 0 }}>
-                      <button type="button" className="btn-score ao" style={{ background: 'rgba(26,77,181,0.05)', borderColor: 'rgba(26,77,181,0.2)' }} onClick={() => addPoint('ao', 1)}>+1 Yuko</button>
-                      <button type="button" className="btn-score ao" style={{ background: 'rgba(26,77,181,0.05)', borderColor: 'rgba(26,77,181,0.2)' }} onClick={() => addPoint('ao', 2)}>+2 Waza</button>
-                      <button type="button" className="btn-score ao" style={{ background: 'rgba(26,77,181,0.05)', borderColor: 'rgba(26,77,181,0.2)' }} onClick={() => addPoint('ao', 3)}>+3 Ippon</button>
-                    </div>
-                    <div className="control-row" style={{ margin: 0 }}>
-                      <button type="button" className="btn-score ao minus" style={{ background: 'rgba(26,77,181,0.05)', borderColor: 'rgba(26,77,181,0.2)' }} onClick={() => addPoint('ao', -1)}>-1 Yuko</button>
-                      <button type="button" className="btn-score ao minus" style={{ background: 'rgba(26,77,181,0.05)', borderColor: 'rgba(26,77,181,0.2)' }} onClick={() => addPoint('ao', -2)}>-2 Waza</button>
-                      <button type="button" className="btn-score ao minus" style={{ background: 'rgba(26,77,181,0.05)', borderColor: 'rgba(26,77,181,0.2)' }} onClick={() => addPoint('ao', -3)}>-3 Ippon</button>
-                    </div>
-                    <div className="control-row" style={{ flexWrap: 'wrap', marginTop: '12px' }}>
-                      <button type="button" className="btn-pen" onClick={() => toggleSenshu('ao')} style={{ background: ao.senshu ? 'var(--ao)' : 'var(--shiro)', color: ao.senshu ? '#fff' : 'var(--neutral-900)', borderColor: ao.senshu ? 'var(--ao)' : 'var(--neutral-300)', flex: '1 1 45%' }}>Senshu (AO)</button>
-                      <button type="button" className="btn-pen" style={{ color: 'var(--ao)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('ao', 'c1')}>+ Penalty (C1)</button>
-                      <button type="button" className="btn-pen" style={{ color: 'var(--ao)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('ao', 'c2')}>+ Penalty (C2)</button>
-                      <button type="button" className="btn-pen" style={{ color: 'var(--ao)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('ao', 'c3')}>+ Penalty (C3)</button>
-                      <button type="button" className="btn-pen" style={{ color: 'var(--ao)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('ao', 'hc')}>+ Penalty (HC)</button>
-                      <button type="button" className="btn-pen" style={{ color: 'var(--ao)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('ao', 'h')}>+ Penalty (H)</button>
-                      <button type="button" className="btn-pen" style={{ color: 'var(--shiro)', flex: '1 1 45%', background: 'var(--aka)', borderColor: 'var(--aka)', fontWeight: 800 }} onClick={() => handleDisqualify('ao')}>Disqualify AO</button>
-                    </div>
+                    {isKata ? (
+                      <div style={{ padding: '16px', background: 'rgba(26,77,181,0.05)', border: '1px solid rgba(26,77,181,0.2)', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <div>
+                          <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--neutral-500)', textTransform: 'uppercase', marginBottom: '8px' }}>Selected Kata</div>
+                          <select 
+                            value={selectedKata?.ao?.name || ''} 
+                            onChange={e => {
+                              const kata = KATA_LIST.find(k => k.name === e.target.value);
+                              setSelectedKata((prev: any) => ({ ...prev, ao: kata || null }));
+                              syncRTDB({ selectedKata: { ...selectedKata, ao: kata || null } });
+                            }}
+                            style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--neutral-300)', fontWeight: 700 }}
+                          >
+                            <option value="">Select Kata...</option>
+                            {KATA_LIST.map(k => <option key={k.number} value={k.name}>{k.name}</option>)}
+                          </select>
+                        </div>
+                        <button onClick={() => {
+                          const confirmDQ = window.confirm('Are you sure you want to disqualify AO?');
+                          if (confirmDQ) {
+                            setWinnerState({ color: 'aka', name: aka.name, academy: aka.academy, points: 0 });
+                            setStatus('finished');
+                            setRunning(false);
+                            syncRTDB({ winnerName: aka.name, winnerColor: 'aka', matchStatus: 'COMPLETED', timerRunning: false });
+                            toast.success('AO Disqualified. AKA Wins.');
+                          }
+                        }} style={{ background: 'var(--ao)', color: 'white', border: 'none', padding: '12px', borderRadius: '6px', fontWeight: 700, cursor: 'pointer' }}>Disqualify AO</button>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="control-row" style={{ margin: 0 }}>
+                          <button type="button" className="btn-score ao" style={{ background: 'rgba(26,77,181,0.05)', borderColor: 'rgba(26,77,181,0.2)' }} onClick={() => addPoint('ao', 1)}>+1 Yuko</button>
+                          <button type="button" className="btn-score ao" style={{ background: 'rgba(26,77,181,0.05)', borderColor: 'rgba(26,77,181,0.2)' }} onClick={() => addPoint('ao', 2)}>+2 Waza</button>
+                          <button type="button" className="btn-score ao" style={{ background: 'rgba(26,77,181,0.05)', borderColor: 'rgba(26,77,181,0.2)' }} onClick={() => addPoint('ao', 3)}>+3 Ippon</button>
+                        </div>
+                        <div className="control-row" style={{ margin: 0 }}>
+                          <button type="button" className="btn-score ao minus" style={{ background: 'rgba(26,77,181,0.05)', borderColor: 'rgba(26,77,181,0.2)' }} onClick={() => addPoint('ao', -1)}>-1 Yuko</button>
+                          <button type="button" className="btn-score ao minus" style={{ background: 'rgba(26,77,181,0.05)', borderColor: 'rgba(26,77,181,0.2)' }} onClick={() => addPoint('ao', -2)}>-2 Waza</button>
+                          <button type="button" className="btn-score ao minus" style={{ background: 'rgba(26,77,181,0.05)', borderColor: 'rgba(26,77,181,0.2)' }} onClick={() => addPoint('ao', -3)}>-3 Ippon</button>
+                        </div>
+                        <div className="control-row" style={{ flexWrap: 'wrap', marginTop: '12px' }}>
+                          <button type="button" className="btn-pen" onClick={() => toggleSenshu('ao')} style={{ background: ao.senshu ? 'var(--ao)' : 'var(--shiro)', color: ao.senshu ? '#fff' : 'var(--neutral-900)', borderColor: ao.senshu ? 'var(--ao)' : 'var(--neutral-300)', flex: '1 1 45%' }}>Senshu (AO)</button>
+                          <button type="button" className="btn-pen" style={{ color: 'var(--ao)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('ao', 'c1')}>+ Penalty (C1)</button>
+                          <button type="button" className="btn-pen" style={{ color: 'var(--ao)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('ao', 'c2')}>+ Penalty (C2)</button>
+                          <button type="button" className="btn-pen" style={{ color: 'var(--ao)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('ao', 'c3')}>+ Penalty (C3)</button>
+                          <button type="button" className="btn-pen" style={{ color: 'var(--ao)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('ao', 'hc')}>+ Penalty (HC)</button>
+                          <button type="button" className="btn-pen" style={{ color: 'var(--ao)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('ao', 'h')}>+ Penalty (H)</button>
+                          <button type="button" className="btn-pen" style={{ color: 'var(--shiro)', flex: '1 1 45%', background: 'var(--aka)', borderColor: 'var(--aka)', fontWeight: 800 }} onClick={() => handleDisqualify('ao')}>Disqualify AO</button>
+                        </div>
+                      </>
+                    )}
                   </div>
-
                 </div>
               </div>
-              )}
-                </>
-              )}
+            </>
             </section>
 
             <section style={{ marginTop: '32px' }}>
