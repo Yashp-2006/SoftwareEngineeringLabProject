@@ -1161,12 +1161,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                   <div style={{ border: '1px solid var(--neutral-300)', padding: '4px 16px', borderRadius: '999px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '24px' }}>
                     Match {queue.find(m => m.id === activeMatchId)?.displayId || '—'}
                   </div>
-                  {!isKata && (
-                    <>
-                      <div style={{ color: 'var(--neutral-500)', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px' }}>Round</div>
-                      <div style={{ background: 'var(--neutral-100)', padding: '6px 12px', borderRadius: '999px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--neutral-600)', marginBottom: '24px' }}>{round}</div>
-                    </>
-                  )}
+
                   <div style={{ color: 'var(--neutral-500)', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px' }}>Remaining</div>
                   <div className={`ops-timer ${running ? 'live' : ''}`}>{mins}:{secs}</div>
                   <div style={{ color: 'var(--neutral-500)', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '6px' }}>Match Status</div>
