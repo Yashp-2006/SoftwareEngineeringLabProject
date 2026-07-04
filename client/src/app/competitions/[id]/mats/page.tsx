@@ -437,14 +437,10 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
           border-color: var(--kuro);
         }
         
-        .page-header-actions {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-end;
-          gap: var(--space-4);
-        }
+
         .controls-row {
           display: flex;
+          flex-wrap: wrap;
           gap: var(--space-3);
         }
         

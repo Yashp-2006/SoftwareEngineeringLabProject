@@ -176,15 +176,29 @@ export default function CompetitionsPage() {
         .comp-card.done { border-left-color: var(--status-done); }
 
         .comp-actions {
-          position: absolute;
-          top: var(--space-4);
-          right: var(--space-4);
           display: flex;
           gap: var(--space-2);
           opacity: 0;
           transition: opacity 0.2s;
         }
         .comp-card:hover .comp-actions { opacity: 1; }
+        
+        @media (max-width: 768px) {
+          .comp-actions {
+            opacity: 1;
+            position: relative;
+            top: 0; right: 0;
+            justify-content: flex-end;
+            margin-bottom: var(--space-3);
+          }
+        }
+        @media (min-width: 769px) {
+          .comp-actions {
+            position: absolute;
+            top: var(--space-4);
+            right: var(--space-4);
+          }
+        }
 
         /* Modal Styles */
         .modal-overlay {
@@ -263,13 +277,13 @@ export default function CompetitionsPage() {
             <div className="breadcrumb">TaiKaiX / Competitions</div>
             <h1>Competition Directory</h1>
           </div>
-          <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap', alignItems: 'center' }}>
-            <div style={{ position: 'relative' }}>
-              <input type="text" placeholder="Search events..." id="comp-search" style={{ height: '40px', borderRadius: '6px', border: '1.5px solid var(--neutral-300)', padding: '0 var(--space-7) 0 var(--space-4)', fontFamily: 'var(--font-body)' }} />
+          <div className="page-header-actions">
+            <div style={{ position: 'relative', width: '100%', maxWidth: '300px' }}>
+              <input type="text" placeholder="Search events..." id="comp-search" style={{ width: '100%', height: '40px', borderRadius: '6px', border: '1.5px solid var(--neutral-300)', padding: '0 var(--space-7) 0 var(--space-4)', fontFamily: 'var(--font-body)' }} />
               <Search style={{ position: 'absolute', right: '12px', top: '11px', width: '18px', color: 'var(--neutral-500)' }} />
             </div>
             {role === 'admin' && (
-              <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
+              <button className="btn btn-primary" style={{ flexShrink: 0 }} onClick={() => setIsModalOpen(true)}>
                 <Plus style={{ width: '18px', marginRight: '6px' }} /> Create New
               </button>
             )}

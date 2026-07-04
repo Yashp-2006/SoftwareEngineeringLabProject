@@ -293,7 +293,7 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
             </span>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+        <div className="page-header-actions">
 
           {role === 'admin' && (
             <>
@@ -383,7 +383,7 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
                         </div>
                       )}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0, marginTop: '12px' }}>
                       <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', fontWeight: 700, color: 'var(--neutral-600)', background: 'var(--neutral-100)', padding: '4px 10px', borderRadius: '6px' }}>{cat.mat || 'Unassigned'}</span>
                       <Link href={`/competitions/${id}/brackets?cat=${cat.id}`} className="btn btn-ghost" style={{ padding: '6px 12px', fontSize: '12px', color: 'var(--aka)', border: '1px solid rgba(217,38,44,0.3)' }}>
                         View Bracket →
