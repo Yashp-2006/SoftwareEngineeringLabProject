@@ -37,7 +37,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
   const [matchDuration, setMatchDuration] = useState(180); // configurable
   const [running, setRunning] = useState(false);
   const [status, setStatus] = useState<'upcoming' | 'ongoing' | 'paused' | 'finished'>('ongoing');
-  const [round, setRound] = useState(1);
+
   const [kataVotes, setKataVotes] = useState<{ aka: number, ao: number } | null>(null);
   const [kataWinner, setKataWinner] = useState<string | null>(null);
   const [kataScores, setKataScores] = useState<any>(null);
@@ -311,7 +311,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
     
     setTimer(isKataMatch ? 0 : matchDuration);
     setStatus('upcoming');
-    setRound(1);
+
     setWinnerState(null);
 
     if (!isViewer && !isHydrating) {
@@ -329,7 +329,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
           timer: isKataMatch ? 0 : matchDuration,
           running: false,
           status: 'upcoming',
-          round: 1,
+
           isKata: !!isKataMatch,
           boutFinished: false,
           winnerState: null,
@@ -1281,7 +1281,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                     <button type="button" className="btn-round" onClick={handleNextMatch}>Next Match</button>
                     <button type="button" className="btn-round" onClick={handleFinishMatch}><Flag size={14} /> Finish Match</button>
                     <button type="button" className="btn-round" style={{ color: 'var(--aka)', borderColor: 'rgba(225,29,72,0.3)' }} onClick={() => {
-                      setRound(1);
+
                       setAka(p => ({ ...p, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false }));
                       setAo(p => ({ ...p, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false }));
                       setSelectedKata(null);
@@ -1406,7 +1406,8 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                   </div>
                 </div>
               </div>
-            </>
+              )}
+              </>
             </section>
 
             <section style={{ marginTop: '32px' }}>
