@@ -428,12 +428,12 @@ export function BracketViewer({
     if (!wrappers.length) { setConnectors([]); return; }
 
     // Build a map of matchId -> DOM element center-right / center-left
-    const posMap = new Map<string, DOMRect>();
+    const nodeMap = new Map<string, HTMLElement>();
     wrappers.forEach((el) => {
       const node = el.querySelector('.bracket-node') as HTMLElement;
       if (!node) return;
       const matchId = (el as any).__matchId;
-      if (matchId) posMap.set(matchId, node.getBoundingClientRect());
+      if (matchId) nodeMap.set(matchId, node);
     });
 
     const newConnectors: Array<{x1:number;y1:number;x2:number;y2:number;xMid:number}> = [];
@@ -441,14 +441,27 @@ export function BracketViewer({
 
     for (const match of allMatches) {
       if (!match.nextMatchId) continue;
-      const srcRect = posMap.get(match.id);
-      const destRect = posMap.get(match.nextMatchId);
-      if (!srcRect || !destRect) continue;
+      const srcNode = nodeMap.get(match.id);
+      const destNode = nodeMap.get(match.nextMatchId);
+      if (!srcNode || !destNode) continue;
+      
+      const srcRect = srcNode.getBoundingClientRect();
+      const destRect = destNode.getBoundingClientRect();
+
+      // Find the specific row to connect to
+      const nextMatch = allMatches.find(m => m.id === match.nextMatchId);
+      const isAka = nextMatch?.akaFromMatchId === match.id;
+      const isAo = nextMatch?.aoFromMatchId === match.id;
+      
+      const destAka = destNode.querySelector('.competitor-row.aka');
+      const destAo = destNode.querySelector('.competitor-row.ao');
+      const destRow = isAka ? destAka : isAo ? destAo : destNode;
+      const destRowRect = destRow ? destRow.getBoundingClientRect() : destRect;
 
       const x1 = (srcRect.right - canvasRect.left) / zoom;
       const y1 = (srcRect.top + srcRect.height / 2 - canvasRect.top) / zoom;
       const x2 = (destRect.left - canvasRect.left) / zoom;
-      const y2 = (destRect.top + destRect.height / 2 - canvasRect.top) / zoom;
+      const y2 = (destRowRect.top + destRowRect.height / 2 - canvasRect.top) / zoom;
       const xMid = x1 + (x2 - x1) / 2;
 
       newConnectors.push({ x1, y1, x2, y2, xMid });
@@ -569,7 +582,7 @@ export function BracketViewer({
                     fill="none"
                     style={{ fill: 'none', fillOpacity: 0 }}
                     stroke="var(--neutral-300)"
-                    strokeWidth={2 / zoom}
+                    strokeWidth="2"
                     strokeLinecap="square"
                     strokeLinejoin="miter"
                   />

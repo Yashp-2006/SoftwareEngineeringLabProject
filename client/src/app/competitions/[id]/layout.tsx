@@ -2,7 +2,7 @@
 
 import React, { useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname, useSearchParams, useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/components/auth/AuthProvider';
 
 export default function CompetitionLayout({
@@ -13,7 +13,7 @@ export default function CompetitionLayout({
   params: Promise<{ id: string }>;
 }) {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
+
   const router = useRouter();
   const { role, user, loading: authLoading } = useAuth();
   const { id } = React.use(params);
@@ -28,6 +28,7 @@ export default function CompetitionLayout({
     if (user) return; // signed-in users are always allowed
 
     const isJoined = typeof window !== 'undefined' && localStorage.getItem(`joined_${id}`) === 'true';
+    const searchParams = new URLSearchParams(window.location.search);
     const hasJoinParam = searchParams.get('join') === 'true';
 
     if (hasJoinParam) {
@@ -42,7 +43,7 @@ export default function CompetitionLayout({
     if (!isRoot && !isJoined) {
       router.replace(`/competitions/${id}`);
     }
-  }, [authLoading, user, id, isRoot, searchParams, router]);
+  }, [authLoading, user, id, isRoot, router]);
 
   // Role-based visibility — requires active sign-in for staff tabs
   const isAdmin = role === 'admin';
@@ -58,7 +59,7 @@ export default function CompetitionLayout({
 
   const linkStyle = { background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' };
 
-  const joinParam = searchParams.get('join') === 'true' ? '?join=true' : '';
+  const joinParam = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('join') === 'true' ? '?join=true' : '';
 
   return (
     <>

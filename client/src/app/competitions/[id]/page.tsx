@@ -8,7 +8,8 @@ import { useSearchParams } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import PageSkeleton from '@/components/layout/PageSkeleton';
 import OnSpotEntryModal from '@/components/OnSpotEntryModal';
-import { Download } from 'lucide-react';
+import { Download, Search } from 'lucide-react';
+import { KATA_LIST } from '@/lib/kata-list';
 
 export default function CompetitionDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
@@ -76,6 +77,8 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
   const [filterType, setFilterType] = useState('all');
   const [filterGender, setFilterGender] = useState('all');
   const [filterMat, setFilterMat] = useState('all');
+
+  const [kataSearchQuery, setKataSearchQuery] = useState('');
 
   useEffect(() => {
     let unsubCats: () => void;
@@ -551,6 +554,28 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
               ))}
             </div>
           )}
+
+          <h2 style={{ marginTop: 'var(--space-6)', marginBottom: 'var(--space-2)' }}>WKF 102 Katas</h2>
+          <div className="card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', height: '400px' }}>
+            <div style={{ position: 'relative', marginBottom: '16px' }}>
+              <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--neutral-400)' }} />
+              <input
+                type="text"
+                placeholder="Search Kata (e.g. Suparinpei)..."
+                value={kataSearchQuery}
+                onChange={(e) => setKataSearchQuery(e.target.value)}
+                style={{ width: '100%', height: '36px', paddingLeft: '32px', borderRadius: '6px', border: '1px solid var(--neutral-300)', fontSize: '13px' }}
+              />
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto' }}>
+              {KATA_LIST.filter(k => k.name.toLowerCase().includes(kataSearchQuery.toLowerCase())).map(k => (
+                <div key={k.number} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--neutral-100)', fontSize: '13px' }}>
+                  <span style={{ fontWeight: 600 }}>{k.name}</span>
+                  <span style={{ color: 'var(--neutral-500)', fontSize: '11px', fontWeight: 800 }}>#{String(k.number).padStart(3, '0')}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </section>
       </div>
 

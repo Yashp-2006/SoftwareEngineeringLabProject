@@ -45,10 +45,33 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
   const { id } = React.use(params);
   const [categories, setCategories] = useState<CategoryRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   
   const [filterType, setFilterType] = useState('all');
   const [filterGender, setFilterGender] = useState('all');
   const [filterMat, setFilterMat] = useState('all');
+
+  const filteredCategories = categories.filter(row => {
+    const nameLower = row.name.toLowerCase();
+    if (filterType !== 'all') {
+      if (filterType === 'kata' && !nameLower.includes('kata')) return false;
+      if (filterType === 'kumite' && !nameLower.includes('kumite')) return false;
+    }
+    if (filterGender !== 'all') {
+      // 'female' contains 'male', so check 'female' first
+      const isFemale = nameLower.includes('female') || nameLower.includes('women');
+      const isMale = !isFemale && (nameLower.includes('male') || nameLower.includes('men'));
+      const isMixed = nameLower.includes('mixed') || nameLower.includes('team');
+      
+      if (filterGender === 'female' && !isFemale) return false;
+      if (filterGender === 'male' && !isMale) return false;
+      if (filterGender === 'mixed' && !isMixed) return false;
+    }
+    if (filterMat !== 'all' && row.mat !== filterMat) return false;
+    
+    return true;
+  });
 
   useEffect(() => {
     let unsubscribe = () => {};
@@ -96,7 +119,7 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
         clearProps: "all"
       });
     }
-  }, [loading]); // Only run animation once data loads
+  }, [loading, categories.length]); // Only run animation once data loads
 
   const handleUpdate = async (catId: string, field: keyof CategoryRow, value: string) => {
     // Optimistic UI update
@@ -174,6 +197,66 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
     } catch (err) {
       console.error("Failed to update category", err);
     }
+  };
+
+  const handleDragStart = (e: React.DragEvent<HTMLTableRowElement>, idx: number) => {
+    setDragIdx(idx);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLTableRowElement>, idx: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverIdx(idx);
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLTableRowElement>, dropIdx: number) => {
+    e.preventDefault();
+    setDragOverIdx(null);
+    if (dragIdx === null || dragIdx === dropIdx) {
+      setDragIdx(null);
+      return;
+    }
+
+    const newCats = [...categories];
+    // Find the actual items in the unfiltered array based on the filtered indices
+    const draggedItem = filteredCategories[dragIdx];
+    const droppedOnItem = filteredCategories[dropIdx];
+    
+    if (!draggedItem || !droppedOnItem) {
+      setDragIdx(null);
+      return;
+    }
+
+    const actualDragIdx = newCats.findIndex(c => c.id === draggedItem.id);
+    const actualDropIdx = newCats.findIndex(c => c.id === droppedOnItem.id);
+
+    if (actualDragIdx !== -1 && actualDropIdx !== -1) {
+      const [removed] = newCats.splice(actualDragIdx, 1);
+      newCats.splice(actualDropIdx, 0, removed);
+      
+      // Update local state instantly for UI responsiveness
+      setCategories(newCats);
+      
+      // Bulk update Firestore 'order'
+      try {
+        const { db } = await import('@lib/firebase');
+        const { doc, writeBatch } = await import('firebase/firestore');
+        const batch = writeBatch(db);
+        
+        newCats.forEach((cat, index) => {
+          batch.update(doc(db, 'competitions', id, 'categories', cat.id), { order: index });
+        });
+        
+        await batch.commit();
+        toast.success("Order saved");
+      } catch (err) {
+        console.error(err);
+        toast.error("Failed to save order");
+      }
+    }
+    
+    setDragIdx(null);
   };
 
   const triggerSaved = (catId: string) => {
@@ -363,28 +446,27 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
             <div className="text-micro" style={{ textAlign: 'right' }}>Action</div>
           </div>
 
-          {categories.filter(row => {
-            const nameLower = row.name.toLowerCase();
-            if (filterType !== 'all') {
-              if (filterType === 'kata' && !nameLower.includes('kata')) return false;
-              if (filterType === 'kumite' && !nameLower.includes('kumite')) return false;
-            }
-            if (filterGender !== 'all') {
-              // 'female' contains 'male', so check 'female' first
-              const isFemale = nameLower.includes('female') || nameLower.includes('women');
-              const isMale = !isFemale && (nameLower.includes('male') || nameLower.includes('men'));
-              const isMixed = nameLower.includes('mixed') || nameLower.includes('team');
-              
-              if (filterGender === 'female' && !isFemale) return false;
-              if (filterGender === 'male' && !isMale) return false;
-              if (filterGender === 'mixed' && !isMixed) return false;
-            }
-            if (filterMat !== 'all' && row.mat !== filterMat) return false;
-            
-            return true;
-          }).map((row) => (
-            <article key={row.id} className="category-row bento-reveal">
-              <div style={{ fontWeight: 600 }}>{row.name}</div>
+          {filteredCategories.map((row, idx) => (
+            <article 
+              key={row.id} 
+              className={`category-row bento-reveal ${dragOverIdx === idx ? 'drop-target' : ''}`}
+              draggable
+              onDragStart={(e) => handleDragStart(e as unknown as React.DragEvent<HTMLTableRowElement>, idx)}
+              onDragOver={(e) => handleDragOver(e as unknown as React.DragEvent<HTMLTableRowElement>, idx)}
+              onDrop={(e) => handleDrop(e as unknown as React.DragEvent<HTMLTableRowElement>, idx)}
+              style={{
+                opacity: dragIdx === idx ? 0.5 : 1,
+                borderTop: dragOverIdx === idx && dragIdx !== null && dragIdx > idx ? '2px solid var(--ao)' : '',
+                borderBottom: dragOverIdx === idx && dragIdx !== null && dragIdx < idx ? '2px solid var(--ao)' : '',
+                cursor: 'move'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}>
+                <div style={{ color: 'var(--neutral-400)', cursor: 'grab', display: 'flex' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+                </div>
+                {row.name}
+              </div>
               <div className="data-mono">{row.entries}</div>
               <div>
                 <select 

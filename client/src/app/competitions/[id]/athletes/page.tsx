@@ -50,8 +50,10 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
     let unsubscribe: () => void = () => {};
 
     const setup = async () => {
-      const { db } = await import('@lib/firebase');
-      const { collection, onSnapshot, query, orderBy } = await import('firebase/firestore');
+      const [{ db }, { collection, onSnapshot, query, orderBy }] = await Promise.all([
+        import('@lib/firebase'),
+        import('firebase/firestore')
+      ]);
 
       const catQ = query(collection(db, 'competitions', id, 'categories'), orderBy('order'));
       unsubscribe = onSnapshot(catQ, (catSnap) => {

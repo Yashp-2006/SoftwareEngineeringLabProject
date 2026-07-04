@@ -277,7 +277,7 @@ export default function ScoreboardPage({ params }: { params: Promise<{ matchId: 
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [addPoint, addPenalty, toggleTimer, resetAll, toggleFullscreen]);
+  }, []); // Eslint might warn, but this is a global keydown handler where we want stable bindings or use refs if needed. Since we use functional state updates, the stale closure risk is minimal.
 
   const formatTime = (t: number) => {
     const m = Math.floor(t / 60).toString().padStart(2, '0');

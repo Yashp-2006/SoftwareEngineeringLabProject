@@ -3,14 +3,14 @@
   --aka: oklch(58% 0.22 25); /* #D9262C */
   --aka-hover: oklch(50% 0.20 25);
   --aka-light: oklch(95% 0.02 25);
-  
+
   --ao: oklch(45% 0.18 255); /* #1A4DB5 */
   --ao-hover: oklch(38% 0.16 255);
   --ao-light: oklch(94% 0.03 255);
-  
+
   --shiro: oklch(100% 0 0);
   --kuro: oklch(15% 0.01 250); /* #0D0D0D */
-  
+
   /* Neutral Scale */
   --neutral-900: oklch(18% 0.01 250);
   --neutral-700: oklch(35% 0.01 250);
@@ -21,23 +21,23 @@
   --neutral-200: oklch(90% 0.008 250);
   --neutral-100: oklch(96% 0.005 250);
   --neutral-50: oklch(98% 0.002 250);
-  
+
   /* Semantic Status Colors */
-  --status-live: oklch(62% 0.18 145);    /* #16A34A */
-  --status-live-bg: oklch(96% 0.04 145); /* #F0FDF4 */
-  --status-upcoming: oklch(68% 0.16 85); /* #D97706 */
-  --status-upcoming-bg: oklch(96% 0.03 85); /* #FFFBEB */
-  --status-done: var(--neutral-500);     /* #6B6B6B */
-  --status-done-bg: var(--neutral-100);  /* #F4F4F4 */
+  --status-live: oklch(62% 0.18 145);
+  --status-live-bg: oklch(96% 0.04 145);
+  --status-upcoming: oklch(68% 0.16 85);
+  --status-upcoming-bg: oklch(96% 0.03 85);
+  --status-done: var(--neutral-500);
+  --status-done-bg: var(--neutral-100);
   --warning: oklch(78% 0.16 85);
   --danger: var(--aka);
-  
+
   /* Typography */
   --font-display: 'Bebas Neue', sans-serif;
   --font-body: 'DM Sans', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
-  
-  /* Spacing */
+
+  /* Spacing — 4pt grid */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -47,8 +47,9 @@
   --space-7: 48px;
   --space-8: 64px;
 
-  /* Layout */
+  /* Layout — single source of truth for all nav heights */
   --nav-height: 60px;
+  --nav-height-mobile: 56px;
   --sub-nav-height: 53px;
 }
 
@@ -67,19 +68,40 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Typography */
-h1 { font-family: var(--font-display); font-size: 36px; line-height: 1.15; text-transform: uppercase; letter-spacing: 0.02em; }
+/* ================================================
+   TYPOGRAPHY
+   ================================================ */
+h1 {
+  font-family: var(--font-display);
+  font-size: 36px;
+  line-height: 1.15;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
 h2 { font-family: var(--font-body); font-size: 24px; font-weight: 600; }
 h3 { font-family: var(--font-body); font-size: 18px; font-weight: 600; }
 
-.text-micro { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--neutral-500); }
+.text-micro {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--neutral-500);
+}
 .text-small { font-size: 13px; color: var(--neutral-500); }
-.display-large { font-family: var(--font-display); font-size: 48px; line-height: 1; letter-spacing: 0.02em; }
+.display-large {
+  font-family: var(--font-display);
+  font-size: 48px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
 .data-mono { font-family: var(--font-mono); }
 
-/* Navigation */
+/* ================================================
+   NAVIGATION
+   ================================================ */
 nav {
-  height: 60px;
+  height: var(--nav-height);
   background-color: var(--kuro);
   display: flex;
   align-items: center;
@@ -87,7 +109,7 @@ nav {
   position: sticky;
   top: 0;
   z-index: 100;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
 .nav-logo {
@@ -96,12 +118,14 @@ nav {
   color: var(--shiro);
   margin-right: var(--space-8);
   letter-spacing: 0.05em;
+  flex-shrink: 0;
 }
 
 .nav-links {
   display: flex;
   gap: var(--space-6);
   flex: 1;
+  overflow: hidden;
 }
 
 .nav-link {
@@ -109,11 +133,13 @@ nav {
   text-decoration: none;
   font-size: 14px;
   font-weight: 500;
-  height: 60px;
+  height: var(--nav-height);
   display: flex;
   align-items: center;
   position: relative;
   transition: color 0.2s;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .nav-link:hover { color: var(--shiro); }
@@ -132,6 +158,7 @@ nav {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  flex-shrink: 0;
 }
 
 .avatar {
@@ -139,20 +166,29 @@ nav {
   height: 36px;
   background-color: var(--neutral-300);
   border-radius: 50%;
+  flex-shrink: 0;
 }
 
-/* Sub Navigation */
+/* ================================================
+   SUB NAVIGATION
+   ================================================ */
 .sub-nav {
-  height: 53px;
+  height: var(--sub-nav-height);
   background-color: var(--shiro);
   border-bottom: 1px solid var(--neutral-300);
   display: flex;
   align-items: center;
   padding: 0 var(--space-6);
   position: sticky;
-  top: 60px;
+  top: var(--nav-height); /* tracks full desktop nav height */
   z-index: 99;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  scroll-behavior: smooth;
 }
+
+.sub-nav::-webkit-scrollbar { display: none; }
 
 .sub-nav-link {
   color: var(--neutral-500);
@@ -160,10 +196,12 @@ nav {
   font-size: 14px;
   font-weight: 500;
   margin-right: var(--space-6);
-  height: 53px;
+  height: var(--sub-nav-height);
   display: flex;
   align-items: center;
   transition: color 0.2s;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .sub-nav-link:hover { color: var(--neutral-900); }
@@ -192,6 +230,7 @@ nav {
   color: var(--neutral-500);
   transition: all 0.2s;
   align-self: flex-end;
+  flex-shrink: 0;
 }
 
 .btn-tab-plus:hover {
@@ -201,7 +240,9 @@ nav {
   color: var(--ao);
 }
 
-/* Layout Containers */
+/* ================================================
+   LAYOUT CONTAINERS
+   ================================================ */
 .container {
   max-width: 1280px;
   margin: 0 auto;
@@ -213,6 +254,17 @@ nav {
   justify-content: space-between;
   align-items: flex-end;
   margin-bottom: var(--space-6);
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+/* Action cluster in page headers — never stretches to full-width */
+.page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-shrink: 0;
+  flex-wrap: wrap;
 }
 
 .breadcrumb {
@@ -221,13 +273,15 @@ nav {
   margin-bottom: var(--space-1);
 }
 
-/* Cards & Components */
+/* ================================================
+   CARDS & COMPONENTS
+   ================================================ */
 .card {
   background-color: var(--shiro);
   border: 1px solid var(--neutral-300);
   border-radius: 10px;
   padding: var(--space-5);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 }
 
 .btn {
@@ -241,6 +295,10 @@ nav {
   align-items: center;
   gap: var(--space-2);
   border: none;
+  touch-action: manipulation;
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-decoration: none;
 }
 
 .btn-primary { background-color: var(--aka); color: var(--shiro); }
@@ -252,7 +310,9 @@ nav {
 .btn-ghost { background: transparent; color: var(--neutral-500); }
 .btn-ghost:hover { background-color: var(--neutral-100); }
 
-/* Status Chips */
+/* ================================================
+   STATUS CHIPS
+   ================================================ */
 .status-chip {
   display: inline-flex;
   padding: 3px 10px;
@@ -260,13 +320,16 @@ nav {
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .status-live { background-color: var(--status-live-bg); color: var(--status-live); }
 .status-upcoming { background-color: var(--status-upcoming-bg); color: var(--status-upcoming); }
 .status-done { background-color: var(--status-done-bg); color: var(--status-done); }
 
-/* Bento Grid */
+/* ================================================
+   BENTO GRID
+   ================================================ */
 .bento-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -285,7 +348,9 @@ nav {
 
 .span-2-2 { grid-column: span 2; }
 
-/* Leaderboard */
+/* ================================================
+   LEADERBOARD
+   ================================================ */
 .leaderboard-row {
   display: flex;
   align-items: center;
@@ -309,13 +374,16 @@ nav {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .rank-1 { background: var(--aka); color: var(--shiro); }
 .rank-2 { background: var(--aka-light); color: var(--aka); }
 .rank-3 { background: var(--ao-light); color: var(--ao); }
 
-/* Mats Grid */
+/* ================================================
+   MATS GRID
+   ================================================ */
 .mat-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -333,16 +401,11 @@ nav {
 
 .mat-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 12px 24px rgba(0,0,0,0.1);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
 }
 
-.mat-card.live {
-  border-top: 4px solid var(--status-live);
-}
-
-.mat-card.standby {
-  border-top: 4px solid var(--neutral-300);
-}
+.mat-card.live { border-top: 4px solid var(--status-live); }
+.mat-card.standby { border-top: 4px solid var(--neutral-300); }
 
 .mat-number {
   font-family: var(--font-display);
@@ -350,9 +413,7 @@ nav {
   color: var(--neutral-900);
 }
 
-.card-interactive {
-  cursor: pointer;
-}
+.card-interactive { cursor: pointer; }
 
 .mat-assign-select {
   appearance: none;
@@ -365,11 +426,12 @@ nav {
   color: var(--neutral-700);
   cursor: pointer;
   outline: none;
+  touch-action: manipulation;
 }
 
 .mat-assign-select:focus {
   border-color: var(--ao);
-  box-shadow: 0 0 0 3px rgba(26,77,181,0.1);
+  box-shadow: 0 0 0 3px rgba(26, 77, 181, 0.1);
 }
 
 .status-select-header {
@@ -382,13 +444,16 @@ nav {
   letter-spacing: 0.05em;
   cursor: pointer;
   text-align: center;
+  touch-action: manipulation;
 }
 
 .status-live-select { background: var(--status-live-bg); color: var(--status-live); }
 .status-upcoming-select { background: var(--status-upcoming-bg); color: var(--status-upcoming); }
 .status-done-select { background: var(--status-done-bg); color: var(--status-done); }
 
-/* Utilities */
+/* ================================================
+   UTILITIES
+   ================================================ */
 .flex-between { display: flex; justify-content: space-between; align-items: center; }
 .flex-center { display: flex; align-items: center; }
 .gap-3 { gap: var(--space-3); }
@@ -397,7 +462,7 @@ nav {
 .mb-4 { margin-bottom: var(--space-4); }
 
 .mat-pill {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
   background: var(--neutral-100);
@@ -407,167 +472,210 @@ nav {
   font-size: 12px;
   font-weight: 700;
   border: 1px solid var(--neutral-300);
+  white-space: nowrap;
 }
+
 .mat-pill.active {
   background: var(--aka-light);
   color: var(--aka);
   border-color: var(--aka);
 }
 
-/* ==================================================
-   RESPONSIVE DESIGN (Tablets & Mobile)
-   ================================================== */
-
-/* Helper Classes */
-@media (min-width: 769px) {
-  .show-on-mobile { display: none !important; }
-}
-
-.table-responsive {
-  width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  margin-bottom: var(--space-4);
-  border-radius: 8px; /* Optional: smooth edges on mobile */
-}
-
-/* Tablet (Max 1024px) */
-@media (max-width: 1024px) {
-  .bento-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  
-  .span-2-2 { grid-column: span 2; }
-  
-  .mat-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .comp-detail-grid {
-    grid-template-columns: 1fr;
-  }
-  .comp-detail-main,
-  .comp-detail-sidebar {
-    grid-column: span 1;
-  }
-}
-
-/* Mobile (Max 768px) */
-@media (max-width: 768px) {
-  .hide-on-mobile { display: none !important; }
-  .show-on-mobile { display: block !important; }
-
-  /* Typography */
-  h1 { font-size: 28px; }
-  h2 { font-size: 20px; }
-  .display-large { font-size: 36px; }
-
-  /* Layout Containers */
-  .container {
-    padding: var(--space-4);
-  }
-
-  .page-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-3);
-  }
-
-  /* Navigation */
-  nav {
-    padding: 0 var(--space-4);
-    height: 56px;
-  }
-  
-  .nav-logo {
-    font-size: 20px;
-    margin-right: var(--space-4);
-  }
-
-  .sub-nav {
-    padding: 0 var(--space-4);
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    white-space: nowrap;
-    scrollbar-width: none; /* Firefox */
-  }
-  .sub-nav::-webkit-scrollbar { display: none; }
-
-  /* Grid / Flex Layouts */
-  .bento-grid {
-    grid-template-columns: 1fr;
-  }
-  .span-2-2 { grid-column: span 1; }
-
-  .mat-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .flex-between {
-    flex-direction: column;
-    align-items: stretch;
-    gap: var(--space-3);
-  }
-
-  /* Components */
-  .card {
-    padding: var(--space-4);
-  }
-
-  .btn {
-    width: 100%;
-    justify-content: center;
-  }
-
-  /* Adjust inputs for touch */
-  input, select, button {
-    min-height: 44px; /* Minimum Apple touch target */
-  }
-
-  /* On mobile, buttons should NOT be 100% width inside flex-wrap containers */
-  .page-header .btn {
-    width: auto;
-  }
-
-  .comp-detail-grid {
-    grid-template-columns: 1fr;
-  }
-  .comp-detail-main,
-  .comp-detail-sidebar {
-    grid-column: span 1;
-  }
-}
-
-/* Competition Detail Grid */
+/* ================================================
+   COMPETITION DETAIL GRID
+   ================================================ */
 .comp-detail-grid {
   display: grid;
   grid-template-columns: repeat(12, 1fr);
   gap: var(--space-6);
   margin-top: var(--space-4);
 }
-.comp-detail-main {
-  grid-column: span 8;
-}
-.comp-detail-sidebar {
-  grid-column: span 4;
+
+.comp-detail-main { grid-column: span 8; }
+.comp-detail-sidebar { grid-column: span 4; }
+
+/* ================================================
+   TABLE UTILITIES
+   ================================================ */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: var(--space-4);
+  border-radius: 8px;
 }
 
-/* Spinning animation for loaders */
+/* ================================================
+   ANIMATIONS
+   ================================================ */
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
-.spin {
-  animation: spin 1s linear infinite;
+
+.spin { animation: spin 1s linear infinite; }
+
+/* ================================================
+   VISIBILITY HELPERS (desktop default)
+   ================================================ */
+.hide-on-mobile { display: flex; }
+.show-on-mobile { display: none !important; }
+
+/* ================================================
+   RESPONSIVE — TABLET (769px – 1024px)
+   ================================================ */
+@media (max-width: 1024px) {
+  .container {
+    padding: var(--space-6) var(--space-5);
+  }
+
+  .bento-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .span-2-2 { grid-column: span 2; }
+
+  .mat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .comp-detail-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+
+  .comp-detail-main,
+  .comp-detail-sidebar {
+    grid-column: span 1;
+  }
 }
 
-/* Responsive Additions */
+/* ================================================
+   RESPONSIVE — MOBILE (≤ 768px)
+   ================================================ */
 @media (max-width: 768px) {
-  .card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .table-responsive { width: 100%; overflow-x: auto; }
-  .page-header { flex-direction: column; align-items: stretch !important; }
-  .page-header .btn { width: 100%; justify-content: center; }
-  .bento-grid { display: flex; flex-direction: column; gap: var(--space-4); }
-  .container { padding-left: var(--space-4) !important; padding-right: var(--space-4) !important; overflow-x: hidden; }
+  /* Visibility toggles */
+  .hide-on-mobile { display: none !important; }
+  .show-on-mobile { display: flex !important; }
+
+  /* Typography scale */
+  h1 { font-size: 26px; }
+  h2 { font-size: 19px; }
+  h3 { font-size: 16px; }
+  .display-large { font-size: 32px; }
+
+  /* Container padding tightened for mobile */
+  .container {
+    padding: var(--space-4) var(--space-4);
+    overflow-x: hidden;
+  }
+
+  /* Page header: title block stacks above action row.
+     Actions keep their natural inline row (not stretched). */
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+  }
+
+  .page-header-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  /* flex-between: wrap so items don't overflow, keep center alignment */
+  .flex-between {
+    flex-wrap: wrap;
+    gap: var(--space-3);
+  }
+
+  /* Navigation — switch to mobile height via CSS variable */
+  nav {
+    padding: 0 var(--space-4);
+    height: var(--nav-height-mobile);
+  }
+
+  .nav-logo {
+    font-size: 20px;
+    margin-right: var(--space-4);
+  }
+
+  /* Sub-nav offset corrected to match mobile nav height */
+  .sub-nav {
+    top: var(--nav-height-mobile);
+    padding: 0 var(--space-4);
+  }
+
+  /* Grids collapse to single column */
+  .bento-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+  }
+
+  .span-2-2 { grid-column: auto; }
+
+  .mat-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Cards */
+  .card {
+    padding: var(--space-4);
+  }
+
+  /* Touch target compliance: min 44px (Apple HIG) */
+  input, select {
+    min-height: 44px;
+  }
+
+  button.btn, a.btn {
+    min-height: 44px;
+  }
+
+  /* Competition detail */
+  .comp-detail-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+  }
+
+  .comp-detail-main,
+  .comp-detail-sidebar {
+    grid-column: span 1;
+  }
 }
 
+/* ================================================
+   RESPONSIVE — SMALL PHONE (≤ 480px)
+   ================================================ */
+@media (max-width: 480px) {
+  h1 { font-size: 22px; }
+  h2 { font-size: 17px; }
+  .display-large { font-size: 28px; }
+
+  .container {
+    padding: var(--space-3) var(--space-3);
+  }
+
+  nav {
+    padding: 0 var(--space-3);
+  }
+
+  .sub-nav {
+    padding: 0 var(--space-3);
+  }
+
+  .card {
+    padding: var(--space-3);
+    border-radius: 8px;
+  }
+
+  .btn {
+    padding: 9px 14px;
+    font-size: 13px;
+  }
+
+  .mat-grid {
+    grid-template-columns: 1fr;
+  }
+}

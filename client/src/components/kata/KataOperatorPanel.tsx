@@ -467,6 +467,64 @@ export default function KataOperatorPanel({
           )}
         </div>
 
+        {/* ── KATA SELECTION ── */}
+        <div className="kata-panel-section" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--neutral-700)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            Kata Selection
+          </div>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            <KataSelectionRow
+              side="aka"
+              playerName={akaName}
+              academy={akaAcademy}
+              allowedKataNumbers={allowedKataNumbers}
+              selectedKata={selectedKata.aka}
+              usageMap={akaUsageMap}
+              onSelect={(kata) => {
+                setSelectedKata((prev) => ({ ...prev, aka: kata }));
+                syncRTDB({ 'selectedKata.aka': kata });
+              }}
+              disabled={boutFinished}
+            />
+            <KataSelectionRow
+              side="ao"
+              playerName={aoName}
+              academy={aoAcademy}
+              allowedKataNumbers={allowedKataNumbers}
+              selectedKata={selectedKata.ao}
+              usageMap={aoUsageMap}
+              onSelect={(kata) => {
+                setSelectedKata((prev) => ({ ...prev, ao: kata }));
+                syncRTDB({ 'selectedKata.ao': kata });
+              }}
+              disabled={boutFinished}
+            />
+          </div>
+          {!boutStarted && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                className="kata-btn"
+                disabled={!selectedKata.aka || !selectedKata.ao}
+                onClick={handleConfirmSelection}
+                style={{
+                  padding: '10px 24px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: selectedKata.aka && selectedKata.ao ? 'var(--neutral-900)' : 'var(--neutral-200)',
+                  color: '#fff',
+                  fontWeight: 800,
+                  fontSize: '13px',
+                  cursor: selectedKata.aka && selectedKata.ao ? 'pointer' : 'not-allowed',
+                  letterSpacing: '0.04em',
+                }}
+              >
+                Confirm Selections →
+              </button>
+            </div>
+          )}
+        </div>
+
         {/* ── PERFORMANCE STOPWATCH ── */}
         {boutStarted && !boutFinished && (
           <div
@@ -521,40 +579,8 @@ export default function KataOperatorPanel({
                   cursor: 'pointer',
                 }}
               >
-                {timerRunning ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Pause size={14} /> Pause</span> : <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Play size={14} /> Start</span>}
+                {timerRunning ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Pause size={14} /> Stop Match</span> : <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Play size={14} /> Start Match</span>}
               </button>
-              {phase === 'kata' ? (
-                <button
-                  type="button"
-                  className="kata-btn"
-                  onClick={handleBeginBunkai}
-                  style={{
-                    padding: '8px 14px',
-                    borderRadius: '8px',
-                    border: '1.5px solid #6366f1',
-                    background: 'transparent',
-                    color: '#6366f1',
-                    fontWeight: 700,
-                    fontSize: '13px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  Begin Bunkai →
-                </button>
-              ) : (
-                <div style={{
-                  padding: '8px 14px',
-                  borderRadius: '8px',
-                  background: 'rgba(99, 102, 241, 0.1)',
-                  color: '#6366f1',
-                  fontWeight: 800,
-                  fontSize: '13px',
-                  display: 'flex',
-                  alignItems: 'center',
-                }}>
-                  BUNKAI ACTIVE
-                </div>
-              )}
             </div>
 
             <div style={{ height: '40px', width: '1px', background: 'var(--neutral-300)', margin: '0 8px' }} />
@@ -582,57 +608,7 @@ export default function KataOperatorPanel({
           </div>
         )}
 
-        {/* ── KATA SELECTION ── */}
-        <div className="kata-panel-section" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--neutral-700)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-            Kata Selection
-          </div>
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-            <KataSelectionRow
-              side="aka"
-              playerName={akaName}
-              academy={akaAcademy}
-              allowedKataNumbers={allowedKataNumbers}
-              selectedKata={selectedKata.aka}
-              usageMap={akaUsageMap}
-              onSelect={(kata) => setSelectedKata((prev) => ({ ...prev, aka: kata }))}
-              disabled={boutFinished}
-            />
-            <KataSelectionRow
-              side="ao"
-              playerName={aoName}
-              academy={aoAcademy}
-              allowedKataNumbers={allowedKataNumbers}
-              selectedKata={selectedKata.ao}
-              usageMap={aoUsageMap}
-              onSelect={(kata) => setSelectedKata((prev) => ({ ...prev, ao: kata }))}
-              disabled={boutFinished}
-            />
-          </div>
-          {!boutStarted && (
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <button
-                type="button"
-                className="kata-btn"
-                disabled={!selectedKata.aka || !selectedKata.ao}
-                onClick={handleConfirmSelection}
-                style={{
-                  padding: '10px 24px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  background: selectedKata.aka && selectedKata.ao ? 'var(--neutral-900)' : 'var(--neutral-200)',
-                  color: '#fff',
-                  fontWeight: 800,
-                  fontSize: '13px',
-                  cursor: selectedKata.aka && selectedKata.ao ? 'pointer' : 'not-allowed',
-                  letterSpacing: '0.04em',
-                }}
-              >
-                Confirm Selections →
-              </button>
-            </div>
-          )}
-        </div>
+
 
         {/* ── SCORE GRID ── */}
         {boutStarted && (

@@ -293,6 +293,7 @@ export default function DashboardPage() {
           display: flex;
           flex-direction: column;
           justify-content: space-between;
+          min-width: 0;
         }
         .bento-card:hover {
           transform: translateY(-4px);
@@ -304,13 +305,22 @@ export default function DashboardPage() {
         .col-span-6 { grid-column: span 6; }
         .col-span-8 { grid-column: span 8; }
         .col-span-12 { grid-column: span 12; }
+
+        /* Tablet: stat cards 2-per-row, charts full-width */
         @media (max-width: 1024px) {
-          .col-span-3, .col-span-4 { grid-column: span 6; }
+          .col-span-3 { grid-column: span 6; }
+          .col-span-4 { grid-column: span 6; }
           .col-span-6, .col-span-8, .col-span-12 { grid-column: span 12; }
+          .dashboard-bento { gap: var(--space-3); }
         }
-        @media (max-width: 600px) {
+
+        /* Mobile: everything single column */
+        @media (max-width: 768px) {
           .col-span-3, .col-span-4, .col-span-6, .col-span-8, .col-span-12 { grid-column: span 12; }
+          .dashboard-bento { gap: var(--space-3); }
+          .bento-card { border-radius: 12px; }
         }
+
         .stat-header {
           display: flex;
           align-items: center;
@@ -356,15 +366,16 @@ export default function DashboardPage() {
         .modern-table tr:last-child td { border-bottom: none; }
         .event-title { font-weight: 700; color: var(--neutral-900); margin-bottom: 2px; transition: color 0.2s; }
         .modern-table tr:hover .event-title { color: var(--aka); }
-        .chart-controls { display: flex; gap: var(--space-2); }
+        .chart-controls { display: flex; gap: var(--space-2); flex-wrap: wrap; }
         .select-minimal {
           appearance: none; background: var(--neutral-50); border: 1px solid var(--neutral-200);
           border-radius: 8px; padding: 6px 14px 6px 12px; font-size: 12px; font-weight: 500;
           color: var(--neutral-700); cursor: pointer; outline: none; transition: all 0.2s;
+          touch-action: manipulation;
         }
         .select-minimal:hover, .select-minimal:focus { background: var(--shiro); border-color: var(--ao); }
-        
-        .bar-group { flex: 1; height: 100%; position: relative; display: flex; align-items: flex-end; margin: 0 4px; }
+
+        .bar-group { flex: 1; height: 100%; position: relative; display: flex; align-items: flex-end; margin: 0 4px; min-width: 0; }
         .bar-inner { width: 100%; border-radius: 6px 6px 0 0; position: relative; cursor: pointer; transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
         .bar-inner:hover { transform: scaleY(1.05); transform-origin: bottom; }
         .bar-inner:hover .bar-label { opacity: 1; }
@@ -443,7 +454,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Participation Trends (Wide) */}
-          <div className="bento-card col-span-8" style={{ height: '260px' }}>
+          <div className="bento-card col-span-8" style={{ minHeight: '240px', height: '260px' }}>
             <div className="flex-between mb-4">
               <div className="stat-header" style={{ margin: 0 }}>
                 <i data-lucide="trending-up" style={{ width: '16px', color: 'var(--ao)' }}></i>
@@ -517,7 +528,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Category Distribution Pie Chart */}
-          <div className="bento-card col-span-4" style={{ height: '260px' }}>
+          <div className="bento-card col-span-4" style={{ minHeight: '220px', height: '260px' }}>
             <div className="stat-header" style={{ margin: 0, marginBottom: 'var(--space-3)' }}>
               <i data-lucide="pie-chart" style={{ width: '16px', color: 'var(--neutral-500)' }}></i>
               Category Distribution

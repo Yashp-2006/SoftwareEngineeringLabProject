@@ -613,34 +613,6 @@ const kataScoreboadStyles = `
     from { opacity: 0; transform: scale(0.92); }
     to { opacity: 1; transform: scale(1); }
   }
-
-  /* Responsive */
-  @media (max-width: 1024px) {
-    .kls-body {
-      display: flex;
-      flex-direction: column;
-      padding: 0 16px 20px;
-      overflow-y: auto;
-      gap: 16px;
-    }
-    .kls-center {
-      order: 1;
-      padding-bottom: 16px;
-      border-bottom: 1px solid var(--neutral-200);
-    }
-    
-    .kls-fighter-card:nth-of-type(1) { order: 2; } /* AKA Fighter */
-    .kls-judge-col:nth-of-type(1) { order: 3; flex-direction: row; flex-wrap: wrap; justify-content: center; margin-bottom: 16px; } /* AKA Judges */
-    
-    .kls-fighter-card:nth-of-type(2) { order: 4; } /* AO Fighter */
-    .kls-judge-col:nth-of-type(2) { order: 5; flex-direction: row; flex-wrap: wrap; justify-content: center; } /* AO Judges */
-
-    .kls-header { padding: 16px; }
-    .kls-title { font-size: 20px; }
-    
-    .kls-judge-card { flex-direction: row; padding: 8px 12px; gap: 8px; align-items: center; }
-    .kls-judge-label { margin-bottom: 0; }
-  }
 `;
 
 // ─── Helper: derive judgeVotes array from RTDB kataScores ────────────────────

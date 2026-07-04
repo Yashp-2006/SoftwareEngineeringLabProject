@@ -9,6 +9,8 @@ import KataOperatorPanel from '@/components/kata/KataOperatorPanel';
 import KataLiveScoreboard, { deriveJudgeVotes } from '@/components/kata/KataLiveScoreboard';
 import KumiteLiveScoreboard from '@/components/kumite/KumiteLiveScoreboard';
 import { useAuth } from '@/components/auth/AuthProvider';
+import ScaleWrapper from '@/components/ScaleWrapper';
+import { Suspense } from 'react';
 
 export default function OperatorPortal({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
@@ -301,12 +303,13 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
     setActiveMatchId(m.id);
     setAka({ name: m.aka, country: m.akaCountry, academy: m.akaAcademy, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: m.akaId });
     setAo({ name: m.ao, country: m.aoCountry, academy: m.aoAcademy, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: m.aoId });
-    setTimer(matchDuration);
+    
+    const isKataMatch = m.category?.toLowerCase().includes('kata') || activeCategoryData?.isKata || activeCategoryName?.toLowerCase().includes('kata') || false;
+    
+    setTimer(isKataMatch ? 0 : matchDuration);
     setStatus('upcoming');
     setRound(1);
     setWinnerState(null);
-
-    const isKata = activeCategoryData?.isKata || activeCategoryName?.toLowerCase().includes('kata');
 
     if (!isViewer && !isHydrating) {
       try {
@@ -320,11 +323,11 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
           aoScore: 0,
           akaPenalties: 0,
           aoPenalties: 0,
-          timer: matchDuration,
+          timer: isKataMatch ? 0 : matchDuration,
           running: false,
           status: 'upcoming',
           round: 1,
-          isKata: !!isKata,
+          isKata: !!isKataMatch,
           boutFinished: false,
           winnerState: null,
           kataScores: null,
@@ -421,14 +424,21 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
   };
 
   useEffect(() => {
+    const isKataMatch = activeCategoryData?.isKata || activeCategoryName?.toLowerCase().includes('kata');
     let interval: NodeJS.Timeout;
-    if (running && timer > 0) {
-      interval = setInterval(() => setTimer(t => t - 1), 1000);
-    } else if (timer === 0 && running) {
-      setRunning(false);
+    if (running) {
+      if (isKataMatch) {
+        interval = setInterval(() => setTimer(t => t + 1), 1000);
+      } else {
+        if (timer > 0) {
+          interval = setInterval(() => setTimer(t => t - 1), 1000);
+        } else if (timer === 0) {
+          setRunning(false);
+        }
+      }
     }
     return () => clearInterval(interval);
-  }, [running, timer]);
+  }, [running, timer, activeCategoryData, activeCategoryName]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -791,96 +801,99 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
   const matNum = matIdParam.replace('mat-', '').padStart(2, '0');
 
   return (
-    <PasswordGateway>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <PasswordGateway>
       {/* FULLSCREEN OVERLAY */}
       {isFullscreen && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: '#fdfbfb', zIndex: 9999, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          {isKataCategory ? (
-            <KataLiveScoreboard
-              akaName={aka.name}
-              aoName={ao.name}
-              akaAcademy={aka.academy}
-              aoAcademy={ao.academy}
-              akaCountry={aka.country}
-              aoCountry={ao.country}
-              akaKataName={selectedKata?.aka?.name}
-              aoKataName={selectedKata?.ao?.name}
-              numberOfJudges={kataJudgeCount}
-              judgeVotes={derivedKataData.judgeVotes}
-              akaFlags={kataVotes?.aka ?? derivedKataData.akaFlags}
-              aoFlags={kataVotes?.ao ?? derivedKataData.aoFlags}
-              timeRemaining={`${Math.floor(timer / 60).toString().padStart(2, '0')}:${(timer % 60).toString().padStart(2, '0')}`}
-              matchStatus={status === 'finished' ? 'COMPLETED' : (running ? 'LIVE' : status.toUpperCase())}
-              logoUrl={compData?.scoreboardLogo}
-              title={`Mat ${matNum} — Kata Scoreboard`}
-              subtitle={`${compData?.name || 'Tournament'} • ${activeCategoryName || 'Kata'}`}
-              onToggleFullscreen={() => {
-                if (document.fullscreenElement) {
-                  document.exitFullscreen().catch(() => {});
-                } else {
-                  document.documentElement.requestFullscreen().catch(() => {});
-                }
-              }}
-              isFullscreen={isFullscreen}
-              onBack={() => {
-                if (isViewer) {
-                  window.location.href = `/competitions/${id}/mats`;
-                } else {
-                  if (document.fullscreenElement) document.exitFullscreen();
-                  setIsFullscreen(false);
-                }
-              }}
-              kataWinner={winnerState ? winnerState.color : (kataWinner as any)}
-              winnerName={winnerState?.name}
-            />
-          ) : (
-            <KumiteLiveScoreboard
-              akaName={aka.name}
-              aoName={ao.name}
-              akaAcademy={aka.academy}
-              aoAcademy={ao.academy}
-              akaCountry={aka.country}
-              aoCountry={ao.country}
-              akaScore={aka.score}
-              aoScore={ao.score}
-              akaIppon={aka.ippon}
-              aoIppon={ao.ippon}
-              akaWazaari={aka.waza}
-              aoWazaari={ao.waza}
-              akaYuko={aka.yuko}
-              aoYuko={ao.yuko}
-              akaC1={aka.c1}
-              aoC1={ao.c1}
-              akaC2={aka.c2}
-              aoC2={ao.c2}
-              akaSenshu={aka.senshu}
-              aoSenshu={ao.senshu}
-              timerDisplay={`${Math.floor(timer / 60).toString().padStart(2, '0')}:${(timer % 60).toString().padStart(2, '0')}`}
-              timerColor={timer <= 15 ? 'var(--aka)' : 'var(--status-live)'}
-              matchStatus={timer === 0 ? 'TIME OVER' : running ? 'MATCH LIVE' : timer === matchDuration ? 'PRE-MATCH' : 'PAUSED'}
-              title={compData?.name || 'TAIKAIX'}
-              categoryName={activeCategoryName || 'KUMITE'}
-              matchId={`MAT ${matNum} - ${queue.find(m => m.id === activeMatchId)?.displayId || '—'}`}
-              winnerName={winnerState ? winnerState.name : undefined}
-              winnerColor={winnerState ? winnerState.color : undefined}
-              isFullscreen={isFullscreen}
-              onToggleFullscreen={() => {
-                if (document.fullscreenElement) {
-                  document.exitFullscreen().catch(()=>{});
-                } else {
-                  document.documentElement.requestFullscreen().catch(()=>{} );
-                }
-              }}
-              onBack={() => {
-                if (isViewer) {
-                  window.location.href = `/competitions/${id}/mats`;
-                } else {
-                  if (document.fullscreenElement) document.exitFullscreen();
-                  setIsFullscreen(false);
-                }
-              }}
-            />
-          )}
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: '#000', zIndex: 9999, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <ScaleWrapper>
+            {isKataCategory ? (
+              <KataLiveScoreboard
+                akaName={aka.name}
+                aoName={ao.name}
+                akaAcademy={aka.academy}
+                aoAcademy={ao.academy}
+                akaCountry={aka.country}
+                aoCountry={ao.country}
+                akaKataName={selectedKata?.aka?.name}
+                aoKataName={selectedKata?.ao?.name}
+                numberOfJudges={kataJudgeCount}
+                judgeVotes={derivedKataData.judgeVotes}
+                akaFlags={kataVotes?.aka ?? derivedKataData.akaFlags}
+                aoFlags={kataVotes?.ao ?? derivedKataData.aoFlags}
+                timeRemaining={`${Math.floor(timer / 60).toString().padStart(2, '0')}:${(timer % 60).toString().padStart(2, '0')}`}
+                matchStatus={status === 'finished' ? 'COMPLETED' : (running ? 'LIVE' : status.toUpperCase())}
+                logoUrl={compData?.scoreboardLogo}
+                title={`Mat ${matNum} — Kata Scoreboard`}
+                subtitle={`${compData?.name || 'Tournament'} • ${activeCategoryName || 'Kata'}`}
+                onToggleFullscreen={() => {
+                  if (document.fullscreenElement) {
+                    document.exitFullscreen().catch(() => {});
+                  } else {
+                    document.documentElement.requestFullscreen().catch(() => {});
+                  }
+                }}
+                isFullscreen={isFullscreen}
+                onBack={() => {
+                  if (isViewer) {
+                    window.location.href = `/competitions/${id}/mats`;
+                  } else {
+                    if (document.fullscreenElement) document.exitFullscreen();
+                    setIsFullscreen(false);
+                  }
+                }}
+                kataWinner={winnerState ? winnerState.color : (kataWinner as any)}
+                winnerName={winnerState?.name}
+              />
+            ) : (
+              <KumiteLiveScoreboard
+                akaName={aka.name}
+                aoName={ao.name}
+                akaAcademy={aka.academy}
+                aoAcademy={ao.academy}
+                akaCountry={aka.country}
+                aoCountry={ao.country}
+                akaScore={aka.score}
+                aoScore={ao.score}
+                akaIppon={aka.ippon}
+                aoIppon={ao.ippon}
+                akaWazaari={aka.waza}
+                aoWazaari={ao.waza}
+                akaYuko={aka.yuko}
+                aoYuko={ao.yuko}
+                akaC1={aka.c1}
+                aoC1={ao.c1}
+                akaC2={aka.c2}
+                aoC2={ao.c2}
+                akaSenshu={aka.senshu}
+                aoSenshu={ao.senshu}
+                timerDisplay={`${Math.floor(timer / 60).toString().padStart(2, '0')}:${(timer % 60).toString().padStart(2, '0')}`}
+                timerColor={timer <= 15 ? 'var(--aka)' : 'var(--status-live)'}
+                matchStatus={timer === 0 ? 'TIME OVER' : running ? 'MATCH LIVE' : timer === matchDuration ? 'PRE-MATCH' : 'PAUSED'}
+                title={compData?.name || 'TAIKAIX'}
+                categoryName={activeCategoryName || 'KUMITE'}
+                matchId={`MAT ${matNum} - ${queue.find(m => m.id === activeMatchId)?.displayId || '—'}`}
+                winnerName={winnerState ? winnerState.name : undefined}
+                winnerColor={winnerState ? winnerState.color : undefined}
+                isFullscreen={isFullscreen}
+                onToggleFullscreen={() => {
+                  if (document.fullscreenElement) {
+                    document.exitFullscreen().catch(()=>{});
+                  } else {
+                    document.documentElement.requestFullscreen().catch(()=>{} );
+                  }
+                }}
+                onBack={() => {
+                  if (isViewer) {
+                    window.location.href = `/competitions/${id}/mats`;
+                  } else {
+                    if (document.fullscreenElement) document.exitFullscreen();
+                    setIsFullscreen(false);
+                  }
+                }}
+              />
+            )}
+          </ScaleWrapper>
         </div>
       )}
 
@@ -1054,21 +1067,41 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
               {(activeCategoryData?.isKata || activeCategoryName?.toLowerCase().includes('kata')) && activeMatchId ? (
                 <div id="ops-display-container" style={{ padding: '24px', background: 'white' }}>
                   {isViewer ? (
-                    <div style={{ padding: '24px', background: 'var(--neutral-900)', borderRadius: '12px', display: 'flex', justifyContent: 'center', gap: '32px', color: 'white' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
-                        <div style={{ background: 'var(--aka)', color: 'white', padding: '4px 16px', borderRadius: '4px', fontSize: '14px', fontWeight: 800, marginBottom: '12px' }}>AKA</div>
-                        <div style={{ fontSize: '20px', fontWeight: 700, marginBottom: '8px' }}>{aka.name}</div>
-                        <div style={{ fontSize: '72px', fontWeight: 900, lineHeight: 1, color: 'var(--aka)' }}>{kataVotes?.aka || 0}</div>
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                        <div style={{ fontSize: '12px', color: 'var(--neutral-500)', fontWeight: 800, letterSpacing: '0.1em' }}>VOTES</div>
-                        {kataWinner && <div style={{ marginTop: '16px', padding: '8px 16px', background: 'rgba(255,255,255,0.1)', borderRadius: '8px', fontSize: '14px', fontWeight: 700 }}>{kataWinner === 'tie_pending' ? 'TIE' : (kataWinner === 'aka' ? aka.name : ao.name) + ' WINS'}</div>}
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
-                        <div style={{ background: 'var(--ao)', color: 'white', padding: '4px 16px', borderRadius: '4px', fontSize: '14px', fontWeight: 800, marginBottom: '12px' }}>AO</div>
-                        <div style={{ fontSize: '20px', fontWeight: 700, marginBottom: '8px' }}>{ao.name}</div>
-                        <div style={{ fontSize: '72px', fontWeight: 900, lineHeight: 1, color: 'var(--ao)' }}>{kataVotes?.ao || 0}</div>
-                      </div>
+                    <div style={{ width: '100%', height: 'calc(100vh - 200px)', minHeight: '600px', background: '#000', borderRadius: '16px', overflow: 'hidden' }}>
+                      <ScaleWrapper>
+                        <KataLiveScoreboard
+                          akaName={aka.name}
+                          aoName={ao.name}
+                          akaAcademy={aka.academy}
+                          aoAcademy={ao.academy}
+                          akaCountry={aka.country}
+                          aoCountry={ao.country}
+                          akaKataName={selectedKata?.aka?.name}
+                          aoKataName={selectedKata?.ao?.name}
+                          numberOfJudges={kataJudgeCount}
+                          judgeVotes={derivedKataData.judgeVotes}
+                          akaFlags={kataVotes?.aka ?? derivedKataData.akaFlags}
+                          aoFlags={kataVotes?.ao ?? derivedKataData.aoFlags}
+                          timeRemaining={`${Math.floor(timer / 60).toString().padStart(2, '0')}:${(timer % 60).toString().padStart(2, '0')}`}
+                          matchStatus={status === 'finished' ? 'COMPLETED' : (running ? 'LIVE' : status.toUpperCase())}
+                          logoUrl={compData?.scoreboardLogo}
+                          title={`Mat ${matNum} — Kata Scoreboard`}
+                          subtitle={`${compData?.name || 'Tournament'} • ${activeCategoryName || 'Kata'}`}
+                          onToggleFullscreen={() => {
+                            if (document.fullscreenElement) {
+                              document.exitFullscreen().catch(() => {});
+                            } else {
+                              document.documentElement.requestFullscreen().catch(() => {});
+                            }
+                          }}
+                          isFullscreen={isFullscreen}
+                          onBack={() => {
+                            window.location.href = `/competitions/${id}/mats`;
+                          }}
+                          kataWinner={winnerState ? winnerState.color : (kataWinner as any)}
+                          winnerName={winnerState?.name}
+                        />
+                      </ScaleWrapper>
                     </div>
                   ) : (
                     <>
@@ -1106,14 +1139,46 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                           }).catch(() => toast.error('Network error saving kata result'));
                         }}
                       />
-                      {/* Kata Next Match / Reset controls */}
-                      <div style={{ display: 'flex', gap: '8px', marginTop: '16px', justifyContent: 'flex-end' }}>
-                        <button type="button" className="btn-round" onClick={handleNextMatch}>Next Match</button>
-                        <button type="button" className="btn-round" style={{ color: 'var(--aka)', borderColor: 'rgba(225,29,72,0.3)' }} onClick={() => {
-                          setRound(1); setWinnerState(null);
-                          const next = queue.find(m => m.id !== activeMatchId);
-                          if (next) loadMatch(next);
-                        }}>↺ Reset / Load Next</button>
+                      {/* Kata Timer & Operations Controls */}
+                      <div className="ops-controls" style={{ borderTop: '1px solid var(--neutral-200)', marginTop: '24px' }}>
+                        <div className="round-ops-strip" style={{ borderBottom: '1px solid var(--neutral-200)', background: 'var(--shiro)' }}>
+                          <div style={{ fontWeight: 700, fontSize: '14px', color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Coffee size={14} /> Rest Timer
+                          </div>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            {restRunning && restTimer > 0 ? (
+                              <>
+                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '16px', fontWeight: 700, color: '#f59e0b', minWidth: '40px', textAlign: 'center' }}>
+                                  {Math.floor(restTimer / 60)}:{(restTimer % 60).toString().padStart(2, '0')}
+                                </span>
+                                <button type="button" className="btn-round" onClick={() => { setRestRunning(false); setRestTimer(0); }}>Stop Rest</button>
+                              </>
+                            ) : (
+                              <>
+                                <button type="button" className="btn-round" onClick={() => { setRestTimer(30); setRestRunning(true); }}>30s</button>
+                                <button type="button" className="btn-round" onClick={() => { setRestTimer(60); setRestRunning(true); }}>60s</button>
+                                <button type="button" className="btn-round" onClick={() => { setRestTimer(90); setRestRunning(true); }}>90s</button>
+                                <button type="button" className="btn-round" onClick={() => { setRestTimer(120); setRestRunning(true); }}>2m</button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <div className="round-ops-strip" style={{ flexWrap: 'wrap', gap: '12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontWeight: 700, fontSize: '14px' }}>
+                            Kata Match Operations
+                          </div>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button type="button" className="btn-round" onClick={() => setRunning(true)}><Play size={14} /> Start Timer</button>
+                            <button type="button" className="btn-round" onClick={() => setRunning(false)}><Pause size={14} /> Stop Timer</button>
+                            <div style={{ width: '1px', background: 'var(--neutral-200)', margin: '0 8px' }}></div>
+                            <button type="button" className="btn-round" onClick={handleNextMatch}>Next Match</button>
+                            <button type="button" className="btn-round" style={{ color: 'var(--aka)', borderColor: 'rgba(225,29,72,0.3)' }} onClick={() => {
+                              setRound(1); setWinnerState(null); setTimer(0); setRunning(false);
+                              const next = queue.find(m => m.id !== activeMatchId);
+                              if (next) loadMatch(next);
+                            }}>↺ Reset / Load Next</button>
+                          </div>
+                        </div>
                       </div>
                     </>
                   )}
@@ -1122,37 +1187,39 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                 <>
                 {isViewer ? (
                   <div id="ops-display-container" style={{ padding: '24px', background: '#fdfbfb', borderBottom: '1px solid var(--neutral-200)', display: 'flex', justifyContent: 'center' }}>
-                    <div style={{ width: '100%', maxWidth: '1200px', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 12px 32px rgba(0,0,0,0.1)' }}>
-                      <KumiteLiveScoreboard
-                        akaName={aka.name}
-                        aoName={ao.name}
-                        akaAcademy={aka.academy}
-                        aoAcademy={ao.academy}
-                        akaCountry={aka.country}
-                        aoCountry={ao.country}
-                        akaScore={aka.score}
-                        aoScore={ao.score}
-                        akaIppon={aka.ippon}
-                        aoIppon={ao.ippon}
-                        akaWazaari={aka.waza}
-                        aoWazaari={ao.waza}
-                        akaYuko={aka.yuko}
-                        aoYuko={ao.yuko}
-                        akaC1={aka.c1}
-                        aoC1={ao.c1}
-                        akaC2={aka.c2}
-                        aoC2={ao.c2}
-                        akaSenshu={aka.senshu}
-                        aoSenshu={ao.senshu}
-                        timerDisplay={`${mins}:${secs}`}
-                        timerColor={timer <= 15 ? 'var(--aka)' : 'var(--status-live)'}
-                        matchStatus={timer === 0 ? 'TIME OVER' : running ? 'MATCH LIVE' : timer === matchDuration ? 'PRE-MATCH' : 'PAUSED'}
-                        title={compData?.name || 'TAIKAIX'}
-                        categoryName={activeCategoryName || 'KUMITE'}
-                        matchId={`MAT ${new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('mat')?.replace('mat-', '').padStart(2, '0') || '01'} - ${queue.find(m => m.id === activeMatchId)?.displayId || '—'}`}
-                        winnerName={winnerState ? winnerState.name : undefined}
-                        winnerColor={winnerState ? winnerState.color : undefined}
-                      />
+                    <div style={{ width: '100%', height: 'calc(100vh - 200px)', minHeight: '600px', background: '#000', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 12px 32px rgba(0,0,0,0.1)' }}>
+                      <ScaleWrapper>
+                        <KumiteLiveScoreboard
+                          akaName={aka.name}
+                          aoName={ao.name}
+                          akaAcademy={aka.academy}
+                          aoAcademy={ao.academy}
+                          akaCountry={aka.country}
+                          aoCountry={ao.country}
+                          akaScore={aka.score}
+                          aoScore={ao.score}
+                          akaIppon={aka.ippon}
+                          aoIppon={ao.ippon}
+                          akaWazaari={aka.waza}
+                          aoWazaari={ao.waza}
+                          akaYuko={aka.yuko}
+                          aoYuko={ao.yuko}
+                          akaC1={aka.c1}
+                          aoC1={ao.c1}
+                          akaC2={aka.c2}
+                          aoC2={ao.c2}
+                          akaSenshu={aka.senshu}
+                          aoSenshu={ao.senshu}
+                          timerDisplay={`${mins}:${secs}`}
+                          timerColor={timer <= 15 ? 'var(--aka)' : 'var(--status-live)'}
+                          matchStatus={timer === 0 ? 'TIME OVER' : running ? 'MATCH LIVE' : timer === matchDuration ? 'PRE-MATCH' : 'PAUSED'}
+                          title={compData?.name || 'TAIKAIX'}
+                          categoryName={activeCategoryName || 'KUMITE'}
+                          matchId={`MAT ${new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('mat')?.replace('mat-', '').padStart(2, '0') || '01'} - ${queue.find(m => m.id === activeMatchId)?.displayId || '—'}`}
+                          winnerName={winnerState ? winnerState.name : undefined}
+                          winnerColor={winnerState ? winnerState.color : undefined}
+                        />
+                      </ScaleWrapper>
                     </div>
                   </div>
                 ) : (
@@ -1677,5 +1744,6 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
       </div>
       </div>
     </PasswordGateway>
+    </Suspense>
   );
 }

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { LayoutGrid, Plus, Timer, Activity, Coffee, CalendarPlus, Key, Eye, EyeOff, Trash2, Image as ImageIcon, X, Trophy, Medal } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -492,8 +493,8 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
               </div>
               <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
                 {scoreboardLogo && (
-                  <div style={{ width: '48px', height: '48px', borderRadius: '8px', overflow: 'hidden', background: '#fff', border: '1px solid var(--neutral-200)', flexShrink: 0 }}>
-                    <img src={scoreboardLogo} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                  <div style={{ position: 'relative', width: '48px', height: '48px', borderRadius: '8px', overflow: 'hidden', background: '#fff', border: '1px solid var(--neutral-200)', flexShrink: 0 }}>
+                    <Image src={scoreboardLogo} alt="Logo" fill style={{ objectFit: 'contain' }} />
                   </div>
                 )}
                 <div style={{ flex: 1 }}>

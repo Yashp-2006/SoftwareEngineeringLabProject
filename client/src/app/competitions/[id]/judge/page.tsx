@@ -90,7 +90,7 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
     if (liveData?.boutFinished && voteCountdown === null && !voteSubmitted) {
       setVoteCountdown(5);
     }
-  }, [liveData?.boutFinished]);
+  }, [liveData?.boutFinished, voteCountdown, voteSubmitted]);
 
   useEffect(() => {
     if (voteCountdown === null || voteCountdown <= 0) return;
@@ -106,7 +106,7 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
       submitVote(pendingVote);
       setVoteSubmitted(true);
     }
-  }, [voteCountdown]);
+  }, [voteCountdown, pendingVote, voteSubmitted]);
 
   const submitVote = async (vote: 'aka' | 'ao') => {
     try {

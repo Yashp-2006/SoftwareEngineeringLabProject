@@ -142,8 +142,10 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
   useEffect(() => {
     const fetchComp = async () => {
       try {
-        const { getDoc, doc } = await import('firebase/firestore');
-        const { db } = await import('@lib/firebase');
+        const [{ getDoc, doc }, { db }] = await Promise.all([
+          import('firebase/firestore'),
+          import('@lib/firebase')
+        ]);
         
         // Load main doc for Name, Venue, Date
         const snap = await getDoc(doc(db, 'competitions', id));
@@ -234,8 +236,10 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
     if (!isDataLoaded) return;
     const loadPasswords = async () => {
       try {
-        const { doc, getDoc } = await import('firebase/firestore');
-        const { db } = await import('@lib/firebase');
+        const [{ doc, getDoc }, { db }] = await Promise.all([
+          import('firebase/firestore'),
+          import('@lib/firebase')
+        ]);
         const loaded: Record<number, string> = {};
         await Promise.all(
           Array.from({ length: matsCount }).map(async (_, i) => {
@@ -271,8 +275,10 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
   const saveMatPassword = async (idx: number, password: string) => {
     const matId = `mat-${idx + 1}`;
     try {
-      const { db } = await import('@lib/firebase');
-      const { doc, setDoc } = await import('firebase/firestore');
+      const [{ db }, { doc, setDoc }] = await Promise.all([
+        import('@lib/firebase'),
+        import('firebase/firestore')
+      ]);
       await setDoc(
         doc(db, 'competitions', id, 'mats', matId),
         { password },
@@ -424,8 +430,10 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
     if (downloadingTiesheets) return;
     setDownloadingTiesheets(true);
     try {
-      const { db } = await import('@lib/firebase');
-      const { collection, getDocs } = await import('firebase/firestore');
+      const [{ db }, { collection, getDocs }] = await Promise.all([
+        import('@lib/firebase'),
+        import('firebase/firestore')
+      ]);
       const snap = await getDocs(collection(db, 'competitions', id, 'categories'));
       const cats = snap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
       if (cats.length === 0) {
@@ -460,8 +468,10 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
     setRegeneratingTiesheets(true);
     const toastId = toast.loading('Regenerating tiesheets...');
     try {
-      const { db } = await import('@lib/firebase');
-      const { collection, getDocs } = await import('firebase/firestore');
+      const [{ db }, { collection, getDocs }] = await Promise.all([
+        import('@lib/firebase'),
+        import('firebase/firestore')
+      ]);
       const snap = await getDocs(collection(db, 'competitions', id, 'categories'));
       const cats = snap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
       const standardCats = cats.filter(c => !c.isSpecial && (c.athletes?.length ?? 0) > 0);
@@ -1488,8 +1498,10 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                 setMatPasswordMap(newMap);
                 
                 try {
-                  const { db } = await import('@lib/firebase');
-                  const { doc, writeBatch } = await import('firebase/firestore');
+                  const [{ db }, { doc, writeBatch }] = await Promise.all([
+                    import('@lib/firebase'),
+                    import('firebase/firestore')
+                  ]);
                   const batch = writeBatch(db);
                   for (let i = 0; i < matsCount; i++) {
                     const matId = `mat-${i + 1}`;
@@ -1714,8 +1726,10 @@ function SetupBracketPreview({ competitionId, initialCategoryId, onClose }: {
   React.useEffect(() => {
     let unsub: (() => void) | undefined;
     const load = async () => {
-      const { collection, onSnapshot } = await import('firebase/firestore');
-      const { db } = await import('@lib/firebase');
+      const [{ collection, onSnapshot }, { db }] = await Promise.all([
+        import('firebase/firestore'),
+        import('@lib/firebase')
+      ]);
       unsub = onSnapshot(collection(db, 'competitions', competitionId, 'categories'), snap => {
         const filtered = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter((c: any) => c.entries > 0);
         setCategories(filtered);

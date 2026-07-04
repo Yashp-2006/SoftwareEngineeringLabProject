@@ -94,11 +94,21 @@ export default function BracketViewer({ matches, categoryName, isKata: propIsKat
       const srcRect = src.getBoundingClientRect();
       const destRect = dest.getBoundingClientRect();
 
+      // Find the specific row to connect to
+      const nextMatch = matches.find(m => m.id === match.nextMatchId);
+      const isAka = nextMatch?.akaFromMatchId === match.id;
+      const isAo = nextMatch?.aoFromMatchId === match.id;
+      
+      const destAka = dest.querySelector('.competitor-row.aka');
+      const destAo = dest.querySelector('.competitor-row.ao');
+      const destRow = isAka ? destAka : isAo ? destAo : dest;
+      const destRowRect = destRow ? destRow.getBoundingClientRect() : destRect;
+
       // Divide by zoom because getBoundingClientRect() returns scaled screen pixels
       const x1 = (srcRect.right - canvasRect.left) / zoom;
       const y1 = (srcRect.top + srcRect.height / 2 - canvasRect.top) / zoom;
       const x2 = (destRect.left - canvasRect.left) / zoom;
-      const y2 = (destRect.top + destRect.height / 2 - canvasRect.top) / zoom;
+      const y2 = (destRowRect.top + destRowRect.height / 2 - canvasRect.top) / zoom;
       const xMid = x1 + (x2 - x1) / 2;
 
       newConnectors.push({ x1, y1, x2, y2, xMid });

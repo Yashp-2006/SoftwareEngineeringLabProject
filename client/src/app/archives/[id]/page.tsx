@@ -42,25 +42,29 @@ export default function ArchiveDetail({ params }: { params: Promise<{ id: string
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const { collection, getDocs, doc, getDoc } = await import('firebase/firestore');
-        const { db } = await import('@lib/firebase');
+        const [{ collection, getDocs, doc, getDoc }, { db }] = await Promise.all([
+          import('firebase/firestore'),
+          import('@lib/firebase')
+        ]);
         
-        const compDoc = await getDoc(doc(db, 'competitions', id));
+        const [compDoc, catSnap, staffSnap, athSnap] = await Promise.all([
+          getDoc(doc(db, 'competitions', id)),
+          getDocs(collection(db, 'competitions', id, 'categories')),
+          getDocs(collection(db, 'competitions', id, 'staff')),
+          getDocs(collection(db, 'competitions', id, 'athletes'))
+        ]);
+
         if (compDoc.exists()) {
           setCompData(compDoc.data());
         }
 
-        const catSnap = await getDocs(collection(db, 'competitions', id, 'categories'));
         const cats = [];
         for (const catDoc of catSnap.docs) {
           cats.push({ id: catDoc.id, ...catDoc.data() });
         }
         setCategories(cats);
 
-        const staffSnap = await getDocs(collection(db, 'competitions', id, 'staff'));
         setStaff(staffSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-
-        const athSnap = await getDocs(collection(db, 'competitions', id, 'athletes'));
         setAthletes(athSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       } catch (err) {
         console.error(err);

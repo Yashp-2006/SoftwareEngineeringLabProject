@@ -151,17 +151,30 @@ export default function CompetitionsPage() {
       <style dangerouslySetInnerHTML={{__html: `
         .comp-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+          grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
           gap: var(--space-5);
+        }
+        @media (max-width: 1024px) {
+          .comp-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: var(--space-4);
+          }
+        }
+        @media (max-width: 700px) {
+          .comp-grid {
+            grid-template-columns: 1fr;
+            gap: var(--space-3);
+          }
         }
         .comp-card {
           position: relative;
           border-left: 4px solid var(--neutral-300);
+          min-width: 0;
         }
         .comp-card.live { border-left-color: var(--aka); }
         .comp-card.upcoming { border-left-color: var(--status-upcoming); }
         .comp-card.done { border-left-color: var(--status-done); }
-        
+
         .comp-actions {
           position: absolute;
           top: var(--space-4);
@@ -185,8 +198,8 @@ export default function CompetitionsPage() {
         
         .modal {
           background: var(--shiro);
-          width: 520px; max-width: 90%;
-          max-height: 90vh; display: flex; flex-direction: column;
+          width: 520px; max-width: min(90vw, 95%);
+          max-height: 90dvh; display: flex; flex-direction: column;
           border-radius: 12px;
           box-shadow: 0 10px 25px rgba(0,0,0,0.15);
           overflow: hidden;
@@ -250,7 +263,7 @@ export default function CompetitionsPage() {
             <div className="breadcrumb">TaiKaiX / Competitions</div>
             <h1>Competition Directory</h1>
           </div>
-          <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+          <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap', alignItems: 'center' }}>
             <div style={{ position: 'relative' }}>
               <input type="text" placeholder="Search events..." id="comp-search" style={{ height: '40px', borderRadius: '6px', border: '1.5px solid var(--neutral-300)', padding: '0 var(--space-7) 0 var(--space-4)', fontFamily: 'var(--font-body)' }} />
               <Search style={{ position: 'absolute', right: '12px', top: '11px', width: '18px', color: 'var(--neutral-500)' }} />
