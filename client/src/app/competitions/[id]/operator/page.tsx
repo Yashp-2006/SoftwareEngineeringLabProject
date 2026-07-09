@@ -1018,7 +1018,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
       `}} />
 
       <main className="container">
-        <header className="page-header" style={{ alignItems: 'center' }}>
+        <header className="page-header" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
           <div style={{ flex: '1 1 min-content' }}>
             <div className="breadcrumb" style={{ fontSize: '13px', fontWeight: 800, color: 'var(--neutral-500)', letterSpacing: '0.1em', marginBottom: '8px' }}>
               {compData?.name ? compData.name.toUpperCase() : 'TOURNAMENT'} • {activeCategoryName ? activeCategoryName.toUpperCase() : 'NO CATEGORY'}
