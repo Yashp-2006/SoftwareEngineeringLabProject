@@ -1018,22 +1018,22 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
       `}} />
 
       <main className="container">
-        <header className="page-header">
-          <div>
-            <div className="breadcrumb" style={{ fontSize: '13px', fontWeight: 800, color: 'var(--neutral-500)', letterSpacing: '0.1em' }}>
+        <header className="page-header" style={{ alignItems: 'center' }}>
+          <div style={{ flex: '1 1 min-content' }}>
+            <div className="breadcrumb" style={{ fontSize: '13px', fontWeight: 800, color: 'var(--neutral-500)', letterSpacing: '0.1em', marginBottom: '8px' }}>
               {compData?.name ? compData.name.toUpperCase() : 'TOURNAMENT'} • {activeCategoryName ? activeCategoryName.toUpperCase() : 'NO CATEGORY'}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px' }}>
-              <h1 style={{ fontSize: '40px', margin: 0 }}>{new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('mat') ? `Mat ${new URLSearchParams(window.location.search).get('mat')?.replace('mat-', '').padStart(2, '0')}` : 'Mat 01'}</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+              <h1 style={{ fontSize: '40px', margin: 0, lineHeight: 1 }}>{new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('mat') ? `Mat ${new URLSearchParams(window.location.search).get('mat')?.replace('mat-', '').padStart(2, '0')}` : 'Mat 01'}</h1>
               <span className="status-chip status-live">Live</span>
               {activeCategoryName && (
-                <span style={{ fontSize: '16px', fontWeight: 700, color: 'var(--neutral-500)', marginLeft: '12px' }}>
+                <span style={{ fontSize: '16px', fontWeight: 700, color: 'var(--neutral-500)', marginLeft: '4px' }}>
                   {activeCategoryName} {queue.find(m => m.id === activeMatchId)?.pool ? `(Pool ${queue.find(m => m.id === activeMatchId)?.pool})` : ''}
                 </span>
               )}
             </div>
           </div>
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'flex-end', flex: '0 1 auto' }}>
             {!isViewer && (
               <>
                 <button type="button" className="btn btn-primary" onClick={handleStartCategory}><Play size={16} /> Start Category</button>
@@ -1480,15 +1480,9 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                     {visibleQueue.length > 0 && visibleQueue.map((match, idx) => (
                         <tr 
                           key={match.id}
-                          draggable={!isViewer}
-                          onDragStart={(e) => !isViewer && handleDragStart(e, idx)}
-                          onDragOver={(e) => !isViewer && e.preventDefault()}
-                          onDrop={(e) => !isViewer && handleDropQueue(e, idx)}
                           style={{  
                             borderBottom: '1px solid var(--neutral-100)',
-                            cursor: 'grab',
-                            backgroundColor: match.pool && poolStatuses[match.pool] ? '#ecfdf5' : (draggedIdx === idx ? 'var(--neutral-50)' : 'transparent'),
-                            opacity: draggedIdx === idx ? 0.5 : 1
+                            backgroundColor: match.pool && poolStatuses[match.pool] ? '#ecfdf5' : 'transparent',
                           }}
                         >
                           <td style={{ padding: '16px 20px', fontFamily: 'var(--font-mono)', fontWeight: 700, color: idx === 0 ? 'inherit' : 'var(--neutral-500)' }}>{match.displayId}</td>

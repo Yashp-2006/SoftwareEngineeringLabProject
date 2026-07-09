@@ -1289,14 +1289,14 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                     <p style={{ color: 'var(--neutral-500)' }}>No categories defined yet. Please upload an Excel file in Phase 1 or create categories manually.</p>
                   </div>
                 ) : (
-                  <div className="mat-setup-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-4)' }}>
+                  <div className="mat-setup-card" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', padding: 'var(--space-4)' }}>
                     <div>
                       <h4 style={{ margin: '0 0 4px 0' }}>{importResult ? importResult.categoriesTotal : categories.length} Categories Generated</h4>
                       <p className="text-small" style={{ color: 'var(--neutral-500)', margin: 0 }}>
                         {importResult ? importResult.athletesImported : 'N/A'} Athletes {importResult ? 'Imported' : ''} • Pool size: {poolSize}
                       </p>
                     </div>
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end', flex: '1 1 auto' }}>
                       <button type="button"
                         className="btn btn-secondary"
                         onClick={() => setUndersizedModalOpen(true)}

@@ -233,26 +233,52 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
 
     if (actualDragIdx !== -1 && actualDropIdx !== -1) {
       const [removed] = newCats.splice(actualDragIdx, 1);
+      
+      // Update mat to match the dropped position's mat
+      const oldMat = removed.mat;
+      removed.mat = droppedOnItem.mat;
+      
       newCats.splice(actualDropIdx, 0, removed);
+      
+      // Recalculate timings for affected mats sequentially
+      const matsToRecalculate = new Set([oldMat, droppedOnItem.mat]);
+      matsToRecalculate.forEach(matName => {
+        const matCats = newCats.filter(c => c.mat === matName);
+        if (matCats.length > 0) {
+          let currentStart = matCats[0].start || '08:00'; // Anchor to first item
+          matCats.forEach(cat => {
+            let duration = getTimeDiffMins(cat.start, cat.end);
+            if (duration <= 0) duration = cat.estimatedDuration || 30;
+            cat.start = currentStart;
+            cat.end = addMinutesToTime(currentStart, duration);
+            currentStart = cat.end;
+          });
+        }
+      });
       
       // Update local state instantly for UI responsiveness
       setCategories(newCats);
       
-      // Bulk update Firestore 'order'
+      // Bulk update Firestore 'order', 'mat', and times
       try {
         const { db } = await import('@lib/firebase');
         const { doc, writeBatch } = await import('firebase/firestore');
         const batch = writeBatch(db);
         
         newCats.forEach((cat, index) => {
-          batch.update(doc(db, 'competitions', id, 'categories', cat.id), { order: index });
+          batch.update(doc(db, 'competitions', id, 'categories', cat.id), { 
+            order: index,
+            mat: cat.mat,
+            scheduledStartTime: cat.start,
+            scheduledEndTime: cat.end
+          });
         });
         
         await batch.commit();
-        toast.success("Order saved");
+        toast.success("Schedule updated");
       } catch (err) {
         console.error(err);
-        toast.error("Failed to save order");
+        toast.error("Failed to save schedule");
       }
     }
     
