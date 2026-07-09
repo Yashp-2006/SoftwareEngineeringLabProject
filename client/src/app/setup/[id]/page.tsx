@@ -551,6 +551,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
   const handleDragStart = (e: React.DragEvent<HTMLTableRowElement>, idx: number) => {
     setDragIdx(idx);
     e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', idx.toString());
   };
 
   const handleDragOver = (e: React.DragEvent<HTMLTableRowElement>, idx: number) => {

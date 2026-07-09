@@ -202,6 +202,7 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
   const handleDragStart = (e: React.DragEvent<HTMLTableRowElement>, idx: number) => {
     setDragIdx(idx);
     e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', idx.toString());
   };
 
   const handleDragOver = (e: React.DragEvent<HTMLTableRowElement>, idx: number) => {
