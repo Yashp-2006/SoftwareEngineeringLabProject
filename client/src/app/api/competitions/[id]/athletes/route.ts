@@ -1,12 +1,19 @@
 import { NextResponse } from 'next/server';
 import { db } from '@lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
+import { verifySession } from '@taikaix/backend/lib/firebase-admin';
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const cookieStr = request.headers.get('cookie') || '';
+    const token = cookieStr.match(/(?:^|;)\s*session\s*=\s*([^;]+)/)?.[1];
+    const { role } = await verifySession(token);
+    if (role !== 'admin' && role !== 'guest_viewer' && role !== 'attendance_volunteer') {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 403 });
+    }
     const { id: competitionId } = await params;
     const body = await request.json();
     const { name, gender, age, weight, categoryId, academy } = body;

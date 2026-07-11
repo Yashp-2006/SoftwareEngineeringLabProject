@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { generateBracket, seedSpecialCategory, PoolSize, CategoryDoc } from '@taikaix/backend/services/tiesheet-generator';
-import { adminDb } from '@taikaix/backend/lib/firebase-admin';
+import { adminDb, verifySession } from '@taikaix/backend/lib/firebase-admin';
 
 /**
  * POST /api/competitions/{id}/brackets/generate
@@ -13,6 +13,12 @@ import { adminDb } from '@taikaix/backend/lib/firebase-admin';
  */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const cookieStr = req.headers.get('cookie') || '';
+    const token = cookieStr.match(/(?:^|;)\s*session\s*=\s*([^;]+)/)?.[1];
+    const { role } = await verifySession(token);
+    if (role !== 'admin' && role !== 'guest_viewer') {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 403 });
+    }
     const { id } = await params;
     const body = await req.json();
     const { categoryId, specialCategoryId, poolSize: rawPoolSize, compType = 'international' } = body;

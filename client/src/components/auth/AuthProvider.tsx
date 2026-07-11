@@ -30,6 +30,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(currentUser);
       
       if (currentUser) {
+        // Set session cookie with the Firebase ID token for server-side API validation
+        currentUser.getIdToken().then(token => {
+          document.cookie = `session=${token}; path=/; max-age=3600; SameSite=Lax; Secure`;
+        }).catch(err => {
+          console.error('Failed to set session cookie:', err);
+        });
+
         try {
           const userDocRef = doc(db, 'users', currentUser.uid);
           const userDoc = await getDoc(userDocRef);
@@ -66,6 +73,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } else {
         setRole(null);
+        // Clear session cookie
+        document.cookie = `session=; path=/; max-age=0; SameSite=Lax; Secure`;
       }
       
       setLoading(false);

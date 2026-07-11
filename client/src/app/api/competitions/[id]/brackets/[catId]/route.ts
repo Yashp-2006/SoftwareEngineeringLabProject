@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '@taikaix/backend/lib/firebase-admin';
+import { adminDb, verifySession } from '@taikaix/backend/lib/firebase-admin';
 
 /**
  * PATCH /api/competitions/{id}/brackets/{catId}
@@ -15,6 +15,12 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string; catId: string }> }
 ) {
   try {
+    const cookieStr = req.headers.get('cookie') || '';
+    const token = cookieStr.match(/(?:^|;)\s*session\s*=\s*([^;]+)/)?.[1];
+    const { role } = await verifySession(token);
+    if (role !== 'admin' && role !== 'guest_viewer' && role !== 'mat_operator') {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 403 });
+    }
     const { id, catId } = await params;
     const body = await req.json();
     const { matchId, winnerId, byeFor, selectedKata } = body;

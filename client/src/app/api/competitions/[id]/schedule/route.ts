@@ -14,7 +14,10 @@ export async function GET(
     // Cache the schedule details for 60 seconds
     const data = await fetchWithCache(cacheKey, 60, async () => {
       const catSnap = await adminDb.collection('competitions').doc(id).collection('categories').orderBy('scheduledStartTime').get();
-      const categories = catSnap.docs.map((d: any) => ({ id: d.id, ...d.data() }));
+      const categories = catSnap.docs.map((d: any) => {
+        const { athletes, ...safeData } = d.data() || {};
+        return { id: d.id, ...safeData };
+      });
 
       return {
         categories

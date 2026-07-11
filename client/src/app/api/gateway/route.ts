@@ -1,11 +1,18 @@
 export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb } from '@taikaix/backend/lib/firebase-admin';
+import { adminDb, verifySession } from '@taikaix/backend/lib/firebase-admin';
 import { saveSetupDraftSchema } from '@taikaix/backend/types/schemas';
 import { z } from 'zod';
 
 export async function POST(req: NextRequest) {
   try {
+    const sessionToken = req.cookies.get('session')?.value;
+    const { role } = await verifySession(sessionToken);
+
+    if (role !== 'admin' && role !== 'guest_viewer') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
     const body = await req.json();
     const { action, payload } = body;
 

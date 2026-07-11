@@ -1,9 +1,16 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '@taikaix/backend/lib/firebase-admin';
+import { adminDb, verifySession } from '@taikaix/backend/lib/firebase-admin';
 import { generateBracket, PoolSize } from '@taikaix/backend/services/tiesheet-generator';
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const cookieStr = req.headers.get('cookie') || '';
+    const token = cookieStr.match(/(?:^|;)\s*session\s*=\s*([^;]+)/)?.[1];
+    const { role } = await verifySession(token);
+    if (role !== 'admin' && role !== 'guest_viewer' && role !== 'attendance_volunteer') {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 403 });
+    }
+
     const { id: competitionId } = await params;
     const body = await req.json();
     const { categoryId, athleteData } = body;

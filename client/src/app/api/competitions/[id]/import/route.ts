@@ -1,10 +1,17 @@
-import { NextResponse } from 'next/server';
+import { adminDb, verifySession } from '@taikaix/backend/lib/firebase-admin';
 import { parseExcelIntoCategories, generateBracket, PoolSize } from '@taikaix/backend/services/tiesheet-generator';
 import { rateLimiter } from '@lib/rate-limiter';
-import { adminDb } from '@taikaix/backend/lib/firebase-admin';
+import { NextResponse } from 'next/server';
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const cookieStr = req.headers.get('cookie') || '';
+    const token = cookieStr.match(/(?:^|;)\s*session\s*=\s*([^;]+)/)?.[1];
+    const { role } = await verifySession(token);
+    if (role !== 'admin' && role !== 'guest_viewer') {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 403 });
+    }
+
     const { id } = await params;
     const ip = req.headers.get('x-forwarded-for') || '127.0.0.1';
 

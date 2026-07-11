@@ -33,3 +33,20 @@ const app = initAdmin();
 export const adminDb = getFirestore(app);
 export const adminAuth = getAuth(app);
 export const adminRtdb = getDatabase(app);
+
+export async function verifySession(token: string | null | undefined): Promise<{ uid: string | null; role: string | null }> {
+  if (!token) return { uid: null, role: null };
+  try {
+    const decodedToken = await adminAuth.verifyIdToken(token);
+    const uid = decodedToken.uid;
+    const userDoc = await adminDb.collection('users').doc(uid).get();
+    if (userDoc.exists) {
+      const role = userDoc.data()?.role || 'audience';
+      return { uid, role };
+    }
+    return { uid, role: 'audience' };
+  } catch (error) {
+    console.error('Failed to verify session token:', error);
+    return { uid: null, role: null };
+  }
+}

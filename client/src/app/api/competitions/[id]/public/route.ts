@@ -21,7 +21,13 @@ export async function GET(
       const compData = compSnap.data() || {};
       
       const catSnap = await adminDb.collection('competitions').doc(id).collection('categories').get();
-      const categories = catSnap.docs.map((d: any) => ({ id: d.id, ...d.data() }));
+      const categories = catSnap.docs.map((d: any) => {
+        const catData = d.data() || {};
+        if (catData.athletes) {
+          catData.athletes = catData.athletes.map(({ phone: _p, email: _e, ...safe }: any) => safe);
+        }
+        return { id: d.id, ...catData };
+      });
 
       return {
         ...compData,
