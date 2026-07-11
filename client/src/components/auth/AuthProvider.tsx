@@ -35,8 +35,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const userDoc = await getDoc(userDocRef);
           
           if (userDoc.exists()) {
-            const currentRole = userDoc.data().role;
-            setRole(currentRole as UserRole);
+            // Fallback: if role field is missing, treat as 'audience'
+            const currentRole = (userDoc.data().role as UserRole) || 'audience';
+            setRole(currentRole);
 
             await setDoc(userDocRef, {
               email: currentUser.email,
@@ -48,11 +49,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               lastLoginAt: new Date().toISOString()
             }, { merge: true });
           } else {
-            // eslint-disable-next-line react-doctor/firebase-client-owned-authz-field
+            // New user — write doc with default audience role
             await setDoc(userDocRef, {
               email: currentUser.email,
               displayName: currentUser.displayName || null,
               photoURL: currentUser.photoURL || null,
+              role: 'audience',
               createdAt: new Date().toISOString(),
               lastLoginAt: new Date().toISOString()
             });
