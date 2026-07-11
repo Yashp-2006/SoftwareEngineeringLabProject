@@ -1,13 +1,18 @@
 import { algoliasearch } from 'algoliasearch';
 
-// Initialize the client
-// Using dummy keys if not present in env, so it doesn't crash during build
-const appId = process.env.NEXT_PUBLIC_ALGOLIA_APP_ID || 'dummy_app_id';
-const searchApiKey = process.env.NEXT_PUBLIC_ALGOLIA_SEARCH_KEY || 'dummy_search_key';
-const adminApiKey = process.env.ALGOLIA_ADMIN_KEY || 'dummy_admin_key';
+// Algolia config — all values come from environment variables only.
+// NEXT_PUBLIC_ALGOLIA_APP_ID + NEXT_PUBLIC_ALGOLIA_SEARCH_KEY: safe client-side (search-only key).
+// ALGOLIA_ADMIN_KEY: server-only, must NEVER have NEXT_PUBLIC_ prefix.
+const appId = process.env.NEXT_PUBLIC_ALGOLIA_APP_ID || '';
+const searchApiKey = process.env.NEXT_PUBLIC_ALGOLIA_SEARCH_KEY || '';
+const adminApiKey = process.env.ALGOLIA_ADMIN_KEY || '';
 
-export const searchClient = algoliasearch(appId, searchApiKey);
-export const adminClient = algoliasearch(appId, adminApiKey);
+if (!appId || !searchApiKey) {
+  console.warn('[Algolia] NEXT_PUBLIC_ALGOLIA_APP_ID or NEXT_PUBLIC_ALGOLIA_SEARCH_KEY is not set. Search will be unavailable.');
+}
+
+export const searchClient = algoliasearch(appId || 'placeholder', searchApiKey || 'placeholder');
+export const adminClient = algoliasearch(appId || 'placeholder', adminApiKey || 'placeholder');
 
 export const indexCompetition = async (competitionData: any) => {
   if (process.env.ALGOLIA_ADMIN_KEY) {

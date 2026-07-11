@@ -79,3 +79,23 @@ git push origin main  # triggers Vercel build
 ```
 
 Add all environment variables from `.env.local` to Vercel dashboard before first deploy.
+
+## Security
+
+### Environment Variables
+- `.env` and `.env.local` are in `.gitignore` and must **never** be committed.
+- Use `.env.example` as a template — it contains no real secrets.
+- **Firebase Client SDK** (`NEXT_PUBLIC_FIREBASE_*`): safe for browser exposure. Firebase security rules and Auth control access.
+- **Firebase Admin SDK** (`FIREBASE_ADMIN_*`): server-only. The private key grants full database admin access. Never prefix with `NEXT_PUBLIC_`.
+- **Upstash Redis** (`UPSTASH_REDIS_*`): server-only. Provides rate limiting.
+- **Algolia Admin Key** (`ALGOLIA_ADMIN_KEY`): server-only. The search key (`NEXT_PUBLIC_ALGOLIA_SEARCH_KEY`) is search-only and safe client-side.
+
+### ⚠️ If Any Secret Was Ever Exposed
+If a credential was ever committed to git history or logged anywhere, **rotate it immediately**:
+1. Firebase Admin key → Firebase Console → Service Accounts → Generate new key → revoke old
+2. Upstash Redis token → Upstash Console → Reset token
+3. Algolia keys → Algolia Dashboard → API Keys → Regenerate
+
+### Vercel Deployment
+Set all env vars in Vercel Dashboard → Project Settings → Environment Variables.
+Never put secrets in `vercel.json` or any committed config file.
