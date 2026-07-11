@@ -63,11 +63,12 @@ All original HTML/CSS screens are in `TaiKaiX Frontend/TaiKaiX/`.
 
 ## Agent Documentation
 
-See `agent-related/` for:
+See root directory for:
 - `handover.md` — Current state, completed work, next steps
-- `architecture.md` — System architecture overview
-- `brainstorm.md` — Brainstorming notes and design decisions
-- `graph-analysis.md` — Graphify knowledge graph insights
+- `taikaix_graph_and_design_audit.md` — System architecture overview, design audit, and knowledge graph insights
+
+See `agent-related/` for:
+- Agent scripts and prompts
 
 ## Deployment
 

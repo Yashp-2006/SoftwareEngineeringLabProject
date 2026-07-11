@@ -24,6 +24,7 @@
 - **Excel Import Fixes**:
   - Fixed an issue where the Excel importer would incorrectly extract the "Club ID" or "Team ID" instead of the Academy name. The parser now explicitly ignores columns containing "id" when extracting the academy.
 - **Setup Wizard Bug Fixes**:
+  - Fixed Tiesheet Generation Preview (Phase 3) button layout wrapping issue to prevent UI distortion and neatly group secondary actions.
   - Fixed an issue where the Setup Wizard and Review Phase had a hardcoded competition name (`Kyoto 2026 Finals`) or incorrectly loaded `'Loading...'` from stale drafts. It now properly synchronizes the `compName` state with Firestore, displaying the real competition name in the header and allowing edits in Phase 5 to be saved.
   - Corrected `isDataLoaded` logic to prevent immediate autosync from wiping draft data on initial page load.
   - Updated Excel import logic in Setup Wizard to **merge** imported categories into the existing standard WKF category list, allowing users to see the full list of standard categories and precisely how many entries fell into each one.
@@ -105,3 +106,7 @@
 - Verified build and production readiness.
 
 - Committed all changes and deployed to Vercel for production readiness.
+
+### Update 2026-07-11
+- Fixed Tiesheet Generation Preview (Phase 3) buttons layout in `client/src/app/setup/[id]/page.tsx` by restructuring the flex container to prevent wrapping distortion.
+- Fixed drag-and-drop category timing recalculation in `client/src/app/competitions/[id]/categories/page.tsx` so that a dragged category does not improperly overwrite the target mat's anchor time with its previous start time.

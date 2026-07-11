@@ -233,20 +233,31 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
     const actualDropIdx = newCats.findIndex(c => c.id === droppedOnItem.id);
 
     if (actualDragIdx !== -1 && actualDropIdx !== -1) {
+      // Pre-calculate anchors before splicing so we don't accidentally use a dragged item's old time
+      const oldMat = draggedItem.mat;
+      const matAnchors = new Map<string, string>();
+      const matsToRecalculate = new Set([oldMat, droppedOnItem.mat]);
+      matsToRecalculate.forEach(matName => {
+        const existingCats = categories.filter(c => c.mat === matName);
+        if (existingCats.length > 0) {
+          matAnchors.set(matName, existingCats[0].start || '08:00');
+        } else {
+          matAnchors.set(matName, '08:00');
+        }
+      });
+
       const [removed] = newCats.splice(actualDragIdx, 1);
       
       // Update mat to match the dropped position's mat
-      const oldMat = removed.mat;
       removed.mat = droppedOnItem.mat;
       
       newCats.splice(actualDropIdx, 0, removed);
       
       // Recalculate timings for affected mats sequentially
-      const matsToRecalculate = new Set([oldMat, droppedOnItem.mat]);
       matsToRecalculate.forEach(matName => {
         const matCats = newCats.filter(c => c.mat === matName);
         if (matCats.length > 0) {
-          let currentStart = matCats[0].start || '08:00'; // Anchor to first item
+          let currentStart = matAnchors.get(matName) || '08:00'; // Anchor to original first item
           matCats.forEach(cat => {
             let duration = getTimeDiffMins(cat.start, cat.end);
             if (duration <= 0) duration = cat.estimatedDuration || 30;

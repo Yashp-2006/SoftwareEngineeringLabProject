@@ -42,8 +42,10 @@
 - **Live Scoring Architecture:** Wired the real-time scoring pipeline using Firebase RTDB (`live_scores/{id}/mats/{matId}`), allowing operators to push updates and scoreboards to instantly reflect them.
 - **Dynamic Brackets:** Implemented dynamic tiesheet generation with automatic bye-handling, pool-wise extraction, and auto-medaling upon category completion.
 - **UI/UX Polish:** Completed implementation for 19 out of 21 planned routes, maintaining the original design system (AKA/AO tokens, Bento grids, responsive layouts).
+- **Bug Fixes (July 11):** Fixed Tiesheet Generation Preview (Phase 3) buttons layout bug where buttons wrapped incorrectly causing UI distortion on smaller screens. Grouped management and preview actions into separate logical rows.
 - **Bug Fixes (June 23):** Fixed tiesheet preview pool filtering bug showing all matches combined, and enabled tiesheet regeneration button in Setup phase 3.
 - **Bug Fixes:** Resolved RTDB path mismatches, protected the `/debug` route, removed misleading empty route directories, fixed CSV import logic, and wired the dashboard homepage.
+
 
 ---
 
@@ -359,3 +361,7 @@ The Next.js app introduced several routes **not** in the original 18-screen spec
 - Cleaned up loose files: migrated dummy data to `database/` and rewriting scripts to `client/`.
 
 - Deployed production-ready application to Vercel incorporating all NPM Workspace updates.
+
+## Update 2026-07-11
+- Fixed Tiesheet Generation Preview (Phase 3) buttons layout in `client/src/app/setup/[id]/page.tsx` by restructuring the flex container to prevent wrapping distortion.
+- Fixed drag-and-drop category timing recalculation in `client/src/app/competitions/[id]/categories/page.tsx` so that a dragged category does not improperly overwrite the target mat's anchor time with its previous start time.

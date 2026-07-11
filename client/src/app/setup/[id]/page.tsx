@@ -1291,46 +1291,50 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                   </div>
                 ) : (
                   <div className="mat-setup-card" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', padding: 'var(--space-4)' }}>
-                    <div>
+                    <div style={{ flex: '1 1 200px' }}>
                       <h4 style={{ margin: '0 0 4px 0' }}>{importResult ? importResult.categoriesTotal : categories.length} Categories Generated</h4>
                       <p className="text-small" style={{ color: 'var(--neutral-500)', margin: 0 }}>
                         {importResult ? importResult.athletesImported : 'N/A'} Athletes {importResult ? 'Imported' : ''} • Pool size: {poolSize}
                       </p>
                     </div>
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end', flex: '1 1 auto' }}>
-                      <button type="button"
-                        className="btn btn-secondary"
-                        onClick={() => setUndersizedModalOpen(true)}
-                        disabled={!importResult && categories.length === 0}
-                      >
-                        <Combine size={16} style={{ marginRight: '6px' }} />
-                        Manage Undersized Pools
-                      </button>
-                      <button type="button"
-                        className="btn btn-primary"
-                        onClick={() => { setPreviewCatId(null); setPreviewModalOpen(true); }}
-                      >
-                        <Eye size={16} style={{ marginRight: '8px' }} />
-                        Preview Tiesheets
-                      </button>
-                      <button type="button"
-                        className="btn btn-secondary"
-                        onClick={handleDownloadTiesheets}
-                        disabled={downloadingTiesheets || (!importResult && categories.length === 0)}
-                      >
-                        <Download size={16} style={{ marginRight: '6px' }} />
-                        {downloadingTiesheets ? 'Generating...' : 'Download Tiesheets'}
-                      </button>
-                      <button type="button"
-                        className="btn btn-secondary"
-                        style={{ color: 'var(--aka)', borderColor: 'var(--aka)' }}
-                        onClick={handleRegenerateTiesheets}
-                        disabled={regeneratingTiesheets || (!importResult && categories.length === 0)}
-                        title="Re-run bracket generation for all categories. Use this if tiesheets didn't load correctly."
-                      >
-                        <RefreshCw size={16} style={{ marginRight: '6px' }} />
-                        {regeneratingTiesheets ? 'Regenerating...' : 'Regenerate Tiesheets'}
-                      </button>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                        <button type="button"
+                          className="btn btn-secondary"
+                          onClick={() => setUndersizedModalOpen(true)}
+                          disabled={!importResult && categories.length === 0}
+                        >
+                          <Combine size={16} style={{ marginRight: '6px' }} />
+                          Manage Undersized Pools
+                        </button>
+                        <button type="button"
+                          className="btn btn-secondary"
+                          style={{ color: 'var(--aka)', borderColor: 'var(--aka)' }}
+                          onClick={handleRegenerateTiesheets}
+                          disabled={regeneratingTiesheets || (!importResult && categories.length === 0)}
+                          title="Re-run bracket generation for all categories. Use this if tiesheets didn't load correctly."
+                        >
+                          <RefreshCw size={16} style={{ marginRight: '6px' }} />
+                          {regeneratingTiesheets ? 'Regenerating...' : 'Regenerate Tiesheets'}
+                        </button>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                        <button type="button"
+                          className="btn btn-primary"
+                          onClick={() => { setPreviewCatId(null); setPreviewModalOpen(true); }}
+                        >
+                          <Eye size={16} style={{ marginRight: '8px' }} />
+                          Preview Tiesheets
+                        </button>
+                        <button type="button"
+                          className="btn btn-secondary"
+                          onClick={handleDownloadTiesheets}
+                          disabled={downloadingTiesheets || (!importResult && categories.length === 0)}
+                        >
+                          <Download size={16} style={{ marginRight: '6px' }} />
+                          {downloadingTiesheets ? 'Generating...' : 'Download Tiesheets'}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
