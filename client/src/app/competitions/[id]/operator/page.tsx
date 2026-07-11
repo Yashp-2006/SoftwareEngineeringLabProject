@@ -607,6 +607,46 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
     }
   };
 
+  // Kata match finished (called from KataOperatorPanel)
+  const handleKataMatchFinished = async (winner: 'aka' | 'ao', votes: { aka: number; ao: number }, kataSelectionUsed?: any) => {
+    const currentMatch = queue.find(m => m.id === activeMatchId);
+    if (!currentMatch || !activeCategoryId) {
+      toast.error('No active match to finish');
+      return;
+    }
+    setRunning(false);
+    setStatus('finished');
+    const realWinnerId = winner === 'aka' ? currentMatch?.akaId : currentMatch?.aoId;
+    const winnerName = winner === 'aka' ? aka.name : ao.name;
+    const winnerAcademy = winner === 'aka' ? aka.academy : ao.academy;
+
+    setWinnerState({ color: winner, name: winnerName, academy: winnerAcademy, points: 0 });
+    setKataWinner(winner);
+    setKataVotes(votes);
+
+    if (currentMatch) {
+      setRecentMatches(prev => [{ ...currentMatch, status: 'completed', winnerId: realWinnerId, akaScore: votes.aka, aoScore: votes.ao }, ...prev].slice(0, 3));
+      setQueue(prev => prev.filter(m => m.id !== activeMatchId));
+    }
+
+    try {
+      const res = await fetch(`/api/competitions/${id}/brackets/${activeCategoryId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ matchId: activeMatchId, winnerId: realWinnerId, selectedKata: kataSelectionUsed, kataVotes: votes }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`${winnerName} wins by ${votes.aka}–${votes.ao} judge votes!`);
+      } else {
+        toast.error('Failed to advance winner: ' + data.error);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to finish kata match.');
+    }
+  };
+
   const handleDisqualify = async (side: 'aka' | 'ao') => {
     const currentMatch = queue.find(m => m.id === activeMatchId);
     if (!currentMatch || !activeCategoryId) {
@@ -1066,7 +1106,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                 </div>
               </div>
 
-              {/* ── UNIFIED SCOREBOARD RENDERING ── */}
+              {/* ── KATA: KataOperatorPanel / KUMITE: score display ── */}
               <>
                 {isViewer ? (
                   <div id="ops-display-container" style={{ padding: '24px', background: '#fdfbfb', borderBottom: '1px solid var(--neutral-200)', display: 'flex', justifyContent: 'center' }}>
@@ -1108,6 +1148,34 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                       </ScaleWrapper>
                     </div>
                   </div>
+                ) : isKataCategory ? (
+              /* ─── KATA OPERATOR PANEL ─── */
+              <div style={{ padding: '24px' }}>
+                {activeMatchId && activeCategoryId ? (
+                  <KataOperatorPanel
+                    key={activeMatchId}
+                    competitionId={id}
+                    categoryId={activeCategoryId}
+                    matchId={activeMatchId}
+                    matId={matIdParam}
+                    akaName={aka.name}
+                    aoName={ao.name}
+                    akaAcademy={aka.academy}
+                    aoAcademy={ao.academy}
+                    akaId={aka.id}
+                    aoId={ao.id}
+                    numberOfJudges={kataJudgeCount}
+                    allowedKataNumbers={activeCategoryData?.allowedKataNumbers || []}
+                    kataFormat={activeCategoryData?.kataFormat || 'elimination'}
+                    isTeam={activeCategoryData?.isTeam}
+                    onMatchFinished={handleKataMatchFinished}
+                  />
+                ) : (
+                  <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--neutral-400)', fontWeight: 600 }}>
+                    Select a match from the queue below to begin kata scoring.
+                  </div>
+                )}
+              </div>
                 ) : (
               <div id="ops-display-container" className="ops-display">
                 <div className="ops-side aka">
@@ -1217,7 +1285,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
               </div>
               )}
 
-              {!isViewer && (
+              {!isViewer && !isKataCategory && (
               <div className="ops-controls">
                 <div className="round-ops-strip" style={{ borderBottom: '1px solid var(--neutral-200)', background: 'var(--shiro)' }}>
                   <div style={{ fontWeight: 700, fontSize: '14px', color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1295,38 +1363,10 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', padding: '24px', borderBottom: '1px solid var(--neutral-200)' }}>
                   
-                  {/* AKA Controls */}
+                  {/* AKA Controls — Kumite only (kata uses KataOperatorPanel) */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    {isKata ? (
-                      <div style={{ padding: '16px', background: 'rgba(225,29,72,0.05)', border: '1px solid rgba(225,29,72,0.2)', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        <div>
-                          <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--neutral-500)', textTransform: 'uppercase', marginBottom: '8px' }}>Selected Kata</div>
-                          <select 
-                            value={selectedKata?.aka?.name || ''} 
-                            onChange={e => {
-                              const kata = KATA_LIST.find(k => k.name === e.target.value);
-                              setSelectedKata((prev: any) => ({ ...prev, aka: kata || null }));
-                              syncRTDB({ selectedKata: { ...selectedKata, aka: kata || null } });
-                            }}
-                            style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--neutral-300)', fontWeight: 700 }}
-                          >
-                            <option value="">Select Kata...</option>
-                            {KATA_LIST.map(k => <option key={k.number} value={k.name}>{k.name}</option>)}
-                          </select>
-                        </div>
-                        <button onClick={() => {
-                          const confirmDQ = window.confirm('Are you sure you want to disqualify AKA?');
-                          if (confirmDQ) {
-                            setWinnerState({ color: 'ao', name: ao.name, academy: ao.academy, points: 0 });
-                            setStatus('finished');
-                            setRunning(false);
-                            syncRTDB({ winnerName: ao.name, winnerColor: 'ao', matchStatus: 'COMPLETED', timerRunning: false });
-                            toast.success('AKA Disqualified. AO Wins.');
-                          }
-                        }} style={{ background: 'var(--aka)', color: 'white', border: 'none', padding: '12px', borderRadius: '6px', fontWeight: 700, cursor: 'pointer' }}>Disqualify AKA</button>
-                      </div>
-                    ) : (
-                      <>
+                    {!isKataCategory && (
+                    <>
                         <div className="control-row" style={{ margin: 0 }}>
                           <button type="button" className="btn-score aka" style={{ background: 'rgba(225,29,72,0.05)', borderColor: 'rgba(225,29,72,0.2)' }} onClick={() => addPoint('aka', 1)}>+1 Yuko</button>
                           <button type="button" className="btn-score aka" style={{ background: 'rgba(225,29,72,0.05)', borderColor: 'rgba(225,29,72,0.2)' }} onClick={() => addPoint('aka', 2)}>+2 Waza</button>
@@ -1346,42 +1386,14 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                           <button type="button" className="btn-pen" style={{ color: 'var(--aka)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('aka', 'h')}>+ Penalty (H)</button>
                           <button type="button" className="btn-pen" style={{ color: 'var(--shiro)', flex: '1 1 45%', background: 'var(--aka)', borderColor: 'var(--aka)', fontWeight: 800 }} onClick={() => handleDisqualify('aka')}>Disqualify AKA</button>
                         </div>
-                      </>
+                    </>
                     )}
                   </div>
 
-                  {/* AO Controls */}
+                  {/* AO Controls — Kumite only */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    {isKata ? (
-                      <div style={{ padding: '16px', background: 'rgba(26,77,181,0.05)', border: '1px solid rgba(26,77,181,0.2)', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        <div>
-                          <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--neutral-500)', textTransform: 'uppercase', marginBottom: '8px' }}>Selected Kata</div>
-                          <select 
-                            value={selectedKata?.ao?.name || ''} 
-                            onChange={e => {
-                              const kata = KATA_LIST.find(k => k.name === e.target.value);
-                              setSelectedKata((prev: any) => ({ ...prev, ao: kata || null }));
-                              syncRTDB({ selectedKata: { ...selectedKata, ao: kata || null } });
-                            }}
-                            style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--neutral-300)', fontWeight: 700 }}
-                          >
-                            <option value="">Select Kata...</option>
-                            {KATA_LIST.map(k => <option key={k.number} value={k.name}>{k.name}</option>)}
-                          </select>
-                        </div>
-                        <button onClick={() => {
-                          const confirmDQ = window.confirm('Are you sure you want to disqualify AO?');
-                          if (confirmDQ) {
-                            setWinnerState({ color: 'aka', name: aka.name, academy: aka.academy, points: 0 });
-                            setStatus('finished');
-                            setRunning(false);
-                            syncRTDB({ winnerName: aka.name, winnerColor: 'aka', matchStatus: 'COMPLETED', timerRunning: false });
-                            toast.success('AO Disqualified. AKA Wins.');
-                          }
-                        }} style={{ background: 'var(--ao)', color: 'white', border: 'none', padding: '12px', borderRadius: '6px', fontWeight: 700, cursor: 'pointer' }}>Disqualify AO</button>
-                      </div>
-                    ) : (
-                      <>
+                    {!isKataCategory && (
+                    <>
                         <div className="control-row" style={{ margin: 0 }}>
                           <button type="button" className="btn-score ao" style={{ background: 'rgba(26,77,181,0.05)', borderColor: 'rgba(26,77,181,0.2)' }} onClick={() => addPoint('ao', 1)}>+1 Yuko</button>
                           <button type="button" className="btn-score ao" style={{ background: 'rgba(26,77,181,0.05)', borderColor: 'rgba(26,77,181,0.2)' }} onClick={() => addPoint('ao', 2)}>+2 Waza</button>
@@ -1401,7 +1413,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                           <button type="button" className="btn-pen" style={{ color: 'var(--ao)', flex: '1 1 45%', background: 'var(--shiro)' }} onClick={() => togglePenalty('ao', 'h')}>+ Penalty (H)</button>
                           <button type="button" className="btn-pen" style={{ color: 'var(--shiro)', flex: '1 1 45%', background: 'var(--aka)', borderColor: 'var(--aka)', fontWeight: 800 }} onClick={() => handleDisqualify('ao')}>Disqualify AO</button>
                         </div>
-                      </>
+                    </>
                     )}
                   </div>
                 </div>

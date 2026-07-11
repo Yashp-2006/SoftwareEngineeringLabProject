@@ -6,6 +6,8 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { Award, Loader2, ShieldAlert, LogOut, ArrowLeft, Lock } from 'lucide-react';
 import PageSkeleton from '@/components/layout/PageSkeleton';
 import { toast } from 'react-hot-toast';
+import { rtdb } from '@lib/firebase';
+import { ref, onValue, off, update } from 'firebase/database';
 
 // ─── Flag SVG Component ─────────────────────────────────────────────────────────
 const FlagIcon = ({ color, size = 120 }: { color: string; size?: number }) => (
@@ -59,13 +61,10 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
 
     let unsub: () => void;
 
-    const setup = async () => {
+    const setup = () => {
       try {
-        const { rtdb } = await import('@lib/firebase');
-        const { ref, onValue } = await import('firebase/database');
-        
         const r = ref(rtdb, `live_scores/${id}/mats/${matId}`);
-        unsub = onValue(r, (snap) => {
+        const handler = onValue(r, (snap) => {
           if (snap.exists()) {
             setLiveData(snap.val());
           } else {
@@ -74,6 +73,7 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
           setLoading(false);
           setRtdbReady(true);
         });
+        unsub = () => off(r, 'value', handler);
       } catch (err) {
         console.error('Failed to listen to live scores', err);
         setLoading(false);
@@ -110,8 +110,6 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
 
   const submitVote = async (vote: 'aka' | 'ao') => {
     try {
-      const { rtdb } = await import('@lib/firebase');
-      const { ref, update } = await import('firebase/database');
       const r = ref(rtdb, `live_scores/${id}/mats/${matId}/kataScores`);
       
       const patch: any = {};
@@ -145,8 +143,6 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
 
     // Normal voting during match
     try {
-      const { rtdb } = await import('@lib/firebase');
-      const { ref, update } = await import('firebase/database');
       const r = ref(rtdb, `live_scores/${id}/mats/${matId}/kataScores`);
       
       const patch: any = {};
@@ -324,18 +320,35 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
         ) : (
           /* ─── Always Show voting flags ─── */
           <>
-            {/* Competitor names banner */}
+            {/* Competitor names banner + kata info */}
             {(liveData?.matchId || liveData?.akaName || liveData?.aoName) && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', padding: '12px 16px', background: 'rgba(255,255,255,0.05)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'var(--aka)' }} />
-                  <span style={{ fontWeight: 800, fontSize: '15px' }}>{akaName}</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'rgba(255,255,255,0.05)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'var(--aka)' }} />
+                    <span style={{ fontWeight: 800, fontSize: '15px' }}>{akaName}</span>
+                  </div>
+                  <span style={{ fontSize: '12px', color: 'var(--neutral-500)', fontWeight: 700, letterSpacing: '0.1em' }}>VS</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontWeight: 800, fontSize: '15px' }}>{aoName}</span>
+                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'var(--ao)' }} />
+                  </div>
                 </div>
-                <span style={{ fontSize: '12px', color: 'var(--neutral-500)', fontWeight: 700, letterSpacing: '0.1em' }}>VS</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontWeight: 800, fontSize: '15px' }}>{aoName}</span>
-                  <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'var(--ao)' }} />
-                </div>
+                {/* Kata selection display */}
+                {liveData?.isKata && (liveData?.selectedKata?.aka || liveData?.selectedKata?.ao) && (
+                  <div style={{ display: 'flex', gap: '8px', padding: '10px 16px', background: 'rgba(59,130,246,0.08)', borderRadius: '10px', border: '1px solid rgba(59,130,246,0.2)', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+                    {liveData.selectedKata?.aka && (
+                      <div style={{ fontSize: '12px', fontWeight: 700, color: 'rgba(217,38,44,0.9)' }}>
+                        AKA: <span style={{ fontWeight: 800 }}>#{liveData.selectedKata.aka.number} {liveData.selectedKata.aka.name}</span>
+                      </div>
+                    )}
+                    {liveData.selectedKata?.ao && (
+                      <div style={{ fontSize: '12px', fontWeight: 700, color: 'rgba(96,165,250,1)' }}>
+                        AO: <span style={{ fontWeight: 800 }}>#{liveData.selectedKata.ao.number} {liveData.selectedKata.ao.name}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
