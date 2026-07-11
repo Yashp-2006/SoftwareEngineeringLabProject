@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, GripVertical } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { Search, Calendar } from 'lucide-react';
 
 interface CategorySchedule {
   id: string;
@@ -24,7 +23,6 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
   const [matFilter, setMatFilter] = useState("all");
   const [filterType, setFilterType] = useState("all");
   const [filterGender, setFilterGender] = useState("all");
-  const [syncing, setSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<string>("--:--");
 
   // Fetch competition metadata
@@ -38,29 +36,8 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
     fetchComp();
   }, [id]);
 
-  const fetchSchedule = async () => {
-    setSyncing(true);
-    try {
-      const res = await fetch(`/api/competitions/${id}/schedule`);
-      if (res.ok) {
-        const data = await res.json();
-        const cats = data.categories.map((c: any) => ({
-          id: c.id,
-          category: c.name,
-          mat: c.mat,
-          start: c.scheduledStartTime,
-          end: c.scheduledEndTime,
-          status: c.status
-        })) as CategorySchedule[];
-        setScheduleData(cats);
-        setLastSync(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setSyncing(false);
-    }
-  };
+  // Schedule is driven entirely by the real-time Firestore listener below.
+  // No manual fetch needed — onSnapshot keeps data live.
 
   useEffect(() => {
     let unsubscribe = () => {};
@@ -91,12 +68,6 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
     return () => unsubscribe();
   }, [id]);
 
-  const toMinutes = (value: string) => {
-    if (!value || !value.includes(":")) return Number.MAX_SAFE_INTEGER;
-    const [h, m] = value.split(":").map(Number);
-    if (Number.isNaN(h) || Number.isNaN(m)) return Number.MAX_SAFE_INTEGER;
-    return h * 60 + m;
-  };
 
   const isScheduled = (item: CategorySchedule) => Boolean(item.start && item.end);
 
@@ -106,6 +77,10 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
 
   const mats = Array.from(new Set(scheduleData.map(item => item.mat).filter(mat => mat && mat !== "—"))).sort();
 
+  // BUG FIX: Do NOT re-sort by time here. The schedule is ordered by the `order` field
+  // set during drag-and-drop in the Category Management page. Sorting by start time
+  // would override the canonical run order (e.g. when start times are equal or unset).
+  // The Firestore listener already fetches rows ordered by `order`, so we preserve that.
   const filteredData = scheduleData.filter(row => {
     const query = searchQuery.toLowerCase();
     const nameLower = row.category.toLowerCase();
@@ -131,7 +106,7 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
     }
     
     return matchesText && matchesMat && matchesType && matchesGender;
-  }).sort((a, b) => toMinutes(a.start) - toMinutes(b.start));
+  });
 
   return (
     <>
@@ -320,7 +295,7 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
                 <span style={{ fontSize: '14px', color: 'var(--neutral-700)', fontWeight: 600 }}>{compData.name}</span>
                 {compData.dates && (
                   <span style={{ fontSize: '13px', color: 'var(--neutral-500)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    📅 {compData.dates}
+                    <Calendar size={13} /> {compData.dates}
                   </span>
                 )}
                 {compData.deployedAt && (
