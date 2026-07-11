@@ -31,8 +31,10 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
   const { id } = React.use(params);
   const { role } = useAuth();
 
-  // Viewers: anyone who is not admin or mat_operator
-  const isViewer = role !== 'admin' && role !== 'mat_operator';
+  // Viewers: anyone who is not admin/guest_viewer or mat_operator
+  const isViewer = role !== 'admin' && role !== 'guest_viewer' && role !== 'mat_operator';
+  // Config/write ops: only admin or guest_viewer (not mat_operator)
+  const isAdminOrGuest = role === 'admin' || role === 'guest_viewer';
 
   const [mats, setMats] = useState<MatData[]>([]);
   const [liveStates, setLiveStates] = useState<Record<string, RTDBMatState>>({});
@@ -463,7 +465,7 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
             </div>
             <h1>{isViewer ? 'Live Mats' : 'Mat Management'}</h1>
           </div>
-          {!isViewer && (
+          {isAdminOrGuest && (
             <div className="page-header-actions">
               <div className="controls-row">
                 <button className="btn btn-secondary" onClick={() => setShowConfig(!showConfig)}>
@@ -478,7 +480,7 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
           )}
         </header>
 
-        {!isViewer && showConfig && (
+        {isAdminOrGuest && showConfig && (
           <div style={{ background: 'var(--shiro)', padding: 'var(--space-5)', borderRadius: '12px', border: '1px solid var(--neutral-200)', marginBottom: 'var(--space-5)', display: 'flex', gap: 'var(--space-6)', flexWrap: 'wrap' }}>
             <div style={{ flex: '1 1 300px' }}>
               <div className="flex-between mb-4">
@@ -547,11 +549,13 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
         ) : mats.length === 0 ? (
           <div className="empty-state">
             <h3 style={{ marginBottom: '8px' }}>No Mats Configured</h3>
-            <p style={{ color: 'var(--neutral-500)', marginBottom: '24px' }}>Click 'Add Mats' to generate the {compMatsCount} mats for this tournament.</p>
-            <button className="btn btn-primary" onClick={handleSeedMats} disabled={isSeeding}>
-              <Plus size={16} style={{ marginRight: '6px' }} />
-              {isSeeding ? 'Seeding...' : 'Add Mats'}
-            </button>
+            <p style={{ color: 'var(--neutral-500)', marginBottom: '24px' }}>{isAdminOrGuest ? `Click 'Add Mats' to generate the ${compMatsCount} mats for this tournament.` : 'Mats have not been configured yet.'}</p>
+            {isAdminOrGuest && (
+              <button className="btn btn-primary" onClick={handleSeedMats} disabled={isSeeding}>
+                <Plus size={16} style={{ marginRight: '6px' }} />
+                {isSeeding ? 'Seeding...' : 'Add Mats'}
+              </button>
+            )}
           </div>
         ) : (
           <div className="mat-grid">
@@ -563,14 +567,12 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
               const upcomingCats = assignedCats.filter(c => c.status === 'upcoming');
               const doneCats = assignedCats.filter(c => c.status === 'done');
 
-              // Viewer-friendly card: no links, no password fields
+              // Viewer-friendly card: no links to operator
               if (isViewer) {
                 return (
-                  <Link 
-                    href={`/competitions/${id}/operator?mat=${mat.id}`}
-                    key={mat.id} 
+                  <div
+                    key={mat.id}
                     className={`mat-card ${isLive || liveCat || upcomingCats.length > 0 ? 'live' : 'standby'}`}
-                    style={{ transition: 'all 0.2s' }}
                   >
                     <div className="mat-header">
                       <span className="mat-number">{mat.name}</span>
@@ -646,7 +648,7 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
                         <span>No Categories Assigned</span>
                       </div>
                     )}
-                  </Link>
+                  </div>
                 );
               }
 

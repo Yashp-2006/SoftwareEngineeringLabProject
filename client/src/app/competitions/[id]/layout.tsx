@@ -48,14 +48,14 @@ export default function CompetitionLayout({
   // Role-based visibility — requires active sign-in for staff tabs
   const isAdmin = role === 'admin';
   const isAdminOrGuest = role === 'admin' || role === 'guest_viewer';
-  const showCategories = isAdmin;
-  const showStaff = isAdmin;
-  const showAthletes = isAdmin || role === 'attendance_volunteer';
-  const showRecords = isAdmin;
-  const showMedals = isAdmin || role === 'medal_distributor';
-  const showOperator = isAdmin || role === 'mat_operator';
-  // Judge tab only visible for signed-in users with judge or admin role
-  const showJudge = !!user && (isAdmin || role === 'judge');
+  const showCategories = isAdminOrGuest;
+  const showStaff = isAdminOrGuest;
+  const showAthletes = isAdminOrGuest || role === 'attendance_volunteer';
+  const showRecords = isAdminOrGuest;
+  const showMedals = isAdminOrGuest || role === 'medal_distributor';
+  const showOperator = isAdminOrGuest || role === 'mat_operator';
+  // Judge tab only visible for signed-in users with judge or admin/guest_viewer role
+  const showJudge = !!user && (isAdminOrGuest || role === 'judge');
 
   const linkStyle = { background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' };
 

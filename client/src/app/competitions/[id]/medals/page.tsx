@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Search, Trophy, Zap } from 'lucide-react';
 import PageSkeleton from '@/components/layout/PageSkeleton';
 import SpecialCategoryModal from '@/components/SpecialCategoryModal';
+import { useAuth } from '@/components/auth/AuthProvider';
 
 interface Athlete {
   id: string;
@@ -29,6 +30,9 @@ interface Category {
 
 export default function MedalsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
+  const { role } = useAuth();
+  // medal_distributor and admin/guest_viewer can write; viewers only read
+  const canWrite = role === 'medal_distributor' || role === 'admin' || role === 'guest_viewer';
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
@@ -540,9 +544,11 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
                       onChange={e => setSearchQuery(e.target.value)}
                     />
                   </div>
-                  <button className="btn-action" onClick={() => setSpecialModalOpen(true)}>
-                    <Zap size={16} /> Create Finals Tiesheet
-                  </button>
+                  {canWrite && (
+                    <button className="btn-action" onClick={() => setSpecialModalOpen(true)}>
+                      <Zap size={16} /> Create Finals Tiesheet
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -601,20 +607,26 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
                                 </span>
                               </td>
                               <td>
-                                <div className="medal-control">
-                                  <button
-                                    className={`medal-btn received ${athlete.medalReceived === 'received' ? 'active' : ''}`}
-                                    onClick={() => updateAthleteMedalReceived(athlete.playerId || athlete.id, 'received')}
-                                  >
-                                    Received
-                                  </button>
-                                  <button
-                                    className={`medal-btn not-received ${athlete.medalReceived === 'not-received' ? 'active' : ''}`}
-                                    onClick={() => updateAthleteMedalReceived(athlete.playerId || athlete.id, 'not-received')}
-                                  >
-                                    Not Received
-                                  </button>
-                                </div>
+                                {canWrite ? (
+                                  <div className="medal-control">
+                                    <button
+                                      className={`medal-btn received ${athlete.medalReceived === 'received' ? 'active' : ''}`}
+                                      onClick={() => updateAthleteMedalReceived(athlete.playerId || athlete.id, 'received')}
+                                    >
+                                      Received
+                                    </button>
+                                    <button
+                                      className={`medal-btn not-received ${athlete.medalReceived === 'not-received' ? 'active' : ''}`}
+                                      onClick={() => updateAthleteMedalReceived(athlete.playerId || athlete.id, 'not-received')}
+                                    >
+                                      Not Received
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <span style={{ fontSize: '12px', fontWeight: 700, color: athlete.medalReceived === 'received' ? '#16a34a' : athlete.medalReceived === 'not-received' ? 'var(--aka)' : 'var(--neutral-400)' }}>
+                                    {athlete.medalReceived === 'received' ? 'Received' : athlete.medalReceived === 'not-received' ? 'Not Received' : '—'}
+                                  </span>
+                                )}
                               </td>
                             </tr>
                           ))}
