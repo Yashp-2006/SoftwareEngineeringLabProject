@@ -73,19 +73,19 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return request.auth != null && getUserRole() == 'Admin';
+      return request.auth != null && (getUserRole() == 'admin' || getUserRole() == 'Admin' || getUserRole() == 'guest_viewer' || getUserRole() == 'Guest Viewer');
     }
 
     function isMatOperator() {
-      return request.auth != null && getUserRole() == 'Mat Operator';
+      return request.auth != null && (getUserRole() == 'mat_operator' || getUserRole() == 'Mat Operator');
     }
 
     function isAttendanceVolunteer() {
-      return request.auth != null && getUserRole() == 'Attendance Volunteer';
+      return request.auth != null && (getUserRole() == 'attendance_volunteer' || getUserRole() == 'Attendance Volunteer');
     }
 
     function isMedalDistributor() {
-      return request.auth != null && getUserRole() == 'Medal Distributor';
+      return request.auth != null && (getUserRole() == 'medal_distributor' || getUserRole() == 'Medal Distributor');
     }
   }
 }
