@@ -1,12 +1,42 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
-import { Mail, MapPin, Calendar, Edit3, ExternalLink, FileText } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Mail, MapPin, Calendar, Edit3, ExternalLink, FileText, Trash2 } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { auth, db } from '@lib/firebase';
+import { deleteUser } from 'firebase/auth';
+import { doc, deleteDoc } from 'firebase/firestore';
 
 export default function ProfilePage() {
   const { user, role } = useAuth();
+  const router = useRouter();
+  const [deletingAccount, setDeletingAccount] = useState(false);
+
+  const handleDeleteAccount = async () => {
+    if (!user) return;
+    const confirmed = window.confirm(
+      'This will permanently delete your account and all associated data. This cannot be undone. Are you sure?'
+    );
+    if (!confirmed) return;
+    setDeletingAccount(true);
+    try {
+      // Delete Firestore user doc first
+      await deleteDoc(doc(db, 'users', user.uid));
+      // Delete Firebase Auth account
+      await deleteUser(user);
+      router.push('/');
+    } catch (err: any) {
+      // Firebase requires recent login for deletion
+      if (err?.code === 'auth/requires-recent-login') {
+        alert('For security, please sign out and sign back in before deleting your account.');
+      } else {
+        alert('Failed to delete account. Please try again.');
+      }
+      setDeletingAccount(false);
+    }
+  };
   
   return (
     <>
@@ -187,6 +217,21 @@ export default function ProfilePage() {
               </div>
             </div>
           </div>
+        </section>
+
+        {/* Danger Zone: Account Deletion */}
+        <section style={{ background: 'var(--shiro)', border: '1px solid color-mix(in oklch, var(--aka) 30%, var(--shiro))', borderRadius: '12px', padding: 'var(--space-5)', marginTop: 'var(--space-6)' }}>
+          <h2 style={{ fontSize: '18px', color: 'var(--aka)', marginBottom: '8px' }}>Danger Zone</h2>
+          <p style={{ fontSize: '13px', color: 'var(--neutral-600)', marginBottom: 'var(--space-4)' }}>Permanently delete your account and all personal data. This cannot be undone.</p>
+          <button
+            className="btn"
+            style={{ background: 'var(--aka)', color: '#fff', display: 'flex', alignItems: 'center', gap: '6px' }}
+            onClick={handleDeleteAccount}
+            disabled={deletingAccount}
+          >
+            <Trash2 size={16} />
+            {deletingAccount ? 'Deleting...' : 'Delete My Account'}
+          </button>
         </section>
       </main>
     </>

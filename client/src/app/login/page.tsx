@@ -22,7 +22,18 @@ export default function LoginPage() {
         await signInWithEmailAndPassword(auth, email, password);
       }
     } catch (err: any) {
-      setError(err.message || 'Authentication failed');
+      // Map Firebase error codes to safe generic messages (avoid user enumeration)
+      const code = err?.code || '';
+      const safeMessages: Record<string, string> = {
+        'auth/user-not-found':      'Invalid email or password.',
+        'auth/wrong-password':      'Invalid email or password.',
+        'auth/invalid-credential':  'Invalid email or password.',
+        'auth/email-already-in-use':'An account with this email already exists.',
+        'auth/weak-password':       'Password must be at least 6 characters.',
+        'auth/too-many-requests':   'Too many attempts. Try again later.',
+        'auth/network-request-failed': 'Network error. Check your connection.',
+      };
+      setError(safeMessages[code] || 'Authentication failed. Please try again.');
     } finally {
       setLoading(false);
     }

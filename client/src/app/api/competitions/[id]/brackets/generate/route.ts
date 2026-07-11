@@ -144,6 +144,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ success: false, error: 'Provide categoryId or specialCategoryId' }, { status: 400 });
   } catch (error: any) {
     console.error('[brackets/generate]', error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }

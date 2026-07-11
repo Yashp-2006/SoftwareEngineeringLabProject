@@ -162,8 +162,8 @@ export async function PATCH(
 
     return NextResponse.json({ success: true, nextMatchId: nextMatchId || null });
   } catch (error: any) {
-    console.error('[brackets/[catId]]', error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    console.error('[brackets/PATCH]', error);
+    return NextResponse.json({ success: false, error: 'Failed to update bracket' }, { status: 500 });
   }
 }
 
@@ -180,12 +180,15 @@ export async function GET(
     const catRef = adminDb.collection('competitions').doc(id).collection('categories').doc(catId);
     const snap = await catRef.get();
 
-    if (!snap.exists) {
-      return NextResponse.json({ success: false, error: 'Category not found' }, { status: 404 });
+    const data = snap.data() as any;
+    // Strip PII fields from athletes before returning to client
+    if (data?.athletes) {
+      data.athletes = data.athletes.map(({ phone: _p, email: _e, ...safe }: any) => safe);
     }
 
-    return NextResponse.json({ success: true, data: { id: snap.id, ...snap.data() } });
+    return NextResponse.json({ success: true, data: { id: snap.id, ...data } });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    console.error('[brackets/GET]', error);
+    return NextResponse.json({ success: false, error: 'Failed to fetch category' }, { status: 500 });
   }
 }
