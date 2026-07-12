@@ -59,6 +59,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
   const [isSaving, setIsSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [confirmState, setConfirmState] = useState<{
     isOpen: boolean; title: string; message: string; isDestructive: boolean; onConfirm: () => void;
   }>({ isOpen: false, title: '', message: '', isDestructive: false, onConfirm: () => {} });
@@ -107,6 +108,8 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
       if (!res.ok) {
         const err = await res.json();
         console.error('API Gateway Error:', err);
+      } else {
+        setLastSaved(new Date());
       }
     } catch (err) {
       console.error('Error saving draft via API Gateway:', err);
@@ -128,7 +131,11 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
       saveDraft(activePhase);
     }, 1500);
     return () => clearTimeout(timer);
-  }, [compName, matsCount, poolSize, compRules, compType, wkfMode, categories, importResult, activePhase, highestPhase, isDataLoaded]);
+  }, [
+    compName, matsCount, poolSize, compRules, compType, 
+    bronzeRule, wkfMode, wkfKataJudgeCount, categories, 
+    importResult, scoreboardLogo, activePhase, highestPhase, isDataLoaded
+  ]);
 
   const handleWkfModeChange = async (mode: string) => {
     setWkfMode(mode);
@@ -726,9 +733,14 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
             <div className="breadcrumb">{compName} / Setup</div>
             <h1>Tournament Setup Wizard</h1>
           </div>
-          <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+          <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
+            {lastSaved && (
+              <span className="text-micro" style={{ color: 'var(--neutral-500)' }}>
+                {isSaving ? 'Saving...' : `Last saved at ${lastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+              </span>
+            )}
             <button type="button" className="btn btn-secondary" onClick={() => saveDraft(activePhase)} disabled={isSaving}>
-              <Save size={16} /> {isSaving ? 'Saving...' : 'Save Draft'}
+              <Save size={16} /> Save Draft
             </button>
             <button type="button" className="btn btn-primary" onClick={handleDeploy} disabled={!importResult}>
               <CheckCircle size={16} /> Finalize Setup
