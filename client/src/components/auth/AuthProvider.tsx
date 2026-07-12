@@ -87,7 +87,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!loading) {
       if (!user) {
         const isStrictAdminRoute = pathname === '/' || pathname.startsWith('/setup') || pathname.startsWith('/users') || pathname.startsWith('/profile');
-        const isProtectedCompetitionRoute = pathname.includes('/staff') || pathname.includes('/medals') || pathname.includes('/judge') || pathname.includes('/operator') || pathname.includes('/athletes') || pathname.includes('/records') || pathname.includes('/categories');
+        // /operator is intentionally excluded — PasswordGateway handles its own auth for unauthenticated viewers
+        const isProtectedCompetitionRoute = pathname.includes('/staff') || pathname.includes('/medals') || pathname.includes('/judge') || pathname.includes('/athletes') || pathname.includes('/records') || pathname.includes('/categories');
         
         if (isStrictAdminRoute || isProtectedCompetitionRoute) {
           if (pathname === '/') {
@@ -114,7 +115,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         // Restrict Specific Portals
-        if (pathname.includes('/operator') && role !== 'mat_operator' && !isAdminOrGuest) {
+        // audience role can access /operator in viewer mode (PasswordGateway + isViewer flag handle it)
+        if (pathname.includes('/operator') && role !== 'mat_operator' && role !== 'audience' && !isAdminOrGuest) {
           router.push('/competitions');
         }
         if (pathname.includes('/judge') && role !== 'judge' && !isAdminOrGuest) {

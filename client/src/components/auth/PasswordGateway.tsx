@@ -5,7 +5,6 @@ import { Lock, Eye, EyeOff } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@lib/firebase';
 import { useSearchParams, useParams } from 'next/navigation';
-import { useAuth } from '@/components/auth/AuthProvider';
 
 export default function PasswordGateway({ children }: { children: React.ReactNode }) {
   const { id } = useParams() as { id: string };
