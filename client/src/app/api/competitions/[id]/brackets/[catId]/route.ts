@@ -23,14 +23,14 @@ export async function PATCH(
     }
     const { id, catId } = await params;
     const body = await req.json();
-    const { matchId, winnerId, byeFor, selectedKata } = body;
+    const { matchId, winnerId, byeFor, selectedKata, action } = body;
     // byeFor = 'aka' | 'ao' — means that side won by BYE (opponent disqualified/absent)
 
     if (!matchId) {
       return NextResponse.json({ success: false, error: 'matchId is required' }, { status: 400 });
     }
 
-    if (!winnerId && !selectedKata) {
+    if (action !== 'revert' && !winnerId && !selectedKata) {
       return NextResponse.json({ success: false, error: 'winnerId or selectedKata is required' }, { status: 400 });
     }
 
@@ -55,6 +55,51 @@ export async function PATCH(
     }
 
     const currentMatch = matches[currentIdx];
+
+    // Handle revert action
+    if (action === 'revert') {
+      if (!currentMatch.winnerId && currentMatch.status !== 'completed') {
+        return NextResponse.json({ success: false, error: 'Match is not completed' }, { status: 400 });
+      }
+
+      // Check next match to see if the winner has already played
+      const nextMatchId = currentMatch.nextMatchId;
+      if (nextMatchId) {
+        const nextIdx = matches.findIndex((m: any) => m.id === nextMatchId);
+        if (nextIdx !== -1) {
+          const nextMatch = matches[nextIdx];
+          if (nextMatch.status === 'completed' || nextMatch.winnerId) {
+            return NextResponse.json({ 
+              success: false, 
+              error: 'Cannot revert this match because the winner has already completed the next round. Please revert the next round\'s match first.' 
+            }, { status: 400 });
+          }
+          // Clear the slot in the next match
+          if (nextMatch.akaFromMatchId === matchId) {
+            matches[nextIdx] = { ...nextMatch, aka: null };
+          } else if (nextMatch.aoFromMatchId === matchId) {
+            matches[nextIdx] = { ...nextMatch, ao: null };
+          }
+        }
+      }
+
+      // Reset the current match
+      matches[currentIdx] = {
+        ...currentMatch,
+        winnerId: null,
+        status: 'upcoming',
+        byeFor: null,
+        selectedKata: null,
+        akaKata: null,
+        aoKata: null,
+      };
+
+      await catRef.update({
+        matches,
+        updatedAt: new Date().toISOString(),
+      });
+      return NextResponse.json({ success: true });
+    }
 
     // Resolve winner data from the match
     let winnerData = currentMatch.aka?.playerId === winnerId

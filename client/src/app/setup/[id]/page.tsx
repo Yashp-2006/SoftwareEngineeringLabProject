@@ -351,6 +351,39 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
     reader.readAsText(file);
   };
 
+  const handleLoadWkfCategories = async () => {
+    try {
+      const { generateWkfCategories } = await import('@taikaix/backend/lib/wkf-categories');
+      const wkfCats = generateWkfCategories('standard');
+      const newCats = wkfCats.map(name => {
+        const isKata = name.toLowerCase().includes('kata');
+        let gender = 'Any';
+        if (name.includes('Male') && !name.includes('Female')) gender = 'Male';
+        if (name.includes('Female') && !name.includes('Male')) gender = 'Female';
+        let discipline = isKata ? 'Kata' : 'Kumite';
+        return {
+          id: Math.random().toString(36).substring(2, 9),
+          name,
+          entries: 0,
+          athletes: [],
+          isKata,
+          gender,
+          discipline,
+          judgeCount: isKata ? 3 : undefined
+        };
+      });
+      setCategories(prev => {
+        const existingNames = new Set(prev.map(c => c.name));
+        const filteredNewCats = newCats.filter(c => !existingNames.has(c.name));
+        return [...prev, ...filteredNewCats];
+      });
+      toast.success(`Loaded WKF Categories`);
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to load WKF categories');
+    }
+  };
+
   const maxPhase = compRules === 'wkf' ? 5 : 6;
 
   const handleNext = () => {
@@ -1018,6 +1051,9 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                           </button>
                           <button type="button" className="btn btn-ghost" onClick={() => document.getElementById('preset-upload')?.click()}>
                             <UploadCloud size={16} /> Import Preset
+                          </button>
+                          <button type="button" className="btn btn-ghost" onClick={handleLoadWkfCategories} style={{ color: 'var(--ao)', borderColor: 'var(--ao)' }}>
+                            <RefreshCw size={16} /> Load WKF Rules Categories
                           </button>
                           <input type="file" id="preset-upload" style={{ display: 'none' }} accept=".json" onChange={handleImportPreset} />
                           <button type="button" className="btn btn-ghost" onClick={() => setModalType('merge')}>

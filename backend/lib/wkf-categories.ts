@@ -66,7 +66,22 @@ export const WKF_CATEGORIES = [
   "U8 (6-7) Male / Female -20 kg",
   "U8 (6-7) Male / Female -25 kg",
   "U8 (6-7) Male / Female +25 kg",
-  "Toddler / Preschool (3-5) Mixed Gender Kata Only"
+  "Toddler / Preschool (3-5) Mixed Gender Kata Only",
+  "Senior (18+) Male Kata",
+  "Senior (18+) Female Kata",
+  "Under 21 (18-20) Male Kata",
+  "Under 21 (18-20) Female Kata",
+  "Junior / U18 (16-17) Male Kata",
+  "Junior / U18 (16-17) Female Kata",
+  "Cadet / U16 (14-15) Male Kata",
+  "Cadet / U16 (14-15) Female Kata",
+  "U14 (12-13) Male Kata",
+  "U14 (12-13) Female Kata",
+  "U12 (10-11) Male Kata",
+  "U12 (10-11) Female Kata",
+  "U10 (8-9) Male Kata",
+  "U10 (8-9) Female Kata",
+  "U8 (6-7) Male / Female Kata"
 ];
 
 export function generateWkfCategories(mode: string = 'standard'): string[] {

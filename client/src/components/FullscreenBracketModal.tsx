@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { X, Search, ZoomIn, ZoomOut, Maximize, Target, LayoutTemplate, Swords, CheckCircle2, ArrowRight, Check, MinusCircle, PlusCircle } from 'lucide-react';
+import { X, Search, ZoomIn, ZoomOut, Maximize, Target, LayoutTemplate, Swords, CheckCircle2, ArrowRight, Check, MinusCircle, PlusCircle, RotateCcw } from 'lucide-react';
 
 const METRICS = ['S', 'Y', 'W', 'I', 'C1', 'C2', 'C3', 'HC', 'H'];
 
@@ -25,6 +25,9 @@ const BracketNode = ({
   onPromote,
   isKata = false,
   isAdmin = false,
+  isEditMode = false,
+  onSwapDrop,
+  onRevertMatch,
 }: {
   match: any;
   mats: string[];
@@ -32,6 +35,9 @@ const BracketNode = ({
   onPromote?: (matchId: string, winnerId: string, nextMatchId: string | null, byeFor?: 'aka' | 'ao') => void;
   isKata?: boolean;
   isAdmin?: boolean;
+  isEditMode?: boolean;
+  onSwapDrop?: (sourceMatchId: string, sourceSide: 'aka' | 'ao', targetMatchId: string, targetSide: 'aka' | 'ao') => void;
+  onRevertMatch?: (matchId: string) => void;
 }) => {
   const [showPromoteMenu, setShowPromoteMenu] = useState(false);
   const isLive = match.status === 'live';
@@ -47,6 +53,26 @@ const BracketNode = ({
   const onlyAka = hasAka && !hasAo;
   const onlyAo = !hasAka && hasAo;
 
+  const handleDragStart = (e: React.DragEvent, side: 'aka' | 'ao') => {
+    e.dataTransfer.setData('text/plain', JSON.stringify({ matchId: match.id, side }));
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDrop = (e: React.DragEvent, side: 'aka' | 'ao') => {
+    e.preventDefault();
+    try {
+      const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+      if (data.matchId && data.side && onSwapDrop) {
+        onSwapDrop(data.matchId, data.side, match.id, side);
+      }
+    } catch (err) {}
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
   const handlePromoteClick = () => {
     if (!onPromote) return;
     // If match already has a computed winner (from scoreboard), promote directly
@@ -61,6 +87,9 @@ const BracketNode = ({
     setShowPromoteMenu(v => !v);
   };
 
+  const isAkaDraggable = isEditMode && !match.akaFromMatchId;
+  const isAoDraggable = isEditMode && !match.aoFromMatchId;
+
   return (
     <div className={`bracket-node${isLive ? ' live' : ''}${isCompleted ? ' completed' : ''}${isPending ? ' pending' : ''}${isHighlighted ? ' is-highlighted' : ''}`}>
       {isLive && (
@@ -71,7 +100,14 @@ const BracketNode = ({
       )}
 
       {/* AKA Row */}
-      <div className={`competitor-row aka${isCompleted && match.winnerId && match.winnerId !== akaId ? ' loser' : ''}${isCompleted && match.winnerId && match.winnerId === akaId ? ' winner' : ''}`}>
+      <div 
+        className={`competitor-row aka${isCompleted && match.winnerId && match.winnerId !== akaId ? ' loser' : ''}${isCompleted && match.winnerId && match.winnerId === akaId ? ' winner' : ''}${isAkaDraggable ? ' draggable' : ''}`}
+        draggable={isAkaDraggable}
+        onDragStart={(e) => isAkaDraggable && handleDragStart(e, 'aka')}
+        onDrop={(e) => isAkaDraggable && handleDrop(e, 'aka')}
+        onDragOver={(e) => isAkaDraggable && handleDragOver(e)}
+        style={isAkaDraggable ? { cursor: 'grab' } : {}}
+      >
         <div className="comp-info">
           <div className="comp-name">
             {match.aka ? (match.aka.name || '').toUpperCase() : (
@@ -118,7 +154,14 @@ const BracketNode = ({
       </div>
 
       {/* AO Row */}
-      <div className={`competitor-row ao${isCompleted && match.winnerId && match.winnerId !== aoId ? ' loser' : ''}${isCompleted && match.winnerId && match.winnerId === aoId ? ' winner' : ''}`}>
+      <div 
+        className={`competitor-row ao${isCompleted && match.winnerId && match.winnerId !== aoId ? ' loser' : ''}${isCompleted && match.winnerId && match.winnerId === aoId ? ' winner' : ''}${isAoDraggable ? ' draggable' : ''}`}
+        draggable={isAoDraggable}
+        onDragStart={(e) => isAoDraggable && handleDragStart(e, 'ao')}
+        onDrop={(e) => isAoDraggable && handleDrop(e, 'ao')}
+        onDragOver={(e) => isAoDraggable && handleDragOver(e)}
+        style={isAoDraggable ? { cursor: 'grab' } : {}}
+      >
         <div className="comp-info">
           <div className="comp-name">
             {match.ao ? (match.ao.name || '').toUpperCase() : (
@@ -172,11 +215,32 @@ const BracketNode = ({
           </div>
         ) : (
           <>
-            <div className="text-micro" style={{ flex: 1, color: 'var(--neutral-400)', fontWeight: 700, letterSpacing: '0.1em' }}>
+            <div className="text-micro" style={{ flex: 1, color: 'var(--neutral-400)', fontWeight: 700, letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: '8px' }}>
               {isCompleted ? (
-                <span style={{ color: 'var(--status-live)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <Check size={11} /> COMPLETED {match.byeFor ? `(${match.byeFor.toUpperCase()} BYE)` : ''}
-                </span>
+                <>
+                  <span style={{ color: 'var(--status-live)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <Check size={11} /> COMPLETED {match.byeFor ? `(${match.byeFor.toUpperCase()} BYE)` : ''}
+                  </span>
+                  {isAdmin && onRevertMatch && (
+                    <button 
+                      type="button"
+                      title="Revert Match"
+                      onClick={() => {
+                        if (confirm('Are you sure you want to revert this match? This will clear the winner and reset it to upcoming.')) {
+                          onRevertMatch(match.id);
+                        }
+                      }}
+                      style={{ 
+                        background: 'transparent', border: 'none', padding: '2px', cursor: 'pointer', 
+                        color: 'var(--neutral-400)', display: 'flex', alignItems: 'center', borderRadius: '4px' 
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.color = 'var(--status-live)'; e.currentTarget.style.background = 'var(--status-live-bg)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.color = 'var(--neutral-400)'; e.currentTarget.style.background = 'transparent'; }}
+                    >
+                      <RotateCcw size={12} />
+                    </button>
+                  )}
+                </>
               ) : `MATCH ${match.matchNumber}`}
             </div>
             {isAdmin && onPromote && !isCompleted && (
@@ -270,6 +334,9 @@ export function BracketViewer({
   allCategories,
   onNavigateToMatch,
   onPromote,
+  isEditMode = false,
+  onSwapDrop,
+  onRevertMatch,
 }: {
   matches: any[];
   categoryName?: string;
@@ -280,6 +347,9 @@ export function BracketViewer({
   allCategories?: any[];
   onNavigateToMatch?: (categoryId: string, matchId: string) => void;
   onPromote?: (matchId: string, winnerId: string, nextMatchId: string | null, byeFor?: 'aka' | 'ao') => void;
+  isEditMode?: boolean;
+  onSwapDrop?: (sourceMatchId: string, sourceSide: 'aka' | 'ao', targetMatchId: string, targetSide: 'aka' | 'ao') => void;
+  onRevertMatch?: (matchId: string) => void;
 }) {
   const { role } = useAuth();
   const isAdmin = role === 'admin';
@@ -593,7 +663,17 @@ export function BracketViewer({
               <div key={rIdx} className="bracket-round">
                 {roundMatches.map((m: any) => (
                   <div key={m.id} className="match-wrapper" ref={(el) => { if (el) (el as any).__matchId = m.id; }}>
-                    <BracketNode match={m} mats={mats} onPromote={onPromote} isHighlighted={m.id === activeHighlight} isKata={isKata} isAdmin={isAdmin} />
+                    <BracketNode 
+                      match={m} 
+                      mats={mats} 
+                      onPromote={onPromote} 
+                      isHighlighted={m.id === activeHighlight} 
+                      isKata={isKata} 
+                      isAdmin={isAdmin} 
+                      isEditMode={isEditMode}
+                      onSwapDrop={onSwapDrop}
+                      onRevertMatch={onRevertMatch}
+                    />
                   </div>
                 ))}
               </div>
@@ -615,6 +695,7 @@ export default function FullscreenBracketModal({
   onPromote,
   onAssignMat,
   isAdmin = false,
+  onSwapDrop,
 }: {
   categories: Array<{ id: string; name: string; matches: any[]; isKata?: boolean; athletes?: any[]; status?: string; mat?: string }>;
   initialCategoryId?: string;
@@ -625,6 +706,8 @@ export default function FullscreenBracketModal({
   onPromote?: (matchId: string, winnerId: string, nextMatchId: string | null, byeFor?: 'aka' | 'ao') => void;
   onAssignMat?: (categoryId: string, mat: string) => void;
   isAdmin?: boolean;
+  onSwapDrop?: (categoryId: string, sourceMatchId: string, sourceSide: 'aka' | 'ao', targetMatchId: string, targetSide: 'aka' | 'ao') => void;
+  onRevertMatch?: (categoryId: string, matchId: string) => void;
 }) {
   const activeCatIdState = initialCategoryId || (categories[0]?.id ?? null);
   const [activeCatId, setActiveCatId] = useState(activeCatIdState);
@@ -635,6 +718,7 @@ export default function FullscreenBracketModal({
 
   const [modalHighlight, setModalHighlight] = useState<string | null>(highlightMatchId || null);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
 
   const [sbFilterDiscipline, setSbFilterDiscipline] = useState<'all'|'kata'|'kumite'>('all');
   const [sbFilterGender, setSbFilterGender] = useState<'all'|'male'|'female'>('all');
@@ -994,6 +1078,21 @@ export default function FullscreenBracketModal({
                 {mats.map(m => <option key={m} value={m}>{m}</option>)}
               </select>
             )}
+            {isAdmin && (
+              <button 
+                type="button" 
+                onClick={() => setIsEditMode(!isEditMode)}
+                style={{
+                  fontSize: '12px', padding: '6px 12px', borderRadius: '8px',
+                  border: isEditMode ? '1px solid var(--aka)' : '1px solid var(--neutral-300)', 
+                  background: isEditMode ? 'var(--aka-light)' : 'var(--shiro)',
+                  color: isEditMode ? 'var(--aka)' : 'var(--neutral-700)',
+                  fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
+                }}
+              >
+                {isEditMode ? 'Exit Edit Mode' : 'Edit Mode'}
+              </button>
+            )}
           </div>
           <button type="button" className="fsb-close" onClick={onClose} title="Close (Esc)">
             <X size={18} />
@@ -1100,6 +1199,17 @@ export default function FullscreenBracketModal({
                   setModalHighlight(matchId);
                 }}
                 onPromote={onPromote}
+                isEditMode={isEditMode}
+                onSwapDrop={(srcMatchId, srcSide, tgtMatchId, tgtSide) => {
+                  if (onSwapDrop && activeCategory) {
+                    onSwapDrop(activeCategory.id, srcMatchId, srcSide, tgtMatchId, tgtSide);
+                  }
+                }}
+                onRevertMatch={(matchId) => {
+                  if (onRevertMatch && activeCategory) {
+                    onRevertMatch(activeCategory.id, matchId);
+                  }
+                }}
               />
             ) : (
               <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--neutral-400)' }}>

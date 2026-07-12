@@ -126,7 +126,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
       // Note: If poolSize was 8 and we add a 9th player, `generateBracket` with poolSize=8 
       // will automatically use the `buildMultiPool` logic!
-      const regeneratedMatches = generateBracket(newAthletesList, 'international', poolSize);
+      const regeneratedMatches = generateBracket(newAthletesList, 'international', poolSize, { useRoundRobin: category.useRoundRobin });
       
       updatedMatches = regeneratedMatches.map(m => ({
         id: m.id,

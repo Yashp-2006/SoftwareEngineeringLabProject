@@ -21,7 +21,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
     const { id } = await params;
     const body = await req.json();
-    const { categoryId, specialCategoryId, poolSize: rawPoolSize, compType = 'international' } = body;
+    const { categoryId, specialCategoryId, poolSize: rawPoolSize, compType = 'international', useRoundRobin } = body;
     const poolSize = ([4, 8, 16, 32].includes(rawPoolSize) ? rawPoolSize : 8) as PoolSize;
 
     const competitionRef = adminDb.collection('competitions').doc(id);
@@ -41,7 +41,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         return NextResponse.json({ success: false, error: 'Category has no athletes' }, { status: 400 });
       }
 
-      const matches = generateBracket(athletes, compType, poolSize);
+      const matches = generateBracket(athletes, compType, poolSize, { useRoundRobin: catData.useRoundRobin || useRoundRobin });
 
       await categoriesRef.doc(categoryId).update({
         matches: matches.map(m => ({
@@ -106,7 +106,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         }, { status: 400 });
       }
 
-      const matches = generateBracket(eligibleAthletes, compType, poolSize);
+      const matches = generateBracket(eligibleAthletes, compType, poolSize, { useRoundRobin: specialCatData.useRoundRobin || useRoundRobin });
 
       await categoriesRef.doc(specialCategoryId).update({
         athletes: eligibleAthletes.map(a => ({

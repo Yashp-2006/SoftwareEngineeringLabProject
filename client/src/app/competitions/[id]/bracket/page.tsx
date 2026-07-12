@@ -152,6 +152,44 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
     }
   };
 
+  const handleSwapAthletes = async (categoryId: string, sourceMatchId: string, sourceSide: 'aka' | 'ao', targetMatchId: string, targetSide: 'aka' | 'ao') => {
+    try {
+      const res = await fetch(`/api/competitions/${id}/brackets/${categoryId}/swap`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sourceMatchId, sourceSide, targetMatchId, targetSide }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Athletes swapped successfully!');
+      } else {
+        toast.error('Failed to swap athletes: ' + data.error);
+      }
+    } catch (err) {
+      console.error('Error swapping athletes:', err);
+      toast.error('Failed to swap athletes. Please try again.');
+    }
+  };
+
+  const handleRevertMatch = async (categoryId: string, matchId: string) => {
+    try {
+      const res = await fetch(`/api/competitions/${id}/brackets/${categoryId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ matchId, action: 'revert' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Match reverted successfully!');
+      } else {
+        toast.error('Failed to revert match: ' + data.error);
+      }
+    } catch (err) {
+      console.error('Error reverting match:', err);
+      toast.error('Failed to revert match. Please try again.');
+    }
+  };
+
   const handleDownloadTiesheets = async () => {
     if (downloadingTiesheets || categories.length === 0) return;
     setDownloadingTiesheets(true);
@@ -569,6 +607,8 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
           }}
           onPromote={(role === 'admin' || role === 'guest_viewer') ? handlePromote : undefined}
           onAssignMat={(role === 'admin' || role === 'guest_viewer') ? handleAssignMat : undefined}
+          onSwapDrop={role === 'admin' ? handleSwapAthletes : undefined}
+          onRevertMatch={role === 'admin' ? handleRevertMatch : undefined}
         />
       )}
 

@@ -622,7 +622,8 @@ export function separateAthletes(
 export function generateBracket(
   athletes: AthleteRow[],
   compType: string = 'international',
-  poolSize: PoolSize = 8
+  poolSize: PoolSize = 8,
+  options?: { useRoundRobin?: boolean }
 ): MatchNode[] {
   if (athletes.length === 0) return [];
 
@@ -646,18 +647,26 @@ export function generateBracket(
     }];
   }
 
-  // Round Robin for 3–5 athletes
-  if (athletes.length >= 3 && athletes.length <= 5) {
+  // Round Robin for exactly 3 athletes ONLY if explicitly allowed
+  if (athletes.length === 3 && options?.useRoundRobin) {
     return buildRoundRobin(athletes, compType);
   }
 
-  // For 6+ athletes — single elimination with pool-size padding
-  // If athlete count exceeds poolSize, split into multiple pools
+  // If we have more athletes than poolSize, we split into labeled pools (e.g. Pool 1, Pool 2)
   if (athletes.length > poolSize) {
-    return buildMultiPool(athletes, compType, poolSize);
+    return buildMultiPool(athletes, compType, poolSize, options);
   }
 
-  return buildSingleElimination(athletes, compType, poolSize);
+  // Determine the next power of 2 for single elimination
+  let targetPoolSize = poolSize;
+  while (targetPoolSize < athletes.length) {
+    targetPoolSize *= 2;
+  }
+
+  // We no longer build multi-pools automatically just because it exceeds the requested poolSize.
+  // Instead, we just pad to the target power of 2 to keep everyone in a single elimination bracket.
+  // We explicitly use targetPoolSize to prevent multi-pool fragmentation.
+  return buildSingleElimination(athletes, compType, targetPoolSize as PoolSize);
 }
 
 function buildRoundRobin(athletes: AthleteRow[], compType: string): MatchNode[] {
@@ -788,7 +797,7 @@ export function buildSingleElimination(athletes: AthleteRow[], compType: string,
  * Pools are filled SEQUENTIALLY — Pool 1 is filled to capacity first,
  * then Pool 2 gets the remainder. This avoids thin pools with many ghost slots.
  */
-function buildMultiPool(athletes: AthleteRow[], compType: string, poolSize: PoolSize): MatchNode[] {
+function buildMultiPool(athletes: AthleteRow[], compType: string, poolSize: PoolSize, options?: { useRoundRobin?: boolean }): MatchNode[] {
   const allMatches: MatchNode[] = [];
 
   // ── Step 1: Sort by region so teammates end up adjacent ──────────────────
@@ -857,7 +866,7 @@ function buildMultiPool(athletes: AthleteRow[], compType: string, poolSize: Pool
         status: 'upcoming',
         mat: null,
       }];
-    } else if (pool.length <= 5) {
+    } else if (pool.length <= 5 && options?.useRoundRobin) {
       poolMatches = buildRoundRobin(pool, compType);
     } else {
       poolMatches = buildSingleElimination(pool, compType, poolSize);

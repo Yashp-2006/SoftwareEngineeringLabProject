@@ -23,6 +23,7 @@ export default function SpecialCategoryModal({
   const [newName, setNewName] = useState('');
   const [newMedals, setNewMedals] = useState<string[]>(['Gold']);
   const [newSourceCategoryIds, setNewSourceCategoryIds] = useState<string[]>([]);
+  const [useRoundRobin, setUseRoundRobin] = useState(false);
   const [creatingNew, setCreatingNew] = useState(false);
 
   const handleCreateAndGenerate = async () => {
@@ -39,6 +40,7 @@ export default function SpecialCategoryModal({
         matches: [],
         order: 9999,
         createdAt: new Date().toISOString(),
+        useRoundRobin,
       };
       if (newSourceCategoryIds.length > 0) {
         catData.sourceCategoryIds = newSourceCategoryIds;
@@ -62,7 +64,7 @@ export default function SpecialCategoryModal({
       const res = await fetch(`/api/competitions/${competitionId}/brackets/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ specialCategoryId: newCatRef.id, poolSize }),
+        body: JSON.stringify({ specialCategoryId: newCatRef.id, poolSize, useRoundRobin }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
@@ -142,6 +144,19 @@ export default function SpecialCategoryModal({
               </div>
               <p style={{ fontSize: '11px', color: '#6b7280', margin: '6px 0 0 0' }}>
                 Athletes who won the selected medals per pool will be seeded into this category.
+              </p>
+            </div>
+            <div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+                <input 
+                  type="checkbox" 
+                  checked={useRoundRobin} 
+                  onChange={(e) => setUseRoundRobin(e.target.checked)} 
+                />
+                Allow Round Robin (for 3-5 athletes)
+              </label>
+              <p style={{ fontSize: '11px', color: '#6b7280', margin: '4px 0 0 24px' }}>
+                If unchecked, small pools will use Single Elimination (with BYEs).
               </p>
             </div>
             <div>
