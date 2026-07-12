@@ -374,4 +374,6 @@ The Next.js app introduced several routes **not** in the original 18-screen spec
 - Automated Kata selection confirmation in `KataOperatorPanel.tsx` by removing the manual "Confirm Selections" button and automatically patching Firestore/RTDB and transitioning immediately upon selecting both athlete Katas.
 - Unified Kata operator view to display selection dropdowns and scoring/fouls/DQ panels in the same place simultaneously by initializing `boutStarted` to `true` on mount.
 - Added real-time database synchronization for the Kata rest timer, enabling the rest timer overlay to sync and display on the live TV scoreboard.
+- Implemented multi-parameter filtering dropdown (Gender, Age Group, State / District) and client-side high-speed pagination (10 items per page) on the Player Records page (`/competitions/[id]/records`) to support production-level scaling.
+
 

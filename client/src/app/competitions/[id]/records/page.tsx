@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, Edit } from 'lucide-react';
+import { Search, Edit, Filter } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/components/auth/AuthProvider';
 import PageSkeleton from '@/components/layout/PageSkeleton';
@@ -31,6 +31,13 @@ export default function PlayerRecordsPage({ params }: { params: Promise<{ id: st
   
   const [editingRecord, setEditingRecord] = useState<AthleteRecord | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Filter & Pagination States
+  const [filterGender, setFilterGender] = useState<string>('all');
+  const [filterAgeRange, setFilterAgeRange] = useState<string>('all');
+  const [filterState, setFilterState] = useState<string>('all');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     let unsubscribe: () => void = () => {};
@@ -76,11 +83,63 @@ export default function PlayerRecordsPage({ params }: { params: Promise<{ id: st
     return () => unsubscribe();
   }, [id]);
 
+  const uniqueStates = Array.from(new Set(records.map(r => r.state).filter(Boolean))).sort();
+
   const filteredRecords = records.filter(r => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return r.name.toLowerCase().includes(q) || r.academy.toLowerCase().includes(q) || r.categoryName.toLowerCase().includes(q);
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      const matchesSearch = r.name.toLowerCase().includes(q) || r.academy.toLowerCase().includes(q) || r.categoryName.toLowerCase().includes(q);
+      if (!matchesSearch) return false;
+    }
+
+    if (filterGender !== 'all') {
+      if (r.gender.toLowerCase() !== filterGender.toLowerCase()) return false;
+    }
+
+    if (filterAgeRange !== 'all') {
+      const age = r.age;
+      if (filterAgeRange === 'u12' && age >= 12) return false;
+      if (filterAgeRange === '12-14' && (age < 12 || age > 14)) return false;
+      if (filterAgeRange === '15-17' && (age < 15 || age > 17)) return false;
+      if (filterAgeRange === '18+' && age < 18) return false;
+    }
+
+    if (filterState !== 'all') {
+      if (r.state.toLowerCase() !== filterState.toLowerCase()) return false;
+    }
+
+    return true;
   });
+
+  const totalPages = Math.ceil(filteredRecords.length / 10);
+  const paginatedRecords = filteredRecords.slice((currentPage - 1) * 10, currentPage * 10);
+
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    const maxVisible = 5;
+
+    if (totalPages <= maxVisible) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+
+      let start = Math.max(2, currentPage - 1);
+      let end = Math.min(totalPages - 1, currentPage + 1);
+
+      if (currentPage <= 2) {
+        end = 3;
+      } else if (currentPage >= totalPages - 1) {
+        start = totalPages - 2;
+      }
+
+      if (start > 2) pages.push('...');
+      for (let i = start; i <= end; i++) pages.push(i);
+      if (end < totalPages - 1) pages.push('...');
+
+      pages.push(totalPages);
+    }
+    return pages;
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -223,6 +282,124 @@ export default function PlayerRecordsPage({ params }: { params: Promise<{ id: st
         .form-group { margin-bottom: 16px; }
         .form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
         .form-input { width: 100%; padding: 10px; border: 1px solid var(--neutral-300); border-radius: 6px; }
+
+        /* Filter Button & Dropdown */
+        .filter-btn {
+          height: 38px;
+          padding: 0 16px;
+          background: var(--shiro);
+          border: 1.5px solid var(--neutral-300);
+          border-radius: 8px;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--neutral-700);
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .filter-btn:hover {
+          background: var(--neutral-50);
+          border-color: var(--neutral-400);
+        }
+        .filter-btn.active {
+          border-color: var(--ao);
+          color: var(--ao);
+          background: rgba(26, 77, 181, 0.05);
+        }
+        .filter-dropdown {
+          position: absolute;
+          top: 46px;
+          right: 0;
+          background: var(--shiro);
+          border: 1px solid var(--neutral-300);
+          border-radius: 10px;
+          box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+          padding: 16px;
+          width: 280px;
+          z-index: 100;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          animation: filter-slide-down 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes filter-slide-down {
+          from { opacity: 0; transform: translateY(-8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .filter-group {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+        .filter-group label {
+          font-size: 11px;
+          font-weight: 700;
+          text-transform: uppercase;
+          color: var(--neutral-500);
+          letter-spacing: 0.05em;
+        }
+        .filter-select {
+          height: 34px;
+          padding: 0 8px;
+          border: 1px solid var(--neutral-300);
+          border-radius: 6px;
+          font-size: 13px;
+          background: var(--shiro);
+          outline: none;
+        }
+        .filter-select:focus {
+          border-color: var(--ao);
+        }
+
+        /* Pagination Controls */
+        .pagination-wrap {
+          padding: var(--space-4) var(--space-5);
+          border-top: 1px solid var(--neutral-200);
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          background: var(--neutral-50);
+        }
+        .pagination-info {
+          font-size: 13px;
+          color: var(--neutral-500);
+        }
+        .pagination-buttons {
+          display: flex;
+          gap: 6px;
+          align-items: center;
+        }
+        .page-btn {
+          height: 32px;
+          min-width: 32px;
+          padding: 0 8px;
+          border: 1px solid var(--neutral-300);
+          border-radius: 6px;
+          background: var(--shiro);
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--neutral-700);
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.15s ease;
+        }
+        .page-btn:hover:not(:disabled) {
+          background: var(--neutral-100);
+          border-color: var(--neutral-400);
+        }
+        .page-btn.active {
+          background: var(--ao);
+          border-color: var(--ao);
+          color: white;
+        }
+        .page-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
       `}} />
 
       <main className="container">
@@ -240,17 +417,114 @@ export default function PlayerRecordsPage({ params }: { params: Promise<{ id: st
             <div className="records-header">
               <div>
                 <h2 style={{ fontSize: '20px', fontWeight: 600, margin: 0 }}>All Athletes</h2>
-                <div style={{ fontSize: '13px', color: 'var(--neutral-500)' }}>{records.length} total registered athletes</div>
+                <div style={{ fontSize: '13px', color: 'var(--neutral-500)' }}>
+                  {filteredRecords.length !== records.length ? `${filteredRecords.length} filtered of ` : ''}
+                  {records.length} total registered athletes
+                </div>
               </div>
-              <div className="search-wrap">
-                <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--neutral-500)' }} />
-                <input
-                  className="search-input"
-                  type="text"
-                  placeholder="Search by name, academy, or category..."
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                />
+              
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center', position: 'relative' }}>
+                <div className="search-wrap">
+                  <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--neutral-500)' }} />
+                  <input
+                    className="search-input"
+                    type="text"
+                    placeholder="Search by name, academy..."
+                    value={searchQuery}
+                    onChange={e => {
+                      setSearchQuery(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  className={`filter-btn ${(filterGender !== 'all' || filterAgeRange !== 'all' || filterState !== 'all') ? 'active' : ''}`}
+                  onClick={() => setFilterOpen(!filterOpen)}
+                >
+                  <Filter size={14} />
+                  Filters
+                </button>
+
+                {filterOpen && (
+                  <div className="filter-dropdown">
+                    <div className="filter-group">
+                      <label>Gender</label>
+                      <select
+                        className="filter-select"
+                        value={filterGender}
+                        onChange={e => {
+                          setFilterGender(e.target.value);
+                          setCurrentPage(1);
+                        }}
+                      >
+                        <option value="all">All Genders</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                      </select>
+                    </div>
+
+                    <div className="filter-group">
+                      <label>Age Group</label>
+                      <select
+                        className="filter-select"
+                        value={filterAgeRange}
+                        onChange={e => {
+                          setFilterAgeRange(e.target.value);
+                          setCurrentPage(1);
+                        }}
+                      >
+                        <option value="all">All Ages</option>
+                        <option value="u12">Under 12</option>
+                        <option value="12-14">12 - 14 yrs</option>
+                        <option value="15-17">15 - 17 yrs</option>
+                        <option value="18+">18+ (Senior)</option>
+                      </select>
+                    </div>
+
+                    <div className="filter-group">
+                      <label>State / District</label>
+                      <select
+                        className="filter-select"
+                        value={filterState}
+                        onChange={e => {
+                          setFilterState(e.target.value);
+                          setCurrentPage(1);
+                        }}
+                      >
+                        <option value="all">All States</option>
+                        {uniqueStates.map(st => (
+                          <option key={st} value={st.toLowerCase()}>{st}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '4px' }}>
+                      <button
+                        type="button"
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--neutral-500)',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          textDecoration: 'underline'
+                        }}
+                        onClick={() => {
+                          setFilterGender('all');
+                          setFilterAgeRange('all');
+                          setFilterState('all');
+                          setCurrentPage(1);
+                          setFilterOpen(false);
+                        }}
+                      >
+                        Clear All
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -267,14 +541,14 @@ export default function PlayerRecordsPage({ params }: { params: Promise<{ id: st
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredRecords.length === 0 ? (
+                  {paginatedRecords.length === 0 ? (
                     <tr>
                       <td colSpan={6} style={{ textAlign: 'center', padding: '30px', color: 'var(--neutral-500)' }}>
-                        No records found matching your search.
+                        No records found matching your search or filters.
                       </td>
                     </tr>
                   ) : (
-                    filteredRecords.map(record => (
+                    paginatedRecords.map(record => (
                       <tr key={`${record.categoryId}-${record.id}`}>
                         <td style={{ fontWeight: 500 }}>{record.name}</td>
                         <td style={{ fontSize: '13px', color: 'var(--neutral-600)' }}>{record.categoryName}</td>
@@ -299,6 +573,55 @@ export default function PlayerRecordsPage({ params }: { params: Promise<{ id: st
                 </tbody>
               </table>
             </div>
+
+            {filteredRecords.length > 10 && (
+              <div className="pagination-wrap">
+                <div className="pagination-info">
+                  Showing <strong>{(currentPage - 1) * 10 + 1}</strong> to{' '}
+                  <strong>{Math.min(currentPage * 10, filteredRecords.length)}</strong> of{' '}
+                  <strong>{filteredRecords.length}</strong> athletes
+                </div>
+                <div className="pagination-buttons">
+                  <button
+                    type="button"
+                    className="page-btn"
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  >
+                    Prev
+                  </button>
+                  
+                  {getPageNumbers().map((p, idx) => {
+                    if (p === '...') {
+                      return (
+                        <span key={`ellipsis-${idx}`} style={{ padding: '0 8px', color: 'var(--neutral-400)' }}>
+                          ...
+                        </span>
+                      );
+                    }
+                    return (
+                      <button
+                        key={`page-${p}`}
+                        type="button"
+                        className={`page-btn ${currentPage === p ? 'active' : ''}`}
+                        onClick={() => setCurrentPage(Number(p))}
+                      >
+                        {p}
+                      </button>
+                    );
+                  })}
+
+                  <button
+                    type="button"
+                    className="page-btn"
+                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
