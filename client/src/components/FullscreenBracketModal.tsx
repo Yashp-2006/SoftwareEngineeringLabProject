@@ -696,6 +696,7 @@ export default function FullscreenBracketModal({
   onAssignMat,
   isAdmin = false,
   onSwapDrop,
+  onRevertMatch,
 }: {
   categories: Array<{ id: string; name: string; matches: any[]; isKata?: boolean; athletes?: any[]; status?: string; mat?: string }>;
   initialCategoryId?: string;
