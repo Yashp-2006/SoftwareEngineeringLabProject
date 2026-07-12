@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { Lock, Unlock, Users, Calendar, Layout, Award, Edit3, Share2, Eye, EyeOff, Download, Search } from 'lucide-react';
 import { toast } from 'react-hot-toast';
@@ -20,13 +21,14 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
   const [compData, setCompData] = useState<any>(null);
   const [onSpotModalOpen, setOnSpotModalOpen] = useState(false);
 
-  // Admins or users with join link bypass passcode
-  const joinParam = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('join') === 'true';
+  const searchParams = useSearchParams();
+  const joinParam = searchParams.get('join') === 'true';
   const joinedStorage = typeof window !== 'undefined' && localStorage.getItem(`joined_${id}`) === 'true';
 
   useEffect(() => {
-    if (!isAuthenticated && (user || joinParam || joinedStorage)) {
-      if (joinParam || user) {
+    const isRegisteredUser = user && !user.isAnonymous;
+    if (!isAuthenticated && (isRegisteredUser || joinParam || joinedStorage)) {
+      if (joinParam) {
         localStorage.setItem(`joined_${id}`, 'true');
       }
       setIsAuthenticated(true);
@@ -225,7 +227,7 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
     }
   };
 
-  if (!isAuthenticated && !user) {
+  if (!isAuthenticated) {
     return (
       <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
         <div style={{ background: 'var(--shiro)', padding: '40px 48px', borderRadius: '16px', width: '100%', maxWidth: '440px', boxShadow: '0 8px 32px rgba(0,0,0,0.10)', border: '1px solid var(--neutral-200)', textAlign: 'center' }}>
@@ -382,18 +384,9 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
                 <button className="btn btn-secondary" onClick={handleShareLink} style={{ padding: '8px 16px' }}>
                   <Share2 size={16} style={{ marginRight: '6px' }} /> Share Join Link
                 </button>
-                <button className="btn btn-secondary" onClick={handleExportPreset} style={{ padding: '8px 16px' }}>
-                  <Download size={16} style={{ marginRight: '6px' }} /> Export Preset
-                </button>
-                <Link href={`/setup/${id}`} className="btn btn-primary" style={{ padding: '8px 16px' }}>
-                  <Edit3 size={16} style={{ marginRight: '6px' }} /> Setup
+                <Link href={`/competitions/${id}/operator`} className="btn btn-primary" style={{ padding: '8px 16px' }}>
+                  <Layout size={16} style={{ marginRight: '6px' }} /> Operator Panel
                 </Link>
-                <button className="btn btn-secondary" onClick={() => setOnSpotModalOpen(true)} style={{ padding: '8px 16px' }}>
-                  <Users size={16} style={{ marginRight: '6px' }} /> + Athlete
-                </button>
-                <button className="btn btn-primary" style={{ padding: '8px 16px' }}>
-                  <Layout size={16} style={{ marginRight: '6px' }} /> Next Match
-                </button>
               </>
             )}
           </div>
