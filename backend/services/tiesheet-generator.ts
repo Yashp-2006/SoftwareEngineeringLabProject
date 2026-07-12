@@ -353,9 +353,9 @@ export function parseExcelIntoCategories(
         const match = customCategories.find(c => {
           if (c.gender && c.gender !== 'Any' && athlete.gender.charAt(0).toLowerCase() !== c.gender.charAt(0).toLowerCase()) return false;
           if (c.minAge !== undefined && athlete.age < c.minAge) return false;
-          if (c.maxAge !== undefined && athlete.age > c.maxAge) return false;
+          if (c.maxAge !== undefined && athlete.age >= c.maxAge) return false;
           if (c.minWeight !== undefined && athlete.weight < c.minWeight) return false;
-          if (c.maxWeight !== undefined && athlete.weight > c.maxWeight) return false;
+          if (c.maxWeight !== undefined && athlete.weight >= c.maxWeight) return false;
           return true;
         });
         if (match) {
