@@ -1550,97 +1550,101 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                 />
               </div>
 
-              {/* Discipline */}
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="text-micro" style={{ display: 'block', marginBottom: '6px' }}>Discipline</label>
-                <select
-                  className="input-field"
-                  value={editCatData.discipline || 'Kumite'}
-                  onChange={e => setEditCatData((p: any) => ({ ...p, discipline: e.target.value, isKata: e.target.value === 'Kata' }))}
-                  style={{ marginBottom: 0 }}
-                >
-                  <option value="Kumite">Kumite</option>
-                  <option value="Kata">Kata</option>
-                </select>
-              </div>
-
-              {/* Gender */}
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="text-micro" style={{ display: 'block', marginBottom: '6px' }}>Gender</label>
-                <select
-                  className="input-field"
-                  value={editCatData.gender || 'Any'}
-                  onChange={e => setEditCatData((p: any) => ({ ...p, gender: e.target.value }))}
-                  style={{ marginBottom: 0 }}
-                >
-                  <option value="Any">Any</option>
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                </select>
-              </div>
-
-              {/* Age Range */}
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="text-micro" style={{ display: 'block', marginBottom: '6px' }}>Age Range</label>
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                  <div style={{ flex: 1 }}>
-                    <label style={{ fontSize: '11px', color: 'var(--neutral-500)', display: 'block', marginBottom: '4px' }}>Min Age</label>
-                    <input
-                      type="number"
+              {compRules !== 'wkf' && (
+                <>
+                  {/* Discipline */}
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="text-micro" style={{ display: 'block', marginBottom: '6px' }}>Discipline</label>
+                    <select
                       className="input-field"
-                      min={0}
-                      max={99}
-                      value={editCatData.minAge ?? 0}
-                      onChange={e => setEditCatData((p: any) => ({ ...p, minAge: parseInt(e.target.value) || 0 }))}
+                      value={editCatData.discipline || 'Kumite'}
+                      onChange={e => setEditCatData((p: any) => ({ ...p, discipline: e.target.value, isKata: e.target.value === 'Kata' }))}
                       style={{ marginBottom: 0 }}
-                    />
+                    >
+                      <option value="Kumite">Kumite</option>
+                      <option value="Kata">Kata</option>
+                    </select>
                   </div>
-                  <span style={{ color: 'var(--neutral-400)', marginTop: '16px' }}>—</span>
-                  <div style={{ flex: 1 }}>
-                    <label style={{ fontSize: '11px', color: 'var(--neutral-500)', display: 'block', marginBottom: '4px' }}>Max Age</label>
-                    <input
-                      type="number"
-                      className="input-field"
-                      min={0}
-                      max={99}
-                      value={editCatData.maxAge ?? 99}
-                      onChange={e => setEditCatData((p: any) => ({ ...p, maxAge: parseInt(e.target.value) || 99 }))}
-                      style={{ marginBottom: 0 }}
-                    />
-                  </div>
-                </div>
-              </div>
 
-              {/* Weight Range — only for Kumite */}
-              {(editCatData.discipline !== 'Kata' && !(editCatData.isKata)) && (
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="text-micro" style={{ display: 'block', marginBottom: '6px' }}>Weight Range (kg)</label>
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: '11px', color: 'var(--neutral-500)', display: 'block', marginBottom: '4px' }}>Min Weight</label>
-                      <input
-                        type="number"
-                        className="input-field"
-                        min={0}
-                        value={editCatData.minWeight ?? 0}
-                        onChange={e => setEditCatData((p: any) => ({ ...p, minWeight: parseFloat(e.target.value) || 0 }))}
-                        style={{ marginBottom: 0 }}
-                      />
-                    </div>
-                    <span style={{ color: 'var(--neutral-400)', marginTop: '16px' }}>—</span>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: '11px', color: 'var(--neutral-500)', display: 'block', marginBottom: '4px' }}>Max Weight</label>
-                      <input
-                        type="number"
-                        className="input-field"
-                        min={0}
-                        value={editCatData.maxWeight ?? 300}
-                        onChange={e => setEditCatData((p: any) => ({ ...p, maxWeight: parseFloat(e.target.value) || 300 }))}
-                        style={{ marginBottom: 0 }}
-                      />
+                  {/* Gender */}
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="text-micro" style={{ display: 'block', marginBottom: '6px' }}>Gender</label>
+                    <select
+                      className="input-field"
+                      value={editCatData.gender || 'Any'}
+                      onChange={e => setEditCatData((p: any) => ({ ...p, gender: e.target.value }))}
+                      style={{ marginBottom: 0 }}
+                    >
+                      <option value="Any">Any</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                    </select>
+                  </div>
+
+                  {/* Age Range */}
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="text-micro" style={{ display: 'block', marginBottom: '6px' }}>Age Range</label>
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ fontSize: '11px', color: 'var(--neutral-500)', display: 'block', marginBottom: '4px' }}>Min Age</label>
+                        <input
+                          type="number"
+                          className="input-field"
+                          min={0}
+                          max={99}
+                          value={editCatData.minAge ?? 0}
+                          onChange={e => setEditCatData((p: any) => ({ ...p, minAge: parseInt(e.target.value) || 0 }))}
+                          style={{ marginBottom: 0 }}
+                        />
+                      </div>
+                      <span style={{ color: 'var(--neutral-400)', marginTop: '16px' }}>—</span>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ fontSize: '11px', color: 'var(--neutral-500)', display: 'block', marginBottom: '4px' }}>Max Age</label>
+                        <input
+                          type="number"
+                          className="input-field"
+                          min={0}
+                          max={99}
+                          value={editCatData.maxAge ?? 99}
+                          onChange={e => setEditCatData((p: any) => ({ ...p, maxAge: parseInt(e.target.value) || 99 }))}
+                          style={{ marginBottom: 0 }}
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
+
+                  {/* Weight Range — only for Kumite */}
+                  {(editCatData.discipline !== 'Kata' && !(editCatData.isKata)) && (
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label className="text-micro" style={{ display: 'block', marginBottom: '6px' }}>Weight Range (kg)</label>
+                      <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                        <div style={{ flex: 1 }}>
+                          <label style={{ fontSize: '11px', color: 'var(--neutral-500)', display: 'block', marginBottom: '4px' }}>Min Weight</label>
+                          <input
+                            type="number"
+                            className="input-field"
+                            min={0}
+                            value={editCatData.minWeight ?? 0}
+                            onChange={e => setEditCatData((p: any) => ({ ...p, minWeight: parseFloat(e.target.value) || 0 }))}
+                            style={{ marginBottom: 0 }}
+                          />
+                        </div>
+                        <span style={{ color: 'var(--neutral-400)', marginTop: '16px' }}>—</span>
+                        <div style={{ flex: 1 }}>
+                          <label style={{ fontSize: '11px', color: 'var(--neutral-500)', display: 'block', marginBottom: '4px' }}>Max Weight</label>
+                          <input
+                            type="number"
+                            className="input-field"
+                            min={0}
+                            value={editCatData.maxWeight ?? 300}
+                            onChange={e => setEditCatData((p: any) => ({ ...p, maxWeight: parseFloat(e.target.value) || 300 }))}
+                            style={{ marginBottom: 0 }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
 
               {/* Judge Count — only for Kata */}
