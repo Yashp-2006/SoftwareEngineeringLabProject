@@ -5,6 +5,7 @@ import { Maximize2, X, Play, Pause, RotateCcw, Coffee } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
 import KataLiveScoreboard, { deriveJudgeVotes } from '@/components/kata/KataLiveScoreboard';
 import KumiteLiveScoreboard from '@/components/kumite/KumiteLiveScoreboard';
+import ScaleWrapper from '@/components/ScaleWrapper';
 
 type FighterState = {
   name: string;
@@ -16,6 +17,9 @@ type FighterState = {
   yuko: number;
   c1: number;
   c2: number;
+  c3: number;
+  hc: number;
+  h: number;
   senshu: boolean;
 };
 
@@ -23,7 +27,7 @@ export default function ScoreboardPage({ params }: { params: Promise<{ matchId: 
   const { matchId } = React.use(params);
 
   const initialFighterState = (name: string, country: string = 'JAPAN', academy: string = ''): FighterState => ({
-    name, country, academy, score: 0, ippon: 0, wazaari: 0, yuko: 0, c1: 0, c2: 0, senshu: false
+    name, country, academy, score: 0, ippon: 0, wazaari: 0, yuko: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false
   });
 
   const [aka, setAka] = useState<FighterState>(initialFighterState('SATO', 'JPN', 'Kyoto Martial Academy'));
@@ -117,6 +121,9 @@ export default function ScoreboardPage({ params }: { params: Promise<{ matchId: 
       yuko: rtdbData.akaStats?.yuko ?? prev.yuko,
       c1: rtdbData.akaPenalties?.c1 ?? prev.c1,
       c2: rtdbData.akaPenalties?.c2 ?? prev.c2,
+      c3: rtdbData.akaPenalties?.c3 ?? prev.c3,
+      hc: rtdbData.akaPenalties?.hc ?? prev.hc,
+      h: rtdbData.akaPenalties?.h ?? prev.h,
       senshu: rtdbData.akaStats?.senshu ?? prev.senshu,
     }));
     
@@ -132,6 +139,9 @@ export default function ScoreboardPage({ params }: { params: Promise<{ matchId: 
       yuko: rtdbData.aoStats?.yuko ?? prev.yuko,
       c1: rtdbData.aoPenalties?.c1 ?? prev.c1,
       c2: rtdbData.aoPenalties?.c2 ?? prev.c2,
+      c3: rtdbData.aoPenalties?.c3 ?? prev.c3,
+      hc: rtdbData.aoPenalties?.hc ?? prev.hc,
+      h: rtdbData.aoPenalties?.h ?? prev.h,
       senshu: rtdbData.aoStats?.senshu ?? prev.senshu,
     }));
 
@@ -296,27 +306,29 @@ export default function ScoreboardPage({ params }: { params: Promise<{ matchId: 
     const nJudges = rtdbData.numberOfJudges || 3;
     const { judgeVotes, akaFlags, aoFlags } = deriveJudgeVotes(rtdbData.kataScores, nJudges);
     return (
-      <KataLiveScoreboard
-        akaName={rtdbData.akaName || 'AKA'}
-        aoName={rtdbData.aoName || 'AO'}
-        akaAcademy={rtdbData.akaAcademy}
-        aoAcademy={rtdbData.aoAcademy}
-        akaCountry={rtdbData.akaCountry}
-        aoCountry={rtdbData.aoCountry}
-        akaKataName={rtdbData.selectedKata?.aka?.name}
-        aoKataName={rtdbData.selectedKata?.ao?.name}
-        numberOfJudges={nJudges}
-        judgeVotes={judgeVotes}
-        akaFlags={rtdbData.kataVotes?.aka ?? akaFlags}
-        aoFlags={rtdbData.kataVotes?.ao ?? aoFlags}
-        timeRemaining={rtdbData.timeRemaining || formatTime(timer)}
-        matchStatus={rtdbData.status === 'live' ? 'LIVE' : (rtdbData.status || 'STANDBY').toUpperCase()}
-        title={`TAIKAIX — SCOREBOARD`}
-        subtitle={rtdbData.currentCategory || 'KATA'}
-        kataWinner={rtdbData.kataWinner}
-        winnerName={rtdbData.kataWinner === 'aka' ? rtdbData.akaName : rtdbData.kataWinner === 'ao' ? rtdbData.aoName : undefined}
-        onToggleFullscreen={toggleFullscreen}
-      />
+      <ScaleWrapper>
+        <KataLiveScoreboard
+          akaName={rtdbData.akaName || 'AKA'}
+          aoName={rtdbData.aoName || 'AO'}
+          akaAcademy={rtdbData.akaAcademy}
+          aoAcademy={rtdbData.aoAcademy}
+          akaCountry={rtdbData.akaCountry}
+          aoCountry={rtdbData.aoCountry}
+          akaKataName={rtdbData.selectedKata?.aka?.name}
+          aoKataName={rtdbData.selectedKata?.ao?.name}
+          numberOfJudges={nJudges}
+          judgeVotes={judgeVotes}
+          akaFlags={rtdbData.kataVotes?.aka ?? akaFlags}
+          aoFlags={rtdbData.kataVotes?.ao ?? aoFlags}
+          timeRemaining={rtdbData.timeRemaining || formatTime(timer)}
+          matchStatus={rtdbData.status === 'live' ? 'LIVE' : (rtdbData.status || 'STANDBY').toUpperCase()}
+          title={`TAIKAIX — SCOREBOARD`}
+          subtitle={rtdbData.currentCategory || 'KATA'}
+          kataWinner={rtdbData.kataWinner}
+          winnerName={rtdbData.kataWinner === 'aka' ? rtdbData.akaName : rtdbData.kataWinner === 'ao' ? rtdbData.aoName : undefined}
+          onToggleFullscreen={toggleFullscreen}
+        />
+      </ScaleWrapper>
     );
   }
 
@@ -357,36 +369,38 @@ export default function ScoreboardPage({ params }: { params: Promise<{ matchId: 
       </button>
 
       <div style={{ flex: 1, position: 'relative' }}>
-        <KumiteLiveScoreboard
-          akaName={aka.name}
-          aoName={ao.name}
-          akaAcademy={aka.academy}
-          aoAcademy={ao.academy}
-          akaCountry={aka.country}
-          aoCountry={ao.country}
-          akaScore={aka.score}
-          aoScore={ao.score}
-          akaIppon={aka.ippon}
-          aoIppon={ao.ippon}
-          akaWazaari={aka.wazaari}
-          aoWazaari={ao.wazaari}
-          akaYuko={aka.yuko}
-          aoYuko={ao.yuko}
-          akaC1={aka.c1}
-          aoC1={ao.c1}
-          akaC2={aka.c2}
-          aoC2={ao.c2}
-          akaSenshu={aka.senshu}
-          aoSenshu={ao.senshu}
-          timerDisplay={formatTime(timer)}
-          timerColor={timer <= 15 ? 'var(--aka)' : 'var(--status-live)'}
-          matchStatus={timer === 0 ? 'TIME OVER' : running ? 'MATCH LIVE' : timer === 180 ? 'PRE-MATCH' : 'PAUSED'}
-          title="TAIKAIX"
-          categoryName={rtdbData?.currentCategory || "KUMITE CATEGORY"}
-          matchId={rtdbData?.displayId || `MAT ${new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('mat')?.replace('mat-', '').padStart(2, '0') || '01'}`}
-          winnerName={winnerOverlay.active ? winnerOverlay.winner : undefined}
-          winnerColor={winnerOverlay.classMode === 'winner-aka' ? 'aka' : winnerOverlay.classMode === 'winner-ao' ? 'ao' : undefined}
-        />
+        <ScaleWrapper>
+          <KumiteLiveScoreboard
+            akaName={aka.name}
+            aoName={ao.name}
+            akaAcademy={aka.academy}
+            aoAcademy={ao.academy}
+            akaCountry={aka.country}
+            aoCountry={ao.country}
+            akaScore={aka.score}
+            aoScore={ao.score}
+            akaIppon={aka.ippon}
+            aoIppon={ao.ippon}
+            akaWazaari={aka.wazaari}
+            aoWazaari={ao.wazaari}
+            akaYuko={aka.yuko}
+            aoYuko={ao.yuko}
+            akaC1={(aka.c1?1:0) + (aka.c2?1:0) + (aka.c3?1:0) + (aka.hc?1:0) + (aka.h?1:0)}
+            aoC1={(ao.c1?1:0) + (ao.c2?1:0) + (ao.c3?1:0) + (ao.hc?1:0) + (ao.h?1:0)}
+            akaC2={0}
+            aoC2={0}
+            akaSenshu={aka.senshu}
+            aoSenshu={ao.senshu}
+            timerDisplay={formatTime(timer)}
+            timerColor={timer <= 15 ? 'var(--aka)' : 'var(--status-live)'}
+            matchStatus={timer === 0 ? 'TIME OVER' : running ? 'MATCH LIVE' : timer === 180 ? 'PRE-MATCH' : 'PAUSED'}
+            title="TAIKAIX"
+            categoryName={rtdbData?.currentCategory || "KUMITE CATEGORY"}
+            matchId={rtdbData?.displayId || `MAT ${new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('mat')?.replace('mat-', '').padStart(2, '0') || '01'}`}
+            winnerName={winnerOverlay.active ? winnerOverlay.winner : undefined}
+            winnerColor={winnerOverlay.classMode === 'winner-aka' ? 'aka' : winnerOverlay.classMode === 'winner-ao' ? 'ao' : undefined}
+          />
+        </ScaleWrapper>
         {winnerOverlay.active && (
           <div style={{ position: 'absolute', bottom: '24px', left: '50%', transform: 'translateX(-50%)', zIndex: 300 }}>
             <button className="control-btn" onClick={() => setWinnerOverlay({ ...winnerOverlay, active: false })}>

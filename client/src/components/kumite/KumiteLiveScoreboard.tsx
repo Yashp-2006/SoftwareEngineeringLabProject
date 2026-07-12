@@ -89,7 +89,7 @@ export default function KumiteLiveScoreboard({
         .kls-pt-label { font-size: 1cqw; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; opacity: 0.8; }
         .kls-pt-val { font-family: var(--font-display); font-size: 3.5cqw; line-height: 1; }
         
-        .kls-pens { display: grid; grid-template-columns: 1fr 1fr; gap: 2cqw; margin-top: 4cqw; width: 100%; max-width: 25cqw; }
+        .kls-pens { display: flex; justify-content: center; gap: 2cqw; margin-top: 4cqw; width: 100%; max-width: 25cqw; }
         .kls-pen-grp { display: flex; flex-direction: column; gap: 1cqw; }
         .kls-pen-title { font-size: 0.9cqw; font-weight: 700; text-transform: uppercase; opacity: 0.6; text-align: center; }
         .kls-pen-dots { display: flex; justify-content: center; gap: 0.8cqw; }
@@ -164,12 +164,8 @@ export default function KumiteLiveScoreboard({
               
               <div className="kls-pens">
                 <div className="kls-pen-grp">
-                  <div className="kls-pen-title">Category 1</div>
+                  <div className="kls-pen-title">Penalties</div>
                   <div className="kls-pen-dots">{renderDots(akaC1)}</div>
-                </div>
-                <div className="kls-pen-grp">
-                  <div className="kls-pen-title">Category 2</div>
-                  <div className="kls-pen-dots">{renderDots(akaC2)}</div>
                 </div>
               </div>
             </>
@@ -220,12 +216,8 @@ export default function KumiteLiveScoreboard({
               
               <div className="kls-pens">
                 <div className="kls-pen-grp">
-                  <div className="kls-pen-title">Category 1</div>
+                  <div className="kls-pen-title">Penalties</div>
                   <div className="kls-pen-dots">{renderDots(aoC1)}</div>
-                </div>
-                <div className="kls-pen-grp">
-                  <div className="kls-pen-title">Category 2</div>
-                  <div className="kls-pen-dots">{renderDots(aoC2)}</div>
                 </div>
               </div>
             </>

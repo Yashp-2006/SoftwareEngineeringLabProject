@@ -365,3 +365,10 @@ The Next.js app introduced several routes **not** in the original 18-screen spec
 ## Update 2026-07-11
 - Fixed Tiesheet Generation Preview (Phase 3) buttons layout in `client/src/app/setup/[id]/page.tsx` by restructuring the flex container to prevent wrapping distortion.
 - Fixed drag-and-drop category timing recalculation in `client/src/app/competitions/[id]/categories/page.tsx` so that a dragged category does not improperly overwrite the target mat's anchor time with its previous start time.
+
+## Update 2026-07-12
+- Fixed TV fullscreen scoreboard scaling by wrapping the scoreboard displays in `/live/scoreboard/[matchId]` with `ScaleWrapper`, ensuring layout adapts to any TV or device size without misalignment.
+- Added `:fullscreen` stylesheet rules in `globals.css` to reset browser default fullscreen backgrounds to `var(--kuro)` (black) and prevent light-grey borders.
+- Reconciled WKF penalty mapping for Kumite scoreboards by summing all active flags (`c1`, `c2`, `c3`, `hc`, `h`) into a single warning track and updating `KumiteLiveScoreboard` to show a single centered warning track (matching the WKF consolidated rules and operator panel state).
+- Resolved Kata scoreboard hydration issues so that judges' votes and selected Katas render correctly from real-time database state.
+

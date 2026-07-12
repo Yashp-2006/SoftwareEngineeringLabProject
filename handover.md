@@ -43,9 +43,11 @@
   - `PATCH /api/competitions/{id}/brackets/{catId}` atomically completes matches and propagates winners to the next round.
   - `FullscreenBracketModal.tsx` and `BracketViewer.tsx` are fully wired to Firestore `onSnapshot` for real-time interactive updates.
   - Fixed an issue where Excel imports containing explicit "BYE" names would break auto-promotion and erroneously render as "BYE" instead of correctly acting as an empty slot ("No player assigned").
-- **Live Scoring Hub (Operator Portal)**: 
+- **Live Scoring Hub (Operator Portal & TV Scoreboard)**: 
   - Operator page (`/competitions/[id]/operator`) is implemented and writes real-time scores to Firebase RTDB.
   - Connected to the Live Mat broadcast view (`/live/mat/[matId]`).
+  - Wired real-time TV scoreboard at `/live/scoreboard/[matchId]`, wrapped in ScaleWrapper to auto-scale dynamically for any display device.
+  - Reconciled WKF warnings by aggregating c1/c2/c3/hc/h flags into a single consolidated warning track (matching WKF rules and operator state).
 - **Entity Management**: CRUD UI for Competitions, Categories, Athletes, and Medals is implemented and wired to Firestore.
 - **User Roles & Academy Assignment**:
   - The `/users` directory is functional with real-time Firestore updates.
@@ -72,7 +74,6 @@
   - Enhanced Special Category bracket generation algorithm to seed winners per pool rather than just one overall winner per category.
 
 ## 2. What's Not Done
-- **RTDB Read/Write Mismatches**: While the operator writes to RTDB and the live mat reads from it, there may still be minor path sync issues or missing subscriptions for specific features (like the fullscreen scoreboard view).
 - **Staff and Schedule CRUD**: The UI for Staff (`/competitions/[id]/staff`) and Schedule (`/competitions/[id]/schedule`) exists, but the Firestore wiring for direct CRUD operations is not fully completed or verified.
 - **Analytics & Archiving Aggregations**: The `/archives/[id]` page has Chart.js UI, but the Firestore aggregations to feed those charts real data are pending.
 - **GSAP Animations**: Some of the more complex GSAP animations from the HTML prototype were dialed back or omitted due to Next.js SSR constraints.
@@ -110,3 +111,9 @@
 ### Update 2026-07-11
 - Fixed Tiesheet Generation Preview (Phase 3) buttons layout in `client/src/app/setup/[id]/page.tsx` by restructuring the flex container to prevent wrapping distortion.
 - Fixed drag-and-drop category timing recalculation in `client/src/app/competitions/[id]/categories/page.tsx` so that a dragged category does not improperly overwrite the target mat's anchor time with its previous start time.
+
+### Update 2026-07-12
+- Wrapped `/live/scoreboard/[matchId]` display inside `ScaleWrapper` to ensure correct responsiveness and uniform scaling across various TV screen sizes.
+- Added `:fullscreen` overrides in `globals.css` to force container backdrops and body background to `var(--kuro)` (black), resolving grey spacing around the layout.
+- Consolidated WKF warning rendering on Kumite live scoreboard into a single track by summing `c1`, `c2`, `c3`, `hc`, `h` flags, aligning display layout with current WKF regulations.
+

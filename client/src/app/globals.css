@@ -679,3 +679,22 @@ nav {
     grid-template-columns: 1fr;
   }
 }
+
+/* ================================================
+   FULLSCREEN AND TV OVERRIDES
+   ================================================ */
+:fullscreen,
+::backdrop {
+  background-color: var(--kuro) !important;
+}
+
+html:fullscreen,
+body:fullscreen {
+  background-color: var(--kuro) !important;
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
