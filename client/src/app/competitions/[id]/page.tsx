@@ -1,18 +1,16 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { Lock, Unlock, Users, Calendar, Layout, Award, Edit3, Share2, Eye, EyeOff } from 'lucide-react';
-import { useSearchParams } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import OnSpotEntryModal from '@/components/OnSpotEntryModal';
 import { Download, Search } from 'lucide-react';
 import { KATA_LIST } from '@/lib/kata-list';
 
-function CompetitionDetailInner({ params }: { params: Promise<{ id: string }> }) {
+export default function CompetitionDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
-  const searchParams = useSearchParams();
   const { user, role } = useAuth();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState('');
@@ -24,7 +22,7 @@ function CompetitionDetailInner({ params }: { params: Promise<{ id: string }> })
   const [onSpotModalOpen, setOnSpotModalOpen] = useState(false);
 
   // Admins or users with join link bypass passcode
-  const joinParam = searchParams.get('join') === 'true';
+  const joinParam = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('join') === 'true';
   const joinedStorage = typeof window !== 'undefined' && localStorage.getItem(`joined_${id}`) === 'true';
 
   // Move auth side-effect out of render body (React rule: no setState during render)
@@ -585,10 +583,3 @@ function CompetitionDetailInner({ params }: { params: Promise<{ id: string }> })
   );
 }
 
-export default function CompetitionDetail({ params }: { params: Promise<{ id: string }> }) {
-  return (
-    <Suspense fallback={<div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ color: 'var(--neutral-500)' }}>Loading...</span></div>}>
-      <CompetitionDetailInner params={params} />
-    </Suspense>
-  );
-}
