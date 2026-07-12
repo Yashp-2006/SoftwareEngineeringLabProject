@@ -116,4 +116,8 @@
 - Wrapped `/live/scoreboard/[matchId]` display inside `ScaleWrapper` to ensure correct responsiveness and uniform scaling across various TV screen sizes.
 - Added `:fullscreen` overrides in `globals.css` to force container backdrops and body background to `var(--kuro)` (black), resolving grey spacing around the layout.
 - Consolidated WKF warning rendering on Kumite live scoreboard into a single track by summing `c1`, `c2`, `c3`, `hc`, `h` flags, aligning display layout with current WKF regulations.
+- Automated Kata selection confirmation in `KataOperatorPanel.tsx` by removing the manual "Confirm Selections" button and automatically patching Firestore/RTDB and transitioning immediately upon selecting both athlete Katas.
+- Unified Kata operator view to display selection dropdowns and scoring/fouls/DQ panels in the same place simultaneously by initializing `boutStarted` to `true` on mount.
+- Added real-time database synchronization for the Kata rest timer, enabling the rest timer overlay to sync and display on the live TV scoreboard.
+
 

@@ -371,4 +371,7 @@ The Next.js app introduced several routes **not** in the original 18-screen spec
 - Added `:fullscreen` stylesheet rules in `globals.css` to reset browser default fullscreen backgrounds to `var(--kuro)` (black) and prevent light-grey borders.
 - Reconciled WKF penalty mapping for Kumite scoreboards by summing all active flags (`c1`, `c2`, `c3`, `hc`, `h`) into a single warning track and updating `KumiteLiveScoreboard` to show a single centered warning track (matching the WKF consolidated rules and operator panel state).
 - Resolved Kata scoreboard hydration issues so that judges' votes and selected Katas render correctly from real-time database state.
+- Automated Kata selection confirmation in `KataOperatorPanel.tsx` by removing the manual "Confirm Selections" button and automatically patching Firestore/RTDB and transitioning immediately upon selecting both athlete Katas.
+- Unified Kata operator view to display selection dropdowns and scoring/fouls/DQ panels in the same place simultaneously by initializing `boutStarted` to `true` on mount.
+- Added real-time database synchronization for the Kata rest timer, enabling the rest timer overlay to sync and display on the live TV scoreboard.
 

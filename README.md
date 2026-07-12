@@ -64,8 +64,8 @@ All original HTML/CSS screens are in `TaiKaiX Frontend/TaiKaiX/`.
 ## Agent Documentation
 
 See root directory for:
-- `handover.md` — Current state, completed work, next steps (updated 2026-07-12: TV scoreboard scaling & WKF warning aggregation)
-- `taikaix_graph_and_design_audit.md` — System architecture overview, design audit, and knowledge graph insights (updated 2026-07-12)
+- `handover.md` — Current state, completed work, next steps (updated 2026-07-12: TV scoreboard scaling, warning aggregation, and Kata auto-confirmation)
+- `taikaix_graph_and_design_audit.md` — System architecture overview, design audit, and knowledge graph insights (updated 2026-07-12: including automated Kata selection and rest timer sync)
 
 See `agent-related/` for:
 - Agent scripts and prompts

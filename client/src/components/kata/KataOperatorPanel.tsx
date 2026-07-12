@@ -58,7 +58,7 @@ export default function KataOperatorPanel({
   const [akaUsageMap, setAkaUsageMap] = useState<Record<number, number>>({});
   const [aoUsageMap, setAoUsageMap] = useState<Record<number, number>>({});
 
-  const [boutStarted, setBoutStarted] = useState(false);
+  const [boutStarted, setBoutStarted] = useState(true);
   const [boutFinished, setBoutFinished] = useState(false);
 
   // Live judge votes from RTDB (flag model: 1=voted for that side, 0=not)
@@ -94,6 +94,37 @@ export default function KataOperatorPanel({
     },
     [competitionId, matId]
   );
+
+  // Auto-sync rest timer to RTDB when updated
+  useEffect(() => {
+    syncRTDB({
+      restTimerSeconds: restTimer,
+      restTimerRunning: restRunning,
+    });
+  }, [restTimer, restRunning, syncRTDB]);
+
+  const handleKataSelect = async (side: 'aka' | 'ao', kata: KataEntry | null) => {
+    const nextSelected = { ...selectedKata, [side]: kata };
+    setSelectedKata(nextSelected);
+
+    // Save to Firestore (fire-and-forget)
+    fetch(`/api/competitions/${competitionId}/brackets/${categoryId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ matchId, selectedKata: nextSelected }),
+    }).catch((e) => console.error('Failed to save kata selection', e));
+
+    // Save to RTDB and clear any previous bout state for this match
+    await syncRTDB({
+      isKata: true,
+      'selectedKata.aka': nextSelected.aka,
+      'selectedKata.ao': nextSelected.ao,
+      kataWinner: null,
+      boutFinished: false,
+      kataScores: null,
+      kataVotes: null,
+    });
+  };
 
   // ─── Live vote listener ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -250,33 +281,7 @@ export default function KataOperatorPanel({
     toast.success(`Foul logged for ${side.toUpperCase()}: ${code}`);
   };
 
-  const handleConfirmSelection = async () => {
-    if (!selectedKata.aka || !selectedKata.ao) {
-      toast.error('Select kata for both AKA and AO before starting.');
-      return;
-    }
 
-    // Fire-and-forget — save to match doc
-    fetch(`/api/competitions/${competitionId}/brackets/${categoryId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ matchId, selectedKata }),
-    }).catch((e) => console.error('Failed to save kata selection', e));
-
-    await syncRTDB({
-      isKata: true,
-      'selectedKata.aka': selectedKata.aka,
-      'selectedKata.ao': selectedKata.ao,
-      kataWinner: null,
-      boutFinished: false,
-      kataScores: null,
-      kataVotes: null,
-    });
-    setBoutStarted(true);
-    setTeamTimer(0);
-    setLiveVotes(null);
-    toast.success('Kata selections confirmed. Judges can now vote.');
-  };
 
   const handleFinishBout = async () => {
     // Derive votes from live RTDB data
@@ -453,10 +458,7 @@ export default function KataOperatorPanel({
               allowedKataNumbers={allowedKataNumbers}
               selectedKata={selectedKata.aka}
               usageMap={akaUsageMap}
-              onSelect={(kata) => {
-                setSelectedKata((prev) => ({ ...prev, aka: kata }));
-                syncRTDB({ 'selectedKata.aka': kata });
-              }}
+              onSelect={(kata) => handleKataSelect('aka', kata)}
               disabled={boutFinished}
             />
             <KataSelectionRow
@@ -466,36 +468,10 @@ export default function KataOperatorPanel({
               allowedKataNumbers={allowedKataNumbers}
               selectedKata={selectedKata.ao}
               usageMap={aoUsageMap}
-              onSelect={(kata) => {
-                setSelectedKata((prev) => ({ ...prev, ao: kata }));
-                syncRTDB({ 'selectedKata.ao': kata });
-              }}
+              onSelect={(kata) => handleKataSelect('ao', kata)}
               disabled={boutFinished}
             />
           </div>
-          {!boutStarted && (
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <button
-                type="button"
-                className="kata-btn"
-                disabled={!selectedKata.aka || !selectedKata.ao}
-                onClick={handleConfirmSelection}
-                style={{
-                  padding: '10px 24px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  background: selectedKata.aka && selectedKata.ao ? 'var(--neutral-900)' : 'var(--neutral-200)',
-                  color: '#fff',
-                  fontWeight: 800,
-                  fontSize: '13px',
-                  cursor: selectedKata.aka && selectedKata.ao ? 'pointer' : 'not-allowed',
-                  letterSpacing: '0.04em',
-                }}
-              >
-                Confirm &amp; Open Voting →
-              </button>
-            </div>
-          )}
         </div>
 
         {/* ── PERFORMANCE STOPWATCH ── */}
