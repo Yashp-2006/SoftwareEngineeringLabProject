@@ -52,7 +52,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
 
   const [filterGender, setFilterGender] = useState<'all'|'male'|'female'>('all');
   const [filterDiscipline, setFilterDiscipline] = useState<'all'|'kata'|'kumite'>('all');
-  const [hideEmpty, setHideEmpty] = useState<boolean>(true);
+  const [hideEmpty, setHideEmpty] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState("");
   
   const [dragIdx, setDragIdx] = useState<number | null>(null);
