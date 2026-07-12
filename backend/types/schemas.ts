@@ -15,7 +15,7 @@ export const athleteSchema = z.object({
 export const categorySchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1, 'Category name is required'),
-  discipline: z.enum(['Kumite', 'Kata']).optional().default('Kumite'),
+  discipline: z.string().optional(),
   gender: z.string().optional(),
   minAge: z.number().optional(),
   maxAge: z.number().optional(),
@@ -24,7 +24,8 @@ export const categorySchema = z.object({
   isKata: z.boolean().optional(),
   judgeCount: z.number().optional(),
   entries: z.number().optional(),
-  athletes: z.array(athleteSchema).optional()
+  athletes: z.array(athleteSchema).optional(),
+  isSpecial: z.boolean().optional(),
 });
 
 // Setup Wizard API Schemas

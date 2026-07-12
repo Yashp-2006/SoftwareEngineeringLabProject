@@ -420,9 +420,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
     reader.readAsDataURL(file);
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const uploadFile = async (file: File) => {
     setUploading(true);
     try {
       const formData = new FormData();
@@ -470,6 +468,26 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await uploadFile(file);
+    // Reset the input value so the same file can be uploaded again if needed
+    e.target.value = '';
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      uploadFile(file);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
   };
 
   const handleDownloadTiesheets = async () => {
@@ -883,7 +901,13 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                     </div>
                   </div>
 
-                  <div className="dropzone" onClick={() => document.getElementById('excel-upload')?.click()}>
+                  <div 
+                    className="dropzone" 
+                    onClick={() => document.getElementById('excel-upload')?.click()}
+                    onDrop={handleDrop}
+                    onDragOver={handleDragOver}
+                    onDragEnter={handleDragOver}
+                  >
                     {importResult ? (
                       <>
                         <CheckCircle className="dropzone-icon" style={{ color: 'var(--midori, #10b981)' }} />
@@ -1032,35 +1056,35 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                 )}
 
                 <div className="cat-group">
-                  <div className="flex-between">
-                    <div>
+                  <div className="flex-between" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+                    <div style={{ minWidth: '200px' }}>
                       <h3>{compRules === 'wkf' ? 'Standard Categories' : 'Categories'}</h3>
                       <p className="text-small">{compRules === 'wkf' ? 'Generic weight and age divisions without complex prerequisite rules.' : 'Divisions for the tournament.'}</p>
                     </div>
-                    <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
-                      <button type="button" className="btn btn-ghost" style={{ color: 'var(--status-live)', border: '1px dashed var(--status-live)' }} onClick={() => setModalType('onspot')}>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end', flex: 1 }}>
+                      <button type="button" className="btn btn-ghost" style={{ color: 'var(--status-live)', border: '1px dashed var(--status-live)', height: '36px', padding: '0 12px' }} onClick={() => setModalType('onspot')}>
                         <Plus size={16} /> On-Spot Entry
                       </button>
                       {compRules === 'wkf' ? (
-                        <button type="button" className="btn btn-secondary" onClick={handleMerge} disabled={selectedCats.size < 2}>
+                        <button type="button" className="btn btn-secondary" style={{ height: '36px', padding: '0 12px' }} onClick={handleMerge} disabled={selectedCats.size < 2}>
                           <Combine size={16} /> Merge Selected
                         </button>
                       ) : (
                         <>
-                          <button type="button" className="btn btn-ghost" onClick={handleExportPreset}>
-                            <Download size={16} /> Export Preset
+                          <button type="button" className="btn btn-ghost" style={{ height: '36px', padding: '0 12px' }} onClick={handleExportPreset}>
+                            <Download size={16} /> Export
                           </button>
-                          <button type="button" className="btn btn-ghost" onClick={() => document.getElementById('preset-upload')?.click()}>
-                            <UploadCloud size={16} /> Import Preset
+                          <button type="button" className="btn btn-ghost" style={{ height: '36px', padding: '0 12px' }} onClick={() => document.getElementById('preset-upload')?.click()}>
+                            <UploadCloud size={16} /> Import
                           </button>
-                          <button type="button" className="btn btn-ghost" onClick={handleLoadWkfCategories} style={{ color: 'var(--ao)', borderColor: 'var(--ao)' }}>
-                            <RefreshCw size={16} /> Load WKF Rules Categories
+                          <button type="button" className="btn btn-ghost" onClick={handleLoadWkfCategories} style={{ color: 'var(--ao)', borderColor: 'var(--ao)', height: '36px', padding: '0 12px' }}>
+                            <RefreshCw size={16} /> Load WKF Rules
                           </button>
                           <input type="file" id="preset-upload" style={{ display: 'none' }} accept=".json" onChange={handleImportPreset} />
-                          <button type="button" className="btn btn-ghost" onClick={() => setModalType('merge')}>
-                            <Combine size={16} /> Merge Categories
+                          <button type="button" className="btn btn-ghost" style={{ height: '36px', padding: '0 12px' }} onClick={() => setModalType('merge')}>
+                            <Combine size={16} /> Merge
                           </button>
-                          <button type="button" className="btn btn-secondary" onClick={() => setModalType('standard')}>
+                          <button type="button" className="btn btn-secondary" style={{ height: '36px', padding: '0 12px' }} onClick={() => setModalType('standard')}>
                             <Plus size={16} /> Add Category
                           </button>
                         </>
