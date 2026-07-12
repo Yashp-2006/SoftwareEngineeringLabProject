@@ -22,5 +22,9 @@
     "client",
     "backend",
     "database"
-  ]
+  ],
+  "optionalDependencies": {
+    "@next/swc-linux-x64-gnu": "^16.2.10",
+    "@next/swc-linux-x64-musl": "^16.2.10"
+  }
 }
