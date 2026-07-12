@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { Lock, Unlock, Users, Calendar, Layout, Award, Edit3, Share2, Eye, EyeOff } from 'lucide-react';
@@ -11,7 +11,7 @@ import OnSpotEntryModal from '@/components/OnSpotEntryModal';
 import { Download, Search } from 'lucide-react';
 import { KATA_LIST } from '@/lib/kata-list';
 
-export default function CompetitionDetail({ params }: { params: Promise<{ id: string }> }) {
+function CompetitionDetailInner({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
   const searchParams = useSearchParams();
   const { user, role } = useAuth();
@@ -29,14 +29,15 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
   const joinParam = searchParams.get('join') === 'true';
   const joinedStorage = typeof window !== 'undefined' && localStorage.getItem(`joined_${id}`) === 'true';
 
-  if (!isAuthenticated && (user || joinParam || joinedStorage)) {
-    if (typeof window !== 'undefined') {
+  // Move auth side-effect out of render body (React rule: no setState during render)
+  useEffect(() => {
+    if (!isAuthenticated && (user || joinParam || joinedStorage)) {
       if (joinParam || user) {
         localStorage.setItem(`joined_${id}`, 'true');
       }
+      setIsAuthenticated(true);
     }
-    setIsAuthenticated(true);
-  }
+  }, [user, joinParam, joinedStorage, isAuthenticated, id]);
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -590,5 +591,13 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
         />
       )}
     </main>
+  );
+}
+
+export default function CompetitionDetail({ params }: { params: Promise<{ id: string }> }) {
+  return (
+    <Suspense fallback={<div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ color: 'var(--neutral-500)' }}>Loading...</span></div>}>
+      <CompetitionDetailInner params={params} />
+    </Suspense>
   );
 }
