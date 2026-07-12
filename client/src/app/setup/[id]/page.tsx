@@ -643,8 +643,9 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         .setup-grid { display: flex; flex-direction: column; gap: var(--space-5); }
         .wizard-header { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-4); flex-wrap: wrap; }
         .wizard-stepper { display: grid; grid-template-columns: repeat(var(--stepper-cols, 5), minmax(0, 1fr)); gap: var(--space-3); }
-        .wizard-step { border: 1px solid var(--neutral-300); background: var(--shiro); padding: 12px 14px; border-radius: 10px; text-align: left; cursor: pointer; transition: all 0.2s; }
-        .wizard-step:hover:not(:disabled) { border-color: var(--neutral-400); transform: translateY(-1px); }
+        .wizard-step { border: 1px solid var(--neutral-300); background: var(--shiro); padding: 12px 14px; border-radius: 10px; text-align: left; cursor: pointer; transition: transform 160ms var(--ease-out), border-color 160ms var(--ease-out), background-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out); user-select: none; }
+        .wizard-step:hover:not(:disabled) { border-color: var(--neutral-400); }
+        .wizard-step:active:not(:disabled) { transform: scale(0.98); }
         .wizard-step:disabled { opacity: 0.5; cursor: not-allowed; }
         .wizard-step-number { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 999px; background: var(--neutral-100); color: var(--neutral-600); font-weight: 700; font-size: 12px; margin-bottom: 6px; }
         .wizard-step.active:not(:disabled) { border-color: var(--ao); box-shadow: 0 6px 18px rgba(39, 122, 255, 0.15); }
@@ -665,7 +666,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         .cat-table { width: 100%; border-collapse: collapse; margin-top: var(--space-4); }
         .cat-table th { text-align: left; padding: 12px; border-bottom: 2px solid var(--neutral-100); }
         .cat-table td { padding: 12px; border-bottom: 1px solid var(--neutral-100); }
-        .dropzone { border: 2px dashed var(--neutral-300); border-radius: 12px; padding: var(--space-8); text-align: center; background: var(--neutral-50); transition: all 0.2s; cursor: pointer; }
+        .dropzone { border: 2px dashed var(--neutral-300); border-radius: 12px; padding: var(--space-8); text-align: center; background: var(--neutral-50); transition: all 160ms var(--ease-out); cursor: pointer; }
         .dropzone:hover { border-color: var(--ao); background: var(--ao-light); }
         .mat-setup-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: var(--space-4); }
         .mat-setup-card { background: var(--shiro); border: 1px solid var(--neutral-300); border-radius: 12px; padding: var(--space-4); }
@@ -677,7 +678,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         .toggle-password { position: absolute; right: 12px; top: 10px; color: var(--neutral-400); cursor: pointer; }
         .form-group { display: flex; flex-direction: column; gap: 6px; }
         .form-group label { font-size: 13px; font-weight: 600; color: var(--neutral-700); }
-        .input-field { width: 100%; height: 40px; padding: 0 12px; border: 1.5px solid var(--neutral-300); border-radius: 8px; font-family: inherit; font-size: 14px; outline: none; transition: border-color 0.2s; background: var(--shiro); }
+        .input-field { width: 100%; height: 44px; padding: 0 12px; border: 1.5px solid var(--neutral-300); border-radius: 8px; font-family: inherit; font-size: 14px; outline: none; transition: border-color 160ms var(--ease-out); background: var(--shiro); }
         .input-field:focus { border-color: var(--ao); }
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 1000; }
         .modal-overlay.active { display: flex; }

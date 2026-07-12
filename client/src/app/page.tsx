@@ -369,8 +369,8 @@ export default function DashboardPage() {
         .chart-controls { display: flex; gap: var(--space-2); flex-wrap: wrap; }
         .select-minimal {
           appearance: none; background: var(--neutral-50); border: 1px solid var(--neutral-200);
-          border-radius: 8px; padding: 6px 14px 6px 12px; font-size: 12px; font-weight: 500;
-          color: var(--neutral-700); cursor: pointer; outline: none; transition: all 0.2s;
+          border-radius: 8px; padding: 0 14px 0 12px; height: 44px; font-size: 13px; font-weight: 600;
+          color: var(--neutral-700); cursor: pointer; outline: none; transition: all 160ms var(--ease-out);
           touch-action: manipulation;
         }
         .select-minimal:hover, .select-minimal:focus { background: var(--shiro); border-color: var(--ao); }

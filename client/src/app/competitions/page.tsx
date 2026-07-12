@@ -235,9 +235,10 @@ export default function CompetitionsPage() {
         .form-group:last-child { margin-bottom: 0; }
         .form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; color: var(--neutral-700); }
         .input-field {
-          width: 100%; height: 40px;
+          width: 100%; height: 44px;
           border: 1.5px solid var(--neutral-300); border-radius: 8px;
           padding: 0 12px; font-size: 14px; font-family: var(--font-body); outline: none;
+          transition: all 160ms var(--ease-out);
         }
         .input-field:focus { border-color: var(--ao); box-shadow: 0 0 0 3px rgba(26, 77, 181, 0.12); }
         
@@ -279,8 +280,8 @@ export default function CompetitionsPage() {
           </div>
           <div className="page-header-actions">
             <div style={{ position: 'relative', width: '100%', maxWidth: '300px' }}>
-              <input type="text" placeholder="Search events..." id="comp-search" style={{ width: '100%', height: '40px', borderRadius: '6px', border: '1.5px solid var(--neutral-300)', padding: '0 var(--space-7) 0 var(--space-4)', fontFamily: 'var(--font-body)' }} />
-              <Search style={{ position: 'absolute', right: '12px', top: '11px', width: '18px', color: 'var(--neutral-500)' }} />
+              <input type="text" placeholder="Search events..." id="comp-search" style={{ width: '100%', height: '44px', borderRadius: '6px', border: '1.5px solid var(--neutral-300)', padding: '0 var(--space-7) 0 var(--space-4)', fontFamily: 'var(--font-body)', transition: 'all 160ms var(--ease-out)' }} />
+              <Search style={{ position: 'absolute', right: '12px', top: '13px', width: '18px', color: 'var(--neutral-500)' }} />
             </div>
             {role === 'admin' && (
               <button className="btn btn-primary" style={{ flexShrink: 0 }} onClick={() => setIsModalOpen(true)}>
