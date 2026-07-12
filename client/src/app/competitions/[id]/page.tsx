@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { Lock, Unlock, Users, Calendar, Layout, Award, Edit3, Share2, Eye, EyeOff } from 'lucide-react';
@@ -11,7 +11,7 @@ import OnSpotEntryModal from '@/components/OnSpotEntryModal';
 import { Download, Search } from 'lucide-react';
 import { KATA_LIST } from '@/lib/kata-list';
 
-function CompetitionDetailInner({ params }: { params: Promise<{ id: string }> }) {
+export default function CompetitionDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
   const searchParams = useSearchParams();
   const { user, role } = useAuth();
@@ -29,17 +29,14 @@ function CompetitionDetailInner({ params }: { params: Promise<{ id: string }> })
   const joinParam = searchParams.get('join') === 'true';
   const joinedStorage = typeof window !== 'undefined' && localStorage.getItem(`joined_${id}`) === 'true';
 
-  // Auth bypass must be in useEffect — calling setState during render causes crashes in production
-  useEffect(() => {
-    if (!isAuthenticated && (user || joinParam || joinedStorage)) {
-      if (typeof window !== 'undefined') {
-        if (joinParam || user) {
-          localStorage.setItem(`joined_${id}`, 'true');
-        }
+  if (!isAuthenticated && (user || joinParam || joinedStorage)) {
+    if (typeof window !== 'undefined') {
+      if (joinParam || user) {
+        localStorage.setItem(`joined_${id}`, 'true');
       }
-      setIsAuthenticated(true);
     }
-  }, [user, joinParam, joinedStorage, isAuthenticated, id]);
+    setIsAuthenticated(true);
+  }
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,7 +93,6 @@ function CompetitionDetailInner({ params }: { params: Promise<{ id: string }> })
           const data = await res.json();
           setCompData(data);
         }
-        setLoading(false);
 
         unsubCats = onSnapshot(collection(db, 'competitions', id, 'categories'), (snap) => {
           let allMatches: any[] = [];
@@ -164,12 +160,15 @@ function CompetitionDetailInner({ params }: { params: Promise<{ id: string }> })
         });
       } catch (err) {
         console.error('Failed to load competition', err);
-        setLoading(false); // always unblock skeleton even on error
+      } finally {
+        // Always unblock — even if fetch throws a network error
+        setLoading(false);
       }
     };
     fetchComp();
     return () => unsubCats?.();
   }, [id]);
+
 
   const handleShareLink = () => {
     if (typeof window !== 'undefined') {
@@ -591,13 +590,5 @@ function CompetitionDetailInner({ params }: { params: Promise<{ id: string }> })
         />
       )}
     </main>
-  );
-}
-
-export default function CompetitionDetail({ params }: { params: Promise<{ id: string }> }) {
-  return (
-    <Suspense fallback={<PageSkeleton />}>
-      <CompetitionDetailInner params={params} />
-    </Suspense>
   );
 }
