@@ -232,7 +232,11 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
           <div style={{ display: 'inline-flex', padding: '14px', background: 'rgba(217, 38, 44, 0.08)', borderRadius: '50%', color: 'var(--aka)', marginBottom: '20px' }}>
             <Lock size={28} />
           </div>
-          <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '8px' }}>{compData?.name || 'This Competition'}</h2>
+          {compData ? (
+            <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '8px' }}>{compData.name}</h2>
+          ) : (
+            <div style={{ width: '200px', height: '28px', background: 'var(--neutral-200)', borderRadius: '6px', margin: '0 auto 8px auto', animation: 'pulse 1.5s infinite' }} />
+          )}
           <p style={{ color: 'var(--neutral-500)', fontSize: '14px', marginBottom: '28px', lineHeight: 1.6 }}>
             This is a private event. Enter the competition password to view live results, tiesheets, and mats.
           </p>
@@ -342,6 +346,11 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
         }
         .stat-footer {
           font-size: 13px; color: var(--neutral-500); display: flex; align-items: center; gap: var(--space-1);
+          margin-top: auto; padding-top: var(--space-3);
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
         }
       `}} />
 
@@ -352,29 +361,38 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
               <Link href="/competitions" style={{ color: 'inherit', textDecoration: 'none' }}>Competitions</Link> / {id} / Overview
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-              <h1>{compData?.name || id}</h1>
-              <span className={`status-chip status-${compData?.status || 'live'}`}>
-                {compData?.status === 'done' ? 'Completed' : compData?.status === 'upcoming' ? 'Upcoming' : 'Live'}
-              </span>
+              {compData ? (
+                <>
+                  <h1>{compData.name}</h1>
+                  <span className={`status-chip status-${compData.status || 'live'}`}>
+                    {compData.status === 'done' ? 'Completed' : compData.status === 'upcoming' ? 'Upcoming' : 'Live'}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <div style={{ width: '240px', height: '40px', background: 'var(--neutral-200)', borderRadius: '8px', animation: 'pulse 1.5s infinite' }} />
+                  <div style={{ width: '80px', height: '24px', background: 'var(--neutral-200)', borderRadius: '999px', animation: 'pulse 1.5s infinite' }} />
+                </>
+              )}
             </div>
           </div>
           <div className="page-header-actions">
             {role === 'admin' && (
               <>
-                <button className="btn btn-secondary" onClick={handleShareLink}>
-                  <Share2 size={16} style={{ marginRight: '8px' }} /> Share Join Link
+                <button className="btn btn-secondary" onClick={handleShareLink} style={{ padding: '8px 16px' }}>
+                  <Share2 size={16} style={{ marginRight: '6px' }} /> Share Join Link
                 </button>
-                <button className="btn btn-secondary" onClick={handleExportPreset}>
-                  <Download size={16} style={{ marginRight: '8px' }} /> Export Preset
+                <button className="btn btn-secondary" onClick={handleExportPreset} style={{ padding: '8px 16px' }}>
+                  <Download size={16} style={{ marginRight: '6px' }} /> Export Preset
                 </button>
-                <Link href={`/setup/${id}`} className="btn btn-primary">
-                  <Edit3 size={16} /> Setup Wizard
+                <Link href={`/setup/${id}`} className="btn btn-primary" style={{ padding: '8px 16px' }}>
+                  <Edit3 size={16} style={{ marginRight: '6px' }} /> Setup
                 </Link>
-                <button className="btn btn-secondary" onClick={() => setOnSpotModalOpen(true)}>
-                  + On-Spot Entry
+                <button className="btn btn-secondary" onClick={() => setOnSpotModalOpen(true)} style={{ padding: '8px 16px' }}>
+                  <Users size={16} style={{ marginRight: '6px' }} /> + Athlete
                 </button>
-                <button className="btn btn-primary">
-                  <Layout size={16} style={{ marginRight: '8px' }} /> Start Next Match
+                <button className="btn btn-primary" style={{ padding: '8px 16px' }}>
+                  <Layout size={16} style={{ marginRight: '6px' }} /> Next Match
                 </button>
               </>
             )}
@@ -384,28 +402,28 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
         <section className="dashboard-bento stagger-in">
           {/* TOP STATS */}
           <div className="bento-card col-span-3">
-            <div>
+            <div style={{ flex: 1 }}>
               <div className="stat-header"><Users size={16} style={{ color: 'var(--ao)' }}/> Total Entries</div>
-              <div className="stat-value">{compData?.athletesCount || 'N/A'}</div>
+              <div className="stat-value">{compData ? (compData.athletesCount || 0) : '-'}</div>
             </div>
-            <div className="stat-footer">{compData?.categoriesCount || 0} categories</div>
+            <div className="stat-footer">{compData ? (compData.categoriesCount || 0) : '-'} categories</div>
           </div>
           <div className="bento-card col-span-3">
-            <div>
+            <div style={{ flex: 1 }}>
               <div className="stat-header"><Layout size={16} style={{ color: 'var(--aka)' }}/> Active Mats</div>
-              <div className="stat-value" style={{ color: 'var(--aka)' }}>{compData?.mats || 'N/A'}</div>
+              <div className="stat-value" style={{ color: 'var(--aka)' }}>{compData ? (compData.mats || 1) : '-'}</div>
             </div>
             <div className="stat-footer">Configured capacity</div>
           </div>
           <div className="bento-card col-span-3">
-            <div>
+            <div style={{ flex: 1 }}>
               <div className="stat-header"><Award size={16} style={{ color: 'var(--status-live)' }}/> Matches Completed</div>
-              <div className="stat-value">{allCatCompleted}</div>
+              <div className="stat-value">{compData ? allCatCompleted : '-'}</div>
             </div>
-            <div className="stat-footer">{percentCompleted}% of tournament</div>
+            <div className="stat-footer">{compData ? percentCompleted : 0}% of tournament</div>
           </div>
           <div className="bento-card col-span-3">
-            <div>
+            <div style={{ flex: 1 }}>
               <div className="stat-header"><Calendar size={16} style={{ color: 'var(--neutral-500)' }}/> Est. Finish Time</div>
               <div className="stat-value">N/A</div>
             </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { User, onAuthStateChanged } from 'firebase/auth';
+import { User, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '@lib/firebase';
 import { useRouter, usePathname } from 'next/navigation';
@@ -65,10 +65,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             } else {
               // New user — write doc with default audience role
               await setDoc(userDocRef, {
-                email: currentUser.email,
+                email: currentUser.email || null,
                 displayName: currentUser.displayName || null,
                 photoURL: currentUser.photoURL || null,
                 role: 'audience',
+                isAnonymous: currentUser.isAnonymous,
                 createdAt: new Date().toISOString(),
                 lastLoginAt: new Date().toISOString()
               });
@@ -82,6 +83,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setRole(null);
           // Clear session cookie
           document.cookie = `session=; path=/; max-age=0; SameSite=Lax; Secure`;
+          
+          // Auto sign-in anonymously so viewers can read Firestore collections
+          signInAnonymously(auth).catch((err) => console.error("Anonymous auth failed:", err));
         }
       } finally {
         // ALWAYS unblock the app — even if Firebase throws
@@ -114,7 +118,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (user && role) {
         if (pathname === '/login') {
-          router.push('/');
+          if (!user.isAnonymous) {
+            router.push('/');
+          }
           return;
         }
 
