@@ -180,6 +180,19 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
           else if (draftData.lastActivePhase !== undefined) setHighestPhase(draftData.lastActivePhase);
           if (draftData.lastActivePhase !== undefined) setActivePhase(draftData.lastActivePhase);
           
+          // WKF draft with no saved categories: generate preset list
+          const effectiveRules = draftData.compRules ?? (snap.exists() ? snap.data()?.rules : undefined);
+          const hasCategories = Array.isArray(draftData.categories) && draftData.categories.length > 0;
+          if (effectiveRules === 'wkf' && !hasCategories) {
+            const { generateWkfCategories } = await import('@taikaix/backend/lib/wkf-categories');
+            const effectiveMode = draftData.wkfMode ?? 'standard';
+            const effectiveJudgeCount: 3 | 5 | 7 = (draftData.wkfKataJudgeCount ?? 3) as 3 | 5 | 7;
+            setCategories(generateWkfCategories(effectiveMode).map(name => {
+              const isKata = name.toLowerCase().includes('kata');
+              return { id: name, name, entries: 0, isKata, judgeCount: isKata ? effectiveJudgeCount : undefined };
+            }));
+          }
+
           setIsDataLoaded(true);
           return;
         }
