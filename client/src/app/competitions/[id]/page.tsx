@@ -6,7 +6,6 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { Lock, Unlock, Users, Calendar, Layout, Award, Edit3, Share2, Eye, EyeOff } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { toast } from 'react-hot-toast';
-import PageSkeleton from '@/components/layout/PageSkeleton';
 import OnSpotEntryModal from '@/components/OnSpotEntryModal';
 import { Download, Search } from 'lucide-react';
 import { KATA_LIST } from '@/lib/kata-list';
@@ -22,7 +21,6 @@ function CompetitionDetailInner({ params }: { params: Promise<{ id: string }> })
   const [checkingPassword, setCheckingPassword] = useState(false);
 
   const [compData, setCompData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
   const [onSpotModalOpen, setOnSpotModalOpen] = useState(false);
 
   // Admins or users with join link bypass passcode
@@ -98,7 +96,6 @@ function CompetitionDetailInner({ params }: { params: Promise<{ id: string }> })
         unsubCats = onSnapshot(collection(db, 'competitions', id, 'categories'), (snap) => {
           let allMatches: any[] = [];
           let matStats: Record<string, Record<string, { gold: number, silver: number, bronze: number, points: number }>> = {};
-          
           let lCats: any[] = [];
           let uCats: any[] = [];
           let fCats: any[] = [];
@@ -107,7 +104,7 @@ function CompetitionDetailInner({ params }: { params: Promise<{ id: string }> })
             const cat = docSnap.data();
             cat.id = docSnap.id;
             const matName = (cat.mat || 'Unassigned').toUpperCase();
-            
+
             if (cat.status === 'live') lCats.push(cat);
             else if (cat.status === 'done' || cat.status === 'completed') fCats.push(cat);
             else uCats.push(cat);
@@ -161,9 +158,6 @@ function CompetitionDetailInner({ params }: { params: Promise<{ id: string }> })
         });
       } catch (err) {
         console.error('Failed to load competition', err);
-      } finally {
-        // Always unblock — even if fetch throws a network error
-        setLoading(false);
       }
     };
     fetchComp();
@@ -214,9 +208,6 @@ function CompetitionDetailInner({ params }: { params: Promise<{ id: string }> })
     }
   };
 
-  if (loading) {
-    return <PageSkeleton />;
-  }
 
   // Show password gate for unauthenticated viewers
   if (!isAuthenticated && !user) {
