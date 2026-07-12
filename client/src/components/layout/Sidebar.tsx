@@ -34,8 +34,8 @@ export default function Sidebar() {
   }
 
   return (
-    <div ref={menuRef}>
-      <nav>
+    <div ref={menuRef} style={{ position: 'sticky', top: 0, zIndex: 100 }}>
+      <nav style={{ position: 'relative', zIndex: 100 }}>
         <div className="nav-logo">TAIKAIX</div>
 
         <div className="nav-links hide-on-mobile">

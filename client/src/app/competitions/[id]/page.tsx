@@ -298,64 +298,6 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
 
   return (
     <>
-      <style dangerouslySetInnerHTML={{__html: `
-        .dashboard-bento {
-          display: grid;
-          grid-template-columns: repeat(12, minmax(0, 1fr));
-          gap: var(--space-4);
-          margin-bottom: var(--space-6);
-        }
-        .bento-card {
-          background: var(--shiro);
-          border: 1px solid var(--neutral-200);
-          border-radius: 16px;
-          padding: var(--space-4);
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
-          transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-          display: flex;
-          flex-direction: column;
-          min-width: 0;
-        }
-        .bento-card:hover {
-          transform: translateY(-4px);
-          box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
-          border-color: var(--neutral-300);
-        }
-        .col-span-3 { grid-column: span 3; }
-        .col-span-4 { grid-column: span 4; }
-        .col-span-8 { grid-column: span 8; }
-        .col-span-12 { grid-column: span 12; }
-
-        @media (max-width: 1024px) {
-          .col-span-3, .col-span-4 { grid-column: span 6; }
-          .col-span-8, .col-span-12 { grid-column: span 12; }
-          .dashboard-bento { gap: var(--space-3); }
-        }
-        @media (max-width: 768px) {
-          .col-span-3, .col-span-4, .col-span-8, .col-span-12 { grid-column: span 12; }
-          .dashboard-bento { gap: var(--space-3); }
-          .bento-card { border-radius: 12px; }
-        }
-        
-        .stat-header {
-          display: flex; align-items: center; gap: var(--space-2);
-          color: var(--neutral-500); font-size: 13px; font-weight: 600;
-          text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: var(--space-3);
-        }
-        .stat-value {
-          font-family: var(--font-display); font-size: 42px; line-height: 1;
-          color: var(--neutral-900); margin-bottom: var(--space-1);
-        }
-        .stat-footer {
-          font-size: 13px; color: var(--neutral-500); display: flex; align-items: center; gap: var(--space-1);
-          margin-top: auto; padding-top: var(--space-3);
-        }
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
-        }
-      `}} />
-
       <main className="container">
         <header className="page-header stagger-in">
           <div>
@@ -381,56 +323,47 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
           <div className="page-header-actions">
             {role === 'admin' && (
               <>
-                <button className="btn btn-secondary" onClick={handleShareLink} style={{ padding: '8px 16px' }}>
-                  <Share2 size={16} style={{ marginRight: '6px' }} /> Share Join Link
+                <button className="btn btn-secondary" onClick={handleShareLink}>
+                  <Share2 size={16} /> Public Link
                 </button>
-                <Link href={`/competitions/${id}/operator`} className="btn btn-primary" style={{ padding: '8px 16px' }}>
-                  <Layout size={16} style={{ marginRight: '6px' }} /> Operator Panel
+                <Link href={`/competitions/${id}/operator`} className="btn btn-primary">
+                  <Layout size={16} /> Operator Panel
                 </Link>
               </>
             )}
           </div>
         </header>
 
-        <section className="dashboard-bento stagger-in">
+        <section className="bento-grid stagger-in">
           {/* TOP STATS */}
-          <div className="bento-card col-span-3">
-            <div style={{ flex: 1 }}>
-              <div className="stat-header"><Users size={16} style={{ color: 'var(--ao)' }}/> Total Entries</div>
-              <div className="stat-value">{compData ? (compData.athletesCount || 0) : '-'}</div>
-            </div>
-            <div className="stat-footer">{compData ? (compData.categoriesCount || 0) : '-'} categories</div>
+          <div className="bento-tile bento-reveal">
+            <div className="text-micro">Total Entries</div>
+            <div className="display-large">{compData ? (compData.athletesCount || 0) : '-'}</div>
+            <div className="text-small">{compData ? (compData.categoriesCount || 0) : '-'} categories</div>
           </div>
-          <div className="bento-card col-span-3">
-            <div style={{ flex: 1 }}>
-              <div className="stat-header"><Layout size={16} style={{ color: 'var(--aka)' }}/> Active Mats</div>
-              <div className="stat-value" style={{ color: 'var(--aka)' }}>{compData ? (compData.mats || 1) : '-'}</div>
-            </div>
-            <div className="stat-footer">Configured capacity</div>
+          <div className="bento-tile bento-reveal">
+            <div className="text-micro">Active Mats</div>
+            <div className="display-large" style={{ color: 'var(--aka)' }}>{compData ? (compData.mats || 1) : '-'}</div>
+            <div className="text-small">Configured capacity</div>
           </div>
-          <div className="bento-card col-span-3">
-            <div style={{ flex: 1 }}>
-              <div className="stat-header"><Award size={16} style={{ color: 'var(--status-live)' }}/> Matches Completed</div>
-              <div className="stat-value">{compData ? allCatCompleted : '-'}</div>
-            </div>
-            <div className="stat-footer">{compData ? percentCompleted : 0}% of tournament</div>
+          <div className="bento-tile bento-reveal">
+            <div className="text-micro">Matches Completed</div>
+            <div className="display-large">{compData ? allCatCompleted : '-'}</div>
+            <div className="text-small">{compData ? percentCompleted : 0}% of tournament</div>
           </div>
-          <div className="bento-card col-span-3">
-            <div style={{ flex: 1 }}>
-              <div className="stat-header"><Calendar size={16} style={{ color: 'var(--neutral-500)' }}/> Est. Finish Time</div>
-              <div className="stat-value">N/A</div>
-            </div>
-            <div className="stat-footer">Not calculated yet</div>
+          <div className="bento-tile bento-reveal">
+            <div className="text-micro">Est. Finish Time</div>
+            <div className="display-large">N/A</div>
+            <div className="text-small">Not calculated yet</div>
           </div>
 
           {/* ROW 2: LIVE & UPCOMING */}
-          <div className="bento-card col-span-8" style={{ border: liveCategories.length > 0 ? '2px solid rgba(217,38,44,0.25)' : undefined }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: 'var(--space-4)' }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(217,38,44,0.08)', color: 'var(--aka)', padding: '4px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--aka)', display: 'inline-block', animation: 'pulse 1.5s ease-in-out infinite' }}></span>
-                LIVE
-              </span>
-              <h2 style={{ margin: 0, fontSize: '18px' }}>Live Now — {liveCategories.length} categor{liveCategories.length === 1 ? 'y' : 'ies'}</h2>
+          <div className="bento-tile bento-reveal span-2-2" style={{ border: liveCategories.length > 0 ? '1.5px solid var(--aka)' : undefined }}>
+            <div className="flex-between mb-4">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span className="status-chip status-live">Live</span>
+                <span className="text-micro" style={{ color: 'var(--neutral-900)' }}>Live Now — {liveCategories.length} categor{liveCategories.length === 1 ? 'y' : 'ies'}</span>
+              </div>
             </div>
             
             {liveCategories.length > 0 ? (
@@ -444,27 +377,27 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
                     <div key={cat.id} style={{ paddingBottom: '16px', borderBottom: idx < liveCategories.length - 1 ? '1px solid var(--neutral-100)' : 'none', display: 'flex', alignItems: 'center', gap: '16px' }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                          <span style={{ fontWeight: 700, fontSize: '14px' }}>{cat.name}</span>
-                          <span style={{ fontSize: '10px', fontWeight: 800, padding: '2px 7px', borderRadius: '4px', background: isKata ? '#eff6ff' : '#1d4ed8', color: isKata ? '#1d4ed8' : '#be123c', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                          <span style={{ fontWeight: 600, fontSize: '14px' }}>{cat.name}</span>
+                          <span className="text-micro" style={{ padding: '2px 6px', borderRadius: '4px', background: isKata ? 'var(--ao-light)' : 'var(--aka-light)', color: isKata ? 'var(--ao)' : 'var(--aka)' }}>
                             {isKata ? 'KATA' : 'KUMITE'}
                           </span>
                         </div>
                         {totalMatches > 0 && (
                           <div style={{ marginTop: '6px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-                              <span style={{ fontSize: '11px', color: 'var(--neutral-500)' }}>{completedMatches}/{totalMatches} matches done</span>
-                              <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--aka)' }}>{pct}%</span>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                              <span className="text-small">{completedMatches}/{totalMatches} matches done</span>
+                              <span className="text-small" style={{ fontWeight: 700, color: 'var(--aka)' }}>{pct}%</span>
                             </div>
                             <div style={{ height: '4px', background: 'var(--neutral-100)', borderRadius: '2px', overflow: 'hidden' }}>
-                              <div style={{ height: '100%', background: 'var(--aka)', borderRadius: '2px', width: `${pct}%`, transition: 'width 0.3s' }}></div>
+                              <div style={{ height: '100%', background: 'var(--aka)', width: `${pct}%`, transition: 'width 0.3s' }}></div>
                             </div>
                           </div>
                         )}
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0, marginTop: '12px' }}>
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', fontWeight: 700, color: 'var(--neutral-600)', background: 'var(--neutral-100)', padding: '4px 10px', borderRadius: '6px' }}>{cat.mat || 'Unassigned'}</span>
-                        <Link href={`/competitions/${id}/brackets?cat=${cat.id}`} className="btn btn-ghost" style={{ padding: '6px 12px', fontSize: '12px', color: 'var(--aka)', border: '1px solid rgba(217,38,44,0.3)' }}>
-                          Bracket →
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+                        <span className="data-mono text-small" style={{ fontWeight: 600 }}>{cat.mat || 'Unassigned'}</span>
+                        <Link href={`/competitions/${id}/brackets?cat=${cat.id}`} className="btn btn-ghost" style={{ padding: '6px 12px' }}>
+                          <Eye size={16} />
                         </Link>
                       </div>
                     </div>
@@ -472,24 +405,21 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
                 })}
               </div>
             ) : (
-              <div style={{ padding: '32px', textAlign: 'center', border: '1px dashed var(--neutral-300)', borderRadius: '12px' }}>
-                <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--neutral-100)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px' }}>
-                  <Layout size={24} style={{ color: 'var(--neutral-400)' }} />
-                </div>
-                <h3 style={{ margin: 0, color: 'var(--neutral-700)' }}>No Live Categories</h3>
-                <p className="text-small" style={{ marginTop: '8px' }}>Categories will appear here once they are started from the operator panel.</p>
+              <div style={{ padding: '32px', textAlign: 'center', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                <Layout size={24} style={{ color: 'var(--neutral-400)', marginBottom: '12px' }} />
+                <div className="text-small">No Live Categories</div>
               </div>
             )}
           </div>
 
-          <div className="bento-card col-span-4">
-            <h2 style={{ fontSize: '18px', marginBottom: 'var(--space-4)' }}>Upcoming (Next 5)</h2>
+          <div className="bento-tile bento-reveal span-2-2">
+            <div className="text-micro mb-4">Upcoming (Next 5)</div>
             {upcomingCategories.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {upcomingCategories.slice(0, 5).map(cat => (
-                  <div key={cat.id} style={{ paddingBottom: '12px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                {upcomingCategories.slice(0, 5).map((cat, idx) => (
+                  <div key={cat.id} style={{ paddingBottom: '12px', borderBottom: idx < Math.min(upcomingCategories.length, 5) - 1 ? '1px solid var(--neutral-100)' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: '14px', fontWeight: 500 }}>{cat.name}</span>
-                    <span style={{ color: 'var(--neutral-500)', fontSize: '12px', fontWeight: 600, padding: '4px 8px', background: 'var(--neutral-50)', borderRadius: '6px' }}>{cat.mat || 'Unassigned'}</span>
+                    <span className="data-mono text-small" style={{ fontWeight: 600 }}>{cat.mat || 'Unassigned'}</span>
                   </div>
                 ))}
               </div>
@@ -499,9 +429,9 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
           </div>
 
           {/* ROW 3: RECENT RESULTS & FINISHED */}
-          <div className="bento-card col-span-8">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
-              <h2 style={{ fontSize: '18px', margin: 0 }}>Recent Results</h2>
+          <div className="bento-tile bento-reveal" style={{ gridColumn: 'span 3' }}>
+            <div className="flex-between mb-4">
+              <div className="text-micro">Recent Results</div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <select 
                   value={filterType} 
@@ -526,14 +456,14 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
               </div>
             </div>
 
-            <div style={{ overflowX: 'auto' }}>
+            <div className="table-responsive" style={{ margin: 0 }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead style={{ background: 'var(--neutral-50)' }}>
+                <thead style={{ background: 'var(--neutral-50)', borderBottom: '1px solid var(--neutral-300)' }}>
                   <tr>
-                    <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', color: 'var(--neutral-500)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Category</th>
-                    <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', color: 'var(--neutral-500)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Aka (Red)</th>
-                    <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', color: 'var(--neutral-500)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ao (Blue)</th>
-                    <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: '12px', color: 'var(--neutral-500)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Winner</th>
+                    <th className="text-micro" style={{ padding: '12px 16px', textAlign: 'left' }}>Category</th>
+                    <th className="text-micro" style={{ padding: '12px 16px', textAlign: 'left' }}>Aka (Red)</th>
+                    <th className="text-micro" style={{ padding: '12px 16px', textAlign: 'left' }}>Ao (Blue)</th>
+                    <th className="text-micro" style={{ padding: '12px 16px', textAlign: 'right' }}>Winner</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -552,7 +482,7 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
                     if (filteredMatches.length === 0) {
                       return (
                         <tr>
-                          <td colSpan={4} style={{ padding: '24px', textAlign: 'center', color: 'var(--neutral-500)', fontSize: '13px' }}>
+                          <td colSpan={4} style={{ padding: '24px', textAlign: 'center' }} className="text-small">
                             No matches found.
                           </td>
                         </tr>
@@ -562,7 +492,7 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
                     return filteredMatches.map((m, i) => (
                       <tr key={i} style={{ borderBottom: '1px solid var(--neutral-100)' }}>
                         <td style={{ padding: '12px 16px', fontSize: '13px', fontWeight: 500 }}>
-                          {m.categoryName} <span style={{ fontSize: '10px', color: 'var(--neutral-400)', display: 'block', marginTop: '2px' }}>{m.mat}</span>
+                          {m.categoryName} <span className="data-mono" style={{ color: 'var(--neutral-400)', display: 'block', marginTop: '2px', fontSize: '11px' }}>{m.mat}</span>
                         </td>
                         <td style={{ padding: '12px 16px', fontSize: '13px' }}>{m.aka?.name || '-'}</td>
                         <td style={{ padding: '12px 16px', fontSize: '13px' }}>{m.ao?.name || '-'}</td>
@@ -577,14 +507,14 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
             </div>
           </div>
 
-          <div className="bento-card col-span-4">
-            <h2 style={{ fontSize: '18px', marginBottom: 'var(--space-4)' }}>Finished (Last 5)</h2>
+          <div className="bento-tile bento-reveal">
+            <div className="text-micro mb-4">Finished (Last 5)</div>
             {finishedCategories.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {finishedCategories.slice(0, 5).map(cat => (
-                  <div key={cat.id} style={{ paddingBottom: '12px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                {finishedCategories.slice(0, 5).map((cat, idx) => (
+                  <div key={cat.id} style={{ paddingBottom: '12px', borderBottom: idx < Math.min(finishedCategories.length, 5) - 1 ? '1px solid var(--neutral-100)' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: '14px', fontWeight: 500 }}>{cat.name}</span>
-                    <span style={{ color: 'var(--neutral-500)', fontSize: '12px', fontWeight: 600, padding: '4px 8px', background: 'var(--neutral-50)', borderRadius: '6px' }}>{cat.mat || 'Unassigned'}</span>
+                    <span className="data-mono text-small" style={{ fontWeight: 600 }}>{cat.mat || 'Unassigned'}</span>
                   </div>
                 ))}
               </div>
@@ -594,20 +524,20 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
           </div>
 
           {/* ROW 4: MAT LEADERBOARDS & KATA LIST */}
-          <div className="bento-card col-span-8">
-            <h2 style={{ fontSize: '18px', marginBottom: 'var(--space-4)' }}>Mat Leaderboards</h2>
+          <div className="bento-tile bento-reveal" style={{ gridColumn: 'span 3' }}>
+            <div className="text-micro mb-4">Mat Leaderboards</div>
             {Object.keys(matLeaderboards).length === 0 ? (
               <div style={{ padding: '24px', textAlign: 'center', color: 'var(--neutral-500)', fontSize: '13px' }}>
                 No medals awarded yet.
               </div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 'var(--space-5)' }}>
                 {Object.keys(matLeaderboards).map(mat => (
-                  <div key={mat} style={{ border: '1px solid var(--neutral-200)', borderRadius: '12px', padding: '16px' }}>
-                    <h3 style={{ fontSize: '14px', marginBottom: '12px', borderBottom: '1px solid var(--neutral-100)', paddingBottom: '8px' }}>{mat}</h3>
+                  <div key={mat} style={{ border: '1px solid var(--neutral-200)', borderRadius: '10px', padding: '16px' }}>
+                    <h3 className="data-mono" style={{ fontSize: '14px', marginBottom: '12px', borderBottom: '1px solid var(--neutral-100)', paddingBottom: '8px' }}>{mat}</h3>
                     {matLeaderboards[mat].map((entry, idx) => (
                       <div key={entry.academy} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 0', borderBottom: idx < matLeaderboards[mat].length - 1 ? '1px solid var(--neutral-50)' : 'none' }}>
-                        <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: idx === 0 ? '#fbbf24' : idx === 1 ? '#9ca3af' : idx === 2 ? '#d97706' : '#f3f4f6', color: idx < 3 ? 'white' : '#6b7280', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>
+                        <div className={`rank-badge ${idx < 3 ? 'rank-' + (idx + 1) : ''}`}>
                           {idx + 1}
                         </div>
                         <div style={{ flex: 1, fontSize: '13px', fontWeight: 600 }}>{entry.academy}</div>
@@ -624,8 +554,8 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
             )}
           </div>
 
-          <div className="bento-card col-span-4" style={{ height: '400px' }}>
-            <h2 style={{ fontSize: '18px', marginBottom: 'var(--space-4)' }}>WKF 102 Katas</h2>
+          <div className="bento-tile bento-reveal" style={{ height: '400px' }}>
+            <div className="text-micro mb-4">WKF 102 Katas</div>
             <div style={{ position: 'relative', marginBottom: '16px' }}>
               <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--neutral-400)' }} />
               <input
@@ -640,7 +570,7 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
               {KATA_LIST.filter(k => k.name.toLowerCase().includes(kataSearchQuery.toLowerCase())).map(k => (
                 <div key={k.number} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--neutral-50)', fontSize: '13px' }}>
                   <span style={{ fontWeight: 600 }}>{k.name}</span>
-                  <span style={{ color: 'var(--neutral-400)', fontSize: '11px', fontWeight: 800 }}>#{String(k.number).padStart(3, '0')}</span>
+                  <span className="data-mono" style={{ color: 'var(--neutral-400)', fontSize: '11px', fontWeight: 800 }}>#{String(k.number).padStart(3, '0')}</span>
                 </div>
               ))}
             </div>
