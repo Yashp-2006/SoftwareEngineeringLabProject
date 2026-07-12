@@ -26,61 +26,73 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
+    // Safety net: if Firebase auth never responds within 5s, unblock the app
+    const timeout = setTimeout(() => {
+      setLoading(false);
+    }, 5000);
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-      
-      if (currentUser) {
-        // Set session cookie with the Firebase ID token for server-side API validation
-        currentUser.getIdToken().then(token => {
-          document.cookie = `session=${token}; path=/; max-age=3600; SameSite=Lax; Secure`;
-        }).catch(err => {
-          console.error('Failed to set session cookie:', err);
-        });
+      clearTimeout(timeout);
+      try {
+        setUser(currentUser);
 
-        try {
-          const userDocRef = doc(db, 'users', currentUser.uid);
-          const userDoc = await getDoc(userDocRef);
-          
-          if (userDoc.exists()) {
-            // Fallback: if role field is missing, treat as 'audience'
-            const currentRole = (userDoc.data().role as UserRole) || 'audience';
-            setRole(currentRole);
+        if (currentUser) {
+          // Set session cookie with the Firebase ID token for server-side API validation
+          currentUser.getIdToken().then(token => {
+            document.cookie = `session=${token}; path=/; max-age=3600; SameSite=Lax; Secure`;
+          }).catch(err => {
+            console.error('Failed to set session cookie:', err);
+          });
 
-            await setDoc(userDocRef, {
-              email: currentUser.email,
-              displayName: currentUser.displayName || null,
-              photoURL: currentUser.photoURL || null,
-              // Note: 'role' is intentionally NOT written here.
-              // Role is server-authoritative — we read it above but never write it
-              // from the client to prevent privilege escalation.
-              lastLoginAt: new Date().toISOString()
-            }, { merge: true });
-          } else {
-            // New user — write doc with default audience role
-            await setDoc(userDocRef, {
-              email: currentUser.email,
-              displayName: currentUser.displayName || null,
-              photoURL: currentUser.photoURL || null,
-              role: 'audience',
-              createdAt: new Date().toISOString(),
-              lastLoginAt: new Date().toISOString()
-            });
+          try {
+            const userDocRef = doc(db, 'users', currentUser.uid);
+            const userDoc = await getDoc(userDocRef);
+
+            if (userDoc.exists()) {
+              // Fallback: if role field is missing, treat as 'audience'
+              const currentRole = (userDoc.data().role as UserRole) || 'audience';
+              setRole(currentRole);
+
+              await setDoc(userDocRef, {
+                email: currentUser.email,
+                displayName: currentUser.displayName || null,
+                photoURL: currentUser.photoURL || null,
+                // Note: 'role' is intentionally NOT written here.
+                // Role is server-authoritative — we read it above but never write it
+                // from the client to prevent privilege escalation.
+                lastLoginAt: new Date().toISOString()
+              }, { merge: true });
+            } else {
+              // New user — write doc with default audience role
+              await setDoc(userDocRef, {
+                email: currentUser.email,
+                displayName: currentUser.displayName || null,
+                photoURL: currentUser.photoURL || null,
+                role: 'audience',
+                createdAt: new Date().toISOString(),
+                lastLoginAt: new Date().toISOString()
+              });
+              setRole('audience');
+            }
+          } catch (error) {
+            console.error('Error fetching user role:', error);
             setRole('audience');
           }
-        } catch (error) {
-          console.error("Error fetching user role:", error);
-          setRole('audience');
+        } else {
+          setRole(null);
+          // Clear session cookie
+          document.cookie = `session=; path=/; max-age=0; SameSite=Lax; Secure`;
         }
-      } else {
-        setRole(null);
-        // Clear session cookie
-        document.cookie = `session=; path=/; max-age=0; SameSite=Lax; Secure`;
+      } finally {
+        // ALWAYS unblock the app — even if Firebase throws
+        setLoading(false);
       }
-      
-      setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      clearTimeout(timeout);
+      unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -89,7 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const isStrictAdminRoute = pathname === '/' || pathname.startsWith('/setup') || pathname.startsWith('/users') || pathname.startsWith('/profile');
         // /operator is intentionally excluded — PasswordGateway handles its own auth for unauthenticated viewers
         const isProtectedCompetitionRoute = pathname.includes('/staff') || pathname.includes('/medals') || pathname.includes('/judge') || pathname.includes('/athletes') || pathname.includes('/records') || pathname.includes('/categories');
-        
+
         if (isStrictAdminRoute || isProtectedCompetitionRoute) {
           if (pathname === '/') {
             router.push('/competitions');
@@ -108,7 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         const isAdminOrGuest = role === 'admin' || role === 'guest_viewer';
         const isAdminRoute = pathname === '/' || pathname.startsWith('/setup') || pathname.startsWith('/users');
-        
+
         if (isAdminRoute && !isAdminOrGuest) {
           router.push('/competitions');
           return;
@@ -148,7 +160,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider value={ctxValue}>
-      {!loading && children}
+      {/* Always render children — pages handle their own auth-aware loading states */}
+      {children}
     </AuthContext.Provider>
   );
 }
