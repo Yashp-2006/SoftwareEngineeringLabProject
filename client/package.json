@@ -41,6 +41,9 @@
   "optionalDependencies": {
     "@next/swc-linux-x64-gnu": "16.2.6",
     "@next/swc-linux-x64-musl": "16.2.6",
-    "@next/swc-win32-x64-msvc": "16.2.6"
+    "@next/swc-win32-x64-msvc": "16.2.6",
+    "@tailwindcss/oxide-linux-x64-gnu": "^4",
+    "@tailwindcss/oxide-linux-x64-musl": "^4",
+    "@tailwindcss/oxide": "^4"
   }
 }
