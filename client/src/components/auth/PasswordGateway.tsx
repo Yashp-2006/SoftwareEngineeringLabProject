@@ -28,9 +28,6 @@ export default function PasswordGateway({ children }: { children: React.ReactNod
     if (authed === 'true') {
       setIsAuthenticated(true);
     }
-    
-    // Wait for anonymous auth before fetching
-    if (!user) return;
 
     // Fetch details
     const fetchTarget = async () => {

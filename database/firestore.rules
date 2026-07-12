@@ -14,18 +14,18 @@ service cloud.firestore {
     // Competitions (and all subcollections)
     // ─────────────────────────────────────────────────────────────
     match /competitions/{competitionId} {
-      allow read: if request.auth != null;
+      allow read: if true;
       allow create, update: if isAdmin();
       allow delete: if isAdmin();
 
       // Categories
       match /categories/{categoryId} {
-        allow read: if request.auth != null;
+        allow read: if true;
         allow write: if isAdmin();
 
         // Matches — Mat Operator can update score/timer fields
         match /matches/{matchId} {
-          allow read: if request.auth != null;
+          allow read: if true;
           allow create: if isAdmin();
           allow update: if isAdmin() || isMatOperator();
           allow delete: if isAdmin();
@@ -34,33 +34,33 @@ service cloud.firestore {
 
       // Athletes — Attendance Volunteer can update attendance/readiness/disqualified
       match /athletes/{athleteId} {
-        allow read: if request.auth != null;
+        allow read: if true;
         allow create, delete: if isAdmin();
         allow update: if isAdmin() || isAttendanceVolunteer();
       }
 
       // Medals — Medal Distributor can toggle 'received' field only
       match /medals/{medalistId} {
-        allow read: if request.auth != null;
+        allow read: if true;
         allow create, delete: if isAdmin();
         allow update: if isAdmin() || isMedalDistributor();
       }
 
       // Staff assignments — Admin only
       match /staff/{assignmentId} {
-        allow read: if request.auth != null;
+        allow read: if true;
         allow write: if isAdmin();
       }
 
       // Mats — Admin only (includes password field)
       match /mats/{matId} {
-        allow read: if request.auth != null;
+        allow read: if true;
         allow write: if isAdmin();
       }
 
       // Schedule — Admin only
       match /schedule/{rowId} {
-        allow read: if request.auth != null;
+        allow read: if true;
         allow write: if isAdmin();
       }
     }
