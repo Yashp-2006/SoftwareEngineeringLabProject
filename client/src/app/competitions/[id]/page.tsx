@@ -78,6 +78,8 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
 
   // 1. Fetch competition data via onSnapshot instead of static fetch
   useEffect(() => {
+    if (!user) return;
+
     let unsubComp: () => void;
     let unsubCats: () => void;
 
@@ -165,7 +167,7 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
       unsubComp?.();
       unsubCats?.();
     };
-  }, [id]);
+  }, [id, user]);
 
   useEffect(() => {
     const gsap = (window as any).gsap;

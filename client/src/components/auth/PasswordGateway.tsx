@@ -5,6 +5,7 @@ import { Lock, Eye, EyeOff } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@lib/firebase';
 import { useSearchParams, useParams } from 'next/navigation';
+import { useAuth } from '@/components/auth/AuthProvider';
 
 export default function PasswordGateway({ children }: { children: React.ReactNode }) {
   const { id } = useParams() as { id: string };
@@ -19,6 +20,8 @@ export default function PasswordGateway({ children }: { children: React.ReactNod
   const [error, setError] = useState('');
   const [targetName, setTargetName] = useState('Loading...');
 
+  const { user } = useAuth();
+
   useEffect(() => {
     // Check if session storage already has the password authorized
     const authed = sessionStorage.getItem(authKey);
@@ -26,6 +29,9 @@ export default function PasswordGateway({ children }: { children: React.ReactNod
       setIsAuthenticated(true);
     }
     
+    // Wait for anonymous auth before fetching
+    if (!user) return;
+
     // Fetch details
     const fetchTarget = async () => {
       try {
@@ -45,7 +51,7 @@ export default function PasswordGateway({ children }: { children: React.ReactNod
       }
     };
     fetchTarget();
-  }, [id, matId, authKey]);
+  }, [id, matId, authKey, user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
