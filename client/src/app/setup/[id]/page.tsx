@@ -190,6 +190,8 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
           const draftData = draftSnap.data();
           if (draftData.compName && draftData.compName !== 'Loading...') setCompName(draftData.compName);
           if (draftData.matsCount !== undefined) setMatsCount(draftData.matsCount);
+          else if (snap.exists() && snap.data().mats !== undefined) setMatsCount(snap.data().mats);
+          
           if (draftData.poolSize !== undefined) setPoolSize(draftData.poolSize);
           if (draftData.compRules !== undefined) setCompRules(draftData.compRules);
           if (draftData.compType !== undefined) setCompType(draftData.compType);
