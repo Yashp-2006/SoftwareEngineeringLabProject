@@ -100,6 +100,11 @@ export async function POST(req: NextRequest) {
             isSpecial: cat.isSpecial
           };
           
+          if (cat.matchTime !== undefined) updateData.matchTime = cat.matchTime;
+          if (cat.restTime !== undefined) updateData.restTime = cat.restTime;
+          if (cat.medicalTime !== undefined) updateData.medicalTime = cat.medicalTime;
+          if (cat.bunkaiTime !== undefined) updateData.bunkaiTime = cat.bunkaiTime;
+          
           if (poolData && poolData.day !== -1) {
              updateData.day = poolData.day;
           }
@@ -136,7 +141,12 @@ export async function POST(req: NextRequest) {
           bronzeRule: data.bronzeRule,
           isSetupComplete: true,
           status: 'live',
-          updatedAt: new Date().toISOString()
+          updatedAt: new Date().toISOString(),
+          tournamentDays: data.tournamentDays || 1,
+          globalMatchTime: data.globalMatchTime || 3,
+          globalRestTime: data.globalRestTime || 1,
+          globalMedicalTime: data.globalMedicalTime || 1,
+          globalBunkaiTime: data.globalBunkaiTime || 5
         };
 
         if (data.scoreboardLogo) {

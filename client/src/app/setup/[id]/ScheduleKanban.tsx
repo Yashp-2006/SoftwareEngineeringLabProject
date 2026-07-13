@@ -151,15 +151,66 @@ export default function ScheduleKanban({
         setPoolsSchedule(prev => {
           const next = { ...prev };
           let changed = false;
-          generatedPools.forEach(p => {
-            if (!next[p.id]) {
-              next[p.id] = { matId: -1, day: -1, order: 0, estTime: p.estTime };
+
+          // Re-assign invalid pools (if matsCount or tournamentDays shrank)
+          Object.keys(next).forEach(pid => {
+            if (next[pid].matId > matsCount || next[pid].day > tournamentDays) {
+              next[pid].matId = -1;
+              next[pid].day = -1;
               changed = true;
-            } else if (next[p.id].estTime !== p.estTime) {
+            }
+          });
+          
+          const newPools = generatedPools.filter(p => !next[p.id]);
+          
+          if (newPools.length > 0) {
+            changed = true;
+            
+            // Calculate current loads
+            const matLoads: Record<string, number> = {};
+            for (let d = 1; d <= tournamentDays; d++) {
+              for (let m = 1; m <= matsCount; m++) {
+                matLoads[`${d}-${m}`] = 0;
+              }
+            }
+            
+            Object.values(next).forEach(sched => {
+              if (sched.day !== -1 && sched.matId !== -1) {
+                matLoads[`${sched.day}-${sched.matId}`] = (matLoads[`${sched.day}-${sched.matId}`] || 0) + sched.estTime;
+              }
+            });
+            
+            // Sort new pools by longest duration first (LPT heuristic)
+            newPools.sort((a, b) => b.estTime - a.estTime);
+            
+            newPools.forEach(p => {
+              let minLoad = Infinity;
+              let bestDay = 1;
+              let bestMat = 1;
+              
+              for (let d = 1; d <= tournamentDays; d++) {
+                for (let m = 1; m <= matsCount; m++) {
+                  const load = matLoads[`${d}-${m}`];
+                  if (load < minLoad) {
+                    minLoad = load;
+                    bestDay = d;
+                    bestMat = m;
+                  }
+                }
+              }
+              
+              next[p.id] = { matId: bestMat, day: bestDay, order: Date.now() + Math.random(), estTime: p.estTime };
+              matLoads[`${bestDay}-${bestMat}`] += p.estTime;
+            });
+          }
+          
+          generatedPools.forEach(p => {
+            if (next[p.id] && next[p.id].estTime !== p.estTime) {
               next[p.id].estTime = p.estTime;
               changed = true;
             }
           });
+          
           return changed ? next : prev;
         });
       } catch (err) {
@@ -170,7 +221,7 @@ export default function ScheduleKanban({
     }
     
     fetchPools();
-  }, [compId, importResult, globalMatchTime, globalRestTime, globalMedicalTime, globalBunkaiTime, setPoolsSchedule]);
+  }, [compId, importResult, globalMatchTime, globalRestTime, globalMedicalTime, globalBunkaiTime, setPoolsSchedule, matsCount, tournamentDays]);
 
   const columns = useMemo(() => {
     const unassigned = pools.filter(p => !poolsSchedule[p.id] || poolsSchedule[p.id].matId === -1).sort((a,b) => (poolsSchedule[a.id]?.order || 0) - (poolsSchedule[b.id]?.order || 0));
