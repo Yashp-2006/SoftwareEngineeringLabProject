@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
         const matTotalMins = Array.from({ length: numMats }).map(() => configStartMins);
 
         allCats.forEach((cat, index) => {
-          const poolData = data.poolsSchedule?.[cat.id || cat.name];
+          const poolData: any = data.poolsSchedule?.[cat.id || cat.name];
           const matIndex = poolData && poolData.matId !== -1 ? poolData.matId - 1 : index % numMats;
           const order = poolData ? poolData.order : index;
           const matName = `MAT ${String(matIndex + 1).padStart(2, '0')}`;

@@ -53,7 +53,7 @@ export const saveSetupDraftSchema = z.object({
   globalRestTime: z.number().optional(),
   globalMedicalTime: z.number().optional(),
   globalBunkaiTime: z.number().optional(),
-  poolsSchedule: z.record(z.object({
+  poolsSchedule: z.record(z.string(), z.object({
     matId: z.number(),
     day: z.number(),
     order: z.number(),
@@ -79,7 +79,7 @@ export const deployTournamentSchema = z.object({
   globalRestTime: z.number().optional(),
   globalMedicalTime: z.number().optional(),
   globalBunkaiTime: z.number().optional(),
-  poolsSchedule: z.record(z.object({
+  poolsSchedule: z.record(z.string(), z.object({
     matId: z.number(),
     day: z.number(),
     order: z.number(),

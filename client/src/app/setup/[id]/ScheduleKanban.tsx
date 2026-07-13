@@ -120,7 +120,7 @@ export default function ScheduleKanban({
     async function fetchPools() {
       try {
         const snap = await getDocs(collection(db, 'competitions', compId, 'categories'));
-        const cats = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const cats = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
         
         const generatedPools: any[] = [];
         cats.forEach(cat => {
@@ -226,16 +226,14 @@ export default function ScheduleKanban({
   const columns = useMemo(() => {
     const unassigned = pools.filter(p => !poolsSchedule[p.id] || poolsSchedule[p.id].matId === -1).sort((a,b) => (poolsSchedule[a.id]?.order || 0) - (poolsSchedule[b.id]?.order || 0));
     
-    const matColumns = Array.from({ length: matsCount }).map((_, i) => {
-      const matPools = pools.filter(p => poolsSchedule[p.id]?.day === activeDay && poolsSchedule[p.id]?.matId === (i + 1))
-        .sort((a,b) => poolsSchedule[a.id].order - poolsSchedule[b.id].order);
-      const totalTime = matPools.reduce((sum, p) => sum + poolsSchedule[p.id].estTime, 0);
-      return { id: `mat-${i + 1}`, title: `Mat ${i + 1}`, pools: matPools, totalTime };
-    });
-    
     return [
-      { id: 'unassigned', title: 'Unassigned', pools: unassigned },
-      ...matColumns
+      { id: 'unassigned', title: 'Unassigned Pools', pools: unassigned, totalTime: 0 },
+      ...Array.from({ length: matsCount }).map((_, i) => {
+        const matPools = pools.filter(p => poolsSchedule[p.id]?.day === activeDay && poolsSchedule[p.id]?.matId === (i + 1))
+          .sort((a,b) => poolsSchedule[a.id].order - poolsSchedule[b.id].order);
+        const totalTime = matPools.reduce((sum, p) => sum + poolsSchedule[p.id].estTime, 0);
+        return { id: `mat-${i + 1}`, title: `Mat ${i + 1}`, pools: matPools, totalTime };
+      })
     ];
   }, [pools, poolsSchedule, activeDay, matsCount]);
 
