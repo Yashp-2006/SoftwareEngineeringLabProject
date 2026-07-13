@@ -311,7 +311,7 @@ export default function ScheduleKanban({
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-        <div style={{ display: 'grid', gridTemplateColumns: \`260px repeat(\${matsCount}, 1fr)\`, gap: '16px', alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: `260px repeat(${matsCount}, 1fr)`, gap: '16px', alignItems: 'start' }}>
           {columns.map(col => (
             <DroppableColumn key={col.id} id={col.id} title={col.title} pools={col.pools} totalTime={col.totalTime} />
           ))}
