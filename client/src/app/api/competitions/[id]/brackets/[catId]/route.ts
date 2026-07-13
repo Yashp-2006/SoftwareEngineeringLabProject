@@ -62,24 +62,49 @@ export async function PATCH(
         return NextResponse.json({ success: false, error: 'Match is not completed' }, { status: 400 });
       }
 
+      const clearNextMatches = (currentMatchId: string) => {
+        const idx = matches.findIndex((m: any) => m.id === currentMatchId);
+        if (idx === -1) return;
+        const match = matches[idx];
+        const nextMatchId = match.nextMatchId;
+        if (!nextMatchId) return;
+        
+        const targetIdx = matches.findIndex((m: any) => m.id === nextMatchId);
+        if (targetIdx === -1) return;
+        
+        const targetMatch = matches[targetIdx];
+        const updatedTarget = { ...targetMatch };
+        if (targetMatch.akaFromMatchId === currentMatchId) {
+          updatedTarget.aka = null;
+        } else if (targetMatch.aoFromMatchId === currentMatchId) {
+          updatedTarget.ao = null;
+        }
+        
+        updatedTarget.winnerId = null;
+        updatedTarget.byeFor = null;
+        updatedTarget.status = 'upcoming';
+        updatedTarget.akaKata = null;
+        updatedTarget.aoKata = null;
+        updatedTarget.selectedKata = null;
+        
+        matches[targetIdx] = updatedTarget;
+        clearNextMatches(targetMatch.id);
+      };
+
       // Check next match to see if the winner has already played
       const nextMatchId = currentMatch.nextMatchId;
       if (nextMatchId) {
         const nextIdx = matches.findIndex((m: any) => m.id === nextMatchId);
         if (nextIdx !== -1) {
           const nextMatch = matches[nextIdx];
-          if (nextMatch.status === 'completed' || nextMatch.winnerId) {
+          const isNextMatchPlayed = nextMatch.status === 'completed' && !nextMatch.byeFor;
+          if (isNextMatchPlayed || nextMatch.status === 'live') {
             return NextResponse.json({ 
               success: false, 
               error: 'Cannot revert this match because the winner has already completed the next round. Please revert the next round\'s match first.' 
             }, { status: 400 });
           }
-          // Clear the slot in the next match
-          if (nextMatch.akaFromMatchId === matchId) {
-            matches[nextIdx] = { ...nextMatch, aka: null };
-          } else if (nextMatch.aoFromMatchId === matchId) {
-            matches[nextIdx] = { ...nextMatch, ao: null };
-          }
+          clearNextMatches(matchId);
         }
       }
 
