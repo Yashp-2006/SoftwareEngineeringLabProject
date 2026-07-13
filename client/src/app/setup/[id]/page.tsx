@@ -1097,25 +1097,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                 </div>
 
                 <div className="cat-group" style={{ marginBottom: 'var(--space-4)' }}>
-                    <div style={{ padding: 'var(--space-3)', background: 'var(--neutral-50)', borderRadius: '8px', border: '1px solid var(--neutral-200)' }}>
-                      <h4 style={{ margin: '0 0 var(--space-2) 0', fontSize: '13px' }}>WKF Categorization Mode</h4>
-                      <p className="text-small" style={{ marginBottom: 'var(--space-3)', color: 'var(--neutral-600)' }}>Choose this before importing. How should categories be formatted?</p>
-                      <div style={{ display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                          <input type="radio" name="wkfMode" value="standard" checked={wkfMode === 'standard'} onChange={() => handleWkfModeChange('standard')} />
-                          <span className="text-small">Standard (Age & Weight)</span>
-                        </label>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                          <input type="radio" name="wkfMode" value="age" checked={wkfMode === 'age'} onChange={() => handleWkfModeChange('age')} />
-                          <span className="text-small">Age Wise Only</span>
-                        </label>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                          <input type="radio" name="wkfMode" value="weight" checked={wkfMode === 'weight'} onChange={() => handleWkfModeChange('weight')} />
-                          <span className="text-small">Weight Wise Only</span>
-                        </label>
-                      </div>
-                      
-                      <div style={{ marginTop: 'var(--space-4)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--neutral-200)' }}>
+                    <div style={{ padding: 'var(--space-3)', background: 'var(--neutral-50)', borderRadius: '8px' }}>
                         <h4 style={{ margin: '0 0 var(--space-2) 0', fontSize: '13px' }}>Kata Judge Count</h4>
                         <p className="text-small" style={{ marginBottom: 'var(--space-3)', color: 'var(--neutral-600)' }}>Applies to all generated Kata categories.</p>
                         <div style={{ display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
