@@ -391,7 +391,8 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
     }
   };
 
-  const maxPhase = compRules === 'wkf' ? 5 : 6;
+  const is5Phase = compRules === 'wkf' || compRules === 'import_preset';
+  const maxPhase = is5Phase ? 5 : 6;
 
   const handleNext = () => {
     if (activePhase < maxPhase) {
@@ -763,9 +764,9 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
           </div>
 
           <div className="wizard-stepper" style={{ '--stepper-cols': maxPhase } as React.CSSProperties}>
-            {(compRules === 'wkf' 
-              ? ['Roster Import', 'Categories & Mats', 'Tiesheet Preview', 'Staff Setup', 'Review']
-              : ['Define Categories', 'Roster Import', 'Mat Setup', 'Tiesheet Preview', 'Staff Setup', 'Review']
+            {(is5Phase 
+              ? ['Roster/CSV Import', 'Category, Mat & Schedule Management', 'Tiesheet Preview', 'Staff Management', 'Review']
+              : ['Define Categories', 'Roster/CSV Import', 'Category, Mat & Schedule Management', 'Tiesheet Preview', 'Staff Management', 'Review']
             ).map((label, idx) => {
               const phaseNum = idx + 1;
               const isCompleted = highestPhase > phaseNum || isReviewMode;
@@ -840,12 +841,12 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
             </section>
           )}
 
-          {((compRules === 'wkf' && activePhase === 1) || (compRules !== 'wkf' && activePhase === 2) || isReviewMode) && (
+          {((is5Phase && activePhase === 1) || (!is5Phase && activePhase === 2) || isReviewMode) && (
             <section className="wizard-phase active">
               {!isReviewMode && (
                 <div className="phase-header">
                   <div>
-                    <h3 style={{ margin: 0 }}>Phase {compRules === 'wkf' ? '1' : '2'} — Match Pool Size + Excel Import</h3>
+                    <h3 style={{ margin: 0 }}>Phase {is5Phase ? '1' : '2'} — Roster/CSV Import</h3>
                     <p className="text-small" style={{ marginTop: '4px' }}>Choose a pool size and import athletes to generate tiesheets.</p>
                   </div>
                 </div>
@@ -945,18 +946,18 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
             </section>
           )}
 
-          {((compRules === 'wkf' && activePhase === 2) || (compRules !== 'wkf' && activePhase === 1) || isReviewMode) && (
+          {((is5Phase && activePhase === 2) || (!is5Phase && activePhase === 1) || isReviewMode) && (
             <section className="wizard-phase active">
               {!isReviewMode && (
                 <div className="phase-header">
                   <div>
-                    <h3 style={{ margin: 0 }}>{compRules === 'wkf' ? 'Phase 2 — Categories + Mats' : 'Phase 1 — Define Categories'}</h3>
+                    <h3 style={{ margin: 0 }}>{is5Phase ? 'Phase 2 — Category, Mat & Schedule Management' : 'Phase 1 — Define Categories'}</h3>
                     <p className="text-small" style={{ marginTop: '4px' }}>Define divisions for the tournament.</p>
                   </div>
                 </div>
               )}
               <div className="category-manager">
-                {compRules === 'wkf' && (
+                {is5Phase && (
                 <div className="cat-group">
                   <div className="flex-between">
                     <div>
@@ -1236,12 +1237,12 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
             </section>
           )}
 
-          {(compRules !== 'wkf' && (activePhase === 3 || isReviewMode)) && (
+          {(!is5Phase && (activePhase === 3 || isReviewMode)) && (
             <section className="wizard-phase active">
               {!isReviewMode && (
                 <div className="phase-header">
                   <div>
-                    <h3 style={{ margin: 0 }}>Phase 3 — Mat Setup</h3>
+                    <h3 style={{ margin: 0 }}>Phase 3 — Category, Mat & Schedule Management</h3>
                     <p className="text-small" style={{ marginTop: '4px' }}>Set how many mats will be active for the tournament.</p>
                   </div>
                 </div>
@@ -1359,12 +1360,12 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
             </section>
           )}
 
-          {((compRules === 'wkf' && activePhase === 3) || (compRules !== 'wkf' && activePhase === 4) || isReviewMode) && (
+          {((is5Phase && activePhase === 3) || (!is5Phase && activePhase === 4) || isReviewMode) && (
             <section className="wizard-phase active">
               {!isReviewMode && (
                 <div className="phase-header">
                   <div>
-                    <h3 style={{ margin: 0 }}>Phase {compRules === 'wkf' ? '3' : '4'} — Tiesheet Generation Preview</h3>
+                    <h3 style={{ margin: 0 }}>Phase {is5Phase ? '3' : '4'} — Tiesheet Generation Preview</h3>
                     <p className="text-small" style={{ marginTop: '4px' }}>Tiesheets are generated on import. Preview verifies first-round matchups.</p>
                   </div>
                 </div>
@@ -1428,12 +1429,12 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
             </section>
           )}
 
-          {((compRules === 'wkf' && activePhase === 4) || (compRules !== 'wkf' && activePhase === 5) || isReviewMode) && (
+          {((is5Phase && activePhase === 4) || (!is5Phase && activePhase === 5) || isReviewMode) && (
             <section className="wizard-phase active">
               {!isReviewMode && (
                 <div className="phase-header">
                   <div>
-                    <h3 style={{ margin: 0 }}>Phase {compRules === 'wkf' ? '4' : '5'} — Staff Setup</h3>
+                    <h3 style={{ margin: 0 }}>Phase {is5Phase ? '4' : '5'} — Staff Management</h3>
                     <p className="text-small" style={{ marginTop: '4px' }}>Lock in attendance coverage.</p>
                   </div>
                 </div>
