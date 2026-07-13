@@ -267,9 +267,9 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
           setCategories(catSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         }
         setIsDataLoaded(true);
-      } catch (err) {
-        console.error(err);
-        toast.error('Failed to load competition data');
+      } catch (err: any) {
+        console.error("fetchComp error:", err);
+        toast.error('Failed to load competition data: ' + err.message);
         router.push('/competitions');
       }
     };
