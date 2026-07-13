@@ -26,6 +26,10 @@ export const categorySchema = z.object({
   entries: z.number().optional(),
   athletes: z.array(athleteSchema).optional(),
   isSpecial: z.boolean().optional(),
+  matchTime: z.number().optional(),
+  restTime: z.number().optional(),
+  medicalTime: z.number().optional(),
+  bunkaiTime: z.number().optional(),
 });
 
 // Setup Wizard API Schemas
@@ -43,7 +47,18 @@ export const saveSetupDraftSchema = z.object({
   importResult: z.any().optional(),
   scoreboardLogo: z.string().nullable().optional(),
   lastActivePhase: z.number(),
-  highestPhase: z.number()
+  highestPhase: z.number(),
+  tournamentDays: z.number().optional(),
+  globalMatchTime: z.number().optional(),
+  globalRestTime: z.number().optional(),
+  globalMedicalTime: z.number().optional(),
+  globalBunkaiTime: z.number().optional(),
+  poolsSchedule: z.record(z.object({
+    matId: z.number(),
+    day: z.number(),
+    order: z.number(),
+    estTime: z.number()
+  })).optional()
 });
 
 export const deployTournamentSchema = z.object({
@@ -58,7 +73,18 @@ export const deployTournamentSchema = z.object({
   wkfKataJudgeCount: z.number().optional(),
   categories: z.array(categorySchema),
   hideEmpty: z.boolean().optional(),
-  scoreboardLogo: z.string().nullable().optional()
+  scoreboardLogo: z.string().nullable().optional(),
+  tournamentDays: z.number().optional(),
+  globalMatchTime: z.number().optional(),
+  globalRestTime: z.number().optional(),
+  globalMedicalTime: z.number().optional(),
+  globalBunkaiTime: z.number().optional(),
+  poolsSchedule: z.record(z.object({
+    matId: z.number(),
+    day: z.number(),
+    order: z.number(),
+    estTime: z.number()
+  })).optional()
 });
 
 export const assignStaffSchema = z.object({
