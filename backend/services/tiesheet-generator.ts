@@ -1039,15 +1039,31 @@ export function propagateByesAndWinners(matches: MatchNode[]): void {
         if (m.akaFromMatchId && !m.aka) {
           const prevAka = matchMap.get(m.akaFromMatchId);
           if (prevAka && prevAka.winnerId) {
-            m.aka = prevAka.winnerId === prevAka.aka?.playerId ? prevAka.aka : prevAka.ao;
-            changed = true;
+            const winner = String(prevAka.winnerId);
+            const akaId = prevAka.aka ? String(prevAka.aka.playerId) : '';
+            const aoId = prevAka.ao ? String(prevAka.ao.playerId) : '';
+            if (winner === akaId && prevAka.aka) {
+              m.aka = prevAka.aka;
+              changed = true;
+            } else if (winner === aoId && prevAka.ao) {
+              m.aka = prevAka.ao;
+              changed = true;
+            }
           }
         }
         if (m.aoFromMatchId && !m.ao) {
           const prevAo = matchMap.get(m.aoFromMatchId);
           if (prevAo && prevAo.winnerId) {
-            m.ao = prevAo.winnerId === prevAo.aka?.playerId ? prevAo.aka : prevAo.ao;
-            changed = true;
+            const winner = String(prevAo.winnerId);
+            const akaId = prevAo.aka ? String(prevAo.aka.playerId) : '';
+            const aoId = prevAo.ao ? String(prevAo.ao.playerId) : '';
+            if (winner === akaId && prevAo.aka) {
+              m.ao = prevAo.aka;
+              changed = true;
+            } else if (winner === aoId && prevAo.ao) {
+              m.ao = prevAo.ao;
+              changed = true;
+            }
           }
         }
       }
