@@ -843,111 +843,6 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
             </section>
           )}
 
-          {(activePhase === 2 || isReviewMode) && (
-            <section className="wizard-phase active">
-              {!isReviewMode && (
-                <div className="phase-header">
-                  <div>
-                    <h3 style={{ margin: 0 }}>Phase 2 — Roster/CSV Import</h3>
-                    <p className="text-small" style={{ marginTop: '4px' }}>Choose a pool size and import athletes to generate tiesheets.</p>
-                  </div>
-                </div>
-              )}
-              <div className="category-manager">
-                <div className="cat-group">
-                  <h3>Match Pool Size</h3>
-                  <p className="text-small">Pick a standard pool size. Max supported size is 32.</p>
-                  <div className="pool-size-options" style={{ marginTop: 'var(--space-4)' }}>
-                    {([4, 8, 16, 32] as const).map(size => (
-                      <label key={size} className="pool-size-option">
-                        <input type="radio" name="pool-size" value={size} checked={poolSize === size} onChange={() => setPoolSize(size)} />
-                        <span>{size}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                {compRules === 'wkf' && (
-                  <div className="cat-group" style={{ marginBottom: 'var(--space-4)' }}>
-                    <div style={{ padding: 'var(--space-3)', background: 'var(--neutral-50)', borderRadius: '8px', border: '1px solid var(--neutral-200)' }}>
-                      <h4 style={{ margin: '0 0 var(--space-2) 0', fontSize: '13px' }}>WKF Categorization Mode</h4>
-                      <p className="text-small" style={{ marginBottom: 'var(--space-3)', color: 'var(--neutral-600)' }}>Choose this before importing. How should categories be formatted?</p>
-                      <div style={{ display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                          <input type="radio" name="wkfMode" value="standard" checked={wkfMode === 'standard'} onChange={() => handleWkfModeChange('standard')} />
-                          <span className="text-small">Standard (Age & Weight)</span>
-                        </label>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                          <input type="radio" name="wkfMode" value="age" checked={wkfMode === 'age'} onChange={() => handleWkfModeChange('age')} />
-                          <span className="text-small">Age Wise Only</span>
-                        </label>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                          <input type="radio" name="wkfMode" value="weight" checked={wkfMode === 'weight'} onChange={() => handleWkfModeChange('weight')} />
-                          <span className="text-small">Weight Wise Only</span>
-                        </label>
-                      </div>
-                      
-                      <div style={{ marginTop: 'var(--space-4)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--neutral-200)' }}>
-                        <h4 style={{ margin: '0 0 var(--space-2) 0', fontSize: '13px' }}>Kata Judge Count</h4>
-                        <p className="text-small" style={{ marginBottom: 'var(--space-3)', color: 'var(--neutral-600)' }}>Applies to all generated Kata categories.</p>
-                        <div style={{ display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
-                          {[3, 5, 7].map(count => (
-                            <label key={count} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                              <input type="radio" name="wkfKataJudgeCount" value={count} checked={wkfKataJudgeCount === count} onChange={() => {
-                                setWkfKataJudgeCount(count as 3|5|7);
-                                setCategories(prev => prev.map(c => 
-                                  c.name.toLowerCase().includes('kata') ? { ...c, judgeCount: count } : c
-                                ));
-                              }} />
-                              <span className="text-small">{count} Judges</span>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="cat-group">
-                  <div className="flex-between mb-4">
-                    <div>
-                      <h3>Tiesheet Data Import</h3>
-                      <p className="text-small">Upload your CSV or Excel files to automatically generate brackets.</p>
-                    </div>
-                  </div>
-
-                  <div 
-                    className="dropzone" 
-                    onClick={() => document.getElementById('excel-upload')?.click()}
-                    onDrop={handleDrop}
-                    onDragOver={handleDragOver}
-                    onDragEnter={handleDragOver}
-                  >
-                    {importResult ? (
-                      <>
-                        <CheckCircle className="dropzone-icon" style={{ color: 'var(--midori, #10b981)' }} />
-                        <h3 style={{ color: 'var(--midori, #10b981)' }}>Upload Successful!</h3>
-                        <p className="text-small" style={{ marginBottom: 'var(--space-4)' }}>
-                          {importResult.categoriesTotal} categories, {importResult.athletesImported} athletes imported.
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <FileSpreadsheet className="dropzone-icon" />
-                        <h3>Drag & drop your registration file here</h3>
-                        <p className="text-small" style={{ marginBottom: 'var(--space-4)' }}>Supports .csv, .xls, .xlsx (Max 10MB)</p>
-                      </>
-                    )}
-                    <button type="button" className="btn btn-primary" disabled={uploading}>
-                      {uploading ? 'Processing...' : importResult ? 'Upload Another File' : 'Browse Files'}
-                    </button>
-                    <input type="file" id="excel-upload" style={{ display: 'none' }} accept=".csv, .xls, .xlsx" onChange={handleFileUpload} />
-                  </div>
-                </div>
-              </div>
-            </section>
-          )}
-
           {(activePhase === 1 || isReviewMode) && (
             <section className="wizard-phase active">
               {!isReviewMode && (
@@ -963,37 +858,31 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                 <div className="cat-group">
                   <div className="flex-between" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
                     <div style={{ minWidth: '200px' }}>
-                      <h3>{compRules === 'wkf' ? 'Standard Categories' : 'Categories'}</h3>
-                      <p className="text-small">{compRules === 'wkf' ? 'Generic weight and age divisions without complex prerequisite rules.' : 'Divisions for the tournament.'}</p>
+                      <h3>Categories</h3>
+                      <p className="text-small">Divisions for the tournament.</p>
                     </div>
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                       <button type="button" className="btn btn-ghost" style={{ color: 'var(--status-live)', border: '1px dashed var(--status-live)', height: '36px', padding: '0 12px' }} onClick={() => setModalType('onspot')}>
                         <Plus size={16} /> On-Spot Entry
                       </button>
-                      {compRules === 'wkf' ? (
-                        <button type="button" className="btn btn-secondary" style={{ height: '36px', padding: '0 12px' }} onClick={handleMerge} disabled={selectedCats.size < 2}>
-                          <Combine size={16} /> Merge Selected
+                      <>
+                        <button type="button" className="btn btn-ghost" style={{ height: '36px', padding: '0 12px' }} onClick={handleExportPreset}>
+                          <Download size={16} /> Export
                         </button>
-                      ) : (
-                        <>
-                          <button type="button" className="btn btn-ghost" style={{ height: '36px', padding: '0 12px' }} onClick={handleExportPreset}>
-                            <Download size={16} /> Export
-                          </button>
-                          <button type="button" className="btn btn-ghost" style={{ height: '36px', padding: '0 12px' }} onClick={() => document.getElementById('preset-upload')?.click()}>
-                            <UploadCloud size={16} /> Import
-                          </button>
-                          <button type="button" className="btn btn-ghost" onClick={handleLoadWkfCategories} style={{ color: 'var(--ao)', borderColor: 'var(--ao)', height: '36px', padding: '0 12px' }}>
-                            <RefreshCw size={16} /> Load WKF Rules
-                          </button>
-                          <input type="file" id="preset-upload" style={{ display: 'none' }} accept=".json" onChange={handleImportPreset} />
-                          <button type="button" className="btn btn-ghost" style={{ height: '36px', padding: '0 12px' }} onClick={() => setModalType('merge')}>
-                            <Combine size={16} /> Merge
-                          </button>
-                          <button type="button" className="btn btn-secondary" style={{ height: '36px', padding: '0 12px' }} onClick={() => setModalType('standard')}>
-                            <Plus size={16} /> Add Category
-                          </button>
-                        </>
-                      )}
+                        <button type="button" className="btn btn-ghost" style={{ height: '36px', padding: '0 12px' }} onClick={() => document.getElementById('preset-upload')?.click()}>
+                          <UploadCloud size={16} /> Import
+                        </button>
+                        <button type="button" className="btn btn-ghost" onClick={handleLoadWkfCategories} style={{ color: 'var(--ao)', borderColor: 'var(--ao)', height: '36px', padding: '0 12px' }}>
+                          <RefreshCw size={16} /> Load WKF Rules
+                        </button>
+                        <input type="file" id="preset-upload" style={{ display: 'none' }} accept=".json" onChange={handleImportPreset} />
+                        <button type="button" className="btn btn-ghost" style={{ height: '36px', padding: '0 12px' }} onClick={() => setModalType('merge')}>
+                          <Combine size={16} /> Merge
+                        </button>
+                        <button type="button" className="btn btn-secondary" style={{ height: '36px', padding: '0 12px' }} onClick={() => setModalType('standard')}>
+                          <Plus size={16} /> Add Category
+                        </button>
+                      </>
                     </div>
                   </div>
 
@@ -1029,7 +918,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                       <thead style={{ position: 'sticky', top: 0, background: 'var(--shiro)', zIndex: 10 }}>
                         <tr>
                           <th style={{ width: '32px' }}></th>
-                          {compRules === 'wkf' && <th style={{ width: '40px' }}></th>}
+                          
                           <th>Category Name</th>
                           <th>Discipline</th>
                           <th>Requirements</th>
@@ -1053,33 +942,19 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                             }}
                           >
                             <td style={{ color: 'var(--neutral-400)', cursor: 'grab' }}><GripVertical size={16} /></td>
-                            {compRules === 'wkf' && (
-                              <td>
-                                <input 
-                                  type="checkbox" 
-                                  checked={selectedCats.has(cat.id)}
-                                  onChange={() => toggleCategorySelection(cat.id)}
-                                />
-                              </td>
-                            )}
+                            
                             <td style={{ fontWeight: 500 }}>{cat.name}</td>
                             <td>
-                              {compRules !== 'wkf' && (
-                                <span className="status-chip status-live" style={{ background: cat.discipline === 'Kata' ? '#eff6ff' : '#fff1f2', color: cat.discipline === 'Kata' ? '#1d4ed8' : '#be123c', fontSize: '10px', padding: '2px 6px', marginRight: '4px', borderRadius: '4px', fontWeight: 700 }}>
+                              <span className="status-chip status-live" style={{ background: cat.discipline === 'Kata' ? '#eff6ff' : '#fff1f2', color: cat.discipline === 'Kata' ? '#1d4ed8' : '#be123c', fontSize: '10px', padding: '2px 6px', marginRight: '4px', borderRadius: '4px', fontWeight: 700 }}>
                                   {cat.discipline || 'Kumite'}
                                 </span>
-                              )}
                             </td>
                             <td>
-                              {compRules !== 'wkf' ? (
-                                <>
+                              <>
                                   {cat.gender && cat.gender !== 'Any' && <span className="status-chip status-live" style={{ background: 'var(--neutral-100)', color: 'var(--neutral-600)', fontSize: '10px', padding: '2px 6px', marginRight: '4px' }}>{cat.gender}</span>}
                                   {(cat.minAge !== undefined || cat.maxAge !== undefined) && <span className="status-chip status-live" style={{ background: 'var(--neutral-100)', color: 'var(--neutral-600)', fontSize: '10px', padding: '2px 6px', marginRight: '4px' }}>Age: {cat.minAge || 0}-{cat.maxAge || 99}</span>}
                                   {(cat.minWeight !== undefined || cat.maxWeight !== undefined) && <span className="status-chip status-live" style={{ background: 'var(--neutral-100)', color: 'var(--neutral-600)', fontSize: '10px', padding: '2px 6px', marginRight: '4px' }}>Weight: {cat.minWeight || 0}-{cat.maxWeight || 300}kg</span>}
                                 </>
-                              ) : (
-                                <span className="status-chip status-live" style={{ background: 'var(--neutral-100)', color: 'var(--neutral-600)', fontSize: '10px', padding: '2px 6px', marginRight: '4px' }}>Standard</span>
-                              )}
                               {(cat.isKata || cat.name.toLowerCase().includes('kata')) && (
                                 <div style={{ marginTop: '6px' }}>
                                   <span style={{ fontSize: '11px', fontWeight: 600, marginRight: '8px' }}>Judges:</span>
@@ -1125,6 +1000,109 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                 </div>
 
                 {/* Special Categories are created in the live competition (Bracket/Tiesheet page) */}
+              </div>
+            </section>
+          )}
+
+          {(activePhase === 2 || isReviewMode) && (
+            <section className="wizard-phase active">
+              {!isReviewMode && (
+                <div className="phase-header">
+                  <div>
+                    <h3 style={{ margin: 0 }}>Phase 2 — Roster/CSV Import</h3>
+                    <p className="text-small" style={{ marginTop: '4px' }}>Choose a pool size and import athletes to generate tiesheets.</p>
+                  </div>
+                </div>
+              )}
+              <div className="category-manager">
+                <div className="cat-group">
+                  <h3>Match Pool Size</h3>
+                  <p className="text-small">Pick a standard pool size. Max supported size is 32.</p>
+                  <div className="pool-size-options" style={{ marginTop: 'var(--space-4)' }}>
+                    {([4, 8, 16, 32] as const).map(size => (
+                      <label key={size} className="pool-size-option">
+                        <input type="radio" name="pool-size" value={size} checked={poolSize === size} onChange={() => setPoolSize(size)} />
+                        <span>{size}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="cat-group" style={{ marginBottom: 'var(--space-4)' }}>
+                    <div style={{ padding: 'var(--space-3)', background: 'var(--neutral-50)', borderRadius: '8px', border: '1px solid var(--neutral-200)' }}>
+                      <h4 style={{ margin: '0 0 var(--space-2) 0', fontSize: '13px' }}>WKF Categorization Mode</h4>
+                      <p className="text-small" style={{ marginBottom: 'var(--space-3)', color: 'var(--neutral-600)' }}>Choose this before importing. How should categories be formatted?</p>
+                      <div style={{ display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                          <input type="radio" name="wkfMode" value="standard" checked={wkfMode === 'standard'} onChange={() => handleWkfModeChange('standard')} />
+                          <span className="text-small">Standard (Age & Weight)</span>
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                          <input type="radio" name="wkfMode" value="age" checked={wkfMode === 'age'} onChange={() => handleWkfModeChange('age')} />
+                          <span className="text-small">Age Wise Only</span>
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                          <input type="radio" name="wkfMode" value="weight" checked={wkfMode === 'weight'} onChange={() => handleWkfModeChange('weight')} />
+                          <span className="text-small">Weight Wise Only</span>
+                        </label>
+                      </div>
+                      
+                      <div style={{ marginTop: 'var(--space-4)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--neutral-200)' }}>
+                        <h4 style={{ margin: '0 0 var(--space-2) 0', fontSize: '13px' }}>Kata Judge Count</h4>
+                        <p className="text-small" style={{ marginBottom: 'var(--space-3)', color: 'var(--neutral-600)' }}>Applies to all generated Kata categories.</p>
+                        <div style={{ display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
+                          {[3, 5, 7].map(count => (
+                            <label key={count} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                              <input type="radio" name="wkfKataJudgeCount" value={count} checked={wkfKataJudgeCount === count} onChange={() => {
+                                setWkfKataJudgeCount(count as 3|5|7);
+                                setCategories(prev => prev.map(c => 
+                                  c.name.toLowerCase().includes('kata') ? { ...c, judgeCount: count } : c
+                                ));
+                              }} />
+                              <span className="text-small">{count} Judges</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                <div className="cat-group">
+                  <div className="flex-between mb-4">
+                    <div>
+                      <h3>Tiesheet Data Import</h3>
+                      <p className="text-small">Upload your CSV or Excel files to automatically generate brackets.</p>
+                    </div>
+                  </div>
+
+                  <div 
+                    className="dropzone" 
+                    onClick={() => document.getElementById('excel-upload')?.click()}
+                    onDrop={handleDrop}
+                    onDragOver={handleDragOver}
+                    onDragEnter={handleDragOver}
+                  >
+                    {importResult ? (
+                      <>
+                        <CheckCircle className="dropzone-icon" style={{ color: 'var(--midori, #10b981)' }} />
+                        <h3 style={{ color: 'var(--midori, #10b981)' }}>Upload Successful!</h3>
+                        <p className="text-small" style={{ marginBottom: 'var(--space-4)' }}>
+                          {importResult.categoriesTotal} categories, {importResult.athletesImported} athletes imported.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <FileSpreadsheet className="dropzone-icon" />
+                        <h3>Drag & drop your registration file here</h3>
+                        <p className="text-small" style={{ marginBottom: 'var(--space-4)' }}>Supports .csv, .xls, .xlsx (Max 10MB)</p>
+                      </>
+                    )}
+                    <button type="button" className="btn btn-primary" disabled={uploading}>
+                      {uploading ? 'Processing...' : importResult ? 'Upload Another File' : 'Browse Files'}
+                    </button>
+                    <input type="file" id="excel-upload" style={{ display: 'none' }} accept=".csv, .xls, .xlsx" onChange={handleFileUpload} />
+                  </div>
+                </div>
               </div>
             </section>
           )}
