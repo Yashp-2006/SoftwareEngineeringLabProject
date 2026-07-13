@@ -948,12 +948,12 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
             </section>
           )}
 
-          {((is5Phase && activePhase === 2) || (!is5Phase && activePhase === 1) || isReviewMode) && (
+          {(activePhase === 1 || isReviewMode) && (
             <section className="wizard-phase active">
               {!isReviewMode && (
                 <div className="phase-header">
                   <div>
-                    <h3 style={{ margin: 0 }}>{is5Phase ? 'Phase 2 — Category, Mat & Schedule Management' : 'Phase 1 — Define Categories'}</h3>
+                    <h3 style={{ margin: 0 }}>Phase 1 — Define Categories</h3>
                     <p className="text-small" style={{ marginTop: '4px' }}>Define divisions for the tournament.</p>
                   </div>
                 </div>
