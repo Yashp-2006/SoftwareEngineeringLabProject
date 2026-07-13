@@ -734,6 +734,14 @@ export default function FullscreenBracketModal({
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const dragHoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [crossCategoryPrompt, setCrossCategoryPrompt] = useState<{
+    srcAthlete: any;
+    tgtAthlete: any;
+    srcCatName: string;
+    tgtCatName: string;
+    onConfirmSwap: () => void;
+    onConfirmMove: () => void;
+  } | null>(null);
 
   const [sbFilterDiscipline, setSbFilterDiscipline] = useState<'all'|'kata'|'kumite'>('all');
   const [sbFilterGender, setSbFilterGender] = useState<'all'|'male'|'female'>('all');
@@ -1253,22 +1261,14 @@ export default function FullscreenBracketModal({
                       if (!srcAthlete) return;
 
                       if (tgtAthlete) {
-                        const confirmSwap = window.confirm(
-                          `Do you want to swap ${srcAthlete.name} (from ${srcCatName}) and ${tgtAthlete.name} (from ${tgtCatName}) between their categories?\n\n` +
-                          `Select 'OK' to proceed with swap.\n` +
-                          `Select 'Cancel' to choose the move option instead.`
-                        );
-                        if (confirmSwap) {
-                          onSwapDrop(srcCategoryId, srcMatchId, srcSide, tgtMatchId, tgtSide, activeCategory.id, 'swap');
-                        } else {
-                          const confirmMove = window.confirm(
-                            `Would you like to move ${srcAthlete.name} to ${tgtCatName} without swapping ${tgtAthlete.name} back?\n` +
-                            `(Note: This will place ${srcAthlete.name} in a BYE slot / regenerate brackets for ${tgtCatName})`
-                          );
-                          if (confirmMove) {
-                            onSwapDrop(srcCategoryId, srcMatchId, srcSide, tgtMatchId, tgtSide, activeCategory.id, 'move');
-                          }
-                        }
+                        setCrossCategoryPrompt({
+                          srcAthlete,
+                          tgtAthlete,
+                          srcCatName,
+                          tgtCatName,
+                          onConfirmSwap: () => onSwapDrop(srcCategoryId, srcMatchId, srcSide, tgtMatchId, tgtSide, activeCategory.id, 'swap'),
+                          onConfirmMove: () => onSwapDrop(srcCategoryId, srcMatchId, srcSide, tgtMatchId, tgtSide, activeCategory.id, 'move'),
+                        });
                       } else {
                         const confirmMove = window.confirm(
                           `Are you sure you want to move ${srcAthlete.name} from ${srcCatName} to ${tgtCatName}?`
@@ -1297,6 +1297,138 @@ export default function FullscreenBracketModal({
           </div>
         </div>
       </div>
+
+      {crossCategoryPrompt && (
+        <div 
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1100,
+            background: 'rgba(0, 0, 0, 0.4)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+          }}
+        >
+          <div 
+            style={{
+              background: 'var(--shiro)',
+              width: '100%',
+              maxWidth: '480px',
+              borderRadius: '16px',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+              border: '1.5px solid var(--neutral-200)',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+              animation: 'fsb-fade-in 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+            }}
+          >
+            <div style={{ padding: '24px 24px 16px 24px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--neutral-900)', margin: '0 0 12px 0' }}>
+                Cross-Category Transfer
+              </h3>
+              <p style={{ fontSize: '14px', lineHeight: 1.5, color: 'var(--neutral-600)', margin: 0 }}>
+                You dragged <strong>{crossCategoryPrompt.srcAthlete.name}</strong> from <em>{crossCategoryPrompt.srcCatName}</em> onto <strong>{crossCategoryPrompt.tgtAthlete.name}</strong> in <em>{crossCategoryPrompt.tgtCatName}</em>.
+              </p>
+              <p style={{ fontSize: '13px', lineHeight: 1.5, color: 'var(--neutral-500)', margin: '12px 0 0 0', padding: '10px 12px', background: 'var(--neutral-50)', borderRadius: '8px', borderLeft: '3px solid var(--aka)' }}>
+                <strong>Force Add</strong> moves {crossCategoryPrompt.srcAthlete.name} to {crossCategoryPrompt.tgtCatName} (which might rebuild the bracket / increase pool size), while keeping {crossCategoryPrompt.tgtAthlete.name} there.
+              </p>
+            </div>
+            
+            <div 
+              style={{ 
+                padding: '16px 24px 24px 24px', 
+                display: 'flex', 
+                flexDirection: 'column',
+                gap: '8px',
+                borderTop: '1px solid var(--neutral-100)',
+                background: 'var(--neutral-50)'
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  crossCategoryPrompt.onConfirmSwap();
+                  setCrossCategoryPrompt(null);
+                }}
+                style={{
+                  width: '100%',
+                  padding: '10px 16px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--neutral-300)',
+                  background: 'var(--shiro)',
+                  color: 'var(--neutral-800)',
+                  fontWeight: 700,
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  transition: 'background 0.2s'
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'var(--neutral-50)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'var(--shiro)')}
+              >
+                🔄 Swap Athletes Between Categories
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => {
+                  crossCategoryPrompt.onConfirmMove();
+                  setCrossCategoryPrompt(null);
+                }}
+                style={{
+                  width: '100%',
+                  padding: '10px 16px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: 'var(--neutral-900)',
+                  color: '#fff',
+                  fontWeight: 700,
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  transition: 'background 0.2s'
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'var(--neutral-800)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'var(--neutral-900)')}
+              >
+                ⚡ Force Add (Keep Both in Target)
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => setCrossCategoryPrompt(null)}
+                style={{
+                  width: '100%',
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: 'transparent',
+                  color: 'var(--neutral-500)',
+                  fontWeight: 600,
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  textAlign: 'center',
+                  transition: 'color 0.2s'
+                }}
+                onMouseEnter={e => (e.currentTarget.style.color = 'var(--neutral-700)')}
+                onMouseLeave={e => (e.currentTarget.style.color = 'var(--neutral-500)')}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
