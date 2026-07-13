@@ -320,7 +320,12 @@ export default function ScoreboardPage({ params }: { params: Promise<{ matchId: 
           judgeVotes={judgeVotes}
           akaFlags={rtdbData.kataVotes?.aka ?? akaFlags}
           aoFlags={rtdbData.kataVotes?.ao ?? aoFlags}
-          timeRemaining={rtdbData.timeRemaining || formatTime(timer)}
+          timeRemaining={
+            rtdbData.timeRemaining || 
+            (rtdbData.teamTimerSeconds !== undefined 
+              ? formatRestTime(rtdbData.teamTimerSeconds) 
+              : '00:00')
+          }
           matchStatus={rtdbData.status === 'live' ? 'LIVE' : (rtdbData.status || 'STANDBY').toUpperCase()}
           title={`TAIKAIX — SCOREBOARD`}
           subtitle={rtdbData.currentCategory || 'KATA'}

@@ -103,6 +103,14 @@ export default function KataOperatorPanel({
     });
   }, [restTimer, restRunning, syncRTDB]);
 
+  // Auto-sync performance timer to RTDB when updated
+  useEffect(() => {
+    syncRTDB({
+      teamTimerSeconds: teamTimer,
+      timerRunning: timerRunning,
+    });
+  }, [teamTimer, timerRunning, syncRTDB]);
+
   const handleKataSelect = async (side: 'aka' | 'ao', kata: KataEntry | null) => {
     const nextSelected = { ...selectedKata, [side]: kata };
     setSelectedKata(nextSelected);
@@ -117,8 +125,8 @@ export default function KataOperatorPanel({
     // Save to RTDB and clear any previous bout state for this match
     await syncRTDB({
       isKata: true,
-      'selectedKata.aka': nextSelected.aka,
-      'selectedKata.ao': nextSelected.ao,
+      'selectedKata/aka': nextSelected.aka,
+      'selectedKata/ao': nextSelected.ao,
       kataWinner: null,
       boutFinished: false,
       kataScores: null,
@@ -255,8 +263,8 @@ export default function KataOperatorPanel({
     else nextVote = null;
 
     await syncRTDB({
-      [`kataScores.aka.${judgeIndex}`]: nextVote === 'aka' ? 1 : 0,
-      [`kataScores.ao.${judgeIndex}`]: nextVote === 'ao' ? 1 : 0,
+      [`kataScores/aka/${judgeIndex}`]: nextVote === 'aka' ? 1 : 0,
+      [`kataScores/ao/${judgeIndex}`]: nextVote === 'ao' ? 1 : 0,
     });
   };
 
@@ -273,12 +281,12 @@ export default function KataOperatorPanel({
     }
 
     const patch: Record<string, any> = {
-      [`isDQ.${side}`]: true,
-      [`isDQ.${opponentSide}`]: false,
+      [`isDQ/${side}`]: true,
+      [`isDQ/${opponentSide}`]: false,
       kataWinner: opponentSide,
       boutFinished: true,
-      'kataScores.aka': fullVotesAka,
-      'kataScores.ao': fullVotesAo,
+      'kataScores/aka': fullVotesAka,
+      'kataScores/ao': fullVotesAo,
       kataVotes: { aka: opponentSide === 'aka' ? numberOfJudges : 0, ao: opponentSide === 'ao' ? numberOfJudges : 0 },
     };
     await syncRTDB(patch);
@@ -291,7 +299,7 @@ export default function KataOperatorPanel({
   const handleLogFoul = (side: 'aka' | 'ao', code: string) => {
     const next = [...fouls[side], code];
     setFouls((prev) => ({ ...prev, [side]: next }));
-    syncRTDB({ [`fouls.${side}`]: next });
+    syncRTDB({ [`fouls/${side}`]: next });
     toast.success(`Foul logged for ${side.toUpperCase()}: ${code}`);
   };
 
@@ -522,15 +530,7 @@ export default function KataOperatorPanel({
               <button
                 type="button"
                 className="kata-btn"
-                onClick={() => {
-                  if (timerRunning) {
-                    setTimerRunning(false);
-                    syncRTDB({ timerRunning: false, teamTimerSeconds: teamTimer });
-                  } else {
-                    setTimerRunning(true);
-                    syncRTDB({ teamTimerSeconds: teamTimer, timerRunning: true });
-                  }
-                }}
+                onClick={() => setTimerRunning(!timerRunning)}
                 style={{
                   padding: '8px 16px',
                   borderRadius: '8px',
