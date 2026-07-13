@@ -667,14 +667,14 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
       <style dangerouslySetInnerHTML={{ __html: `
         .setup-grid { display: flex; flex-direction: column; gap: var(--space-5); }
         .wizard-header { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-4); flex-wrap: wrap; }
-        .wizard-stepper { display: grid; grid-template-columns: repeat(var(--stepper-cols, 5), minmax(0, 1fr)); gap: var(--space-3); }
+        .wizard-stepper { display: grid; grid-template-columns: repeat(var(--stepper-cols, 6), minmax(0, 1fr)); gap: var(--space-3); }
         .wizard-step { border: 1px solid var(--neutral-300); background: var(--shiro); padding: 12px 14px; border-radius: 10px; text-align: left; cursor: pointer; transition: transform 160ms var(--ease-out), border-color 160ms var(--ease-out), background-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out); user-select: none; }
         .wizard-step:hover:not(:disabled) { border-color: var(--neutral-400); }
         .wizard-step:active:not(:disabled) { transform: scale(0.98); }
         .wizard-step:disabled { opacity: 0.5; cursor: not-allowed; }
         .wizard-step-number { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 999px; background: var(--neutral-100); color: var(--neutral-600); font-weight: 700; font-size: 12px; margin-bottom: 6px; }
-        .wizard-step.active:not(:disabled) { border-color: var(--ao); box-shadow: 0 6px 18px rgba(39, 122, 255, 0.15); }
-        .wizard-step.active .wizard-step-number { background: var(--ao); color: var(--shiro); }
+        .wizard-step.active:not(:disabled) { border-color: var(--aka); box-shadow: 0 6px 18px rgba(220, 38, 38, 0.15); }
+        .wizard-step.active .wizard-step-number { background: var(--aka); color: var(--shiro); }
         .wizard-step.completed:not(:disabled) { border-color: var(--neutral-200); background: var(--neutral-50); }
         .wizard-step-label { font-size: 13px; font-weight: 600; color: var(--neutral-800); }
         .review-banner { background: var(--neutral-50); border: 1px dashed var(--neutral-300); border-radius: 14px; padding: var(--space-5); display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); flex-wrap: wrap; }
@@ -763,29 +763,29 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
           </div>
 
           <div className="wizard-stepper">
-            <div className={`step ${activePhase === 1 ? 'active' : ''} ${activePhase > 1 ? 'completed' : ''}`} onClick={() => setPhase(1)} style={{ cursor: 1 <= highestPhase ? 'pointer' : 'default' }}>
-              <div className="step-circle">1</div>
-              <div className="step-label">Define Categories</div>
+            <div className={`wizard-step ${activePhase === 1 ? 'active' : ''} ${activePhase > 1 ? 'completed' : ''}`} onClick={() => setPhase(1)} style={{ cursor: 1 <= highestPhase ? 'pointer' : 'default' }}>
+              <div className="wizard-step-number">1</div>
+              <div className="wizard-step-label">Define Categories</div>
             </div>
-            <div className={`step ${activePhase === 2 ? 'active' : ''} ${activePhase > 2 ? 'completed' : ''}`} onClick={() => setPhase(2)} style={{ cursor: 2 <= highestPhase ? 'pointer' : 'default' }}>
-              <div className="step-circle">2</div>
-              <div className="step-label">Roster/CSV Import</div>
+            <div className={`wizard-step ${activePhase === 2 ? 'active' : ''} ${activePhase > 2 ? 'completed' : ''}`} onClick={() => setPhase(2)} style={{ cursor: 2 <= highestPhase ? 'pointer' : 'default' }}>
+              <div className="wizard-step-number">2</div>
+              <div className="wizard-step-label">Roster/CSV Import</div>
             </div>
-            <div className={`step ${activePhase === 3 ? 'active' : ''} ${activePhase > 3 ? 'completed' : ''}`} onClick={() => setPhase(3)} style={{ cursor: 3 <= highestPhase ? 'pointer' : 'default' }}>
-              <div className="step-circle">3</div>
-              <div className="step-label">Category, Mat & Schedule Management</div>
+            <div className={`wizard-step ${activePhase === 3 ? 'active' : ''} ${activePhase > 3 ? 'completed' : ''}`} onClick={() => setPhase(3)} style={{ cursor: 3 <= highestPhase ? 'pointer' : 'default' }}>
+              <div className="wizard-step-number">3</div>
+              <div className="wizard-step-label">Category, Mat & Schedule Management</div>
             </div>
-            <div className={`step ${activePhase === 4 ? 'active' : ''} ${activePhase > 4 ? 'completed' : ''}`} onClick={() => setPhase(4)} style={{ cursor: 4 <= highestPhase ? 'pointer' : 'default' }}>
-              <div className="step-circle">4</div>
-              <div className="step-label">Tiesheet Preview</div>
+            <div className={`wizard-step ${activePhase === 4 ? 'active' : ''} ${activePhase > 4 ? 'completed' : ''}`} onClick={() => setPhase(4)} style={{ cursor: 4 <= highestPhase ? 'pointer' : 'default' }}>
+              <div className="wizard-step-number">4</div>
+              <div className="wizard-step-label">Tiesheet Preview</div>
             </div>
-            <div className={`step ${activePhase === 5 ? 'active' : ''} ${activePhase > 5 ? 'completed' : ''}`} onClick={() => setPhase(5)} style={{ cursor: 5 <= highestPhase ? 'pointer' : 'default' }}>
-              <div className="step-circle">5</div>
-              <div className="step-label">Staff Management</div>
+            <div className={`wizard-step ${activePhase === 5 ? 'active' : ''} ${activePhase > 5 ? 'completed' : ''}`} onClick={() => setPhase(5)} style={{ cursor: 5 <= highestPhase ? 'pointer' : 'default' }}>
+              <div className="wizard-step-number">5</div>
+              <div className="wizard-step-label">Staff Management</div>
             </div>
-            <div className={`step ${activePhase === 6 ? 'active' : ''} ${activePhase > 6 ? 'completed' : ''}`} onClick={() => setPhase(6)} style={{ cursor: 6 <= highestPhase ? 'pointer' : 'default' }}>
-              <div className="step-circle">6</div>
-              <div className="step-label">Review</div>
+            <div className={`wizard-step ${activePhase === 6 ? 'active' : ''} ${activePhase > 6 ? 'completed' : ''}`} onClick={() => setPhase(6)} style={{ cursor: 6 <= highestPhase ? 'pointer' : 'default' }}>
+              <div className="wizard-step-number">6</div>
+              <div className="wizard-step-label">Review</div>
             </div>
           </div>
 
@@ -862,9 +862,6 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                       <p className="text-small">Divisions for the tournament.</p>
                     </div>
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                      <button type="button" className="btn btn-ghost" style={{ color: 'var(--status-live)', border: '1px dashed var(--status-live)', height: '36px', padding: '0 12px' }} onClick={() => setModalType('onspot')}>
-                        <Plus size={16} /> On-Spot Entry
-                      </button>
                       <>
                         <button type="button" className="btn btn-ghost" style={{ height: '36px', padding: '0 12px' }} onClick={handleExportPreset}>
                           <Download size={16} /> Export
