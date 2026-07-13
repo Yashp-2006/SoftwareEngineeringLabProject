@@ -78,6 +78,13 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
 
   const closeConfirm = () => setConfirmState(prev => ({ ...prev, isOpen: false }));
 
+  const cleanCategoriesForPayload = (cats: any[]) => {
+    return cats.map(c => {
+      const { athletes, matches, ...rest } = c;
+      return rest;
+    });
+  };
+
   const saveDraft = async (targetPhase: number) => {
     setIsSaving(true);
     try {
@@ -104,7 +111,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         bronzeRule,
         wkfMode,
         wkfKataJudgeCount,
-        categories,
+        categories: cleanCategoriesForPayload(categories),
         importResult: importResult ?? undefined,
         scoreboardLogo: scoreboardLogo ?? undefined,
         tournamentDays,
@@ -452,21 +459,66 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
     const toastId = toast.loading('Uploading file...');
 
     try {
-      // Send original file to API — server handles parsing + bracket gen
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('compType', compType);
-      formData.append('poolSize', poolSize.toString());
-      formData.append('customCategories', compRules !== 'wkf' ? JSON.stringify(categories) : '[]');
-      formData.append('wkfMode', wkfMode);
-
+      // 1. Parse xlsx client-side
+      const buffer = await file.arrayBuffer();
       toast.loading('Computing brackets...', { id: toastId });
-      const res = await fetch(`/api/competitions/${id}/import`, { method: 'POST', body: formData });
+      const { parseExcelIntoCategories, generateBracket } = await import('@taikaix/backend/services/tiesheet-generator');
+      const customCats = compRules !== 'wkf' ? categories : [];
+      const { categoryMap, uniqueAthletesCount } = parseExcelIntoCategories(buffer, [], wkfMode, customCats);
 
-      const data = await res.json().catch(() => { throw new Error(`Server error (HTTP ${res.status}) — check console`); });
-      if (!data.success) throw new Error(data.error || 'Import failed.');
+      if (categoryMap.size === 0) {
+        throw new Error('No athlete data found. Check that the sheet has a header row and at least one athlete row.');
+      }
 
-      const allCategories: any[] = data.categories || [];
+      const dynamicSpecialCatNames = new Set<string>();
+      for (const [, catAthletes] of categoryMap) {
+        for (const a of catAthletes) {
+          if (a.interestSpecial) dynamicSpecialCatNames.add(a.interestSpecial);
+        }
+      }
+
+      const allCategories = Array.from(categoryMap.entries()).map(([catName, catAthletes]) => {
+        if (catAthletes.length === 0) return null;
+        const isSpecialCat = dynamicSpecialCatNames.has(catName);
+        const matches = generateBracket(catAthletes, compType, poolSize);
+        return {
+          name: catName,
+          isSpecial: isSpecialCat,
+          competitionId: id,
+          status: 'upcoming',
+          athletes: catAthletes.map((a: any) => ({
+            playerId: a.playerId,
+            name: a.name,
+            gender: a.gender,
+            weight: a.weight,
+            age: a.age,
+            country: a.country || '',
+            state: a.state || '',
+            district: a.district || '',
+            academy: a.academy,
+            interestSpecial: a.interestSpecial || '',
+            coachName: a.coachName || '',
+            phone: a.phone || '',
+            email: a.email || '',
+          })),
+          matches: matches.slice(0, 500).map(m => ({
+            id: m.id,
+            round: m.round,
+            matchNumber: m.matchNumber,
+            aka: m.aka ? { playerId: m.aka.playerId, name: m.aka.name, academy: m.aka.academy || null, state: m.aka.state || m.aka.country || null } : null,
+            ao: m.ao ? { playerId: m.ao.playerId, name: m.ao.name, academy: m.ao.academy || null, state: m.ao.state || m.ao.country || null } : null,
+            akaFromMatchId: m.akaFromMatchId || null,
+            aoFromMatchId: m.aoFromMatchId || null,
+            akaScore: 0,
+            aoScore: 0,
+            winnerId: m.winnerId || null,
+            nextMatchId: m.nextMatchId || null,
+            status: m.status,
+            mat: null,
+          })),
+          entries: catAthletes.length,
+        };
+      }).filter(Boolean) as any[];
 
       // Write to Firestore client-side (no serverless timeout)
       toast.loading(`Saving ${allCategories.length} categories...`, { id: toastId });
@@ -505,7 +557,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
 
       // Update competition stats
       const totalEntries = allCategories.reduce((s, c) => s + c.athletes.length, 0);
-      const uniqueCount = data.uniqueAthletesCount || totalEntries;
+      const uniqueCount = uniqueAthletesCount || totalEntries;
       const statsBatch = writeBatch(db);
       statsBatch.update(compRef, { athletesCount: uniqueCount, entriesCount: totalEntries, categoriesCount: allCategories.length, updatedAt: now });
       await statsBatch.commit();
@@ -560,54 +612,103 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         Email: a.email || '',
       }));
 
-      const res = await fetch(`/api/competitions/${id}/import`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          rows,
-          compType,
-          poolSize,
-          wkfMode,
-          customCategories: compRules !== 'wkf' ? categories : [],
-        }),
-      });
-      const data = await res.json();
+      const { normalizeAthleteRows, bucketAthletes, generateBracket } = await import('@taikaix/backend/services/tiesheet-generator');
+      const athletes = normalizeAthleteRows(rows);
+      const customCats = compRules !== 'wkf' ? categories : [];
+      const { categoryMap } = bucketAthletes(athletes, [], wkfMode, customCats);
 
-      if (data.success) {
-        // Merge into Firestore client-side
-        const allCategories: any[] = data.categories || [];
-        const now = new Date().toISOString();
-        const catsRef = collection(db, 'competitions', id, 'categories');
-        const existingSnap = await getDocs(catsRef);
-        const existingByName = new Map<string, any>();
-        existingSnap.docs.forEach(d => existingByName.set(d.data().name, d));
+      // Load existing categories to merge athletes and correctly regenerate brackets
+      const catsRef = collection(db, 'competitions', id, 'categories');
+      const existingSnap = await getDocs(catsRef);
+      const existingDocsMap = new Map<string, { ref: any; data: any }>();
+      existingSnap.docs.forEach(d => existingDocsMap.set(d.data().name, { ref: d.ref, data: d.data() }));
 
-        const BATCH_SIZE = 400;
-        const batches: any[] = [];
-        let currentBatch = writeBatch(db);
-        let opCount = 0;
-        for (const cat of allCategories) {
-          const existing = existingByName.get(cat.name);
-          // For manual import: merge athletes with existing
-          const existingAthletes = existing ? (existing.data().athletes || []) : [];
-          const mergedAthletes = [...existingAthletes, ...cat.athletes];
-          const catData = { ...cat, athletes: mergedAthletes, entries: mergedAthletes.length, updatedAt: now };
-          if (existing) {
-            currentBatch.update(existing.ref, catData);
-          } else {
-            currentBatch.set(doc(catsRef), { ...catData, createdAt: now });
-          }
-          if (++opCount === BATCH_SIZE) { batches.push(currentBatch); currentBatch = writeBatch(db); opCount = 0; }
+      const now = new Date().toISOString();
+      const BATCH_SIZE = 400;
+      const batches: any[] = [];
+      let currentBatch = writeBatch(db);
+      let opCount = 0;
+
+      for (const [catName, catAthletes] of categoryMap.entries()) {
+        if (catAthletes.length === 0) continue;
+
+        const existing = existingDocsMap.get(catName);
+        const existingAthletes = existing ? (existing.data.athletes || []) : [];
+        const mergedAthletes = [...existingAthletes, ...catAthletes];
+        
+        // Sort merged athletes A-Z
+        mergedAthletes.sort((a, b) => a.name.localeCompare(b.name));
+
+        const matches = generateBracket(mergedAthletes, compType, poolSize);
+
+        const catData = {
+          name: catName,
+          isSpecial: existing ? (existing.data.isSpecial || false) : false,
+          competitionId: id,
+          status: existing ? (existing.data.status || 'upcoming') : 'upcoming',
+          athletes: mergedAthletes.map((a: any) => ({
+            playerId: a.playerId,
+            name: a.name,
+            gender: a.gender,
+            weight: a.weight,
+            age: a.age,
+            country: a.country || '',
+            state: a.state || '',
+            district: a.district || '',
+            academy: a.academy,
+            interestSpecial: a.interestSpecial || '',
+            coachName: a.coachName || '',
+            phone: a.phone || '',
+            email: a.email || '',
+          })),
+          matches: matches.slice(0, 500).map(m => ({
+            id: m.id,
+            round: m.round,
+            matchNumber: m.matchNumber,
+            aka: m.aka ? { playerId: m.aka.playerId, name: m.aka.name, academy: m.aka.academy || null, state: m.aka.state || m.aka.country || null } : null,
+            ao: m.ao ? { playerId: m.ao.playerId, name: m.ao.name, academy: m.ao.academy || null, state: m.ao.state || m.ao.country || null } : null,
+            akaFromMatchId: m.akaFromMatchId || null,
+            aoFromMatchId: m.aoFromMatchId || null,
+            akaScore: 0,
+            aoScore: 0,
+            winnerId: m.winnerId || null,
+            nextMatchId: m.nextMatchId || null,
+            status: m.status,
+            mat: null,
+          })),
+          entries: mergedAthletes.length,
+          updatedAt: now,
+        };
+
+        if (existing) {
+          currentBatch.update(existing.ref, catData);
+        } else {
+          currentBatch.set(doc(catsRef), { ...catData, createdAt: now });
         }
-        if (opCount > 0) batches.push(currentBatch);
-        await Promise.all(batches.map(b => b.commit()));
 
-        setImportResult(prev => ({ categoriesTotal: allCategories.length, athletesImported: (prev?.athletesImported || 0) + manualAthletes.length }));
-        toast.success(`Successfully imported ${manualAthletes.length} manual entries!`);
-        setManualAthletes([]);
-      } else {
-        toast.error('Error: ' + data.error);
+        if (++opCount === BATCH_SIZE) {
+          batches.push(currentBatch);
+          currentBatch = writeBatch(db);
+          opCount = 0;
+        }
       }
+
+      if (opCount > 0) {
+        batches.push(currentBatch);
+      }
+      await Promise.all(batches.map(b => b.commit()));
+
+      // Update total imported athletes count in UI
+      const updatedSnap = await getDocs(catsRef);
+      const newTotalEntries = updatedSnap.docs.reduce((s, c) => s + (c.data().athletes?.length || 0), 0);
+
+      setImportResult(prev => ({
+        categoriesTotal: updatedSnap.docs.length,
+        athletesImported: newTotalEntries
+      }));
+
+      toast.success(`Successfully imported ${manualAthletes.length} manual entries!`);
+      setManualAthletes([]);
     } catch (err) {
       console.error(err);
       toast.error('Failed to import manual entries.');
@@ -721,7 +822,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         bronzeRule,
         wkfMode,
         wkfKataJudgeCount,
-        categories,
+        categories: cleanCategoriesForPayload(categories),
         hideEmpty,
         scoreboardLogo: scoreboardLogo ?? undefined,
         tournamentDays,
