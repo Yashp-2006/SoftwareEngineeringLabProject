@@ -384,7 +384,6 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         const filteredNewCats = newCats.filter(c => !existingNames.has(c.name));
         return [...prev, ...filteredNewCats];
       });
-      });
       toast.success(`Loaded WKF Categories`);
     } catch (err) {
       console.error(err);
