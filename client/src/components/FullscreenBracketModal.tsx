@@ -28,6 +28,7 @@ const BracketNode = ({
   isEditMode = false,
   onSwapDrop,
   onRevertMatch,
+  categoryId = '',
 }: {
   match: any;
   mats: string[];
@@ -36,8 +37,9 @@ const BracketNode = ({
   isKata?: boolean;
   isAdmin?: boolean;
   isEditMode?: boolean;
-  onSwapDrop?: (sourceMatchId: string, sourceSide: 'aka' | 'ao', targetMatchId: string, targetSide: 'aka' | 'ao') => void;
+  onSwapDrop?: (sourceMatchId: string, sourceSide: 'aka' | 'ao', targetMatchId: string, targetSide: 'aka' | 'ao', sourceCategoryId?: string) => void;
   onRevertMatch?: (matchId: string) => void;
+  categoryId?: string;
 }) => {
   const [showPromoteMenu, setShowPromoteMenu] = useState(false);
   const isLive = match.status === 'live';
@@ -54,7 +56,7 @@ const BracketNode = ({
   const onlyAo = !hasAka && hasAo;
 
   const handleDragStart = (e: React.DragEvent, side: 'aka' | 'ao') => {
-    e.dataTransfer.setData('text/plain', JSON.stringify({ matchId: match.id, side }));
+    e.dataTransfer.setData('text/plain', JSON.stringify({ matchId: match.id, side, categoryId }));
     e.dataTransfer.effectAllowed = 'move';
   };
 
@@ -63,7 +65,7 @@ const BracketNode = ({
     try {
       const data = JSON.parse(e.dataTransfer.getData('text/plain'));
       if (data.matchId && data.side && onSwapDrop) {
-        onSwapDrop(data.matchId, data.side, match.id, side);
+        onSwapDrop(data.matchId, data.side, match.id, side, data.categoryId);
       }
     } catch (err) {}
   };
@@ -87,8 +89,8 @@ const BracketNode = ({
     setShowPromoteMenu(v => !v);
   };
 
-  const isAkaDraggable = isEditMode && !match.akaFromMatchId;
-  const isAoDraggable = isEditMode && !match.aoFromMatchId;
+  const isAkaDraggable = isEditMode && !match.akaFromMatchId && (match.status === 'upcoming' || (match.status === 'completed' && !!match.byeFor));
+  const isAoDraggable = isEditMode && !match.aoFromMatchId && (match.status === 'upcoming' || (match.status === 'completed' && !!match.byeFor));
 
   return (
     <div className={`bracket-node${isLive ? ' live' : ''}${isCompleted ? ' completed' : ''}${isPending ? ' pending' : ''}${isHighlighted ? ' is-highlighted' : ''}`}>
@@ -337,6 +339,7 @@ export function BracketViewer({
   isEditMode = false,
   onSwapDrop,
   onRevertMatch,
+  categoryId = '',
 }: {
   matches: any[];
   categoryName?: string;
@@ -348,8 +351,9 @@ export function BracketViewer({
   onNavigateToMatch?: (categoryId: string, matchId: string) => void;
   onPromote?: (matchId: string, winnerId: string, nextMatchId: string | null, byeFor?: 'aka' | 'ao') => void;
   isEditMode?: boolean;
-  onSwapDrop?: (sourceMatchId: string, sourceSide: 'aka' | 'ao', targetMatchId: string, targetSide: 'aka' | 'ao') => void;
+  onSwapDrop?: (sourceMatchId: string, sourceSide: 'aka' | 'ao', targetMatchId: string, targetSide: 'aka' | 'ao', sourceCategoryId?: string) => void;
   onRevertMatch?: (matchId: string) => void;
+  categoryId?: string;
 }) {
   const { role } = useAuth();
   const isAdmin = role === 'admin';
@@ -666,6 +670,7 @@ export function BracketViewer({
                     <BracketNode 
                       match={m} 
                       mats={mats} 
+                      categoryId={categoryId}
                       onPromote={onPromote} 
                       isHighlighted={m.id === activeHighlight} 
                       isKata={isKata} 
@@ -707,7 +712,15 @@ export default function FullscreenBracketModal({
   onPromote?: (matchId: string, winnerId: string, nextMatchId: string | null, byeFor?: 'aka' | 'ao') => void;
   onAssignMat?: (categoryId: string, mat: string) => void;
   isAdmin?: boolean;
-  onSwapDrop?: (categoryId: string, sourceMatchId: string, sourceSide: 'aka' | 'ao', targetMatchId: string, targetSide: 'aka' | 'ao') => void;
+  onSwapDrop?: (
+    categoryId: string, 
+    sourceMatchId: string, 
+    sourceSide: 'aka' | 'ao', 
+    targetMatchId: string, 
+    targetSide: 'aka' | 'ao',
+    targetCategoryId?: string,
+    action?: 'swap' | 'move'
+  ) => void;
   onRevertMatch?: (categoryId: string, matchId: string) => void;
 }) {
   const activeCatIdState = initialCategoryId || (categories[0]?.id ?? null);
@@ -720,6 +733,7 @@ export default function FullscreenBracketModal({
   const [modalHighlight, setModalHighlight] = useState<string | null>(highlightMatchId || null);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+  const dragHoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [sbFilterDiscipline, setSbFilterDiscipline] = useState<'all'|'kata'|'kumite'>('all');
   const [sbFilterGender, setSbFilterGender] = useState<'all'|'male'|'female'>('all');
@@ -1164,6 +1178,27 @@ export default function FullscreenBracketModal({
                   key={cat.id}
                   className={`fsb-cat-item${activeCatId === cat.id ? ' active' : ''}`}
                   onClick={() => { setActiveCatId(cat.id); setShowMobileSidebar(false); }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    if (cat.id !== activeCatId && !dragHoverTimeoutRef.current) {
+                      dragHoverTimeoutRef.current = setTimeout(() => {
+                        setActiveCatId(cat.id);
+                        dragHoverTimeoutRef.current = null;
+                      }, 500);
+                    }
+                  }}
+                  onDragLeave={() => {
+                    if (dragHoverTimeoutRef.current) {
+                      clearTimeout(dragHoverTimeoutRef.current);
+                      dragHoverTimeoutRef.current = null;
+                    }
+                  }}
+                  onDrop={() => {
+                    if (dragHoverTimeoutRef.current) {
+                      clearTimeout(dragHoverTimeoutRef.current);
+                      dragHoverTimeoutRef.current = null;
+                    }
+                  }}
                 >
                   <div className="fsb-cat-name">{cat.name}</div>
                   <div className="fsb-cat-meta">
@@ -1201,9 +1236,51 @@ export default function FullscreenBracketModal({
                 }}
                 onPromote={onPromote}
                 isEditMode={isEditMode}
-                onSwapDrop={(srcMatchId, srcSide, tgtMatchId, tgtSide) => {
-                  if (onSwapDrop && activeCategory) {
-                    onSwapDrop(activeCategory.id, srcMatchId, srcSide, tgtMatchId, tgtSide);
+                categoryId={activeCategory.id}
+                onSwapDrop={async (srcMatchId, srcSide, tgtMatchId, tgtSide, srcCategoryId) => {
+                  if (onSwapDrop && activeCategory && srcCategoryId) {
+                    if (srcCategoryId !== activeCategory.id) {
+                      // Cross-category swap or move
+                      const srcCatName = categories.find(c => c.id === srcCategoryId)?.name || 'Source Category';
+                      const tgtCatName = activeCategory.name;
+
+                      const srcMatch = categories.find(c => c.id === srcCategoryId)?.matches?.find((m: any) => m.id === srcMatchId);
+                      const tgtMatch = activeCategory.matches?.find((m: any) => m.id === tgtMatchId);
+
+                      const srcAthlete = srcMatch ? srcMatch[srcSide] : null;
+                      const tgtAthlete = tgtMatch ? tgtMatch[tgtSide] : null;
+
+                      if (!srcAthlete) return;
+
+                      if (tgtAthlete) {
+                        const confirmSwap = window.confirm(
+                          `Do you want to swap ${srcAthlete.name} (from ${srcCatName}) and ${tgtAthlete.name} (from ${tgtCatName}) between their categories?\n\n` +
+                          `Select 'OK' to proceed with swap.\n` +
+                          `Select 'Cancel' to choose the move option instead.`
+                        );
+                        if (confirmSwap) {
+                          onSwapDrop(srcCategoryId, srcMatchId, srcSide, tgtMatchId, tgtSide, activeCategory.id, 'swap');
+                        } else {
+                          const confirmMove = window.confirm(
+                            `Would you like to move ${srcAthlete.name} to ${tgtCatName} without swapping ${tgtAthlete.name} back?\n` +
+                            `(Note: This will place ${srcAthlete.name} in a BYE slot / regenerate brackets for ${tgtCatName})`
+                          );
+                          if (confirmMove) {
+                            onSwapDrop(srcCategoryId, srcMatchId, srcSide, tgtMatchId, tgtSide, activeCategory.id, 'move');
+                          }
+                        }
+                      } else {
+                        const confirmMove = window.confirm(
+                          `Are you sure you want to move ${srcAthlete.name} from ${srcCatName} to ${tgtCatName}?`
+                        );
+                        if (confirmMove) {
+                          onSwapDrop(srcCategoryId, srcMatchId, srcSide, tgtMatchId, tgtSide, activeCategory.id, 'move');
+                        }
+                      }
+                    } else {
+                      // Same category
+                      onSwapDrop(srcCategoryId, srcMatchId, srcSide, tgtMatchId, tgtSide);
+                    }
                   }
                 }}
                 onRevertMatch={(matchId) => {
