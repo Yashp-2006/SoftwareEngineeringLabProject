@@ -12,6 +12,7 @@ Enable tournament organizers (admins) to edit tiesheets manually by dragging and
      - Prompts the user: "Are you sure you want to move Athlete A to this category?"
      - If yes, moves Athlete A, leaving their old slot empty (creating a BYE in the source category).
 3. Hovering over sidebar categories during drag to switch views.
+4. **Auto-save**: Every drag-and-drop action immediately commits to the database, ensuring zero lost edits.
 
 ---
 
@@ -59,6 +60,7 @@ Modify `PATCH /api/competitions/[id]/brackets/[catId]/swap` to handle:
       - **Yes**: Call PATCH API with `action: 'move'`.
   - If `data.categoryId === activeCategory.id`:
     - Call PATCH API with same category swap.
+- Immediate UI updates: Since API write commits directly, Firestore `onSnapshot` real-time listener automatically fetches updated bracket, refreshing display instantly.
 
 ---
 
