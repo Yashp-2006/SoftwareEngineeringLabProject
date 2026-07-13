@@ -138,7 +138,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       existingCatsByName.set(doc.data().name, doc);
     });
 
-    const writePromises: Promise<any>[] = [];
+    const batch = adminDb.batch();
 
     for (let i = 0; i < entries.length; i++) {
       const [catName, catAthletes] = entries[i];
@@ -207,17 +207,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       };
 
       if (existingDoc) {
-        writePromises.push(existingDoc.ref.update(categoryData));
+        batch.update(existingDoc.ref, categoryData);
       } else {
-        writePromises.push(categoriesRef.add({ ...categoryData, createdAt: new Date().toISOString() }));
+        const newDocRef = categoriesRef.doc();
+        batch.set(newDocRef, { ...categoryData, createdAt: new Date().toISOString() });
         categoriesCreated++;
       }
 
       athletesImported += catAthletes.length;
     }
 
-    // 2. Commit all updates concurrently
-    await Promise.all(writePromises);
+    // 2. Commit all updates atomically in a single batch request
+    await batch.commit();
 
     const returnedCategories = Array.from(categoryMap.entries()).map(([name, athletes]) => ({
       id: name,
