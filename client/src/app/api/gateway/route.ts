@@ -129,10 +129,22 @@ export async function POST(req: NextRequest) {
           }
         });
 
+        // Create mats up to numMats and clean up any extra mats from previous configurations
+        const existingMatsSnap = await adminDb.collection('competitions').doc(data.competitionId).collection('mats').get();
+        const existingMatIds = new Set(existingMatsSnap.docs.map((d: any) => d.id));
+
         for (let i = 1; i <= numMats; i++) {
-          const matRef = adminDb.collection('competitions').doc(data.competitionId).collection('mats').doc(`mat-${i}`);
+          const matId = `mat-${i}`;
+          const matRef = adminDb.collection('competitions').doc(data.competitionId).collection('mats').doc(matId);
           batch.set(matRef, { name: `MAT ${String(i).padStart(2, '0')}`, order: i }, { merge: true });
+          existingMatIds.delete(matId);
         }
+
+        // Delete any leftover/extra mats
+        existingMatIds.forEach(extraMatId => {
+          const matRef = adminDb.collection('competitions').doc(data.competitionId).collection('mats').doc(extraMatId);
+          batch.delete(matRef);
+        });
 
         const compUpdateData: any = {
           name: data.compName,
