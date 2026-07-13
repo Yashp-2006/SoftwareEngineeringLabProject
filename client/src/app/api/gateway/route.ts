@@ -220,11 +220,7 @@ export async function POST(req: NextRequest) {
             if (cat.maxWeight !== undefined) updateData.maxWeight = cat.maxWeight;
           }
 
-          if (existingCatsMap[cat.name]) {
-            addOp((b) => b.update(catRef, updateData));
-          } else {
-            addOp((b) => b.set(catRef, updateData));
-          }
+          addOp((b) => b.set(catRef, updateData, { merge: true }));
         });
 
         // Create mats up to numMats and clean up any extra mats from previous configurations
@@ -374,8 +370,8 @@ export async function POST(req: NextRequest) {
     }
   } catch (error: any) {
     console.error('API Gateway Error:', error);
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Validation Error', details: error.issues }, { status: 400 });
+    if (error instanceof z.ZodError || error?.name === 'ZodError') {
+      return NextResponse.json({ error: 'Validation Error', details: error.issues || error.errors }, { status: 400 });
     }
     // Since gateway is authorized (admin/guest_viewer), it's safe to return the actual error message to help debugging
     const errMsg = error?.message || String(error);

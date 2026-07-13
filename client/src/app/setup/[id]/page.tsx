@@ -90,6 +90,9 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
 
       return {
         ...rest,
+        entries: numOrUndef(c.entries || c.athletes?.length) || 0,
+        isKata: c.isKata === true || c.isKata === 'true',
+        isSpecial: c.isSpecial === true || c.isSpecial === 'true',
         minAge: numOrUndef(rest.minAge),
         maxAge: numOrUndef(rest.maxAge),
         minWeight: numOrUndef(rest.minWeight),
