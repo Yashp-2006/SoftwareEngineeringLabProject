@@ -625,13 +625,13 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
     e.dataTransfer.setData('text/plain', idx.toString());
   };
 
-  const handleDragOver = (e: React.DragEvent<HTMLTableRowElement>, idx: number) => {
+  const handleRowDragOver = (e: React.DragEvent<HTMLTableRowElement>, idx: number) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     setDragOverIdx(idx);
   };
 
-  const handleDrop = (e: React.DragEvent<HTMLTableRowElement>, dropIdx: number) => {
+  const handleRowDrop = (e: React.DragEvent<HTMLTableRowElement>, dropIdx: number) => {
     e.preventDefault();
     setDragOverIdx(null);
     if (dragIdx === null || dragIdx === dropIdx) { setDragIdx(null); return; }
@@ -1150,8 +1150,8 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                             key={cat.id || idx}
                             draggable
                             onDragStart={e => handleDragStart(e, idx)}
-                            onDragOver={e => handleDragOver(e, idx)}
-                            onDrop={e => handleDrop(e, idx)}
+                            onDragOver={e => handleRowDragOver(e, idx)}
+                            onDrop={e => handleRowDrop(e, idx)}
                             style={{ 
                               opacity: dragIdx === idx ? 0.5 : 1,
                               borderTop: dragOverIdx === idx && dragIdx !== null && dragIdx > idx ? '2px solid var(--ao)' : 'none',

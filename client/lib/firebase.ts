@@ -17,6 +17,17 @@ const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
 // Export the client SDK instances for use in React components
-export const db = getFirestore(app);
-export const rtdb = getDatabase(app);
-export const auth = getAuth(app);
+// We wrap in try-catch to avoid crashing the Next.js build process when evaluating the module on the server
+let db: ReturnType<typeof getFirestore>;
+let rtdb: ReturnType<typeof getDatabase>;
+let auth: ReturnType<typeof getAuth>;
+
+try {
+  db = getFirestore(app);
+  rtdb = getDatabase(app);
+  auth = getAuth(app);
+} catch (error) {
+  console.warn('Firebase services failed to initialize synchronously. This is normal during Next.js build.', error);
+}
+
+export { db, rtdb, auth };
