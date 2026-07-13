@@ -189,9 +189,16 @@ export async function POST(req: NextRequest) {
           await Promise.all(batches.map(b => b.commit()));
         }
 
-        const { redis } = await import('@taikaix/backend/lib/redis');
-        await redis.del(`comp:public:${data.competitionId}`);
-        await redis.del(`comp:schedule:${data.competitionId}`);
+        // Cache invalidation — non-fatal, skip if Redis env vars missing
+        if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+          try {
+            const { redis } = await import('@taikaix/backend/lib/redis');
+            await redis.del(`comp:public:${data.competitionId}`);
+            await redis.del(`comp:schedule:${data.competitionId}`);
+          } catch (redisErr) {
+            console.warn('Redis cache invalidation failed (non-fatal):', redisErr);
+          }
+        }
 
         // Algolia Indexing
         try {
@@ -286,6 +293,9 @@ export async function POST(req: NextRequest) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: 'Validation Error', details: error.issues }, { status: 400 });
     }
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    // Since gateway is authorized (admin/guest_viewer), it's safe to return the actual error message to help debugging
+    const errMsg = error?.message || String(error);
+    const errDetail = { stack: error?.stack };
+    return NextResponse.json({ error: errMsg, detail: errDetail }, { status: 500 });
   }
 }
