@@ -900,6 +900,8 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
     return true;
   });
 
+  if (!isDataLoaded) return <PageSkeleton />;
+
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: `
