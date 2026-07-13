@@ -63,59 +63,31 @@ export type PoolSize = 4 | 8 | 16 | 32;
 
 // ─── Excel Parsing ─────────────────────────────────────────────────────────────
 
-/** Number of rows processed per shard. Keeps heap bounded and avoids Vercel function timeouts. */
+/** Number of rows processed per JS-array slice. Keeps per-iteration work bounded. */
 const PARSE_PAGE_SIZE = 500;
 
 /**
  * Parses an Excel/CSV file and returns a flat list of athletes.
- * Reads all sheets. Rows are processed in shards of PARSE_PAGE_SIZE to avoid
- * blocking the event loop and hitting Vercel serverless memory/timeout limits.
+ * Reads all sheets. The raw row array is processed in PARSE_PAGE_SIZE slices
+ * so each iteration stays bounded — avoids a single massive loop tick.
  * Athletes are returned sorted A-Z by name.
  */
 export function parseExcel(buffer: ArrayBuffer): AthleteRow[] {
   const dataArray = new Uint8Array(buffer);
-  // dense:false keeps cell objects minimal; cellDates: true converts date serials
-  const workbook = xlsx.read(dataArray, { type: 'array', dense: false, cellDates: true });
+  const workbook = xlsx.read(dataArray, { type: 'array' });
   const allAthletes: AthleteRow[] = [];
 
   // Read all sheets (some tournaments export one sheet per category)
   for (const sheetName of workbook.SheetNames) {
     const worksheet = workbook.Sheets[sheetName];
+    // Read all rows for this sheet at once (xlsx.read is fast; sharding is at the JS array level)
+    const allRows = xlsx.utils.sheet_to_json(worksheet, { defval: '' }) as any[];
 
-    // ── Sharded reading ──────────────────────────────────────────────────────
-    // Determine the actual row range from the sheet's !ref address (e.g. "A1:Z350").
-    // Row 1 is the header; data starts at row 2 (0-indexed: row index 1).
-    const ref = worksheet['!ref'];
-    if (!ref) continue; // empty sheet
+    // Slice into PARSE_PAGE_SIZE pages so no single iteration processes thousands of rows
+    for (let pageStart = 0; pageStart < allRows.length; pageStart += PARSE_PAGE_SIZE) {
+      const rawData = allRows.slice(pageStart, pageStart + PARSE_PAGE_SIZE);
 
-    const sheetRange = xlsx.utils.decode_range(ref);
-    const totalDataRows = sheetRange.e.r; // last row index (0-based); row 0 is header
-
-    // Collect header keys once from the full range so every shard shares the same header
-    const headerRow: string[] = [];
-    for (let col = sheetRange.s.c; col <= sheetRange.e.c; col++) {
-      const cellAddr = xlsx.utils.encode_cell({ r: sheetRange.s.r, c: col });
-      const cell = worksheet[cellAddr];
-      headerRow[col] = cell ? String(cell.v ?? '').trim().toLowerCase() : '';
-    }
-
-    // Process data rows in PARSE_PAGE_SIZE shards
-    for (let startRow = sheetRange.s.r + 1; startRow <= totalDataRows; startRow += PARSE_PAGE_SIZE) {
-      const endRow = Math.min(startRow + PARSE_PAGE_SIZE - 1, totalDataRows);
-
-      // Build a sub-range for this shard including the header so sheet_to_json resolves keys
-      const shardRange = {
-        s: { r: sheetRange.s.r, c: sheetRange.s.c }, // header
-        e: { r: endRow, c: sheetRange.e.c },
-      };
-
-      const rawData = xlsx.utils.sheet_to_json(worksheet, {
-        defval: '',
-        range: shardRange,
-      }) as any[];
-
-
-    for (const rawRow of rawData) {
+      for (const rawRow of rawData) {
       const row: any = {};
       for (const key in rawRow) {
         row[key.trim().toLowerCase()] = rawRow[key];
