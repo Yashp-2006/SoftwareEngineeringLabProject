@@ -346,6 +346,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
             athletes: []
           }));
           setCategories(prev => [...prev, ...newCats]);
+          setCompRules('import_preset');
           toast.success(`Imported ${newCats.length} categories`);
         } else {
           toast.error('Invalid preset format');
@@ -384,6 +385,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         const filteredNewCats = newCats.filter(c => !existingNames.has(c.name));
         return [...prev, ...filteredNewCats];
       });
+      setCompRules('wkf');
       toast.success(`Loaded WKF Categories`);
     } catch (err) {
       console.error(err);
