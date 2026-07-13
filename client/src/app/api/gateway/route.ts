@@ -38,7 +38,20 @@ export async function POST(req: NextRequest) {
         const { deployTournamentSchema } = await import('@taikaix/backend/types/schemas');
         const data = deployTournamentSchema.parse(payload);
         
-        const batch = adminDb.batch();
+        const batches = [];
+        let currentBatch = adminDb.batch();
+        let opCount = 0;
+
+        const addOp = (fn: (b: FirebaseFirestore.WriteBatch) => void) => {
+          fn(currentBatch);
+          opCount++;
+          if (opCount === 400) {
+            batches.push(currentBatch);
+            currentBatch = adminDb.batch();
+            opCount = 0;
+          }
+        };
+
         const catsSnapshot = await adminDb.collection('competitions').doc(data.competitionId).collection('categories').get();
         const existingCatsMap: Record<string, any> = {};
         catsSnapshot.docs.forEach((d: any) => {
@@ -123,9 +136,9 @@ export async function POST(req: NextRequest) {
           }
 
           if (existingCatsMap[cat.name]) {
-            batch.update(catRef, updateData);
+            addOp((b) => b.update(catRef, updateData));
           } else {
-            batch.set(catRef, updateData);
+            addOp((b) => b.set(catRef, updateData));
           }
         });
 
@@ -136,14 +149,14 @@ export async function POST(req: NextRequest) {
         for (let i = 1; i <= numMats; i++) {
           const matId = `mat-${i}`;
           const matRef = adminDb.collection('competitions').doc(data.competitionId).collection('mats').doc(matId);
-          batch.set(matRef, { name: `MAT ${String(i).padStart(2, '0')}`, order: i }, { merge: true });
+          addOp((b) => b.set(matRef, { name: `MAT ${String(i).padStart(2, '0')}`, order: i }, { merge: true }));
           existingMatIds.delete(matId);
         }
 
         // Delete any leftover/extra mats
         existingMatIds.forEach(extraMatId => {
           const matRef = adminDb.collection('competitions').doc(data.competitionId).collection('mats').doc(extraMatId);
-          batch.delete(matRef);
+          addOp((b) => b.delete(matRef));
         });
 
         const compUpdateData: any = {
@@ -165,8 +178,15 @@ export async function POST(req: NextRequest) {
           compUpdateData.scoreboardLogo = data.scoreboardLogo;
         }
 
-        batch.update(adminDb.collection('competitions').doc(data.competitionId), compUpdateData);
-        await batch.commit();
+        addOp((b) => b.update(adminDb.collection('competitions').doc(data.competitionId), compUpdateData));
+
+        if (opCount > 0) {
+          batches.push(currentBatch);
+        }
+
+        if (batches.length > 0) {
+          await Promise.all(batches.map(b => b.commit()));
+        }
 
         const { redis } = await import('@taikaix/backend/lib/redis');
         await redis.del(`comp:public:${data.competitionId}`);
@@ -225,15 +245,31 @@ export async function POST(req: NextRequest) {
         const data = updateScheduleSchema.parse(payload);
         const { redis } = await import('@taikaix/backend/lib/redis');
 
-        const batch = adminDb.batch();
+        const batches = [];
+        let currentBatch = adminDb.batch();
+        let opCount = 0;
+
         for (const row of data.changes) {
           const ref = adminDb.collection('competitions').doc(data.competitionId).collection('categories').doc(row.id);
-          batch.update(ref, {
+          currentBatch.update(ref, {
             scheduledStartTime: row.scheduledStartTime,
             scheduledEndTime: row.scheduledEndTime
           });
+          opCount++;
+          if (opCount === 400) {
+            batches.push(currentBatch);
+            currentBatch = adminDb.batch();
+            opCount = 0;
+          }
         }
-        await batch.commit();
+
+        if (opCount > 0) {
+          batches.push(currentBatch);
+        }
+
+        if (batches.length > 0) {
+          await Promise.all(batches.map(b => b.commit()));
+        }
 
         // Invalidate the schedule cache for this competition
         await redis.del(`comp:schedule:${data.competitionId}`);

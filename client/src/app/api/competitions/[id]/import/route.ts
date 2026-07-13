@@ -138,7 +138,24 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       existingCatsByName.set(doc.data().name, doc);
     });
 
-    const batch = adminDb.batch();
+    const batches = [];
+    let currentBatch = adminDb.batch();
+    let opCount = 0;
+
+    // If not appending (chunk 1 overwrite), delete any existing categories that are not in the new roster
+    if (!append) {
+      for (const [catName, doc] of existingCatsByName.entries()) {
+        if (!categoryMap.has(catName)) {
+          currentBatch.delete(doc.ref);
+          opCount++;
+          if (opCount === 400) {
+            batches.push(currentBatch);
+            currentBatch = adminDb.batch();
+            opCount = 0;
+          }
+        }
+      }
+    }
 
     for (let i = 0; i < entries.length; i++) {
       const [catName, catAthletes] = entries[i];
@@ -207,18 +224,31 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       };
 
       if (existingDoc) {
-        batch.update(existingDoc.ref, categoryData);
+        currentBatch.update(existingDoc.ref, categoryData);
       } else {
         const newDocRef = categoriesRef.doc();
-        batch.set(newDocRef, { ...categoryData, createdAt: new Date().toISOString() });
+        currentBatch.set(newDocRef, { ...categoryData, createdAt: new Date().toISOString() });
         categoriesCreated++;
+      }
+      opCount++;
+
+      if (opCount === 400) {
+        batches.push(currentBatch);
+        currentBatch = adminDb.batch();
+        opCount = 0;
       }
 
       athletesImported += catAthletes.length;
     }
 
-    // 2. Commit all updates atomically in a single batch request
-    await batch.commit();
+    if (opCount > 0) {
+      batches.push(currentBatch);
+    }
+
+    // Commit all updates in parallel
+    if (batches.length > 0) {
+      await Promise.all(batches.map(b => b.commit()));
+    }
 
     const returnedCategories = Array.from(categoryMap.entries()).map(([name, athletes]) => ({
       id: name,
