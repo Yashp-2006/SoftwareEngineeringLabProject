@@ -75,19 +75,30 @@ const PARSE_PAGE_SIZE = 500;
 export function parseExcel(buffer: ArrayBuffer): AthleteRow[] {
   const dataArray = new Uint8Array(buffer);
   const workbook = xlsx.read(dataArray, { type: 'array' });
-  const allAthletes: AthleteRow[] = [];
+  let allRows: any[] = [];
 
   // Read all sheets (some tournaments export one sheet per category)
   for (const sheetName of workbook.SheetNames) {
     const worksheet = workbook.Sheets[sheetName];
     // Read all rows for this sheet at once (xlsx.read is fast; sharding is at the JS array level)
-    const allRows = xlsx.utils.sheet_to_json(worksheet, { defval: '' }) as any[];
+    const rows = xlsx.utils.sheet_to_json(worksheet, { defval: '' }) as any[];
+    allRows = allRows.concat(rows);
+  }
 
-    // Slice into PARSE_PAGE_SIZE pages so no single iteration processes thousands of rows
-    for (let pageStart = 0; pageStart < allRows.length; pageStart += PARSE_PAGE_SIZE) {
-      const rawData = allRows.slice(pageStart, pageStart + PARSE_PAGE_SIZE);
+  return normalizeAthleteRows(allRows);
+}
 
-      for (const rawRow of rawData) {
+/**
+ * Normalizes raw JSON rows into structured AthleteRow objects.
+ */
+export function normalizeAthleteRows(rawData: any[]): AthleteRow[] {
+  const allAthletes: AthleteRow[] = [];
+
+  // Slice into PARSE_PAGE_SIZE pages so no single iteration processes thousands of rows
+  for (let pageStart = 0; pageStart < rawData.length; pageStart += PARSE_PAGE_SIZE) {
+    const pageRows = rawData.slice(pageStart, pageStart + PARSE_PAGE_SIZE);
+
+    for (const rawRow of pageRows) {
       const row: any = {};
       for (const key in rawRow) {
         row[key.trim().toLowerCase()] = rawRow[key];
@@ -183,7 +194,6 @@ export function parseExcel(buffer: ArrayBuffer): AthleteRow[] {
       if (parsedName.toUpperCase() === 'BYE') continue; // Skip explicit BYE rows to let generator handle empty slots
       parsedAcademy = parsedAcademy.trim() || 'Unknown';
 
-      // ... age parsing remains the same ...
       let parsedAge = parseInt(String(row['age'] ?? ''), 10);
       if (isNaN(parsedAge) || !row['age']) {
         let dobVal: any = null;
@@ -205,7 +215,6 @@ export function parseExcel(buffer: ArrayBuffer): AthleteRow[] {
             const parts = strVal.split(/[-/\s]+/);
             if (parts.length === 3) {
               const p1 = Number(parts[0]);
-              // const p2 = Number(parts[1]); // Not strictly needed for age
               const p3 = Number(parts[2]);
               
               let year = -1;
@@ -229,8 +238,6 @@ export function parseExcel(buffer: ArrayBuffer): AthleteRow[] {
       parsedAge = isNaN(parsedAge) ? 18 : parsedAge; // fallback
 
       const events: string[] = [];
-      
-      // Helper: split a comma/semicolon/pipe/slash/ampersand/"and"-separated string into individual event tokens
       const splitEventVal = (v: string): string[] =>
         v.split(/[,;&|/\\]+|\band\b|\bor\b/i)
           .map(p => p.trim())
@@ -243,8 +250,6 @@ export function parseExcel(buffer: ArrayBuffer): AthleteRow[] {
         if (!val || val === 'no' || val === 'n' || val === 'false' || val === '0') continue;
 
         if (val === 'yes' || val === 'y' || val === 'true' || val === '1' || val === 'x' || val === 'checked') {
-          // Column name IS the event (e.g. a "Kata" column with value "Yes")
-          // A single column name may itself encode both events (e.g. "Kata / Kumite")
           const colParts = splitEventVal(lowerK);
           if (colParts.length > 1) {
             events.push(...colParts);
@@ -252,18 +257,14 @@ export function parseExcel(buffer: ArrayBuffer): AthleteRow[] {
             events.push(lowerK);
           }
         } else if (['events', 'event', 'category', 'categories', 'participating events', 'discipline', 'disciplines', 'competition', 'competing in'].includes(lowerK)) {
-          // Cell value is a list of events, e.g. "Kata, Kumite" / "Kata & Kumite" / "Both"
           if (val === 'both') {
             events.push('kata', 'kumite');
           } else {
             events.push(...splitEventVal(val));
           }
         } else if (lowerK.includes('kata') || lowerK.includes('kumite')) {
-          // Column header already encodes the event name with a non-yes/no value
-          // (e.g. header "Kata" with value "Kumite", or header "Event" containing "kata")
           const colParts = splitEventVal(lowerK);
           events.push(...colParts);
-          // Also parse the cell value in case it contains additional events
           const valParts = splitEventVal(val);
           events.push(...valParts);
         }
@@ -281,7 +282,6 @@ export function parseExcel(buffer: ArrayBuffer): AthleteRow[] {
           }
         }
       }
-      // Normalize gender value: m/male → 'male', f/female → 'female'
       if (parsedGender === 'm' || parsedGender === 'male' || parsedGender === 'boy' || parsedGender === 'man') parsedGender = 'male';
       else if (parsedGender === 'f' || parsedGender === 'female' || parsedGender === 'girl' || parsedGender === 'woman' || parsedGender === 'w') parsedGender = 'female';
       if (!parsedGender) parsedGender = 'male'; // fallback
@@ -291,7 +291,6 @@ export function parseExcel(buffer: ArrayBuffer): AthleteRow[] {
           `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         name: parsedName,
         gender: parsedGender,
-        // Strip unit suffixes from weight values (e.g. "75 kg", "75kg", "75 lbs")
         weight: parseFloat(String(rawWeight).replace(/\s*(kg|kgs|lbs?|kilos?)\s*/gi, '').trim()) || 0,
         age: parsedAge,
         country: String(row['country'] || row['nation'] || row['nationality'] || ''),
@@ -304,11 +303,9 @@ export function parseExcel(buffer: ArrayBuffer): AthleteRow[] {
         phone: phone || undefined,
         email: email ? email.trim() : undefined
       });
-    } // end for rawRow
-    } // end shard loop
-  } // end sheet loop
+    }
+  }
 
-  // Sort A-Z by name within each parsed batch
   allAthletes.sort((a, b) => a.name.localeCompare(b.name));
   return allAthletes;
 }
