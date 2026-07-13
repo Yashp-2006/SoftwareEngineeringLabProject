@@ -1,4 +1,5 @@
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60; // Allow up to 60s for large deployments
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb, verifySession } from '@taikaix/backend/lib/firebase-admin';
 import { saveSetupDraftSchema } from '@taikaix/backend/types/schemas';

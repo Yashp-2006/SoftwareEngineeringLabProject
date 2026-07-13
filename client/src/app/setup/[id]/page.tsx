@@ -844,9 +844,16 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
       });
 
       if (!res.ok) {
-        const errData = await res.json();
-        console.error('API Gateway Error:', errData);
-        throw new Error(errData.error || 'Deployment failed');
+        let errMsg = `Deployment failed (HTTP ${res.status})`;
+        try {
+          const errData = await res.json();
+          errMsg = errData.error || errData.message || errMsg;
+          console.error('API Gateway Error:', errData);
+        } catch {
+          const text = await res.text().catch(() => '');
+          console.error('Non-JSON error response from gateway:', res.status, text.slice(0, 200));
+        }
+        throw new Error(errMsg);
       }
 
       toast.success("Deployment successful! Schedule generated and saved.");
