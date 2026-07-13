@@ -63,19 +63,57 @@ export type PoolSize = 4 | 8 | 16 | 32;
 
 // ─── Excel Parsing ─────────────────────────────────────────────────────────────
 
+/** Number of rows processed per shard. Keeps heap bounded and avoids Vercel function timeouts. */
+const PARSE_PAGE_SIZE = 500;
+
 /**
  * Parses an Excel/CSV file and returns a flat list of athletes.
- * Reads the first sheet. Athletes are returned sorted A-Z by name.
+ * Reads all sheets. Rows are processed in shards of PARSE_PAGE_SIZE to avoid
+ * blocking the event loop and hitting Vercel serverless memory/timeout limits.
+ * Athletes are returned sorted A-Z by name.
  */
 export function parseExcel(buffer: ArrayBuffer): AthleteRow[] {
   const dataArray = new Uint8Array(buffer);
-  const workbook = xlsx.read(dataArray, { type: 'array' });
+  // dense:false keeps cell objects minimal; cellDates: true converts date serials
+  const workbook = xlsx.read(dataArray, { type: 'array', dense: false, cellDates: true });
   const allAthletes: AthleteRow[] = [];
 
   // Read all sheets (some tournaments export one sheet per category)
   for (const sheetName of workbook.SheetNames) {
     const worksheet = workbook.Sheets[sheetName];
-    const rawData = xlsx.utils.sheet_to_json(worksheet, { defval: "" }) as any[];
+
+    // ── Sharded reading ──────────────────────────────────────────────────────
+    // Determine the actual row range from the sheet's !ref address (e.g. "A1:Z350").
+    // Row 1 is the header; data starts at row 2 (0-indexed: row index 1).
+    const ref = worksheet['!ref'];
+    if (!ref) continue; // empty sheet
+
+    const sheetRange = xlsx.utils.decode_range(ref);
+    const totalDataRows = sheetRange.e.r; // last row index (0-based); row 0 is header
+
+    // Collect header keys once from the full range so every shard shares the same header
+    const headerRow: string[] = [];
+    for (let col = sheetRange.s.c; col <= sheetRange.e.c; col++) {
+      const cellAddr = xlsx.utils.encode_cell({ r: sheetRange.s.r, c: col });
+      const cell = worksheet[cellAddr];
+      headerRow[col] = cell ? String(cell.v ?? '').trim().toLowerCase() : '';
+    }
+
+    // Process data rows in PARSE_PAGE_SIZE shards
+    for (let startRow = sheetRange.s.r + 1; startRow <= totalDataRows; startRow += PARSE_PAGE_SIZE) {
+      const endRow = Math.min(startRow + PARSE_PAGE_SIZE - 1, totalDataRows);
+
+      // Build a sub-range for this shard including the header so sheet_to_json resolves keys
+      const shardRange = {
+        s: { r: sheetRange.s.r, c: sheetRange.s.c }, // header
+        e: { r: endRow, c: sheetRange.e.c },
+      };
+
+      const rawData = xlsx.utils.sheet_to_json(worksheet, {
+        defval: '',
+        range: shardRange,
+      }) as any[];
+
 
     for (const rawRow of rawData) {
       const row: any = {};
@@ -277,8 +315,9 @@ export function parseExcel(buffer: ArrayBuffer): AthleteRow[] {
         phone: phone || undefined,
         email: email ? email.trim() : undefined
       });
-    }
-  }
+    } // end for rawRow
+    } // end shard loop
+  } // end sheet loop
 
   // Sort A-Z by name within each parsed batch
   allAthletes.sort((a, b) => a.name.localeCompare(b.name));

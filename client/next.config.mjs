@@ -11,6 +11,10 @@ const nextConfig = {
   experimental: {
     externalDir: true,
   },
+
+  // Increase body size limit for Excel file uploads (tournament rosters can be large)
+  serverExternalPackages: [],
 };
+
 
 export default nextConfig;

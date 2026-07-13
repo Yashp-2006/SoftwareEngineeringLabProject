@@ -3,6 +3,10 @@ import { parseExcelIntoCategories, generateBracket, PoolSize } from '@taikaix/ba
 import { rateLimiter } from '@lib/rate-limiter';
 import { NextResponse } from 'next/server';
 
+// Allow up to 60 seconds for large roster imports on Vercel
+export const maxDuration = 60;
+
+
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const cookieStr = req.headers.get('cookie') || '';
@@ -58,6 +62,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'application/csv',
       'text/plain', // some OS send CSV as text/plain
+      'application/octet-stream', // some browsers send xlsx as octet-stream
     ];
     const hasValidMime = !file.type || allowedMimeTypes.includes(file.type);
 
@@ -80,6 +85,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     const wkfMode = (formData.get('wkfMode') as string) || 'standard';
 
+    // Read file into buffer for parsing
     const buffer = await file.arrayBuffer();
 
     let categoryMap: Map<string, any[]>;
@@ -240,6 +246,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     });
   } catch (error: any) {
     console.error('[import/route]', error);
-    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
+    const msg = error?.message || 'Internal server error';
+    return NextResponse.json({ success: false, error: msg }, { status: 500 });
   }
 }

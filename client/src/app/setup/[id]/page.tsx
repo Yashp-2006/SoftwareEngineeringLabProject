@@ -446,6 +446,11 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
   };
 
   const uploadFile = async (file: File) => {
+    // Guard: 20MB client-side limit (matches server config)
+    if (file.size > 20 * 1024 * 1024) {
+      toast.error('File is too large (max 20 MB). Please split the roster into smaller sheets.');
+      return;
+    }
     setUploading(true);
     try {
       const formData = new FormData();
@@ -461,7 +466,13 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         method: 'POST',
         body: formData
       });
-      const data = await res.json();
+
+      let data: any;
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error(`Server error (HTTP ${res.status}): could not parse response`);
+      }
       
       if (data.success) {
         setImportResult({ categoriesTotal: data.categoriesTotal, athletesImported: data.athletesImported });
@@ -485,11 +496,11 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
           setPhase(2);
         }, 2000);
       } else {
-        toast.error('Error: ' + data.error);
+        toast.error('Error: ' + (data.error || 'Unknown error'));
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast.error('Failed to upload and generate tiesheet.');
+      toast.error(err?.message || 'Failed to upload and generate tiesheet.');
     } finally {
       setUploading(false);
     }
