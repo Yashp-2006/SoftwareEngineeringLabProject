@@ -64,13 +64,16 @@ export async function POST(req: NextRequest) {
         const matTotalMins = Array.from({ length: numMats }).map(() => configStartMins);
 
         allCats.forEach((cat, index) => {
-          const matIndex = index % numMats;
+          const poolData = data.poolsSchedule?.[cat.id || cat.name];
+          const matIndex = poolData && poolData.matId !== -1 ? poolData.matId - 1 : index % numMats;
+          const order = poolData ? poolData.order : index;
           const matName = `MAT ${String(matIndex + 1).padStart(2, '0')}`;
-          const estimatedDuration = configEstMins > 0
+          
+          const estimatedDuration = poolData ? poolData.estTime : (configEstMins > 0
             ? configEstMins
-            : Math.min((cat.entries || 1) * 2, 90);
+            : Math.min((cat.entries || 1) * 2, 90));
 
-          const startTotalMins = matTotalMins[matIndex];
+          const startTotalMins = matTotalMins[matIndex] || configStartMins;
           const endTotalMins = startTotalMins + estimatedDuration;
           matTotalMins[matIndex] = endTotalMins;
 
@@ -93,9 +96,13 @@ export async function POST(req: NextRequest) {
             estimatedDuration: estimatedDuration,
             scheduledStartTime: startTimeStr,
             scheduledEndTime: endTimeStr,
-            order: index,
+            order: order,
             isSpecial: cat.isSpecial
           };
+          
+          if (poolData && poolData.day !== -1) {
+             updateData.day = poolData.day;
+          }
 
           if (cat.name.toLowerCase().includes('kata')) {
             updateData.isKata = true;
