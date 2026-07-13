@@ -1115,7 +1115,6 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                         </div>
                       </div>
                     </div>
-                  </div>
 
                 <div className="cat-group">
                   <div className="flex-between mb-4">
