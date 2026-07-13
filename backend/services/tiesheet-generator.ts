@@ -68,7 +68,8 @@ export type PoolSize = 4 | 8 | 16 | 32;
  * Reads the first sheet. Athletes are returned sorted A-Z by name.
  */
 export function parseExcel(buffer: ArrayBuffer): AthleteRow[] {
-  const workbook = xlsx.read(buffer, { type: 'array' });
+  const dataArray = new Uint8Array(buffer);
+  const workbook = xlsx.read(dataArray, { type: 'array' });
   const allAthletes: AthleteRow[] = [];
 
   // Read all sheets (some tournaments export one sheet per category)
