@@ -12,6 +12,7 @@ interface CategorySchedule {
   end: string;
   status: string;
   actualEndTime?: string;
+  day?: number;
 }
 
 export default function SchedulePage({ params }: { params: Promise<{ id: string }> }) {
@@ -47,19 +48,37 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
       
       const q = query(collection(db, 'competitions', id, 'categories'), orderBy('order'));
       unsubscribe = onSnapshot(q, (snapshot) => {
-        const cats = snapshot.docs.map(doc => {
+        const scheduleRows: CategorySchedule[] = [];
+        snapshot.docs.forEach(doc => {
           const data = doc.data();
-          return {
-            id: doc.id,
-            category: data.name,
-            mat: data.mat,
-            start: data.scheduledStartTime,
-            end: data.scheduledEndTime,
-            status: data.status,
-            actualEndTime: data.actualEndTime,
-          } as CategorySchedule;
+          if (data.pools && Array.isArray(data.pools) && data.pools.length > 0) {
+            data.pools.forEach((p: any) => {
+              const label = p.pool === 'finals' ? 'Finals' : `Pool ${p.pool}`;
+              scheduleRows.push({
+                id: `${doc.id}_pool_${p.pool}`,
+                category: `${data.name} - ${label}`,
+                mat: p.mat || data.mat || '—',
+                start: p.startTime || '—',
+                end: p.endTime || '—',
+                status: p.status || data.status || 'upcoming',
+                actualEndTime: p.actualEndTime || undefined,
+                day: p.day || data.day || 1,
+              });
+            });
+          } else {
+            scheduleRows.push({
+              id: doc.id,
+              category: data.name,
+              mat: data.mat || '—',
+              start: data.scheduledStartTime || '—',
+              end: data.scheduledEndTime || '—',
+              status: data.status || 'upcoming',
+              actualEndTime: data.actualEndTime || undefined,
+              day: data.day || 1,
+            });
+          }
         });
-        setScheduleData(cats);
+        setScheduleData(scheduleRows);
         setLastSync(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
       });
     };
@@ -366,6 +385,7 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
               <thead>
                 <tr>
                   <th className="text-micro">Category Name</th>
+                  <th className="text-micro">Day</th>
                   <th className="text-micro">Mat</th>
                   <th className="text-micro">Estimated Time</th>
                   <th className="text-micro">Live Time</th>
@@ -373,7 +393,7 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
               </thead>
               <tbody>
                 {filteredData.length === 0 ? (
-                  <tr><td colSpan={4} className="empty-row">No categories match the current filters.</td></tr>
+                  <tr><td colSpan={5} className="empty-row">No categories match the current filters.</td></tr>
                 ) : (
                     filteredData.map((row, idx) => (
                     <tr
@@ -388,6 +408,7 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
                         {row.status === 'done' && <div style={{ fontSize: '11px', color: '#10b981', fontWeight: 700, marginTop: '2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Finished</div>}
                         {row.status === 'live' && <div style={{ fontSize: '11px', color: 'var(--aka)', fontWeight: 700, marginTop: '2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>In Progress</div>}
                       </td>
+                      <td><span style={{ fontWeight: 700, color: 'var(--neutral-700)', fontSize: '13px' }}>Day {row.day || 1}</span></td>
                       <td><span className="mat-pill">{row.mat || '\u2014'}</span></td>
                       <td>
                         {row.start && row.end ? (

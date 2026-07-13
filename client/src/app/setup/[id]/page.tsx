@@ -81,7 +81,25 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
   const cleanCategoriesForPayload = (cats: any[]) => {
     return cats.map(c => {
       const { athletes, matches, ...rest } = c;
-      return rest;
+
+      const numOrUndef = (val: any) => {
+        if (val === undefined || val === null || val === '') return undefined;
+        const num = Number(val);
+        return isNaN(num) ? undefined : num;
+      };
+
+      return {
+        ...rest,
+        minAge: numOrUndef(rest.minAge),
+        maxAge: numOrUndef(rest.maxAge),
+        minWeight: numOrUndef(rest.minWeight),
+        maxWeight: numOrUndef(rest.maxWeight),
+        judgeCount: numOrUndef(rest.judgeCount),
+        matchTime: numOrUndef(rest.matchTime),
+        restTime: numOrUndef(rest.restTime),
+        medicalTime: numOrUndef(rest.medicalTime),
+        bunkaiTime: numOrUndef(rest.bunkaiTime),
+      };
     });
   };
 
@@ -819,21 +837,21 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
       const payload = {
         competitionId: id,
         compName,
-        matsCount,
-        poolSize,
+        matsCount: Number(matsCount) || 1,
+        poolSize: Number(poolSize) || 8,
         compRules,
         compType,
         bronzeRule,
-        wkfMode,
-        wkfKataJudgeCount,
+        wkfMode: wkfMode || undefined,
+        wkfKataJudgeCount: wkfKataJudgeCount ? Number(wkfKataJudgeCount) : undefined,
         categories: cleanCategoriesForPayload(categories),
-        hideEmpty,
-        scoreboardLogo: scoreboardLogo ?? undefined,
-        tournamentDays,
-        globalMatchTime,
-        globalRestTime,
-        globalMedicalTime,
-        globalBunkaiTime,
+        hideEmpty: Boolean(hideEmpty),
+        scoreboardLogo: scoreboardLogo || null,
+        tournamentDays: Number(tournamentDays) || 1,
+        globalMatchTime: Number(globalMatchTime) || 3,
+        globalRestTime: Number(globalRestTime) || 1,
+        globalMedicalTime: Number(globalMedicalTime) || 1,
+        globalBunkaiTime: Number(globalBunkaiTime) || 5,
         poolsSchedule
       };
 

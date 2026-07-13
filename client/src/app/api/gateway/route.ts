@@ -73,32 +73,118 @@ export async function POST(req: NextRequest) {
           return h * 60 + (m || 0);
         };
         const configStartMins = parseTimeMins(compDocData?.startTime || '09:00');
-        const configEstMins = parseInt(compDocData?.estMinsPerCategory) || 0;
+        const configEstMins = parseInt(compDocData?.estMinsPerPool) || parseInt(compDocData?.estMinsPerCategory) || 45;
+        const poolSize = data.poolSize || 8;
 
-        const matTotalMins = Array.from({ length: numMats }).map(() => configStartMins);
+        // 1. Gather all pools and finals for all categories
+        const scheduledPoolsList: any[] = [];
+        allCats.forEach((cat) => {
+          const athleteCount = cat.entries || 0;
+          if (athleteCount === 0) return;
 
-        allCats.forEach((cat, index) => {
-          const poolData: any = data.poolsSchedule?.[cat.id || cat.name];
-          const matIndex = poolData && poolData.matId !== -1 ? poolData.matId - 1 : index % numMats;
-          const order = poolData ? poolData.order : index;
-          const matName = `MAT ${String(matIndex + 1).padStart(2, '0')}`;
+          const poolCount = Math.ceil(athleteCount / poolSize);
+          const baseEntries = Math.floor(athleteCount / poolCount);
+          const extraEntries = athleteCount % poolCount;
+
+          const mTime = cat.matchTime ?? data.globalMatchTime ?? 3;
+          const rTime = cat.restTime ?? data.globalRestTime ?? 1;
+          const medTime = cat.medicalTime ?? data.globalMedicalTime ?? 1;
+          const bTime = cat.bunkaiTime ?? data.globalBunkaiTime ?? 5;
+
+          for (let p = 1; p <= poolCount; p++) {
+            const poolId = `${cat.id || cat.name}_pool_${p}`;
+            const poolSched = data.poolsSchedule?.[poolId];
+
+            const entriesInPool = baseEntries + (p - 1 < extraEntries ? 1 : 0);
+            const matchesInPool = cat.isKata ? entriesInPool : Math.max(0, entriesInPool - 1);
+            const estTime = poolSched?.estTime || Math.ceil((mTime + rTime) * matchesInPool + data.globalRestTime + data.globalMedicalTime);
+
+            scheduledPoolsList.push({
+              id: poolId,
+              categoryId: cat.id || cat.name,
+              categoryName: cat.name,
+              poolLabel: String(p),
+              matId: poolSched && poolSched.matId !== -1 ? poolSched.matId : 1,
+              day: poolSched && poolSched.day !== -1 ? poolSched.day : 1,
+              order: poolSched ? poolSched.order : 0,
+              duration: estTime,
+              isFinals: false
+            });
+          }
+
+          if (poolCount > 1) {
+            const finalsId = `${cat.id || cat.name}_finals`;
+            const finalsSched = data.poolsSchedule?.[finalsId];
+
+            const matchesInFinals = cat.isKata ? poolCount : Math.max(0, poolCount - 1);
+            const estTime = finalsSched?.estTime || Math.ceil((mTime + rTime) * matchesInFinals + data.globalRestTime + data.globalMedicalTime);
+
+            scheduledPoolsList.push({
+              id: finalsId,
+              categoryId: cat.id || cat.name,
+              categoryName: cat.name,
+              poolLabel: 'finals',
+              matId: finalsSched && finalsSched.matId !== -1 ? finalsSched.matId : 1,
+              day: finalsSched && finalsSched.day !== -1 ? finalsSched.day : 1,
+              order: finalsSched ? finalsSched.order : 0,
+              duration: estTime,
+              isFinals: true
+            });
+          }
+        });
+
+        // 2. Group pools by Day and Mat, and calculate start/end times sequentially
+        const groupedPools: Record<string, any[]> = {};
+        scheduledPoolsList.forEach(p => {
+          const key = `${p.day}-${p.matId}`;
+          if (!groupedPools[key]) groupedPools[key] = [];
+          groupedPools[key].push(p);
+        });
+
+        const fmtTime = (totalMins: number) => {
+          const h = Math.floor(totalMins / 60) % 24;
+          const m = totalMins % 60;
+          return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+        };
+
+        Object.keys(groupedPools).forEach(key => {
+          groupedPools[key].sort((a, b) => a.order - b.order);
+          let currentMins = configStartMins;
           
-          const estimatedDuration = poolData ? poolData.estTime : (configEstMins > 0
-            ? configEstMins
-            : Math.min((cat.entries || 1) * 2, 90));
+          groupedPools[key].forEach(p => {
+            p.startTime = fmtTime(currentMins);
+            currentMins += p.duration;
+            p.endTime = fmtTime(currentMins);
+          });
+        });
 
-          const startTotalMins = matTotalMins[matIndex] || configStartMins;
-          const endTotalMins = startTotalMins + estimatedDuration;
-          matTotalMins[matIndex] = endTotalMins;
+        // 3. Update category documents in batch
+        allCats.forEach((cat) => {
+          const catPools = scheduledPoolsList.filter(p => p.categoryId === (cat.id || cat.name));
+          
+          // Sort pools: Pool 1, Pool 2, ..., Finals
+          catPools.sort((a, b) => {
+            if (a.isFinals) return 1;
+            if (b.isFinals) return -1;
+            return parseInt(a.poolLabel) - parseInt(b.poolLabel);
+          });
 
-          const fmtTime = (totalMins: number) => {
-            const h = Math.floor(totalMins / 60) % 24;
-            const m = totalMins % 60;
-            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-          };
+          // Build database pool representation
+          const dbPools = catPools.map(p => ({
+            pool: p.poolLabel,
+            matId: p.matId,
+            mat: `MAT ${String(p.matId).padStart(2, '0')}`,
+            day: p.day,
+            order: p.order,
+            duration: p.duration,
+            startTime: p.startTime || '—',
+            endTime: p.endTime || '—'
+          }));
 
-          const startTimeStr = fmtTime(startTotalMins);
-          const endTimeStr = fmtTime(endTotalMins);
+          const firstPool = catPools[0] || {};
+          const lastPool = catPools[catPools.length - 1] || {};
+
+          const totalDuration = catPools.reduce((sum, p) => sum + p.duration, 0);
 
           const catRef = existingCatsMap[cat.name] || adminDb.collection('competitions').doc(data.competitionId).collection('categories').doc();
 
@@ -106,22 +192,20 @@ export async function POST(req: NextRequest) {
             name: cat.name,
             entries: cat.entries || 0,
             status: 'upcoming',
-            mat: matName,
-            estimatedDuration: estimatedDuration,
-            scheduledStartTime: startTimeStr,
-            scheduledEndTime: endTimeStr,
-            order: order,
-            isSpecial: cat.isSpecial
+            mat: firstPool.matId ? `MAT ${String(firstPool.matId).padStart(2, '0')}` : 'MAT 01',
+            day: firstPool.day || 1,
+            estimatedDuration: totalDuration,
+            scheduledStartTime: firstPool.startTime || '09:00',
+            scheduledEndTime: lastPool.endTime || '18:00',
+            order: firstPool.order || 0,
+            isSpecial: cat.isSpecial,
+            pools: dbPools
           };
-          
+
           if (cat.matchTime !== undefined) updateData.matchTime = cat.matchTime;
           if (cat.restTime !== undefined) updateData.restTime = cat.restTime;
           if (cat.medicalTime !== undefined) updateData.medicalTime = cat.medicalTime;
           if (cat.bunkaiTime !== undefined) updateData.bunkaiTime = cat.bunkaiTime;
-          
-          if (poolData && poolData.day !== -1) {
-             updateData.day = poolData.day;
-          }
 
           if (cat.name.toLowerCase().includes('kata')) {
             updateData.isKata = true;

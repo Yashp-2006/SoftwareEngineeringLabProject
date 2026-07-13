@@ -359,6 +359,8 @@ export function BracketViewer({
   const isAdmin = role === 'admin';
   const availablePools = Array.from(new Set((matches || []).filter(m => m.id.startsWith('Pool')).map(m => m.id.split('-')[0].replace('Pool', '')))).sort((a, b) => parseInt(a) - parseInt(b));
   const [selectedPool, setSelectedPool] = useState<string | null>(null);
+  const [showPoolDropdown, setShowPoolDropdown] = useState(false);
+  const poolDragHoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [localSearch, setLocalSearch] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -575,16 +577,103 @@ export function BracketViewer({
           <h2 style={{ fontSize: '18px', margin: 0 }}>{categoryName || 'Tiesheet'}</h2>
           
           {availablePools.length > 0 && (
-            <select
-              value={selectedPool || ''}
-              onChange={(e) => setSelectedPool(e.target.value)}
-              className="pool-select"
-              style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid var(--neutral-300)', background: 'var(--shiro)', fontSize: '13px', fontWeight: 600, color: 'var(--neutral-800)', cursor: 'pointer' }}
+            <div 
+              style={{ position: 'relative' }}
+              onMouseLeave={() => setShowPoolDropdown(false)}
             >
-              {availablePools.map(p => (
-                <option key={p} value={p}>Pool {p}</option>
-              ))}
-            </select>
+              <button
+                type="button"
+                className="pool-select"
+                onClick={() => setShowPoolDropdown(prev => !prev)}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setShowPoolDropdown(true);
+                }}
+                style={{ 
+                  padding: '6px 12px', 
+                  borderRadius: '6px', 
+                  border: '1px solid var(--neutral-200)', 
+                  background: 'var(--shiro)', 
+                  fontSize: '13px', 
+                  fontWeight: 600, 
+                  color: 'var(--neutral-800)', 
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                Pool {selectedPool || availablePools[0]}
+                <span style={{ fontSize: '10px', color: 'var(--neutral-500)' }}>▼</span>
+              </button>
+
+              {showPoolDropdown && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    marginTop: '4px',
+                    background: 'var(--shiro)',
+                    border: '1px solid var(--neutral-200)',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                    zIndex: 100,
+                    minWidth: '120px',
+                    overflow: 'hidden'
+                  }}
+                >
+                  {availablePools.map(p => (
+                    <div
+                      key={p}
+                      onClick={() => {
+                        setSelectedPool(p);
+                        setShowPoolDropdown(false);
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        if (p !== selectedPool && !poolDragHoverTimeoutRef.current) {
+                          poolDragHoverTimeoutRef.current = setTimeout(() => {
+                            setSelectedPool(p);
+                            poolDragHoverTimeoutRef.current = null;
+                          }, 500);
+                        }
+                      }}
+                      onDragLeave={() => {
+                        if (poolDragHoverTimeoutRef.current) {
+                          clearTimeout(poolDragHoverTimeoutRef.current);
+                          poolDragHoverTimeoutRef.current = null;
+                        }
+                      }}
+                      onDrop={() => {
+                        if (poolDragHoverTimeoutRef.current) {
+                          clearTimeout(poolDragHoverTimeoutRef.current);
+                          poolDragHoverTimeoutRef.current = null;
+                        }
+                        setShowPoolDropdown(false);
+                      }}
+                      style={{
+                        padding: '8px 12px',
+                        fontSize: '13px',
+                        fontWeight: selectedPool === p ? 700 : 500,
+                        color: selectedPool === p ? 'var(--neutral-900)' : 'var(--neutral-600)',
+                        background: selectedPool === p ? 'var(--neutral-50)' : 'transparent',
+                        cursor: 'pointer',
+                        transition: 'background 0.2s'
+                      }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.background = 'var(--neutral-50)';
+                      }}
+                      onMouseLeave={e => {
+                        if (selectedPool !== p) e.currentTarget.style.background = 'transparent';
+                      }}
+                    >
+                      Pool {p}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--neutral-100)', color: 'var(--neutral-600)', padding: '3px 10px', borderRadius: '999px', fontSize: '11px', fontWeight: 800 }}>
@@ -1319,7 +1408,7 @@ export default function FullscreenBracketModal({
               maxWidth: '480px',
               borderRadius: '16px',
               boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-              border: '1.5px solid var(--neutral-200)',
+              border: '1px solid var(--neutral-200)',
               overflow: 'hidden',
               display: 'flex',
               flexDirection: 'column',
@@ -1333,7 +1422,7 @@ export default function FullscreenBracketModal({
               <p style={{ fontSize: '14px', lineHeight: 1.5, color: 'var(--neutral-600)', margin: 0 }}>
                 You dragged <strong>{crossCategoryPrompt.srcAthlete.name}</strong> from <em>{crossCategoryPrompt.srcCatName}</em> onto <strong>{crossCategoryPrompt.tgtAthlete.name}</strong> in <em>{crossCategoryPrompt.tgtCatName}</em>.
               </p>
-              <p style={{ fontSize: '13px', lineHeight: 1.5, color: 'var(--neutral-500)', margin: '12px 0 0 0', padding: '10px 12px', background: 'var(--neutral-50)', borderRadius: '8px', borderLeft: '3px solid var(--aka)' }}>
+              <p style={{ fontSize: '13px', lineHeight: 1.5, color: 'var(--neutral-500)', margin: '12px 0 0 0', padding: '10px 12px', background: 'var(--neutral-50)', borderRadius: '8px', border: '1px solid var(--neutral-200)' }}>
                 <strong>Force Add</strong> moves {crossCategoryPrompt.srcAthlete.name} to {crossCategoryPrompt.tgtCatName} (which might rebuild the bracket / increase pool size), while keeping {crossCategoryPrompt.tgtAthlete.name} there.
               </p>
             </div>
@@ -1345,7 +1434,7 @@ export default function FullscreenBracketModal({
                 flexDirection: 'column',
                 gap: '8px',
                 borderTop: '1px solid var(--neutral-100)',
-                background: 'var(--neutral-50)'
+                background: 'var(--shiro)'
               }}
             >
               <button
@@ -1358,7 +1447,7 @@ export default function FullscreenBracketModal({
                   width: '100%',
                   padding: '10px 16px',
                   borderRadius: '8px',
-                  border: '1px solid var(--neutral-300)',
+                  border: '1px solid var(--neutral-200)',
                   background: 'var(--shiro)',
                   color: 'var(--neutral-800)',
                   fontWeight: 700,
@@ -1373,7 +1462,7 @@ export default function FullscreenBracketModal({
                 onMouseEnter={e => (e.currentTarget.style.background = 'var(--neutral-50)')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'var(--shiro)')}
               >
-                🔄 Swap Athletes Between Categories
+                Swap Athletes Between Categories
               </button>
               
               <button
@@ -1401,7 +1490,7 @@ export default function FullscreenBracketModal({
                 onMouseEnter={e => (e.currentTarget.style.background = 'var(--neutral-800)')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'var(--neutral-900)')}
               >
-                ⚡ Force Add (Keep Both in Target)
+                Force Add (Keep Both in Target)
               </button>
               
               <button

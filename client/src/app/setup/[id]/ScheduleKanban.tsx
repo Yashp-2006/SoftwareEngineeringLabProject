@@ -23,7 +23,7 @@ import {
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { db } from '@lib/firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { GripVertical } from 'lucide-react';
 
 interface ScheduleKanbanProps {
@@ -119,6 +119,10 @@ export default function ScheduleKanban({
   useEffect(() => {
     async function fetchPools() {
       try {
+        const compSnap = await getDoc(doc(db, 'competitions', compId));
+        const compDocData = compSnap.data() as any;
+        const poolSize = compDocData?.poolSize || 8;
+
         const snap = await getDocs(collection(db, 'competitions', compId, 'categories'));
         const cats = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
         
@@ -127,23 +131,41 @@ export default function ScheduleKanban({
           const athleteCount = cat.athletes?.length || cat.entries || 0;
           if (athleteCount === 0) return;
           
-          let matchCount = cat.matches?.length;
-          if (!matchCount) matchCount = Math.max(0, athleteCount - 1);
-          if (cat.isKata) matchCount = athleteCount; 
+          const poolCount = Math.ceil(athleteCount / poolSize);
+          const baseEntries = Math.floor(athleteCount / poolCount);
+          const extraEntries = athleteCount % poolCount;
           
           const mTime = cat.matchTime ?? globalMatchTime;
           const rTime = cat.restTime ?? globalRestTime;
           const medTime = cat.medicalTime ?? globalMedicalTime;
           const bTime = cat.bunkaiTime ?? globalBunkaiTime;
           
-          const estTime = Math.ceil((mTime + rTime) * matchCount + medTime + bTime);
+          for (let p = 1; p <= poolCount; p++) {
+            const entriesInPool = baseEntries + (p - 1 < extraEntries ? 1 : 0);
+            const matchesInPool = cat.isKata ? entriesInPool : Math.max(0, entriesInPool - 1);
+            const estTime = Math.ceil((mTime + rTime) * matchesInPool + globalRestTime + globalMedicalTime);
+            
+            generatedPools.push({
+              id: `${cat.id}_pool_${p}`,
+              categoryId: cat.id,
+              categoryName: `${cat.name} - Pool ${p}`,
+              matchesCount: matchesInPool,
+              estTime,
+            });
+          }
           
-          generatedPools.push({
-            id: cat.id, 
-            categoryName: cat.name,
-            matchesCount: matchCount,
-            estTime,
-          });
+          if (poolCount > 1) {
+            const matchesInFinals = cat.isKata ? poolCount : Math.max(0, poolCount - 1);
+            const estTime = Math.ceil((mTime + rTime) * matchesInFinals + globalRestTime + globalMedicalTime);
+            
+            generatedPools.push({
+              id: `${cat.id}_finals`,
+              categoryId: cat.id,
+              categoryName: `${cat.name} - Finals`,
+              matchesCount: matchesInFinals,
+              estTime,
+            });
+          }
         });
         
         setPools(generatedPools);

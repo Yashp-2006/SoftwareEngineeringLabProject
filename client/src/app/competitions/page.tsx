@@ -15,7 +15,7 @@ export default function CompetitionsPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     name: '', dates: '', venue: '', type: 'national', rules: 'wkf', mats: '6', password: '',
-    startTime: '09:00', endTime: '18:00', estMinsPerCategory: '60'
+    startTime: '09:00', endTime: '18:00', estMinsPerPool: '45'
   });
   const [presetCategories, setPresetCategories] = useState<any[] | null>(null);
   const [presetFileName, setPresetFileName] = useState<string>('');
@@ -368,10 +368,10 @@ export default function CompetitionsPage() {
                 </div>
                 <h3 style={{ fontSize: '22px', marginBottom: 'var(--space-1)' }}>{comp.name}</h3>
                 <div className="text-small mb-2">{comp.dates} • {comp.venue}</div>
-                {(comp.startTime || comp.estMinsPerCategory) && (
+                 {(comp.startTime || comp.estMinsPerPool || comp.estMinsPerCategory) && (
                   <div style={{ display: 'flex', gap: '16px', marginBottom: '8px', fontSize: '12px', color: 'var(--neutral-500)' }}>
                     {comp.startTime && <span>🕘 {comp.startTime} – {comp.endTime || '?'}</span>}
-                    {comp.estMinsPerCategory && <span>⏱ {comp.estMinsPerCategory} min/category</span>}
+                    {(comp.estMinsPerPool || comp.estMinsPerCategory) && <span>⏱ {comp.estMinsPerPool || comp.estMinsPerCategory} min/pool</span>}
                   </div>
                 )}
                 <div style={{ display: 'flex', gap: 'var(--space-4)', marginTop: 'var(--space-4)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--neutral-100)' }}>
@@ -487,8 +487,8 @@ export default function CompetitionsPage() {
                   <input type="time" id="new-comp-end" className="input-field" value={formData.endTime} onChange={e => setFormData(p => ({ ...p, endTime: e.target.value }))} />
                 </div>
                 <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px', color: 'var(--neutral-700)' }}>Est. Min / Category</label>
-                  <input type="number" id="new-comp-est" className="input-field" placeholder="60" min="5" max="240" value={formData.estMinsPerCategory} onChange={e => setFormData(p => ({ ...p, estMinsPerCategory: e.target.value }))} />
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px', color: 'var(--neutral-700)' }}>Est. Min / Pool</label>
+                  <input type="number" id="new-comp-est" className="input-field" placeholder="45" min="5" max="240" value={formData.estMinsPerPool} onChange={e => setFormData(p => ({ ...p, estMinsPerPool: e.target.value }))} />
                 </div>
               </div>
               <p style={{ fontSize: '11px', color: 'var(--neutral-500)', marginTop: '8px', marginBottom: 0 }}>
@@ -524,7 +524,7 @@ export default function CompetitionsPage() {
           <div className="modal-footer">
             <button className="btn btn-secondary" onClick={() => { setIsModalOpen(false); setPresetCategories(null); setPresetFileName(''); }}>Cancel</button>
             <button className="btn btn-primary" onClick={async () => {
-              const { name, dates, venue, type, mats, password, startTime, endTime, estMinsPerCategory } = formData;
+              const { name, dates, venue, type, mats, password, startTime, endTime, estMinsPerPool } = formData;
               if (!name.trim()) { toast.error('Competition name is required'); return; }
               if (!password.trim()) { toast.error('A password is required to protect this competition'); return; }
               
@@ -539,7 +539,7 @@ export default function CompetitionsPage() {
                   password,
                   startTime: startTime || '09:00',
                   endTime: endTime || '18:00',
-                  estMinsPerCategory: parseInt(estMinsPerCategory) || 60,
+                  estMinsPerPool: parseInt(estMinsPerPool) || 45,
                   status: 'upcoming',
                   createdAt: new Date().toISOString()
                 };
@@ -548,7 +548,7 @@ export default function CompetitionsPage() {
 
                 toast.success('Competition created successfully!');
                 setIsModalOpen(false);
-                setFormData({ name: '', dates: '', venue: '', type: 'national', rules: 'custom', mats: '6', password: '', startTime: '09:00', endTime: '18:00', estMinsPerCategory: '60' });
+                setFormData({ name: '', dates: '', venue: '', type: 'national', rules: 'custom', mats: '6', password: '', startTime: '09:00', endTime: '18:00', estMinsPerPool: '45' });
                 router.push(`/setup/${newDocRef.id}`);
               } catch (err) {
                 console.error(err);

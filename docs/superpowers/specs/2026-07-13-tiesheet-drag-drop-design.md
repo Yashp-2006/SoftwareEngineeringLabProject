@@ -1,4 +1,4 @@
-# Design Spec: Tiesheet Drag-and-Drop Match Editing
+d# Design Spec: Tiesheet Drag-and-Drop Match Editing
 
 ## Goal
 Enable tournament organizers (admins) to edit tiesheets manually by dragging and dropping athletes between match slots. Supports:
