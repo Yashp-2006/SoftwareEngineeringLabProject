@@ -1,3 +1,4 @@
+process.env.NEXT_IGNORE_INCORRECT_LOCKFILE = 'true';
 import { config } from "dotenv";
 import { join } from "path";
 
@@ -13,7 +14,7 @@ const nextConfig = {
   },
 
   // Increase body size limit for Excel file uploads (tournament rosters can be large)
-  serverExternalPackages: [],
+  serverExternalPackages: ['firebase-admin', 'jose', 'jwks-rsa'],
 };
 
 
