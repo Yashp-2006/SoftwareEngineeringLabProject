@@ -1,11 +1,11 @@
-import { adminDb, verifySession } from '@taikaix/backend/lib/firebase-admin';
 import { parseExcelIntoCategories, generateBracket, PoolSize } from '@taikaix/backend/services/tiesheet-generator';
 import { rateLimiter } from '@lib/rate-limiter';
 import { NextResponse } from 'next/server';
+import { verifySession } from '@taikaix/backend/lib/firebase-admin';
 
-// Allow up to 60 seconds for large roster imports on Vercel
-export const maxDuration = 60;
-
+// This route only parses + computes brackets — NO Firestore writes.
+// Firestore writes are done client-side to avoid Vercel 10s timeout.
+export const maxDuration = 30;
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -18,15 +18,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     const { id } = await params;
     const ip = req.headers.get('x-forwarded-for') || '127.0.0.1';
-
-    // Guard: Firebase Admin not initialized (missing env vars on server)
-    if (!adminDb) {
-      console.error('[import/route] adminDb is null — Firebase Admin env vars are missing on this server.');
-      return NextResponse.json(
-        { success: false, error: 'Server configuration error: Firebase Admin not initialized. Please check server environment variables.' },
-        { status: 503 }
-      );
-    }
 
     let rateLimitResult = { success: true, limit: 10, reset: 0, remaining: 10 };
     try {
@@ -52,7 +43,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ success: false, error: 'No file uploaded' }, { status: 400 });
     }
 
-    // Validate file type before attempting to parse
     const fileName = file.name?.toLowerCase() ?? '';
     const allowedExtensions = ['.csv', '.xls', '.xlsx'];
     const hasValidExtension = allowedExtensions.some(ext => fileName.endsWith(ext));
@@ -61,8 +51,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       'application/vnd.ms-excel',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'application/csv',
-      'text/plain', // some OS send CSV as text/plain
-      'application/octet-stream', // some browsers send xlsx as octet-stream
+      'text/plain',
+      'application/octet-stream',
     ];
     const hasValidMime = !file.type || allowedMimeTypes.includes(file.type);
 
@@ -72,8 +62,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         { status: 400 }
       );
     }
-
-    const append = formData.get('append') === 'true';
 
     const specialCategoriesStr = formData.get('specialCategories') as string;
     let specialCategories: any[] = [];
@@ -85,7 +73,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     const wkfMode = (formData.get('wkfMode') as string) || 'standard';
 
-    // Read file into buffer for parsing
     const buffer = await file.arrayBuffer();
 
     let categoryMap: Map<string, any[]>;
@@ -109,20 +96,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       );
     }
 
-    let categoriesCreated = 0;
-    let athletesImported = 0;
-
-    const competitionRef = adminDb.collection('competitions').doc(id);
-    const competitionSnap = await competitionRef.get();
-    const existingCompetitionData = competitionSnap.exists ? competitionSnap.data() : null;
-    let currentAthletesCount = existingCompetitionData?.athletesCount || 0;
-    let currentEntriesCount = existingCompetitionData?.entriesCount || 0;
-    let currentCategoriesCount = existingCompetitionData?.categoriesCount || 0;
-
-    const categoriesRef = competitionRef.collection('categories');
-    
-    const entries = Array.from(categoryMap.entries());
-
+    // Compute brackets server-side (CPU work), return data for client to write
     const dynamicSpecialCatNames = new Set<string>();
     for (const [, catAthletes] of categoryMap) {
       for (const a of catAthletes) {
@@ -131,54 +105,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         }
       }
     }
-    // 1. Fetch all existing categories once to optimize performance and prevent timeouts
-    const allCatsSnap = await categoriesRef.get();
-    const existingCatsByName = new Map<string, any>();
-    allCatsSnap.docs.forEach((doc: any) => {
-      existingCatsByName.set(doc.data().name, doc);
-    });
 
-    const batches = [];
-    let currentBatch = adminDb.batch();
-    let opCount = 0;
+    const categories = Array.from(categoryMap.entries()).map(([catName, catAthletes]) => {
+      if (catAthletes.length === 0) return null;
 
-    // If not appending (chunk 1 overwrite), delete any existing categories that are not in the new roster
-    if (!append) {
-      for (const [catName, doc] of existingCatsByName.entries()) {
-        if (!categoryMap.has(catName)) {
-          currentBatch.delete(doc.ref);
-          opCount++;
-          if (opCount === 400) {
-            batches.push(currentBatch);
-            currentBatch = adminDb.batch();
-            opCount = 0;
-          }
-        }
-      }
-    }
-
-    for (let i = 0; i < entries.length; i++) {
-      const [catName, catAthletes] = entries[i];
-      if (catAthletes.length === 0) continue;
-
-      const existingDoc = existingCatsByName.get(catName);
       const isSpecialCat = specialCategories.some((sc: any) => sc.name === catName) || dynamicSpecialCatNames.has(catName);
+      const matches = generateBracket(catAthletes, compType, poolSize);
 
-      let finalAthletes = catAthletes;
-      if (append && existingDoc) {
-        const existingData = existingDoc.data();
-        const existingAthletes = existingData.athletes || [];
-        finalAthletes = [...existingAthletes, ...catAthletes];
-      }
-
-      const matches = generateBracket(finalAthletes, compType, poolSize);
-
-      const categoryData = {
+      return {
         name: catName,
         isSpecial: isSpecialCat,
         competitionId: id,
         status: 'upcoming',
-        athletes: finalAthletes.map((a: any) => ({
+        athletes: catAthletes.map((a: any) => ({
           playerId: a.playerId,
           name: a.name,
           gender: a.gender,
@@ -193,7 +132,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           phone: a.phone || '',
           email: a.email || '',
         })),
-        // Cap at 500 matches to respect Firestore 1MB document limit
         matches: matches.slice(0, 500).map(m => ({
           id: m.id,
           round: m.round,
@@ -219,67 +157,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           status: m.status,
           mat: null,
         })),
-        entries: finalAthletes.length,
-        updatedAt: new Date().toISOString(),
+        entries: catAthletes.length,
       };
-
-      if (existingDoc) {
-        currentBatch.update(existingDoc.ref, categoryData);
-      } else {
-        const newDocRef = categoriesRef.doc();
-        currentBatch.set(newDocRef, { ...categoryData, createdAt: new Date().toISOString() });
-        categoriesCreated++;
-      }
-      opCount++;
-
-      if (opCount === 400) {
-        batches.push(currentBatch);
-        currentBatch = adminDb.batch();
-        opCount = 0;
-      }
-
-      athletesImported += catAthletes.length;
-    }
-
-    if (opCount > 0) {
-      batches.push(currentBatch);
-    }
-
-    // Commit all updates in parallel
-    if (batches.length > 0) {
-      await Promise.all(batches.map(b => b.commit()));
-    }
-
-    const returnedCategories = Array.from(categoryMap.entries()).map(([name, athletes]) => ({
-      id: name,
-      name,
-      entries: athletes.length
-    }));
-
-    if (append) {
-      await competitionRef.update({
-        athletesCount: currentAthletesCount + uniqueAthletesCount,
-        entriesCount: currentEntriesCount + athletesImported,
-        categoriesCount: currentCategoriesCount + categoriesCreated,
-        updatedAt: new Date().toISOString()
-      });
-    } else {
-      await competitionRef.update({
-        athletesCount: uniqueAthletesCount,
-        entriesCount: athletesImported,
-        categoriesCount: categoryMap.size,
-        updatedAt: new Date().toISOString()
-      });
-    }
+    }).filter(Boolean);
 
     return NextResponse.json({
       success: true,
-      categoriesCreated,
-      categoriesTotal: categoryMap.size,
-      athletesImported: uniqueAthletesCount,
-      entriesImported: athletesImported,
-      poolSize,
-      categories: returnedCategories,
+      competitionId: id,
+      uniqueAthletesCount,
+      totalEntries: Array.from(categoryMap.values()).reduce((s, a) => s + a.length, 0),
+      categories,
     });
   } catch (error: any) {
     console.error('[import/route]', error);
