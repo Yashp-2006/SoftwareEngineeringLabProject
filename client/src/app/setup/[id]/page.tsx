@@ -12,6 +12,7 @@ import OnSpotEntryModal from '@/components/OnSpotEntryModal';
 import PageSkeleton from '@/components/layout/PageSkeleton';
 import { toast } from 'react-hot-toast';
 import ConfirmModal from '@/components/ConfirmModal';
+import ScheduleKanban from './ScheduleKanban';
 
 export default function SetupWizard({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
@@ -59,6 +60,14 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
+  // Schedule Configuration
+  const [tournamentDays, setTournamentDays] = useState<number>(1);
+  const [globalMatchTime, setGlobalMatchTime] = useState<number>(3); // minutes
+  const [globalRestTime, setGlobalRestTime] = useState<number>(1);
+  const [globalMedicalTime, setGlobalMedicalTime] = useState<number>(0);
+  const [globalBunkaiTime, setGlobalBunkaiTime] = useState<number>(0);
+  const [poolsSchedule, setPoolsSchedule] = useState<Record<string, { matId: number; day: number; order: number; estTime: number }>>({});
+
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [confirmState, setConfirmState] = useState<{
@@ -96,6 +105,12 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         categories,
         importResult: importResult ?? undefined,
         scoreboardLogo: scoreboardLogo ?? undefined,
+        tournamentDays,
+        globalMatchTime,
+        globalRestTime,
+        globalMedicalTime,
+        globalBunkaiTime,
+        poolsSchedule,
         lastActivePhase: targetPhase,
         highestPhase: Math.max(highestPhase, targetPhase)
       });
@@ -642,7 +657,13 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         wkfKataJudgeCount,
         categories,
         hideEmpty,
-        scoreboardLogo: scoreboardLogo ?? undefined
+        scoreboardLogo: scoreboardLogo ?? undefined,
+        tournamentDays,
+        globalMatchTime,
+        globalRestTime,
+        globalMedicalTime,
+        globalBunkaiTime,
+        poolsSchedule
       };
 
       const res = await fetch('/api/gateway', {
@@ -925,6 +946,33 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                 </div>
               )}
               <div className="category-manager">
+                <div className="cat-group" style={{ marginBottom: 'var(--space-4)' }}>
+                  <h3>Schedule Configuration</h3>
+                  <p className="text-small mb-4">Set up days and global time estimates for scheduling pools.</p>
+                  
+                  <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                    <div className="form-group" style={{ flex: 1, minWidth: '150px' }}>
+                      <label className="text-micro">Tournament Days</label>
+                      <input type="number" min="1" className="input-field" value={tournamentDays} onChange={e => setTournamentDays(parseInt(e.target.value) || 1)} />
+                    </div>
+                    <div className="form-group" style={{ flex: 1, minWidth: '150px' }}>
+                      <label className="text-micro">Match Time (mins)</label>
+                      <input type="number" min="0" className="input-field" value={globalMatchTime} onChange={e => setGlobalMatchTime(parseFloat(e.target.value) || 0)} />
+                    </div>
+                    <div className="form-group" style={{ flex: 1, minWidth: '150px' }}>
+                      <label className="text-micro">Rest/Buffer (mins)</label>
+                      <input type="number" min="0" className="input-field" value={globalRestTime} onChange={e => setGlobalRestTime(parseFloat(e.target.value) || 0)} />
+                    </div>
+                    <div className="form-group" style={{ flex: 1, minWidth: '150px' }}>
+                      <label className="text-micro">Medical Time (mins)</label>
+                      <input type="number" min="0" className="input-field" value={globalMedicalTime} onChange={e => setGlobalMedicalTime(parseFloat(e.target.value) || 0)} />
+                    </div>
+                    <div className="form-group" style={{ flex: 1, minWidth: '150px' }}>
+                      <label className="text-micro">Bunkai Buffer (mins)</label>
+                      <input type="number" min="0" className="input-field" value={globalBunkaiTime} onChange={e => setGlobalBunkaiTime(parseFloat(e.target.value) || 0)} />
+                    </div>
+                  </div>
+                </div>
 
                 <div className="cat-group">
                   <div className="flex-between" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
@@ -1401,6 +1449,19 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                     </div>
                   </div>
                 )}
+                {/* Kanban Schedule Editor */}
+                <ScheduleKanban
+                  compId={id}
+                  tournamentDays={tournamentDays}
+                  matsCount={matsCount as number}
+                  globalMatchTime={globalMatchTime}
+                  globalRestTime={globalRestTime}
+                  globalMedicalTime={globalMedicalTime}
+                  globalBunkaiTime={globalBunkaiTime}
+                  poolsSchedule={poolsSchedule}
+                  setPoolsSchedule={setPoolsSchedule}
+                  importResult={importResult}
+                />
               </div>
             </section>
           )}
@@ -1569,6 +1630,27 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                     )}
                   </>
                 )}
+
+                {/* Timing Overrides */}
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+                  <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                    <label>Match (m)</label>
+                    <input type="number" className="input-field" placeholder="Global" value={modalFormData.matchTime ?? ''} onChange={e => setModalFormData({...modalFormData, matchTime: e.target.value})} />
+                  </div>
+                  <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                    <label>Rest (m)</label>
+                    <input type="number" className="input-field" placeholder="Global" value={modalFormData.restTime ?? ''} onChange={e => setModalFormData({...modalFormData, restTime: e.target.value})} />
+                  </div>
+                  <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                    <label>Medical (m)</label>
+                    <input type="number" className="input-field" placeholder="Global" value={modalFormData.medicalTime ?? ''} onChange={e => setModalFormData({...modalFormData, medicalTime: e.target.value})} />
+                  </div>
+                  <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                    <label>Bunkai (m)</label>
+                    <input type="number" className="input-field" placeholder="Global" value={modalFormData.bunkaiTime ?? ''} onChange={e => setModalFormData({...modalFormData, bunkaiTime: e.target.value})} />
+                  </div>
+                </div>
+
               </>
             )}
 
@@ -1610,6 +1692,10 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                   maxWeight: isKata ? 300 : (parseFloat(modalFormData.maxWeight) || 300),
                   isKata: isKata,
                   judgeCount: isKata ? (parseInt(modalFormData.judgeCount) || 3) : undefined,
+                  matchTime: modalFormData.matchTime ? parseFloat(modalFormData.matchTime) : undefined,
+                  restTime: modalFormData.restTime ? parseFloat(modalFormData.restTime) : undefined,
+                  medicalTime: modalFormData.medicalTime ? parseFloat(modalFormData.medicalTime) : undefined,
+                  bunkaiTime: modalFormData.bunkaiTime ? parseFloat(modalFormData.bunkaiTime) : undefined,
                   entries: 0 
                 }]);
               } else if (modalType === 'merge' && modalFormData.name) {
@@ -1798,6 +1884,30 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                   </div>
                 </div>
               )}
+
+              {/* Timing Overrides */}
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="text-micro" style={{ display: 'block', marginBottom: '6px' }}>Timing Overrides (mins)</label>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: '80px' }}>
+                    <label style={{ fontSize: '11px', color: 'var(--neutral-500)', display: 'block', marginBottom: '4px' }}>Match</label>
+                    <input type="number" className="input-field" placeholder="Global" value={editCatData.matchTime ?? ''} onChange={e => setEditCatData((p: any) => ({ ...p, matchTime: e.target.value ? parseFloat(e.target.value) : undefined }))} style={{ marginBottom: 0 }} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: '80px' }}>
+                    <label style={{ fontSize: '11px', color: 'var(--neutral-500)', display: 'block', marginBottom: '4px' }}>Rest</label>
+                    <input type="number" className="input-field" placeholder="Global" value={editCatData.restTime ?? ''} onChange={e => setEditCatData((p: any) => ({ ...p, restTime: e.target.value ? parseFloat(e.target.value) : undefined }))} style={{ marginBottom: 0 }} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: '80px' }}>
+                    <label style={{ fontSize: '11px', color: 'var(--neutral-500)', display: 'block', marginBottom: '4px' }}>Medical</label>
+                    <input type="number" className="input-field" placeholder="Global" value={editCatData.medicalTime ?? ''} onChange={e => setEditCatData((p: any) => ({ ...p, medicalTime: e.target.value ? parseFloat(e.target.value) : undefined }))} style={{ marginBottom: 0 }} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: '80px' }}>
+                    <label style={{ fontSize: '11px', color: 'var(--neutral-500)', display: 'block', marginBottom: '4px' }}>Bunkai</label>
+                    <input type="number" className="input-field" placeholder="Global" value={editCatData.bunkaiTime ?? ''} onChange={e => setEditCatData((p: any) => ({ ...p, bunkaiTime: e.target.value ? parseFloat(e.target.value) : undefined }))} style={{ marginBottom: 0 }} />
+                  </div>
+                </div>
+              </div>
+
             </div>
 
             <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'flex-end', marginTop: 'var(--space-5)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--neutral-100)' }}>
