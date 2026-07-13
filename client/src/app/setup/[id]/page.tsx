@@ -844,16 +844,16 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
       });
 
       if (!res.ok) {
-        const err = await res.json();
-        console.error('API Gateway Error:', err);
-        throw new Error('Deployment failed');
+        const errData = await res.json();
+        console.error('API Gateway Error:', errData);
+        throw new Error(errData.error || 'Deployment failed');
       }
 
       toast.success("Deployment successful! Schedule generated and saved.");
       window.location.href = `/competitions/${id}`;
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast.error("Failed to deploy tournament.");
+      toast.error("Failed to deploy tournament: " + err.message);
     } finally {
       setDeploying(false);
     }
