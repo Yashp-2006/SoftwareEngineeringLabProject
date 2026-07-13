@@ -152,22 +152,30 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
     }
   };
 
-  const handleSwapAthletes = async (categoryId: string, sourceMatchId: string, sourceSide: 'aka' | 'ao', targetMatchId: string, targetSide: 'aka' | 'ao') => {
+  const handleSwapAthletes = async (
+    categoryId: string, 
+    sourceMatchId: string, 
+    sourceSide: 'aka' | 'ao', 
+    targetMatchId: string, 
+    targetSide: 'aka' | 'ao',
+    targetCategoryId?: string,
+    action?: 'swap' | 'move'
+  ) => {
     try {
       const res = await fetch(`/api/competitions/${id}/brackets/${categoryId}/swap`, {
-        method: 'POST',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sourceMatchId, sourceSide, targetMatchId, targetSide }),
+        body: JSON.stringify({ sourceMatchId, sourceSide, targetMatchId, targetSide, targetCategoryId, action }),
       });
       const data = await res.json();
       if (data.success) {
-        toast.success('Athletes swapped successfully!');
+        toast.success(action === 'move' ? 'Athlete moved successfully!' : 'Athletes swapped successfully!');
       } else {
-        toast.error('Failed to swap athletes: ' + data.error);
+        toast.error('Failed to update tiesheet: ' + data.error);
       }
     } catch (err) {
-      console.error('Error swapping athletes:', err);
-      toast.error('Failed to swap athletes. Please try again.');
+      console.error('Error updating tiesheet:', err);
+      toast.error('Failed to update tiesheet. Please try again.');
     }
   };
 
@@ -601,6 +609,7 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
           initialCategoryId={activeCategoryId || undefined}
           highlightMatchId={highlightMatchId}
           mats={mats}
+          isAdmin={role === 'admin'}
           onClose={() => {
             setModalOpen(false);
             setHighlightMatchId(null);

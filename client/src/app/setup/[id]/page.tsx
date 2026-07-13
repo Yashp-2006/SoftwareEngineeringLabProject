@@ -2164,11 +2164,60 @@ function SetupBracketPreview({ competitionId, initialCategoryId, onClose }: {
     </div>
   );
 
+  const handleSwapAthletes = async (
+    categoryId: string, 
+    sourceMatchId: string, 
+    sourceSide: 'aka' | 'ao', 
+    targetMatchId: string, 
+    targetSide: 'aka' | 'ao',
+    targetCategoryId?: string,
+    action?: 'swap' | 'move'
+  ) => {
+    try {
+      const res = await fetch(`/api/competitions/${competitionId}/brackets/${categoryId}/swap`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sourceMatchId, sourceSide, targetMatchId, targetSide, targetCategoryId, action }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(action === 'move' ? 'Athlete moved successfully!' : 'Athletes swapped successfully!');
+      } else {
+        toast.error('Failed to update tiesheet: ' + data.error);
+      }
+    } catch (err) {
+      console.error('Error updating tiesheet:', err);
+      toast.error('Failed to update tiesheet. Please try again.');
+    }
+  };
+
+  const handleRevertMatch = async (categoryId: string, matchId: string) => {
+    try {
+      const res = await fetch(`/api/competitions/${competitionId}/brackets/${categoryId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ matchId, action: 'revert' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Match reverted successfully!');
+      } else {
+        toast.error('Failed to revert match: ' + data.error);
+      }
+    } catch (err) {
+      console.error('Error reverting match:', err);
+      toast.error('Failed to revert match. Please try again.');
+    }
+  };
+
   return (
     <FullscreenBracketModal
       categories={categories}
       initialCategoryId={initialCategoryId || categories[0]?.id}
       firstRoundOnly={true}
+      isAdmin={true}
+      onSwapDrop={handleSwapAthletes}
+      onRevertMatch={handleRevertMatch}
       onClose={onClose}
     />
   );
