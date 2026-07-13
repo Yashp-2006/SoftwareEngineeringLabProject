@@ -181,16 +181,20 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         
         // Load main doc for Name, Venue, Date
         const snap = await getDoc(doc(db, 'competitions', id));
-        if (snap.exists()) {
-          const mainData = snap.data();
-          setCompName(mainData.name || 'Untitled Tournament');
-          if (mainData.venue) setCompVenue(mainData.venue);
-          if (mainData.scoreboardLogo) setScoreboardLogo(mainData.scoreboardLogo);
-          if (mainData.startDate) {
-            const startDate = new Date(mainData.startDate).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
-            const endDate = mainData.endDate ? new Date(mainData.endDate).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
-            setCompDate(endDate && startDate !== endDate ? `${startDate} - ${endDate}` : startDate);
-          }
+        if (!snap.exists()) {
+          toast.error('Competition not found');
+          router.push('/competitions');
+          return;
+        }
+
+        const mainData = snap.data();
+        setCompName(mainData.name || 'Untitled Tournament');
+        if (mainData.venue) setCompVenue(mainData.venue);
+        if (mainData.scoreboardLogo) setScoreboardLogo(mainData.scoreboardLogo);
+        if (mainData.startDate) {
+          const startDate = new Date(mainData.startDate).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
+          const endDate = mainData.endDate ? new Date(mainData.endDate).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+          setCompDate(endDate && startDate !== endDate ? `${startDate} - ${endDate}` : startDate);
         }
 
         // Try to load draft first
@@ -231,42 +235,42 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
           return;
         }
 
-        if (snap.exists()) {
-          const data = snap.data();
-          setCompRules(data.rules);
-          setCompType(data.type || 'international');
-          if (data.bronzeRule) setBronzeRule(data.bronzeRule);
-          if (data.mats !== undefined) setMatsCount(data.mats);
+        const data = snap.data();
+        setCompRules(data.rules);
+        setCompType(data.type || 'international');
+        if (data.bronzeRule) setBronzeRule(data.bronzeRule);
+        if (data.mats !== undefined) setMatsCount(data.mats);
+        
+        if (data.rules === 'wkf') {
+          const { generateWkfCategories } = await import('@taikaix/backend/lib/wkf-categories');
+          const { collection, getDocs } = await import('firebase/firestore');
+          const catSnap = await getDocs(collection(db, 'competitions', id, 'categories'));
           
-          if (data.rules === 'wkf') {
-            const { generateWkfCategories } = await import('@taikaix/backend/lib/wkf-categories');
-            const { collection, getDocs } = await import('firebase/firestore');
-            const catSnap = await getDocs(collection(db, 'competitions', id, 'categories'));
-            
-            const existingEntries = new Map<string, number>();
-            catSnap.docs.forEach(doc => {
-              existingEntries.set(doc.data().name, doc.data().entries || 0);
-            });
-            
-            setCategories(generateWkfCategories(wkfMode).map(name => {
-              const isKata = name.toLowerCase().includes('kata');
-              return { 
-                id: name, 
-                name, 
-                entries: existingEntries.get(name) || 0,
-                isKata,
-                judgeCount: isKata ? wkfKataJudgeCount : undefined
-              };
-            }));
-          } else {
-            const { collection, getDocs } = await import('firebase/firestore');
-            const catSnap = await getDocs(collection(db, 'competitions', id, 'categories'));
-            setCategories(catSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-          }
-          setIsDataLoaded(true);
+          const existingEntries = new Map<string, number>();
+          catSnap.docs.forEach(doc => {
+            existingEntries.set(doc.data().name, doc.data().entries || 0);
+          });
+          
+          setCategories(generateWkfCategories(wkfMode).map(name => {
+            const isKata = name.toLowerCase().includes('kata');
+            return { 
+              id: name, 
+              name, 
+              entries: existingEntries.get(name) || 0,
+              isKata,
+              judgeCount: isKata ? wkfKataJudgeCount : undefined
+            };
+          }));
+        } else {
+          const { collection, getDocs } = await import('firebase/firestore');
+          const catSnap = await getDocs(collection(db, 'competitions', id, 'categories'));
+          setCategories(catSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         }
+        setIsDataLoaded(true);
       } catch (err) {
         console.error(err);
+        toast.error('Failed to load competition data');
+        router.push('/competitions');
       }
     };
     fetchComp();

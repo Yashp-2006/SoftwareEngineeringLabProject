@@ -2,12 +2,14 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Search, Plus, Edit3, Archive, Trash2, ArrowRight, X, Eye, EyeOff, UploadCloud, FileJson } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { toast } from 'react-hot-toast';
 import ConfirmModal from '@/components/ConfirmModal';
 
 export default function CompetitionsPage() {
+  const router = useRouter();
   const [filter, setFilter] = useState('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -547,6 +549,7 @@ export default function CompetitionsPage() {
                 toast.success('Competition created successfully!');
                 setIsModalOpen(false);
                 setFormData({ name: '', dates: '', venue: '', type: 'national', rules: 'custom', mats: '6', password: '', startTime: '09:00', endTime: '18:00', estMinsPerCategory: '60' });
+                router.push(`/setup/${newDocRef.id}`);
               } catch (err) {
                 console.error(err);
                 toast.error('Failed to create competition');
