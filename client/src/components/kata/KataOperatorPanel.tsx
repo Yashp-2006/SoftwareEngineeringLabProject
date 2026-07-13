@@ -246,6 +246,20 @@ export default function KataOperatorPanel({
   }, [restRunning, restTimer]);
 
   // ─── Handlers ─────────────────────────────────────────────────────────────────
+  const handleJudgeCardClick = async (judgeIndex: number) => {
+    if (boutFinished) return;
+    const currentVote = judgeVotes[judgeIndex];
+    let nextVote: 'aka' | 'ao' | null = null;
+    if (currentVote === null) nextVote = 'aka';
+    else if (currentVote === 'aka') nextVote = 'ao';
+    else nextVote = null;
+
+    await syncRTDB({
+      [`kataScores.aka.${judgeIndex}`]: nextVote === 'aka' ? 1 : 0,
+      [`kataScores.ao.${judgeIndex}`]: nextVote === 'ao' ? 1 : 0,
+    });
+  };
+
   const handleDQ = async (side: 'aka' | 'ao', reason: string) => {
     const opponentSide = side === 'aka' ? 'ao' : 'aka';
     setIsDQ((prev) => ({ ...prev, [side]: true }));
@@ -594,6 +608,7 @@ export default function KataOperatorPanel({
                 <div
                   key={i}
                   className="kata-judge-card"
+                  onClick={() => handleJudgeCardClick(i)}
                   style={{
                     display: 'flex',
                     flexDirection: 'column',
@@ -603,7 +618,7 @@ export default function KataOperatorPanel({
                     background:
                       vote === 'aka'
                         ? 'rgba(217,38,44,0.06)'
-                        : vote === 'ao'
+                         : vote === 'ao'
                         ? 'rgba(26,77,181,0.06)'
                         : 'var(--neutral-50)',
                     border: `2px solid ${
@@ -614,6 +629,7 @@ export default function KataOperatorPanel({
                         : 'var(--neutral-200)'
                     }`,
                     borderRadius: '10px',
+                    cursor: !boutFinished ? 'pointer' : 'default',
                     boxShadow:
                       vote === 'aka'
                         ? '0 4px 12px rgba(217,38,44,0.1)'

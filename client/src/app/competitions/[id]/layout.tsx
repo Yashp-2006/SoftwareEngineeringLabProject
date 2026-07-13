@@ -54,8 +54,8 @@ export default function CompetitionLayout({
   const showRecords = isAdminOrGuest;
   const showMedals = isAdminOrGuest || role === 'medal_distributor';
   const showOperator = isAdminOrGuest || role === 'mat_operator';
-  // Judge tab only visible for signed-in users with judge or admin/guest_viewer role
-  const showJudge = !!user && (isAdminOrGuest || role === 'judge');
+  // Judge tab only visible for signed-in users with judge or admin/guest_viewer role (removed per request)
+  const showJudge = false;
 
   const linkStyle = { background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' };
 
