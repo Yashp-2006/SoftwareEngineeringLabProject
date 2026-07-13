@@ -27,6 +27,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
   const [deploying, setDeploying] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [importResult, setImportResult] = useState<{categoriesTotal: number; athletesImported: number} | null>(null);
+  const [manualAthletes, setManualAthletes] = useState<any[]>([]);
   const [modalType, setModalType] = useState<'standard'|'merge'|'bulkPassword'|'onspot'|'editCategory'|null>(null);
   const [editCatId, setEditCatId] = useState<string | null>(null);
   const [editCatData, setEditCatData] = useState<any>(null);
@@ -485,6 +486,55 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
     e.target.value = '';
   };
 
+  const handleManualImport = async () => {
+    if (manualAthletes.length === 0) return;
+    setUploading(true);
+    try {
+      const header = "Name,Age,Gender,Weight,State,District,Academy,Events,Phone,Email\n";
+      const rows = manualAthletes.map(a => {
+        const events = [];
+        if (a.kata === 'yes') events.push('kata');
+        if (a.kumite === 'yes') events.push('kumite');
+        return `"${a.name}",${a.age},${a.gender || 'Unknown'},${a.weight},"${a.state}","${a.district}","${a.academy}","${events.join(' and ')}","${a.phone || ''}","${a.email || ''}"`;
+      }).join("\n");
+      const csv = header + rows;
+      
+      const file = new File([csv], "manual_entries.csv", { type: "text/csv" });
+      
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('append', 'true');
+      formData.append('compRules', compRules);
+      formData.append('compType', compType);
+      formData.append('bronzeRule', bronzeRule);
+      formData.append('poolSize', poolSize.toString());
+      formData.append('customCategories', compRules !== 'wkf' ? JSON.stringify(categories) : '[]');
+      formData.append('wkfMode', wkfMode);
+      
+      const res = await fetch(`/api/competitions/${id}/import`, {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      
+      if (data.success) {
+        setImportResult(prev => ({ 
+          categoriesTotal: data.categoriesTotal, 
+          athletesImported: (prev?.athletesImported || 0) + manualAthletes.length 
+        }));
+        toast.success(`Successfully imported ${manualAthletes.length} manual entries!`);
+        setManualAthletes([]);
+      } else {
+        toast.error('Error: ' + data.error);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to import manual entries.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     const file = e.dataTransfer.files?.[0];
@@ -792,6 +842,27 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
           <div className="wizard-actions">
             <div className="text-small">Step {activePhase} of {maxPhase}</div>
             <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+              {modalType === 'onspot' ? (
+                <button 
+                  type="button" 
+                  className="btn btn-primary" 
+                  disabled={!modalFormData.name || !modalFormData.age || !modalFormData.weight || !modalFormData.academy || !modalFormData.district || !modalFormData.state}
+                  onClick={() => {
+                    handleManualImport(modalFormData);
+                    setModalType(null);
+                  }}
+                >
+                  Save Athlete
+                </button>
+              ) : modalType === 'standard' || modalType === 'merge' ? (
+                <button type="button" className="btn btn-primary" disabled={!modalFormData.name} onClick={handleSaveModal}>
+                  Save Category
+                </button>
+              ) : modalType === 'bulkPassword' ? (
+                <button type="button" className="btn btn-primary" disabled={!bulkPassword} onClick={handleBulkPasswordUpdate}>
+                  Update All Referees
+                </button>
+              ) : null}
               <button type="button" className="btn btn-ghost" disabled={activePhase === 1} onClick={handleBack}>Back</button>
               <button type="button" className="btn btn-primary" disabled={activePhase === maxPhase} onClick={handleNext}>Next</button>
             </div>
@@ -1099,6 +1170,63 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                     </button>
                     <input type="file" id="excel-upload" style={{ display: 'none' }} accept=".csv, .xls, .xlsx" onChange={handleFileUpload} />
                   </div>
+                  
+                  <div style={{ display: 'flex', justifyContent: 'center', marginTop: 'var(--space-5)' }}>
+                    <button type="button" className="btn btn-secondary" onClick={() => {
+                      setModalFormData({ name: '', age: '', state: '', academy: '', district: '', weight: '', phone: '', email: '', kata: 'yes', kumite: 'yes', gender: 'Male' });
+                      setModalType('onspot');
+                    }}>
+                      <Plus size={16} /> Add On-Spot Entry
+                    </button>
+                  </div>
+
+                  {manualAthletes.length > 0 && (
+                    <div style={{ marginTop: 'var(--space-6)', background: 'var(--shiro)', borderRadius: '12px', padding: 'var(--space-5)', border: '1px solid var(--neutral-300)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
+                        <h4 style={{ margin: 0 }}>On-Spot Entries ({manualAthletes.length})</h4>
+                        <button type="button" className="btn btn-primary" onClick={handleManualImport} disabled={uploading}>
+                          {uploading ? 'Processing...' : 'Import Manual Entries'}
+                        </button>
+                      </div>
+                      <div style={{ overflowX: 'auto' }}>
+                        <table className="cat-table">
+                          <thead>
+                            <tr>
+                              <th>Name</th>
+                              <th>Age</th>
+                              <th>Weight</th>
+                              <th>Academy</th>
+                              <th>Events</th>
+                              <th></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {manualAthletes.map((a, i) => {
+                              const events = [];
+                              if (a.kata === 'yes') events.push('Kata');
+                              if (a.kumite === 'yes') events.push('Kumite');
+                              return (
+                                <tr key={i}>
+                                  <td>{a.name}</td>
+                                  <td>{a.age}</td>
+                                  <td>{a.weight}kg</td>
+                                  <td>{a.academy}</td>
+                                  <td>{events.join(', ')}</td>
+                                  <td style={{ textAlign: 'right' }}>
+                                    <button type="button" className="btn btn-ghost" style={{ color: 'var(--status-ended)', padding: '4px' }} onClick={() => {
+                                      setManualAthletes(prev => prev.filter((_, idx) => idx !== i));
+                                    }}>
+                                      <Trash size={16} />
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </section>
@@ -1329,6 +1457,73 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
             <button type="button" className="close-btn" onClick={() => { setModalType(null); setModalFormData({}); }}><X size={16} /></button>
           </div>
           <div className="modal-body">
+            {modalType === 'onspot' && (
+              <>
+                <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+                  <div className="form-group" style={{ flex: 2, marginBottom: 0 }}>
+                    <label>Name *</label>
+                    <input type="text" className="input-field" placeholder="Athlete Name" value={modalFormData.name || ''} onChange={e => setModalFormData({...modalFormData, name: e.target.value})} />
+                  </div>
+                  <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                    <label>Gender *</label>
+                    <select className="input-field" style={{ background: 'white' }} value={modalFormData.gender || 'Male'} onChange={e => setModalFormData({...modalFormData, gender: e.target.value})}>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                    </select>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+                  <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                    <label>Age *</label>
+                    <input type="number" className="input-field" placeholder="0" value={modalFormData.age || ''} onChange={e => setModalFormData({...modalFormData, age: e.target.value})} />
+                  </div>
+                  <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                    <label>Weight (kg) *</label>
+                    <input type="number" className="input-field" placeholder="0" value={modalFormData.weight || ''} onChange={e => setModalFormData({...modalFormData, weight: e.target.value})} />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+                  <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                    <label>Academy *</label>
+                    <input type="text" className="input-field" placeholder="Academy Name" value={modalFormData.academy || ''} onChange={e => setModalFormData({...modalFormData, academy: e.target.value})} />
+                  </div>
+                  <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                    <label>District *</label>
+                    <input type="text" className="input-field" placeholder="District" value={modalFormData.district || ''} onChange={e => setModalFormData({...modalFormData, district: e.target.value})} />
+                  </div>
+                  <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                    <label>State *</label>
+                    <input type="text" className="input-field" placeholder="State" value={modalFormData.state || ''} onChange={e => setModalFormData({...modalFormData, state: e.target.value})} />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+                  <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                    <label>Phone</label>
+                    <input type="text" className="input-field" placeholder="Phone Number" value={modalFormData.phone || ''} onChange={e => setModalFormData({...modalFormData, phone: e.target.value})} />
+                  </div>
+                  <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                    <label>Email</label>
+                    <input type="email" className="input-field" placeholder="Email Address" value={modalFormData.email || ''} onChange={e => setModalFormData({...modalFormData, email: e.target.value})} />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+                  <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                    <label>Play Kata?</label>
+                    <select className="input-field" style={{ background: 'white' }} value={modalFormData.kata || 'yes'} onChange={e => setModalFormData({...modalFormData, kata: e.target.value})}>
+                      <option value="yes">Yes</option>
+                      <option value="no">No</option>
+                    </select>
+                  </div>
+                  <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                    <label>Play Kumite?</label>
+                    <select className="input-field" style={{ background: 'white' }} value={modalFormData.kumite || 'yes'} onChange={e => setModalFormData({...modalFormData, kumite: e.target.value})}>
+                      <option value="yes">Yes</option>
+                      <option value="no">No</option>
+                    </select>
+                  </div>
+                </div>
+              </>
+            )}
             {modalType === 'standard' && (
               <>
                 <div className="form-group">

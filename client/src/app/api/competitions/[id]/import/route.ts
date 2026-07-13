@@ -68,6 +68,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       );
     }
 
+    const append = formData.get('append') === 'true';
+
     const specialCategoriesStr = formData.get('specialCategories') as string;
     let specialCategories: any[] = [];
     try { specialCategories = JSON.parse(specialCategoriesStr || '[]'); } catch {}
@@ -105,6 +107,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     let athletesImported = 0;
 
     const competitionRef = adminDb.collection('competitions').doc(id);
+    const competitionSnap = await competitionRef.get();
+    const existingCompetitionData = competitionSnap.exists ? competitionSnap.data() : null;
+    let currentAthletesCount = existingCompetitionData?.athletesCount || 0;
+    let currentEntriesCount = existingCompetitionData?.entriesCount || 0;
+    let currentCategoriesCount = existingCompetitionData?.categoriesCount || 0;
+
     const categoriesRef = competitionRef.collection('categories');
     
     const entries = Array.from(categoryMap.entries());
@@ -125,19 +133,26 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       await Promise.all(chunk.map(async ([catName, catAthletes]) => {
         if (catAthletes.length === 0) return;
 
-        const matches = generateBracket(catAthletes, compType, poolSize);
-
         // Upsert: find existing category by name, or create new one
         const existingQuery = await categoriesRef.where('name', '==', catName).limit(1).get();
 
         const isSpecialCat = specialCategories.some((sc: any) => sc.name === catName) || dynamicSpecialCatNames.has(catName);
+
+        let finalAthletes = catAthletes;
+        if (append && !existingQuery.empty) {
+          const existingData = existingQuery.docs[0].data();
+          const existingAthletes = existingData.athletes || [];
+          finalAthletes = [...existingAthletes, ...catAthletes];
+        }
+
+        const matches = generateBracket(finalAthletes, compType, poolSize);
 
         const categoryData = {
           name: catName,
           isSpecial: isSpecialCat,
           competitionId: id,
           status: 'upcoming',
-          athletes: catAthletes.map(a => ({
+          athletes: finalAthletes.map((a: any) => ({
             playerId: a.playerId,
             name: a.name,
             gender: a.gender,
@@ -177,7 +192,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
             status: m.status,
             mat: null,
           })),
-          entries: catAthletes.length,
+          entries: finalAthletes.length,
           updatedAt: new Date().toISOString(),
         };
 
@@ -198,12 +213,21 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       entries: athletes.length
     }));
 
-    await competitionRef.update({
-      athletesCount: uniqueAthletesCount,
-      entriesCount: athletesImported,
-      categoriesCount: categoryMap.size,
-      updatedAt: new Date().toISOString()
-    });
+    if (append) {
+      await competitionRef.update({
+        athletesCount: currentAthletesCount + uniqueAthletesCount,
+        entriesCount: currentEntriesCount + athletesImported,
+        categoriesCount: currentCategoriesCount + categoriesCreated,
+        updatedAt: new Date().toISOString()
+      });
+    } else {
+      await competitionRef.update({
+        athletesCount: uniqueAthletesCount,
+        entriesCount: athletesImported,
+        categoriesCount: categoryMap.size,
+        updatedAt: new Date().toISOString()
+      });
+    }
 
     return NextResponse.json({
       success: true,
