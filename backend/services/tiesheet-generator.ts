@@ -298,8 +298,6 @@ export function parseExcel(buffer: ArrayBuffer): AthleteRow[] {
 
 /**
  * Parses an Excel file and buckets athletes into category groups.
- * Athletes with a non-empty `interestSpecial` field are placed in that
- * bucket instead of their standard age/weight category.
  */
 export function parseExcelIntoCategories(
   buffer: ArrayBuffer,
@@ -308,6 +306,19 @@ export function parseExcelIntoCategories(
   customCategories: SpecialCategoryRule[] = []
 ): { categoryMap: Map<string, AthleteRow[]>, uniqueAthletesCount: number } {
   const athletes = parseExcel(buffer);
+  return { ...bucketAthletes(athletes, specialCategories, wkfMode, customCategories), uniqueAthletesCount: athletes.length };
+}
+
+/**
+ * Buckets an already-parsed list of AthleteRow objects into category groups.
+ * Accepts pre-parsed athletes so callers don't need to re-encode to xlsx.
+ */
+export function bucketAthletes(
+  athletes: AthleteRow[],
+  specialCategories: SpecialCategoryRule[] = [],
+  wkfMode: string = 'standard',
+  customCategories: SpecialCategoryRule[] = []
+): { categoryMap: Map<string, AthleteRow[]>, uniqueAthletesCount: number } {
   const categoryMap = new Map<string, AthleteRow[]>();
 
   const addToCategory = (catName: string, athlete: AthleteRow) => {

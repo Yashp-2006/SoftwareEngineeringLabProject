@@ -452,170 +452,91 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
     const toastId = toast.loading('Reading file...');
 
     try {
-      // 1. Read file to ArrayBuffer
-      const buffer = await new Promise<ArrayBuffer>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve(e.target?.result as ArrayBuffer);
-        reader.onerror = (err) => reject(err);
-        reader.readAsArrayBuffer(file);
-      });
-
-      // 2. Parse workbook client-side
+      // 1. Parse xlsx client-side
+      const buffer = await file.arrayBuffer();
       const xlsx = await import('xlsx');
       const workbook = xlsx.read(new Uint8Array(buffer), { type: 'array' });
       let allRows: any[] = [];
       for (const sheetName of workbook.SheetNames) {
-        const worksheet = workbook.Sheets[sheetName];
-        const rows = xlsx.utils.sheet_to_json(worksheet, { defval: '' }) as any[];
+        const rows = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: '' }) as any[];
         allRows = allRows.concat(rows);
       }
+      if (allRows.length === 0) throw new Error('No athletes found in the spreadsheet.');
 
-      if (allRows.length === 0) {
-        throw new Error('No athletes found in the spreadsheet.');
-      }
+      // 2. Single JSON call to API for bucketing + bracket generation
+      toast.loading(`Processing ${allRows.length} athletes...`, { id: toastId });
+      const res = await fetch(`/api/competitions/${id}/import`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rows: allRows,
+          compType,
+          poolSize,
+          wkfMode,
+          customCategories: compRules !== 'wkf' ? categories : [],
+        }),
+      });
 
-      // 3. Send chunks to API for bracket computation (no DB writes in API)
-      const chunkSize = 2000;
-      const totalChunks = Math.ceil(allRows.length / chunkSize);
-      let allCategories: any[] = []; // aggregated across all chunks
+      const data = await res.json().catch(() => { throw new Error(`Server error (HTTP ${res.status}) — check console`); });
+      if (!data.success) throw new Error(data.error || 'Import failed.');
 
-      for (let i = 0; i < totalChunks; i++) {
-        toast.loading(`Computing brackets (chunk ${i + 1}/${totalChunks})...`, { id: toastId });
+      const allCategories: any[] = data.categories || [];
 
-        const chunk = allRows.slice(i * chunkSize, (i + 1) * chunkSize);
-        const ws = xlsx.utils.json_to_sheet(chunk);
-        const wb = xlsx.utils.book_new();
-        xlsx.utils.book_append_sheet(wb, ws, 'Sheet1');
-        const chunkBuffer = xlsx.write(wb, { type: 'array', bookType: 'xlsx' });
-        const chunkFile = new File([chunkBuffer], `chunk_${i + 1}.xlsx`, {
-          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        });
-
-        const formData = new FormData();
-        formData.append('file', chunkFile);
-        formData.append('compType', compType);
-        formData.append('poolSize', poolSize.toString());
-        formData.append('customCategories', compRules !== 'wkf' ? JSON.stringify(categories) : '[]');
-        formData.append('wkfMode', wkfMode);
-
-        const res = await fetch(`/api/competitions/${id}/import`, {
-          method: 'POST',
-          body: formData
-        });
-
-        const rawText = await res.text();
-        let data: any;
-        try {
-          data = JSON.parse(rawText);
-        } catch {
-          console.error('[upload] Non-JSON response from server:', rawText.substring(0, 1000));
-          throw new Error(`Server error (HTTP ${res.status}) on chunk ${i + 1} — check console`);
-        }
-
-        if (!data.success) {
-          throw new Error(data.error || `Chunk ${i + 1} failed.`);
-        }
-
-        // Merge chunk categories (later chunks may overlap with earlier ones)
-        for (const cat of (data.categories || [])) {
-          const existingIdx = allCategories.findIndex(c => c.name === cat.name);
-          if (existingIdx >= 0) {
-            // Merge athletes from both chunks into one category
-            const existing = allCategories[existingIdx];
-            existing.athletes = [...existing.athletes, ...cat.athletes];
-            existing.entries = existing.athletes.length;
-            // Re-use the new matches (will regenerate in next step if needed)
-          } else {
-            allCategories.push(cat);
-          }
-        }
-      }
-
-      // 4. Write all categories to Firestore client-side in parallel batches
-      // This runs in the browser — no Vercel timeout applies
-      toast.loading(`Saving ${allCategories.length} categories to database...`, { id: toastId });
-
+      // 3. Write to Firestore client-side (no serverless timeout)
+      toast.loading(`Saving ${allCategories.length} categories...`, { id: toastId });
       const compRef = doc(db, 'competitions', id);
       const catsRef = collection(db, 'competitions', id, 'categories');
 
-      // Fetch existing categories to update or create
       const existingSnap = await getDocs(catsRef);
       const existingByName = new Map<string, any>();
       existingSnap.docs.forEach(d => existingByName.set(d.data().name, d));
 
-      // Delete categories not in new roster
+      // Delete orphaned categories from previous roster
       const newCatNames = new Set(allCategories.map(c => c.name));
-      const deletePromises: Promise<void>[] = [];
-      for (const [name, d] of existingByName.entries()) {
-        if (!newCatNames.has(name)) {
-          deletePromises.push(deleteDoc(d.ref));
-        }
-      }
-      if (deletePromises.length > 0) {
-        await Promise.all(deletePromises);
-      }
+      const deleteOps = [...existingByName.entries()]
+        .filter(([name]) => !newCatNames.has(name))
+        .map(([, d]) => deleteDoc(d.ref));
+      if (deleteOps.length > 0) await Promise.all(deleteOps);
 
-      // Write categories in parallel Firestore writeBatches (500 ops max each)
+      // Write in parallel batches of 400
       const now = new Date().toISOString();
       const BATCH_SIZE = 400;
       const batches: any[] = [];
       let currentBatch = writeBatch(db);
       let opCount = 0;
-
       for (const cat of allCategories) {
         const existing = existingByName.get(cat.name);
         const catData = { ...cat, updatedAt: now };
         if (existing) {
           currentBatch.update(existing.ref, catData);
         } else {
-          const newRef = doc(catsRef);
-          currentBatch.set(newRef, { ...catData, createdAt: now });
+          currentBatch.set(doc(catsRef), { ...catData, createdAt: now });
         }
-        opCount++;
-        if (opCount === BATCH_SIZE) {
-          batches.push(currentBatch);
-          currentBatch = writeBatch(db);
-          opCount = 0;
-        }
+        if (++opCount === BATCH_SIZE) { batches.push(currentBatch); currentBatch = writeBatch(db); opCount = 0; }
       }
       if (opCount > 0) batches.push(currentBatch);
-
       await Promise.all(batches.map(b => b.commit()));
 
-      // 5. Update competition stats
-      const totalAthletes = allCategories.reduce((s, c) => s + c.athletes.length, 0);
-      const uniqueCount = new Set(allCategories.flatMap(c => c.athletes.map((a: any) => a.playerId))).size;
-      const updateBatch = writeBatch(db);
-      updateBatch.update(compRef, {
-        athletesCount: uniqueCount,
-        entriesCount: totalAthletes,
-        categoriesCount: allCategories.length,
-        updatedAt: now,
-      });
-      await updateBatch.commit();
+      // 4. Update competition stats
+      const totalEntries = allCategories.reduce((s, c) => s + c.athletes.length, 0);
+      const uniqueCount = data.uniqueAthletesCount || totalEntries;
+      const statsBatch = writeBatch(db);
+      statsBatch.update(compRef, { athletesCount: uniqueCount, entriesCount: totalEntries, categoriesCount: allCategories.length, updatedAt: now });
+      await statsBatch.commit();
 
       toast.dismiss(toastId);
-
-      // 6. Update local state
       setImportResult({ categoriesTotal: allCategories.length, athletesImported: uniqueCount });
       setCategories(prev => {
         const merged = [...prev];
-        allCategories.forEach(importedCat => {
-          const existingIdx = merged.findIndex(c => c.name === importedCat.name);
-          if (existingIdx >= 0) {
-            merged[existingIdx] = { ...merged[existingIdx], entries: importedCat.entries };
-          } else {
-            merged.push({ id: importedCat.name, name: importedCat.name, entries: importedCat.entries });
-          }
+        allCategories.forEach(cat => {
+          const idx = merged.findIndex(c => c.name === cat.name);
+          if (idx >= 0) merged[idx] = { ...merged[idx], entries: cat.entries };
+          else merged.push({ id: cat.name, name: cat.name, entries: cat.entries });
         });
         return merged;
       });
-
       toast.success(`Imported ${allRows.length} athletes across ${allCategories.length} categories.`);
-      setTimeout(() => {
-        setHighestPhase(prev => Math.max(prev, 2));
-        setPhase(2);
-      }, 2000);
+      setTimeout(() => { setHighestPhase(prev => Math.max(prev, 2)); setPhase(2); }, 2000);
 
     } catch (err: any) {
       console.error(err);
@@ -638,38 +559,63 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
     if (manualAthletes.length === 0) return;
     setUploading(true);
     try {
-      const header = "Name,Age,Gender,Weight,State,District,Academy,Events,Phone,Email\n";
-      const rows = manualAthletes.map(a => {
-        const events = [];
-        if (a.kata === 'yes') events.push('kata');
-        if (a.kumite === 'yes') events.push('kumite');
-        return `"${a.name}",${a.age},${a.gender || 'Unknown'},${a.weight},"${a.state}","${a.district}","${a.academy}","${events.join(' and ')}","${a.phone || ''}","${a.email || ''}"`;
-      }).join("\n");
-      const csv = header + rows;
-      
-      const file = new File([csv], "manual_entries.csv", { type: "text/csv" });
-      
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('append', 'true');
-      formData.append('compRules', compRules);
-      formData.append('compType', compType);
-      formData.append('bronzeRule', bronzeRule);
-      formData.append('poolSize', poolSize.toString());
-      formData.append('customCategories', compRules !== 'wkf' ? JSON.stringify(categories) : '[]');
-      formData.append('wkfMode', wkfMode);
-      
+      // Convert manual entries to raw row format matching excel column names
+      const rows = manualAthletes.map(a => ({
+        Name: a.name,
+        Age: a.age,
+        Gender: a.gender || 'Unknown',
+        Weight: a.weight,
+        State: a.state,
+        District: a.district,
+        Academy: a.academy,
+        Events: [a.kata === 'yes' ? 'kata' : '', a.kumite === 'yes' ? 'kumite' : ''].filter(Boolean).join(' and '),
+        Phone: a.phone || '',
+        Email: a.email || '',
+      }));
+
       const res = await fetch(`/api/competitions/${id}/import`, {
         method: 'POST',
-        body: formData
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rows,
+          compType,
+          poolSize,
+          wkfMode,
+          customCategories: compRules !== 'wkf' ? categories : [],
+        }),
       });
       const data = await res.json();
-      
+
       if (data.success) {
-        setImportResult(prev => ({ 
-          categoriesTotal: data.categoriesTotal, 
-          athletesImported: (prev?.athletesImported || 0) + manualAthletes.length 
-        }));
+        // Merge into Firestore client-side
+        const allCategories: any[] = data.categories || [];
+        const now = new Date().toISOString();
+        const catsRef = collection(db, 'competitions', id, 'categories');
+        const existingSnap = await getDocs(catsRef);
+        const existingByName = new Map<string, any>();
+        existingSnap.docs.forEach(d => existingByName.set(d.data().name, d));
+
+        const BATCH_SIZE = 400;
+        const batches: any[] = [];
+        let currentBatch = writeBatch(db);
+        let opCount = 0;
+        for (const cat of allCategories) {
+          const existing = existingByName.get(cat.name);
+          // For manual import: merge athletes with existing
+          const existingAthletes = existing ? (existing.data().athletes || []) : [];
+          const mergedAthletes = [...existingAthletes, ...cat.athletes];
+          const catData = { ...cat, athletes: mergedAthletes, entries: mergedAthletes.length, updatedAt: now };
+          if (existing) {
+            currentBatch.update(existing.ref, catData);
+          } else {
+            currentBatch.set(doc(catsRef), { ...catData, createdAt: now });
+          }
+          if (++opCount === BATCH_SIZE) { batches.push(currentBatch); currentBatch = writeBatch(db); opCount = 0; }
+        }
+        if (opCount > 0) batches.push(currentBatch);
+        await Promise.all(batches.map(b => b.commit()));
+
+        setImportResult(prev => ({ categoriesTotal: allCategories.length, athletesImported: (prev?.athletesImported || 0) + manualAthletes.length }));
         toast.success(`Successfully imported ${manualAthletes.length} manual entries!`);
         setManualAthletes([]);
       } else {
