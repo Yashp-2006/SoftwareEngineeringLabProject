@@ -123,7 +123,7 @@ export function parseExcel(buffer: ArrayBuffer): AthleteRow[] {
 
       // Pass 1: Name and Academy detection
       for (const k of Object.keys(row)) {
-        if (!parsedAcademy && (k.includes('academy') || k.includes('club') || k.includes('team') || k.includes('dojo') || k.includes('school') || k.includes('organization') || k.includes('association') || k.includes('dojo/organization')) && !k.includes('id')) {
+        if (!parsedAcademy && (k.includes('academy') || k.includes('club') || k.includes('team') || k.includes('dojo') || k.includes('school') || k.includes('organization') || k.includes('organisation') || k.includes('association') || k.includes('dojo/organization') || k.includes('institution') || k.includes('gym') || k.includes('federation') || k.includes('group') || k.includes('society') || k.includes('centre') || k.includes('center') || k.includes('sports body') || k === 'unit') && !k.includes('id')) {
           parsedAcademy = String(row[k]);
         }
         if (k.includes('first name') || k === 'first') {
@@ -188,7 +188,7 @@ export function parseExcel(buffer: ArrayBuffer): AthleteRow[] {
       if (isNaN(parsedAge) || !row['age']) {
         let dobVal: any = null;
         for (const k of Object.keys(row)) {
-          if (k.includes('dob') || k.includes('date of birth') || k.includes('birth')) {
+          if (k.includes('dob') || k.includes('date of birth') || k.includes('birth date') || k.includes('birth') || k.includes('born') || k === 'yob' || k.includes('year of birth') || k.includes('birth year')) {
             dobVal = row[k];
             break;
           }
@@ -269,11 +269,28 @@ export function parseExcel(buffer: ArrayBuffer): AthleteRow[] {
         }
       }
 
+      // Gender: try direct keys first, then fuzzy loop for headers like 'm/f', 'male/female', 'gender/sex'
+      let parsedGender = '';
+      if (row['gender']) parsedGender = String(row['gender']).trim().toLowerCase();
+      else if (row['sex']) parsedGender = String(row['sex']).trim().toLowerCase();
+      else {
+        for (const k of Object.keys(row)) {
+          if (k === 'm/f' || k === 'male/female' || k === 'gender/sex' || k === 'm / f' || k.startsWith('gender') || k.startsWith('sex')) {
+            parsedGender = String(row[k]).trim().toLowerCase();
+            break;
+          }
+        }
+      }
+      // Normalize gender value: m/male → 'male', f/female → 'female'
+      if (parsedGender === 'm' || parsedGender === 'male' || parsedGender === 'boy' || parsedGender === 'man') parsedGender = 'male';
+      else if (parsedGender === 'f' || parsedGender === 'female' || parsedGender === 'girl' || parsedGender === 'woman' || parsedGender === 'w') parsedGender = 'female';
+      if (!parsedGender) parsedGender = 'male'; // fallback
+
       allAthletes.push({
         playerId: String(row['player id'] ?? row['playerid'] ?? row['id'] ?? row['athlete id'] ?? '').trim() ||
           `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         name: parsedName,
-        gender: String(row['gender'] ?? row['sex'] ?? 'male').trim().toLowerCase(),
+        gender: parsedGender,
         // Strip unit suffixes from weight values (e.g. "75 kg", "75kg", "75 lbs")
         weight: parseFloat(String(rawWeight).replace(/\s*(kg|kgs|lbs?|kilos?)\s*/gi, '').trim()) || 0,
         age: parsedAge,
