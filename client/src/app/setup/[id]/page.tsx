@@ -446,63 +446,129 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
   };
 
   const uploadFile = async (file: File) => {
-    // Guard: 20MB client-side limit (matches server config)
-    if (file.size > 20 * 1024 * 1024) {
-      toast.error('File is too large (max 20 MB). Please split the roster into smaller sheets.');
+    // Guard: 10MB client-side limit (matches Vercel serverless payload limit)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File is too large (max 10 MB due to Vercel host limits). Please split the roster into smaller sheets.');
       return;
     }
+
     setUploading(true);
+    const toastId = toast.loading('Reading file...');
+
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('compRules', compRules);
-      formData.append('compType', compType);
-      formData.append('bronzeRule', bronzeRule);
-      formData.append('poolSize', poolSize.toString());
-      formData.append('customCategories', compRules !== 'wkf' ? JSON.stringify(categories) : '[]');
-      formData.append('wkfMode', wkfMode);
-      
-      const res = await fetch(`/api/competitions/${id}/import`, {
-        method: 'POST',
-        body: formData
+      // 1. Read file to ArrayBuffer
+      const buffer = await new Promise<ArrayBuffer>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as ArrayBuffer);
+        reader.onerror = (err) => reject(err);
+        reader.readAsArrayBuffer(file);
       });
 
-      const rawText = await res.text();
-      let data: any;
-      try {
-        data = JSON.parse(rawText);
-      } catch {
-        // Server returned non-JSON — log for debugging, show status to user
-        console.error('[upload] Non-JSON response from server:', rawText.substring(0, 1000));
-        throw new Error(`Server error (HTTP ${res.status}) — check console for details`);
+      // 2. Parse workbook dynamically
+      const xlsx = await import('xlsx');
+      const workbook = xlsx.read(new Uint8Array(buffer), { type: 'array' });
+
+      // 3. Combine all rows across sheets
+      let allRows: any[] = [];
+      for (const sheetName of workbook.SheetNames) {
+        const worksheet = workbook.Sheets[sheetName];
+        const rows = xlsx.utils.sheet_to_json(worksheet, { defval: '' }) as any[];
+        allRows = allRows.concat(rows);
       }
-      
-      if (data.success) {
-        setImportResult({ categoriesTotal: data.categoriesTotal, athletesImported: data.athletesImported });
-        if (data.categories) {
-          setCategories(prev => {
-            const merged = [...prev];
-            data.categories.forEach((importedCat: any) => {
-              const existingIdx = merged.findIndex(c => c.name === importedCat.name);
-              if (existingIdx >= 0) {
-                merged[existingIdx] = { ...merged[existingIdx], entries: importedCat.entries };
-              } else {
-                merged.push(importedCat);
-              }
-            });
-            return merged;
-          });
+
+      if (allRows.length === 0) {
+        throw new Error('No athletes found in the spreadsheet.');
+      }
+
+      const chunkSize = 2000;
+      const totalChunks = Math.ceil(allRows.length / chunkSize);
+
+      let categoriesCreated = 0;
+      let categoriesTotal = 0;
+      let athletesImported = 0;
+      let entriesImported = 0;
+      let finalCategories: any[] = [];
+
+      // 4. Sequentially upload chunks
+      for (let i = 0; i < totalChunks; i++) {
+        toast.loading(`Uploading chunk ${i + 1} of ${totalChunks} (${allRows.length} athletes)...`, { id: toastId });
+
+        const chunk = allRows.slice(i * chunkSize, (i + 1) * chunkSize);
+        const ws = xlsx.utils.json_to_sheet(chunk);
+        const wb = xlsx.utils.book_new();
+        xlsx.utils.book_append_sheet(wb, ws, 'Sheet1');
+        const chunkBuffer = xlsx.write(wb, { type: 'array', bookType: 'xlsx' });
+
+        const chunkFile = new File([chunkBuffer], `chunk_${i + 1}.xlsx`, {
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        });
+
+        const formData = new FormData();
+        formData.append('file', chunkFile);
+        formData.append('compRules', compRules);
+        formData.append('compType', compType);
+        formData.append('bronzeRule', bronzeRule);
+        formData.append('poolSize', poolSize.toString());
+        formData.append('customCategories', compRules !== 'wkf' ? JSON.stringify(categories) : '[]');
+        formData.append('wkfMode', wkfMode);
+        // Overwrite on first chunk, append on subsequent chunks
+        formData.append('append', i === 0 ? 'false' : 'true');
+
+        const res = await fetch(`/api/competitions/${id}/import`, {
+          method: 'POST',
+          body: formData
+        });
+
+        const rawText = await res.text();
+        let data: any;
+        try {
+          data = JSON.parse(rawText);
+        } catch {
+          console.error('[upload] Non-JSON response from server:', rawText.substring(0, 1000));
+          throw new Error(`Server error (HTTP ${res.status}) on chunk ${i + 1} — check console`);
         }
-        toast.success('Upload Successful!');
-        setTimeout(() => {
-          setHighestPhase(prev => Math.max(prev, 2));
-          setPhase(2);
-        }, 2000);
-      } else {
-        toast.error('Error: ' + (data.error || 'Unknown error'));
+
+        if (!data.success) {
+          throw new Error(data.error || `Chunk ${i + 1} failed.`);
+        }
+
+        categoriesCreated += data.categoriesCreated || 0;
+        categoriesTotal = data.categoriesTotal || 0;
+        athletesImported = data.athletesImported || 0;
+        entriesImported += data.entriesImported || 0;
+        if (data.categories) {
+          finalCategories = data.categories;
+        }
       }
+
+      toast.dismiss(toastId);
+
+      // 5. Update state with aggregated results
+      setImportResult({ categoriesTotal, athletesImported });
+      if (finalCategories.length > 0) {
+        setCategories(prev => {
+          const merged = [...prev];
+          finalCategories.forEach((importedCat: any) => {
+            const existingIdx = merged.findIndex(c => c.name === importedCat.name);
+            if (existingIdx >= 0) {
+              merged[existingIdx] = { ...merged[existingIdx], entries: importedCat.entries };
+            } else {
+              merged.push(importedCat);
+            }
+          });
+          return merged;
+        });
+      }
+
+      toast.success(`Upload Successful! Imported ${allRows.length} athletes in ${totalChunks} chunks.`);
+      setTimeout(() => {
+        setHighestPhase(prev => Math.max(prev, 2));
+        setPhase(2);
+      }, 2000);
+
     } catch (err: any) {
       console.error(err);
+      toast.dismiss(toastId);
       toast.error(err?.message || 'Failed to upload and generate tiesheet.');
     } finally {
       setUploading(false);

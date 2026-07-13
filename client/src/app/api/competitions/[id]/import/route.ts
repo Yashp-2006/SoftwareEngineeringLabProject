@@ -131,19 +131,25 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         }
       }
     }
+    // 1. Fetch all existing categories once to optimize performance and prevent timeouts
+    const allCatsSnap = await categoriesRef.get();
+    const existingCatsByName = new Map<string, any>();
+    allCatsSnap.docs.forEach((doc: any) => {
+      existingCatsByName.set(doc.data().name, doc);
+    });
+
+    const writePromises: Promise<any>[] = [];
 
     for (let i = 0; i < entries.length; i++) {
       const [catName, catAthletes] = entries[i];
       if (catAthletes.length === 0) continue;
 
-      // Upsert: find existing category by name, or create new one
-      const existingQuery = await categoriesRef.where('name', '==', catName).limit(1).get();
-
+      const existingDoc = existingCatsByName.get(catName);
       const isSpecialCat = specialCategories.some((sc: any) => sc.name === catName) || dynamicSpecialCatNames.has(catName);
 
       let finalAthletes = catAthletes;
-      if (append && !existingQuery.empty) {
-        const existingData = existingQuery.docs[0].data();
+      if (append && existingDoc) {
+        const existingData = existingDoc.data();
         const existingAthletes = existingData.athletes || [];
         finalAthletes = [...existingAthletes, ...catAthletes];
       }
@@ -200,15 +206,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         updatedAt: new Date().toISOString(),
       };
 
-      if (!existingQuery.empty) {
-        await existingQuery.docs[0].ref.update(categoryData);
+      if (existingDoc) {
+        writePromises.push(existingDoc.ref.update(categoryData));
       } else {
-        await categoriesRef.add({ ...categoryData, createdAt: new Date().toISOString() });
+        writePromises.push(categoriesRef.add({ ...categoryData, createdAt: new Date().toISOString() }));
         categoriesCreated++;
       }
 
       athletesImported += catAthletes.length;
     }
+
+    // 2. Commit all updates concurrently
+    await Promise.all(writePromises);
 
     const returnedCategories = Array.from(categoryMap.entries()).map(([name, athletes]) => ({
       id: name,
