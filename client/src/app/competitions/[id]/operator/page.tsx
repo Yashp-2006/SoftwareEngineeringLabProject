@@ -401,17 +401,67 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
     e.dataTransfer.effectAllowed = "move";
   };
 
-  const handleDropQueue = (e: React.DragEvent, targetIdx: number) => {
+  const saveQueueToFirestore = async (newQueue: any[]) => {
+    if (!activeCategoryId || !activeCategoryData) return;
+    try {
+      const { doc, updateDoc } = await import('firebase/firestore');
+      const { db } = await import('@lib/firebase');
+      
+      const originalMatches = activeCategoryData.matches || [];
+      const newMatches = [...originalMatches];
+      
+      const indicesToReplace: number[] = [];
+      originalMatches.forEach((m: any, idx: number) => {
+        if (newQueue.some((qItem: any) => qItem.id === m.id)) {
+          indicesToReplace.push(idx);
+        }
+      });
+      
+      indicesToReplace.sort((a, b) => a - b);
+      
+      indicesToReplace.forEach((originalIdx, queueIdx) => {
+        const queueMatch = newQueue[queueIdx];
+        if (queueMatch) {
+          const originalMatchObj = originalMatches.find((m: any) => m.id === queueMatch.id);
+          if (originalMatchObj) {
+            newMatches[originalIdx] = originalMatchObj;
+          }
+        }
+      });
+      
+      const catRef = doc(db, 'competitions', id, 'categories', activeCategoryId);
+      await updateDoc(catRef, { matches: newMatches });
+      toast.success('Queue order updated in database!');
+    } catch (err) {
+      console.error('Error saving queue order:', err);
+      toast.error('Failed to save queue order.');
+    }
+  };
+
+  const handleDropQueue = async (e: React.DragEvent, targetIdx: number) => {
     e.preventDefault();
     if (draggedIdx === null || draggedIdx === targetIdx) return;
     
-    // In a real app we'd save this order to Firestore
+    const newVisibleQueue = [...visibleQueue];
+    const [draggedItem] = newVisibleQueue.splice(draggedIdx, 1);
+    newVisibleQueue.splice(targetIdx, 0, draggedItem);
+    
     const newQueue = [...queue];
-    const [draggedItem] = newQueue.splice(draggedIdx, 1);
-    newQueue.splice(targetIdx, 0, draggedItem);
+    const indicesToReplace: number[] = [];
+    queue.forEach((m, qIdx) => {
+      if (visibleQueue.some(vq => vq.id === m.id)) {
+        indicesToReplace.push(qIdx);
+      }
+    });
+    
+    indicesToReplace.forEach((qIdx, vIdx) => {
+      newQueue[qIdx] = newVisibleQueue[vIdx];
+    });
     
     setQueue(newQueue);
     setDraggedIdx(null);
+    
+    await saveQueueToFirestore(newQueue);
   };
 
   const handleDropModal = (e: React.DragEvent, targetIdx: number) => {
@@ -1489,12 +1539,20 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                         </td>
                       </tr>
                     )}
-                    {visibleQueue.length > 0 && visibleQueue.map((match, idx) => (
+                    {visibleQueue.length > 0 && visibleQueue.map((match, idx) => {
+                      const isDraggable = !isViewer && match.id !== activeMatchId;
+                      return (
                         <tr 
                           key={match.id}
+                          draggable={isDraggable}
+                          onDragStart={(e) => isDraggable && handleDragStart(e, idx)}
+                          onDragOver={(e) => isDraggable && e.preventDefault()}
+                          onDrop={(e) => isDraggable && handleDropQueue(e, idx)}
                           style={{  
                             borderBottom: '1px solid var(--neutral-100)',
                             backgroundColor: match.pool && poolStatuses[match.pool] ? '#ecfdf5' : 'transparent',
+                            cursor: isDraggable ? 'grab' : 'default',
+                            opacity: draggedIdx === idx ? 0.5 : 1
                           }}
                         >
                           <td style={{ padding: '16px 20px', fontFamily: 'var(--font-mono)', fontWeight: 700, color: idx === 0 ? 'inherit' : 'var(--neutral-500)' }}>{match.displayId}</td>
@@ -1535,7 +1593,8 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                             )}
                           </td>
                         </tr>
-                      ))}
+                      );
+                    })}
                   </tbody>
                 </table>
                 </div>
@@ -1755,7 +1814,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
             </div>
             <div className="modal-footer" style={{ padding: '24px', borderTop: '1px solid var(--neutral-200)', display: 'flex', justifyContent: 'flex-end', gap: '12px', background: 'var(--neutral-50)' }}>
               <button type="button" className="btn btn-secondary" onClick={() => setShowEditModal(false)} style={{ fontSize: '13px', fontWeight: 600 }}>Cancel</button>
-              <button type="button" className="btn btn-primary" onClick={() => { setQueue(tempQueue); setShowEditModal(false); }} style={{ fontSize: '13px', fontWeight: 600 }}>Save Changes</button>
+              <button type="button" className="btn btn-primary" onClick={async () => { setQueue(tempQueue); setShowEditModal(false); await saveQueueToFirestore(tempQueue); }} style={{ fontSize: '13px', fontWeight: 600 }}>Save Changes</button>
             </div>
           </div>
         </div>
