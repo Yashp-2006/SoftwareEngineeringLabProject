@@ -346,7 +346,6 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
             athletes: []
           }));
           setCategories(prev => [...prev, ...newCats]);
-          setCompRules('import_preset');
           toast.success(`Imported ${newCats.length} categories`);
         } else {
           toast.error('Invalid preset format');
@@ -385,7 +384,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         const filteredNewCats = newCats.filter(c => !existingNames.has(c.name));
         return [...prev, ...filteredNewCats];
       });
-      setCompRules('wkf');
+      });
       toast.success(`Loaded WKF Categories`);
     } catch (err) {
       console.error(err);
@@ -393,8 +392,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
     }
   };
 
-  const is5Phase = compRules === 'wkf' || compRules === 'import_preset';
-  const maxPhase = is5Phase ? 5 : 6;
+  const maxPhase = 6;
 
   const handleNext = () => {
     if (activePhase < maxPhase) {
@@ -765,28 +763,31 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
             </div>
           </div>
 
-          <div className="wizard-stepper" style={{ '--stepper-cols': maxPhase } as React.CSSProperties}>
-            {(is5Phase 
-              ? ['Roster/CSV Import', 'Category, Mat & Schedule Management', 'Tiesheet Preview', 'Staff Management', 'Review']
-              : ['Define Categories', 'Roster/CSV Import', 'Category, Mat & Schedule Management', 'Tiesheet Preview', 'Staff Management', 'Review']
-            ).map((label, idx) => {
-              const phaseNum = idx + 1;
-              const isCompleted = highestPhase > phaseNum || isReviewMode;
-              const isActive = activePhase === phaseNum;
-              return (
-                <button type="button"
-                  key={phaseNum}
-                  className={`wizard-step ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}
-                  onClick={() => setPhase(phaseNum)}
-                  disabled={!isCompleted && highestPhase < phaseNum}
-                >
-                  <div className="wizard-step-number">
-                    {isCompleted && !isActive ? <CheckCircle size={14} /> : phaseNum}
-                  </div>
-                  <div className="wizard-step-label">{label}</div>
-                </button>
-              );
-            })}
+          <div className="wizard-stepper">
+            <div className={`step ${activePhase === 1 ? 'active' : ''} ${activePhase > 1 ? 'completed' : ''}`} onClick={() => setPhase(1)} style={{ cursor: 1 <= highestPhase ? 'pointer' : 'default' }}>
+              <div className="step-circle">1</div>
+              <div className="step-label">Define Categories</div>
+            </div>
+            <div className={`step ${activePhase === 2 ? 'active' : ''} ${activePhase > 2 ? 'completed' : ''}`} onClick={() => setPhase(2)} style={{ cursor: 2 <= highestPhase ? 'pointer' : 'default' }}>
+              <div className="step-circle">2</div>
+              <div className="step-label">Roster/CSV Import</div>
+            </div>
+            <div className={`step ${activePhase === 3 ? 'active' : ''} ${activePhase > 3 ? 'completed' : ''}`} onClick={() => setPhase(3)} style={{ cursor: 3 <= highestPhase ? 'pointer' : 'default' }}>
+              <div className="step-circle">3</div>
+              <div className="step-label">Category, Mat & Schedule Management</div>
+            </div>
+            <div className={`step ${activePhase === 4 ? 'active' : ''} ${activePhase > 4 ? 'completed' : ''}`} onClick={() => setPhase(4)} style={{ cursor: 4 <= highestPhase ? 'pointer' : 'default' }}>
+              <div className="step-circle">4</div>
+              <div className="step-label">Tiesheet Preview</div>
+            </div>
+            <div className={`step ${activePhase === 5 ? 'active' : ''} ${activePhase > 5 ? 'completed' : ''}`} onClick={() => setPhase(5)} style={{ cursor: 5 <= highestPhase ? 'pointer' : 'default' }}>
+              <div className="step-circle">5</div>
+              <div className="step-label">Staff Management</div>
+            </div>
+            <div className={`step ${activePhase === 6 ? 'active' : ''} ${activePhase > 6 ? 'completed' : ''}`} onClick={() => setPhase(6)} style={{ cursor: 6 <= highestPhase ? 'pointer' : 'default' }}>
+              <div className="step-circle">6</div>
+              <div className="step-label">Review</div>
+            </div>
           </div>
 
           <div className="wizard-actions">
@@ -843,12 +844,12 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
             </section>
           )}
 
-          {((is5Phase && activePhase === 1) || (!is5Phase && activePhase === 2) || isReviewMode) && (
+          {(activePhase === 2 || isReviewMode) && (
             <section className="wizard-phase active">
               {!isReviewMode && (
                 <div className="phase-header">
                   <div>
-                    <h3 style={{ margin: 0 }}>Phase {is5Phase ? '1' : '2'} — Roster/CSV Import</h3>
+                    <h3 style={{ margin: 0 }}>Phase 2 — Roster/CSV Import</h3>
                     <p className="text-small" style={{ marginTop: '4px' }}>Choose a pool size and import athletes to generate tiesheets.</p>
                   </div>
                 </div>
@@ -959,7 +960,6 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                 </div>
               )}
               <div className="category-manager">
-                {is5Phase && (
                 <div className="cat-group">
                   <div className="flex-between">
                     <div>
@@ -1068,7 +1068,6 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                     ))}
                   </div>
                 </div>
-                )}
 
                 <div className="cat-group">
                   <div className="flex-between" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
@@ -1239,7 +1238,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
             </section>
           )}
 
-          {(!is5Phase && (activePhase === 3 || isReviewMode)) && (
+          {(activePhase === 3 || isReviewMode) && (
             <section className="wizard-phase active">
               {!isReviewMode && (
                 <div className="phase-header">
@@ -1362,12 +1361,12 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
             </section>
           )}
 
-          {((is5Phase && activePhase === 3) || (!is5Phase && activePhase === 4) || isReviewMode) && (
+          {(activePhase === 4 || isReviewMode) && (
             <section className="wizard-phase active">
               {!isReviewMode && (
                 <div className="phase-header">
                   <div>
-                    <h3 style={{ margin: 0 }}>Phase {is5Phase ? '3' : '4'} — Tiesheet Generation Preview</h3>
+                    <h3 style={{ margin: 0 }}>Phase 4 — Tiesheet Generation Preview</h3>
                     <p className="text-small" style={{ marginTop: '4px' }}>Tiesheets are generated on import. Preview verifies first-round matchups.</p>
                   </div>
                 </div>
@@ -1431,12 +1430,12 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
             </section>
           )}
 
-          {((is5Phase && activePhase === 4) || (!is5Phase && activePhase === 5) || isReviewMode) && (
+          {(activePhase === 5 || isReviewMode) && (
             <section className="wizard-phase active">
               {!isReviewMode && (
                 <div className="phase-header">
                   <div>
-                    <h3 style={{ margin: 0 }}>Phase {is5Phase ? '4' : '5'} — Staff Management</h3>
+                    <h3 style={{ margin: 0 }}>Phase 5 — Staff Management</h3>
                     <p className="text-small" style={{ marginTop: '4px' }}>Lock in attendance coverage.</p>
                   </div>
                 </div>
