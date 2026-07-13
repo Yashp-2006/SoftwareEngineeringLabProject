@@ -122,7 +122,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const categoriesRef = competitionRef.collection('categories');
     
     const entries = Array.from(categoryMap.entries());
-    const chunkSize = 25; // Process in chunks to avoid overwhelming the database
 
     const dynamicSpecialCatNames = new Set<string>();
     for (const [, catAthletes] of categoryMap) {
@@ -133,84 +132,82 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       }
     }
 
-    for (let i = 0; i < entries.length; i += chunkSize) {
-      const chunk = entries.slice(i, i + chunkSize);
+    for (let i = 0; i < entries.length; i++) {
+      const [catName, catAthletes] = entries[i];
+      if (catAthletes.length === 0) continue;
 
-      await Promise.all(chunk.map(async ([catName, catAthletes]) => {
-        if (catAthletes.length === 0) return;
+      // Upsert: find existing category by name, or create new one
+      const existingQuery = await categoriesRef.where('name', '==', catName).limit(1).get();
 
-        // Upsert: find existing category by name, or create new one
-        const existingQuery = await categoriesRef.where('name', '==', catName).limit(1).get();
+      const isSpecialCat = specialCategories.some((sc: any) => sc.name === catName) || dynamicSpecialCatNames.has(catName);
 
-        const isSpecialCat = specialCategories.some((sc: any) => sc.name === catName) || dynamicSpecialCatNames.has(catName);
+      let finalAthletes = catAthletes;
+      if (append && !existingQuery.empty) {
+        const existingData = existingQuery.docs[0].data();
+        const existingAthletes = existingData.athletes || [];
+        finalAthletes = [...existingAthletes, ...catAthletes];
+      }
 
-        let finalAthletes = catAthletes;
-        if (append && !existingQuery.empty) {
-          const existingData = existingQuery.docs[0].data();
-          const existingAthletes = existingData.athletes || [];
-          finalAthletes = [...existingAthletes, ...catAthletes];
-        }
+      const matches = generateBracket(finalAthletes, compType, poolSize);
 
-        const matches = generateBracket(finalAthletes, compType, poolSize);
+      const categoryData = {
+        name: catName,
+        isSpecial: isSpecialCat,
+        competitionId: id,
+        status: 'upcoming',
+        athletes: finalAthletes.map((a: any) => ({
+          playerId: a.playerId,
+          name: a.name,
+          gender: a.gender,
+          weight: a.weight,
+          age: a.age,
+          country: a.country,
+          state: a.state,
+          district: a.district,
+          academy: a.academy,
+          interestSpecial: a.interestSpecial,
+          coachName: a.coachName || '',
+          phone: a.phone || '',
+          email: a.email || '',
+        })),
+        // Cap at 500 matches to respect Firestore 1MB document limit
+        matches: matches.slice(0, 500).map(m => ({
+          id: m.id,
+          round: m.round,
+          matchNumber: m.matchNumber,
+          aka: m.aka ? {
+            playerId: m.aka.playerId,
+            name: m.aka.name,
+            academy: m.aka.academy || null,
+            state: m.aka.state || m.aka.country || null,
+          } : null,
+          ao: m.ao ? {
+            playerId: m.ao.playerId,
+            name: m.ao.name,
+            academy: m.ao.academy || null,
+            state: m.ao.state || m.ao.country || null,
+          } : null,
+          akaFromMatchId: m.akaFromMatchId || null,
+          aoFromMatchId: m.aoFromMatchId || null,
+          akaScore: 0,
+          aoScore: 0,
+          winnerId: m.winnerId || null,
+          nextMatchId: m.nextMatchId || null,
+          status: m.status,
+          mat: null,
+        })),
+        entries: finalAthletes.length,
+        updatedAt: new Date().toISOString(),
+      };
 
-        const categoryData = {
-          name: catName,
-          isSpecial: isSpecialCat,
-          competitionId: id,
-          status: 'upcoming',
-          athletes: finalAthletes.map((a: any) => ({
-            playerId: a.playerId,
-            name: a.name,
-            gender: a.gender,
-            weight: a.weight,
-            age: a.age,
-            country: a.country,
-            state: a.state,
-            district: a.district,
-            academy: a.academy,
-            interestSpecial: a.interestSpecial,
-            coachName: a.coachName || '',
-            phone: a.phone || '',
-            email: a.email || '',
-          })),
-          matches: matches.map(m => ({
-            id: m.id,
-            round: m.round,
-            matchNumber: m.matchNumber,
-            aka: m.aka ? {
-              playerId: m.aka.playerId,
-              name: m.aka.name,
-              academy: m.aka.academy || null,
-              state: m.aka.state || m.aka.country || null,
-            } : null,
-            ao: m.ao ? {
-              playerId: m.ao.playerId,
-              name: m.ao.name,
-              academy: m.ao.academy || null,
-              state: m.ao.state || m.ao.country || null,
-            } : null,
-            akaFromMatchId: m.akaFromMatchId || null,
-            aoFromMatchId: m.aoFromMatchId || null,
-            akaScore: 0,
-            aoScore: 0,
-            winnerId: m.winnerId || null,
-            nextMatchId: m.nextMatchId || null,
-            status: m.status,
-            mat: null,
-          })),
-          entries: finalAthletes.length,
-          updatedAt: new Date().toISOString(),
-        };
+      if (!existingQuery.empty) {
+        await existingQuery.docs[0].ref.update(categoryData);
+      } else {
+        await categoriesRef.add({ ...categoryData, createdAt: new Date().toISOString() });
+        categoriesCreated++;
+      }
 
-        if (!existingQuery.empty) {
-          await existingQuery.docs[0].ref.update(categoryData);
-        } else {
-          await categoriesRef.add({ ...categoryData, createdAt: new Date().toISOString() });
-          categoriesCreated++;
-        }
-
-        athletesImported += catAthletes.length;
-      }));
+      athletesImported += catAthletes.length;
     }
 
     const returnedCategories = Array.from(categoryMap.entries()).map(([name, athletes]) => ({

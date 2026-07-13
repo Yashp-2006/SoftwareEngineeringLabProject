@@ -467,11 +467,14 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         body: formData
       });
 
+      const rawText = await res.text();
       let data: any;
       try {
-        data = await res.json();
+        data = JSON.parse(rawText);
       } catch {
-        throw new Error(`Server error (HTTP ${res.status}): could not parse response`);
+        // Server returned non-JSON — log for debugging, show status to user
+        console.error('[upload] Non-JSON response from server:', rawText.substring(0, 1000));
+        throw new Error(`Server error (HTTP ${res.status}) — check console for details`);
       }
       
       if (data.success) {
