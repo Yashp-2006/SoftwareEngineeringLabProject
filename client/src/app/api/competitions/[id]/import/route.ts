@@ -1,11 +1,11 @@
-import { bucketAthletes, generateBracket, PoolSize } from '@taikaix/backend/services/tiesheet-generator';
+import { parseExcelIntoCategories, generateBracket, PoolSize } from '@taikaix/backend/services/tiesheet-generator';
 import { rateLimiter } from '@lib/rate-limiter';
 import { NextResponse } from 'next/server';
 import { verifySession } from '@taikaix/backend/lib/firebase-admin';
 
-// Only does CPU work: category bucketing + bracket generation.
-// Accepts pre-parsed athlete rows as JSON — no xlsx binary, no Firestore.
-// Runs in ~200ms even for 5000 athletes. Well within any serverless timeout.
+// Parses file + generates brackets only — NO Firestore writes.
+// Firestore writes are done client-side to avoid Vercel timeout.
+// Parse+bracket is ~200ms even for 5000 athletes — safe within 10s limit.
 export const maxDuration = 30;
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -34,19 +34,56 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       );
     }
 
-    const body = await req.json();
-    const { rows, compType = 'international', poolSize: rawPoolSize = 8, wkfMode = 'standard', specialCategories = [], customCategories = [] } = body;
-
-    if (!Array.isArray(rows) || rows.length === 0) {
-      return NextResponse.json({ success: false, error: 'No athlete rows provided.' }, { status: 400 });
-    }
-
+    const formData = await req.formData();
+    const file = formData.get('file') as File;
+    const compType = (formData.get('compType') as string) || 'international';
+    const rawPoolSize = parseInt(formData.get('poolSize') as string) || 8;
     const poolSize = ([4, 8, 16, 32].includes(rawPoolSize) ? rawPoolSize : 8) as PoolSize;
 
-    const { categoryMap, uniqueAthletesCount } = bucketAthletes(rows, specialCategories, wkfMode, customCategories);
+    if (!file) {
+      return NextResponse.json({ success: false, error: 'No file uploaded' }, { status: 400 });
+    }
+
+    const fileName = file.name?.toLowerCase() ?? '';
+    const allowedExtensions = ['.csv', '.xls', '.xlsx'];
+    if (!allowedExtensions.some(ext => fileName.endsWith(ext))) {
+      return NextResponse.json(
+        { success: false, error: `Unsupported file type "${file.name}". Please upload a .csv, .xls, or .xlsx file.` },
+        { status: 400 }
+      );
+    }
+
+    const specialCategoriesStr = formData.get('specialCategories') as string;
+    let specialCategories: any[] = [];
+    try { specialCategories = JSON.parse(specialCategoriesStr || '[]'); } catch {}
+
+    const customCategoriesStr = formData.get('customCategories') as string;
+    let customCategories: any[] = [];
+    try { customCategories = JSON.parse(customCategoriesStr || '[]'); } catch {}
+
+    const wkfMode = (formData.get('wkfMode') as string) || 'standard';
+
+    const buffer = await file.arrayBuffer();
+
+    let categoryMap: Map<string, any[]>;
+    let uniqueAthletesCount = 0;
+    try {
+      const parsed = parseExcelIntoCategories(buffer, specialCategories, wkfMode, customCategories);
+      categoryMap = parsed.categoryMap;
+      uniqueAthletesCount = parsed.uniqueAthletesCount;
+    } catch (parseErr: any) {
+      console.error('[import/route] parse error:', parseErr.message);
+      return NextResponse.json(
+        { success: false, error: `Could not read "${file.name}". Make sure it is a valid, non-password-protected Excel or CSV file. (${parseErr.message})` },
+        { status: 422 }
+      );
+    }
 
     if (categoryMap.size === 0) {
-      return NextResponse.json({ success: false, error: 'No athlete data could be categorised. Check that the rows contain valid athlete data.' }, { status: 422 });
+      return NextResponse.json(
+        { success: false, error: 'No athlete data found. Check that the sheet has a header row and at least one athlete row.' },
+        { status: 422 }
+      );
     }
 
     const dynamicSpecialCatNames = new Set<string>();
@@ -99,12 +136,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       };
     }).filter(Boolean);
 
-    return NextResponse.json({
-      success: true,
-      competitionId: id,
-      uniqueAthletesCount,
-      categories,
-    });
+    return NextResponse.json({ success: true, competitionId: id, uniqueAthletesCount, categories });
   } catch (error: any) {
     console.error('[import/route]', error);
     return NextResponse.json({ success: false, error: error?.message || 'Internal server error' }, { status: 500 });

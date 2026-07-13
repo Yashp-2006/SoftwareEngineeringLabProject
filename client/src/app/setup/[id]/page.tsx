@@ -449,40 +449,26 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
 
   const uploadFile = async (file: File) => {
     setUploading(true);
-    const toastId = toast.loading('Reading file...');
+    const toastId = toast.loading('Uploading file...');
 
     try {
-      // 1. Parse xlsx client-side
-      const buffer = await file.arrayBuffer();
-      const xlsx = await import('xlsx');
-      const workbook = xlsx.read(new Uint8Array(buffer), { type: 'array' });
-      let allRows: any[] = [];
-      for (const sheetName of workbook.SheetNames) {
-        const rows = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: '' }) as any[];
-        allRows = allRows.concat(rows);
-      }
-      if (allRows.length === 0) throw new Error('No athletes found in the spreadsheet.');
+      // Send original file to API — server handles parsing + bracket gen
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('compType', compType);
+      formData.append('poolSize', poolSize.toString());
+      formData.append('customCategories', compRules !== 'wkf' ? JSON.stringify(categories) : '[]');
+      formData.append('wkfMode', wkfMode);
 
-      // 2. Single JSON call to API for bucketing + bracket generation
-      toast.loading(`Processing ${allRows.length} athletes...`, { id: toastId });
-      const res = await fetch(`/api/competitions/${id}/import`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          rows: allRows,
-          compType,
-          poolSize,
-          wkfMode,
-          customCategories: compRules !== 'wkf' ? categories : [],
-        }),
-      });
+      toast.loading('Computing brackets...', { id: toastId });
+      const res = await fetch(`/api/competitions/${id}/import`, { method: 'POST', body: formData });
 
       const data = await res.json().catch(() => { throw new Error(`Server error (HTTP ${res.status}) — check console`); });
       if (!data.success) throw new Error(data.error || 'Import failed.');
 
       const allCategories: any[] = data.categories || [];
 
-      // 3. Write to Firestore client-side (no serverless timeout)
+      // Write to Firestore client-side (no serverless timeout)
       toast.loading(`Saving ${allCategories.length} categories...`, { id: toastId });
       const compRef = doc(db, 'competitions', id);
       const catsRef = collection(db, 'competitions', id, 'categories');
@@ -517,7 +503,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
       if (opCount > 0) batches.push(currentBatch);
       await Promise.all(batches.map(b => b.commit()));
 
-      // 4. Update competition stats
+      // Update competition stats
       const totalEntries = allCategories.reduce((s, c) => s + c.athletes.length, 0);
       const uniqueCount = data.uniqueAthletesCount || totalEntries;
       const statsBatch = writeBatch(db);
@@ -535,7 +521,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         });
         return merged;
       });
-      toast.success(`Imported ${allRows.length} athletes across ${allCategories.length} categories.`);
+      toast.success(`Imported ${uniqueCount} athletes across ${allCategories.length} categories.`);
       setTimeout(() => { setHighestPhase(prev => Math.max(prev, 2)); setPhase(2); }, 2000);
 
     } catch (err: any) {
@@ -546,6 +532,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
       setUploading(false);
     }
   };
+
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
