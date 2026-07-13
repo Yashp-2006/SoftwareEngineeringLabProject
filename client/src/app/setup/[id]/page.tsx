@@ -1073,7 +1073,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                       <h3>{compRules === 'wkf' ? 'Standard Categories' : 'Categories'}</h3>
                       <p className="text-small">{compRules === 'wkf' ? 'Generic weight and age divisions without complex prerequisite rules.' : 'Divisions for the tournament.'}</p>
                     </div>
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end', flex: 1 }}>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                       <button type="button" className="btn btn-ghost" style={{ color: 'var(--status-live)', border: '1px dashed var(--status-live)', height: '36px', padding: '0 12px' }} onClick={() => setModalType('onspot')}>
                         <Plus size={16} /> On-Spot Entry
                       </button>

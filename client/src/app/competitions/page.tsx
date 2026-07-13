@@ -413,17 +413,17 @@ export default function CompetitionsPage() {
                 </div>
                 <div className="mt-4">
                   {comp.status === 'live' && (
-                    <Link href={`/competitions/${comp.id}`} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', textDecoration: 'none' }}>
+                    <Link href={`/competitions/${comp.id}`} className="btn btn-primary" style={{ justifyContent: 'center', textDecoration: 'none' }}>
                       {role === 'admin' || role === 'mat_operator' ? 'Manage Operations' : 'View Event'} <ArrowRight style={{ width: '16px', marginLeft: '6px' }} />
                     </Link>
                   )}
                   {comp.status === 'upcoming' && (role === 'admin' || role === 'guest_viewer') && (
-                    <Link href={`/setup/${comp.id}`} className="btn btn-secondary" style={{ width: '100%', justifyContent: 'center', textDecoration: 'none' }}>
+                    <Link href={`/setup/${comp.id}`} className="btn btn-secondary" style={{ justifyContent: 'center', textDecoration: 'none' }}>
                       {role === 'admin' ? 'Setup Tournament' : 'View Setup'}
                     </Link>
                   )}
                   {comp.status === 'done' && (role === 'admin' || role === 'guest_viewer') && (
-                    <Link href={`/archives/${comp.id}`} className="btn btn-ghost" style={{ width: '100%', justifyContent: 'center', background: 'var(--neutral-50)', textDecoration: 'none' }}>
+                    <Link href={`/archives/${comp.id}`} className="btn btn-ghost" style={{ justifyContent: 'center', background: 'var(--neutral-50)', textDecoration: 'none' }}>
                       View Archives
                     </Link>
                   )}
@@ -512,7 +512,7 @@ export default function CompetitionsPage() {
                     <button
                       type="button"
                       className="btn btn-secondary"
-                      style={{ width: '100%', justifyContent: 'center', gap: '8px' }}
+                      style={{ justifyContent: 'center', gap: '8px' }}
                       onClick={() => document.getElementById('preset-upload-create')?.click()}
                     >
                       <UploadCloud size={16} /> Choose Preset File (.json)
