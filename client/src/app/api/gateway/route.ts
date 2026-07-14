@@ -78,6 +78,7 @@ export async function POST(req: NextRequest) {
 
         // 1. Gather all pools and finals for all categories
         const scheduledPoolsList: any[] = [];
+        let unassignedCount = 0;
         allCats.forEach((cat) => {
           const athleteCount = cat.entries || 0;
           if (athleteCount === 0) return;
@@ -91,20 +92,31 @@ export async function POST(req: NextRequest) {
           const medTime = cat.medicalTime ?? data.globalMedicalTime ?? 1;
           const bTime = cat.bunkaiTime ?? data.globalBunkaiTime ?? 5;
 
+          let assignedMatId = 1;
+
           for (let p = 1; p <= poolCount; p++) {
             const poolId = `${cat.id || cat.name}_pool_${p}`;
             const poolSched = data.poolsSchedule?.[poolId];
 
             const entriesInPool = baseEntries + (p - 1 < extraEntries ? 1 : 0);
             const matchesInPool = cat.isKata ? entriesInPool : Math.max(0, entriesInPool - 1);
-            const estTime = poolSched?.estTime || Math.ceil((mTime + rTime) * matchesInPool + data.globalRestTime + data.globalMedicalTime);
+            const estTime = poolSched?.estTime || Math.ceil((mTime + rTime) * matchesInPool + rTime + medTime);
+
+            let matId = 1;
+            if (poolSched && poolSched.matId !== -1) {
+              matId = poolSched.matId;
+            } else {
+              matId = (unassignedCount % numMats) + 1;
+              unassignedCount++;
+            }
+            assignedMatId = matId;
 
             scheduledPoolsList.push({
               id: poolId,
               categoryId: cat.id || cat.name,
               categoryName: cat.name,
               poolLabel: String(p),
-              matId: poolSched && poolSched.matId !== -1 ? poolSched.matId : 1,
+              matId: matId,
               day: poolSched && poolSched.day !== -1 ? poolSched.day : 1,
               order: poolSched ? poolSched.order : 0,
               duration: estTime,
@@ -117,14 +129,21 @@ export async function POST(req: NextRequest) {
             const finalsSched = data.poolsSchedule?.[finalsId];
 
             const matchesInFinals = cat.isKata ? poolCount : Math.max(0, poolCount - 1);
-            const estTime = finalsSched?.estTime || Math.ceil((mTime + rTime) * matchesInFinals + data.globalRestTime + data.globalMedicalTime);
+            const estTime = finalsSched?.estTime || Math.ceil((mTime + rTime) * matchesInFinals + rTime + medTime);
+
+            let finalsMatId = 1;
+            if (finalsSched && finalsSched.matId !== -1) {
+              finalsMatId = finalsSched.matId;
+            } else {
+              finalsMatId = assignedMatId;
+            }
 
             scheduledPoolsList.push({
               id: finalsId,
               categoryId: cat.id || cat.name,
               categoryName: cat.name,
               poolLabel: 'finals',
-              matId: finalsSched && finalsSched.matId !== -1 ? finalsSched.matId : 1,
+              matId: finalsMatId,
               day: finalsSched && finalsSched.day !== -1 ? finalsSched.day : 1,
               order: finalsSched ? finalsSched.order : 0,
               duration: estTime,
@@ -220,7 +239,7 @@ export async function POST(req: NextRequest) {
             if (cat.maxWeight !== undefined) updateData.maxWeight = cat.maxWeight;
           }
 
-          addOp((b) => b.set(catRef, updateData, { merge: true }));
+          addOp((b) => b.set(catRef, JSON.parse(JSON.stringify(updateData)), { merge: true }));
         });
 
         // Create mats up to numMats and clean up any extra mats from previous configurations
@@ -259,7 +278,7 @@ export async function POST(req: NextRequest) {
           compUpdateData.scoreboardLogo = data.scoreboardLogo;
         }
 
-        addOp((b) => b.update(adminDb.collection('competitions').doc(data.competitionId), compUpdateData));
+        addOp((b) => b.update(adminDb.collection('competitions').doc(data.competitionId), JSON.parse(JSON.stringify(compUpdateData))));
 
         if (opCount > 0) {
           batches.push(currentBatch);

@@ -1,5 +1,15 @@
 {
   "rules": {
+    "live_scores": {
+      "$competitionId": {
+        "mats": {
+          "$matId": {
+            ".read": true,
+            ".write": "auth != null"
+          }
+        }
+      }
+    },
     "liveMatches": {
       "$matchId": {
         ".read": true,

@@ -12,6 +12,7 @@ interface CategoryRow {
   entries: number;
   status: 'live' | 'upcoming' | 'done';
   mat: string;
+  day?: number;
   start: string;
   end: string;
   estimatedDuration?: number;
@@ -47,6 +48,8 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
   const [loading, setLoading] = useState(true);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const [tournamentDays, setTournamentDays] = useState(1);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
   
   const [filterType, setFilterType] = useState('all');
   const [filterGender, setFilterGender] = useState('all');
@@ -77,8 +80,17 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
     let unsubscribe = () => {};
     const setupListener = async () => {
       const { db } = await import('@lib/firebase');
-      const { collection, onSnapshot, query, orderBy } = await import('firebase/firestore');
+      const { collection, onSnapshot, query, orderBy, doc, getDoc } = await import('firebase/firestore');
       
+      try {
+        const compSnap = await getDoc(doc(db, 'competitions', id));
+        if (compSnap.exists()) {
+          setTournamentDays(compSnap.data().tournamentDays || 1);
+        }
+      } catch (err) {
+        console.error("Failed to fetch competition data", err);
+      }
+
       const q = query(collection(db, 'competitions', id, 'categories'), orderBy('order'));
       unsubscribe = onSnapshot(q, (snapshot) => {
         const cats = snapshot.docs.map(doc => {
@@ -89,6 +101,7 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
             entries: data.entries ?? (data.athletes?.length || 0),
             status: data.status,
             mat: data.mat,
+            day: data.day || 1,
             start: data.scheduledStartTime,
             end: data.scheduledEndTime,
             estimatedDuration: data.estimatedDuration,
@@ -139,11 +152,21 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
         dbField = 'judgeCount';
         await updateDoc(catRef, { judgeCount: parseInt(value), numberOfJudges: parseInt(value) });
         triggerSaved(catId);
+        setLastSaved(new Date());
         toast.success("Judge count updated");
         return;
       }
       
+      if (field === 'day') {
+        await updateDoc(catRef, { day: parseInt(value) });
+        triggerSaved(catId);
+        setLastSaved(new Date());
+        toast.success("Scheduled day updated");
+        return;
+      }
+
       await updateDoc(catRef, { [dbField]: value });
+      setLastSaved(new Date());
 
       // PREEMPTIVE SCHEDULING ENGINE
       if (field === 'status' && value === 'done') {
@@ -187,6 +210,7 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
             
             if (shiftedCount > 0) {
               await batch.commit();
+              setLastSaved(new Date());
               console.log(`Preemptively shifted ${shiftedCount} categories on ${targetCat.mat} by ${diffMins} mins.`);
             }
           }
@@ -287,6 +311,7 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
         });
         
         await batch.commit();
+        setLastSaved(new Date());
         toast.success("Schedule updated");
       } catch (err) {
         console.error(err);
@@ -325,7 +350,7 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
         }
         .category-row {
           display: grid;
-          grid-template-columns: 2fr 0.7fr 1fr 1fr 0.8fr 1.5fr 0.9fr;
+          grid-template-columns: 2fr 0.7fr 1fr 0.8fr 1fr 0.8fr 1.5fr 0.9fr;
           align-items: center;
           gap: var(--space-3);
           padding: var(--space-4) var(--space-5);
@@ -406,7 +431,7 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
 
         @media (max-width: 1360px) {
           .category-row {
-            grid-template-columns: 1.8fr 0.7fr 1fr 1fr 0.8fr 1.4fr 0.9fr;
+            grid-template-columns: 1.8fr 0.7fr 1fr 0.8fr 1fr 0.8fr 1.4fr 0.9fr;
           }
         }
         @media (max-width: 1180px) {
@@ -434,13 +459,18 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
             </div>
             <h1>Category Management</h1>
           </div>
-          <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+          <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
+            {lastSaved && (
+              <span className="text-small" style={{ color: 'var(--neutral-500)', marginRight: '8px' }}>
+                Autosaved at {lastSaved.toLocaleTimeString()}
+              </span>
+            )}
             <button className="btn btn-primary" onClick={handleSaveAll}>
               <Save style={{ width: '18px', marginRight: '6px' }} /> Save Category Schedule
             </button>
           </div>
         </header>
-
+ 
         <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
           <select 
             value={filterType} 
@@ -451,7 +481,7 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
             <option value="kata">Kata</option>
             <option value="kumite">Kumite</option>
           </select>
-
+ 
           <select 
             value={filterGender} 
             onChange={e => setFilterGender(e.target.value)}
@@ -462,7 +492,7 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
             <option value="female">Female</option>
             <option value="mixed">Mixed</option>
           </select>
-
+ 
           <select 
             value={filterMat} 
             onChange={e => setFilterMat(e.target.value)}
@@ -472,18 +502,19 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
             {MATS.map(m => <option key={m} value={m}>{m}</option>)}
           </select>
         </div>
-
+ 
         <section className="category-list">
           <div className="category-row header-row" style={{ background: 'var(--neutral-50)', border: 'none', fontWeight: 600, paddingTop: '12px', paddingBottom: '12px' }}>
             <div className="text-micro">Category Name</div>
-            <div className="text-micro">Entries</div>
+            <div className="text-micro" style={{ textAlign: 'center' }}>Entries</div>
             <div className="text-micro">Status</div>
+            <div className="text-micro">Assigned Day</div>
             <div className="text-micro">Assigned Mat</div>
-            <div className="text-micro">Judges</div>
+            <div className="text-micro" style={{ textAlign: 'center' }}>Judges</div>
             <div className="text-micro">Time Frame</div>
             <div className="text-micro" style={{ textAlign: 'right' }}>Action</div>
           </div>
-
+ 
           {filteredCategories.map((row, idx) => (
             <article 
               key={row.id} 
@@ -505,7 +536,7 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
                 </div>
                 {row.name}
               </div>
-              <div className="data-mono">{row.entries}</div>
+              <div className="data-mono" style={{ textAlign: 'center' }}>{row.entries}</div>
               <div>
                 <select 
                   className={`status-select-header ${getStatusClass(row.status)}`}
@@ -520,16 +551,28 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
               <div>
                 <select 
                   className="mat-select"
+                  value={row.day || 1}
+                  onChange={(e) => handleUpdate(row.id, 'day', e.target.value)}
+                >
+                  {Array.from({ length: tournamentDays }).map((_, i) => (
+                    <option key={i + 1} value={i + 1}>Day {i + 1}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <select 
+                  className="mat-select"
                   value={row.mat}
                   onChange={(e) => handleUpdate(row.id, 'mat', e.target.value)}
                 >
                   {MATS.map(m => <option key={m} value={m}>{m}</option>)}
                 </select>
               </div>
-              <div>
+              <div style={{ display: 'flex', justifyContent: 'center' }}>
                 {row.isKata ? (
                   <select 
                     className="mat-select"
+                    style={{ width: '80px', textAlign: 'center' }}
                     value={row.judgeCount || 3}
                     onChange={(e) => handleUpdate(row.id, 'judgeCount', e.target.value)}
                     disabled={row.status !== 'upcoming'}

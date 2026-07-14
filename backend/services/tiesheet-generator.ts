@@ -364,9 +364,13 @@ export function bucketAthletes(
 
     for (const event of uniqueEvents) {
       const matchedSpecial = specialCategories.find(sc => sc.name.toLowerCase() === event);
+      const matchedCustom = customCategories.find(cc => cc.name.toLowerCase() === event);
       
       if (matchedSpecial) {
         addToCategory(matchedSpecial.name, athlete);
+        addedToAny = true;
+      } else if (matchedCustom) {
+        addToCategory(matchedCustom.name, athlete);
         addedToAny = true;
       } else if (event.includes('kata') && !event.includes('kumite')) {
         const base = determineCategory(athlete, specialCategories, 'age');

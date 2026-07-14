@@ -254,7 +254,7 @@ export default function ScheduleKanban({
         const matPools = pools.filter(p => poolsSchedule[p.id]?.day === activeDay && poolsSchedule[p.id]?.matId === (i + 1))
           .sort((a,b) => poolsSchedule[a.id].order - poolsSchedule[b.id].order);
         const totalTime = matPools.reduce((sum, p) => sum + poolsSchedule[p.id].estTime, 0);
-        return { id: `mat-${i + 1}`, title: `Mat ${i + 1}`, pools: matPools, totalTime };
+        return { id: `mat-${i + 1}`, title: `Mat ${i + 1} (Day ${activeDay})`, pools: matPools, totalTime };
       })
     ];
   }, [pools, poolsSchedule, activeDay, matsCount]);
@@ -352,7 +352,7 @@ export default function ScheduleKanban({
         </div>
       </div>
       
-      {tournamentDays > 1 && (
+      {tournamentDays >= 1 && (
         <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
           {Array.from({ length: tournamentDays }).map((_, i) => (
             <button

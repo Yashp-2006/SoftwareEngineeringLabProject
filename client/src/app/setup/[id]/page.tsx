@@ -180,7 +180,8 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
   }, [
     compName, matsCount, poolSize, compRules, compType, 
     bronzeRule, wkfMode, wkfKataJudgeCount, categories, 
-    importResult, scoreboardLogo, activePhase, highestPhase, isDataLoaded
+    importResult, scoreboardLogo, activePhase, highestPhase, isDataLoaded,
+    tournamentDays, globalMatchTime, globalRestTime, globalMedicalTime, globalBunkaiTime, poolsSchedule
   ]);
 
   const handleWkfModeChange = async (mode: string) => {
