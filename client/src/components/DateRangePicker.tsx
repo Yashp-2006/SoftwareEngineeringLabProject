@@ -23,6 +23,58 @@ export default function DateRangePicker({ value, onChange }: DateRangePickerProp
       setEndDate(null);
       return;
     }
+    
+    // Quick helper to parse string to Date safely
+    const parseDateStr = (str: string): Date | null => {
+      const parsed = Date.parse(str);
+      return isNaN(parsed) ? null : new Date(parsed);
+    };
+
+    try {
+      if (value.includes(' - ')) {
+        const parts = value.split(' - ');
+        const start = parseDateStr(parts[0]);
+        const end = parseDateStr(parts[1]);
+        if (start) {
+          setStartDate(start);
+          setCurrentMonth(start);
+        }
+        if (end) setEndDate(end);
+      } else if (value.includes('-')) {
+        // e.g. "Jul 14-16, 2026"
+        const match = value.match(/^([a-zA-Z]+)\s+(\d+)-(\d+),\s+(\d{4})/);
+        if (match) {
+          const monthStr = match[1];
+          const startDay = parseInt(match[2]);
+          const endDay = parseInt(match[3]);
+          const yearVal = parseInt(match[4]);
+          
+          const start = parseDateStr(`${monthStr} ${startDay}, ${yearVal}`);
+          const end = parseDateStr(`${monthStr} ${endDay}, ${yearVal}`);
+          if (start) {
+            setStartDate(start);
+            setCurrentMonth(start);
+          }
+          if (end) setEndDate(end);
+        } else {
+          const single = parseDateStr(value);
+          if (single) {
+            setStartDate(single);
+            setCurrentMonth(single);
+            setEndDate(single);
+          }
+        }
+      } else {
+        const single = parseDateStr(value);
+        if (single) {
+          setStartDate(single);
+          setCurrentMonth(single);
+          setEndDate(single);
+        }
+      }
+    } catch (e) {
+      console.warn("DateRangePicker initial value parsing failed:", e);
+    }
   }, [value]);
 
   // Click outside to close
@@ -201,6 +253,110 @@ export default function DateRangePicker({ value, onChange }: DateRangePickerProp
               );
             })}
           </div>
+          <style>{`
+            .calendar-dropdown {
+              position: absolute;
+              top: calc(100% + 6px);
+              left: 0;
+              z-index: 1050;
+              width: 320px;
+              background: var(--shiro);
+              border: 1px solid var(--neutral-300);
+              border-radius: 12px;
+              box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+              padding: 16px;
+              animation: slideUpFade 180ms var(--ease-out);
+            }
+
+            @keyframes slideUpFade {
+              from { opacity: 0; transform: translateY(8px); }
+              to { opacity: 1; transform: translateY(0); }
+            }
+
+            .calendar-header {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 12px;
+            }
+
+            .calendar-month-title {
+              font-size: 14px;
+              font-weight: 700;
+              color: var(--neutral-900);
+            }
+
+            .cal-nav-btn {
+              background: none;
+              border: none;
+              cursor: pointer;
+              color: var(--neutral-600);
+              padding: 4px;
+              border-radius: 6px;
+              display: flex;
+              align-items: center;
+              transition: background-color 0.2s;
+            }
+
+            .cal-nav-btn:hover {
+              background: var(--neutral-100);
+              color: var(--neutral-900);
+            }
+
+            .calendar-weekdays {
+              display: grid;
+              grid-template-columns: repeat(7, 1fr);
+              text-align: center;
+              margin-bottom: 8px;
+            }
+
+            .weekday-cell {
+              font-size: 11px;
+              font-weight: 700;
+              color: var(--neutral-400);
+              text-transform: uppercase;
+            }
+
+            .calendar-days-grid {
+              display: grid;
+              grid-template-columns: repeat(7, 1fr);
+              row-gap: 4px;
+            }
+
+            .day-cell {
+              height: 36px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              cursor: pointer;
+              font-size: 13px;
+              font-weight: 500;
+              position: relative;
+              color: var(--neutral-800);
+            }
+
+            .day-cell:hover:not(.day-selected-start):not(.day-selected-end) {
+              background: var(--neutral-100);
+              border-radius: 50%;
+            }
+
+            .day-outside {
+              color: var(--neutral-300);
+            }
+
+            .day-selected-start,
+            .day-selected-end {
+              background: var(--ao) !important;
+              color: #fff !important;
+              border-radius: 50%;
+              font-weight: 700;
+            }
+
+            .day-in-range {
+              background: rgba(26, 77, 181, 0.08);
+              color: var(--ao);
+            }
+          `}</style>
         </div>
       )}
     </div>

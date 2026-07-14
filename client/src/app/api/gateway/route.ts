@@ -53,9 +53,8 @@ export async function POST(req: NextRequest) {
           }
         };
 
-        // Fetch all dependencies concurrently to avoid Vercel 10s serverless timeout
         const [catsSnapshot, compDocSnap, existingMatsSnap] = await Promise.all([
-          adminDb.collection('competitions').doc(data.competitionId).collection('categories').get(),
+          adminDb.collection('competitions').doc(data.competitionId).collection('categories').select('name').get(),
           adminDb.collection('competitions').doc(data.competitionId).get(),
           adminDb.collection('competitions').doc(data.competitionId).collection('mats').get()
         ]);
@@ -66,7 +65,7 @@ export async function POST(req: NextRequest) {
         });
 
         const allCats = [
-          ...data.categories.filter((c: any) => data.hideEmpty ? (c.entries || 0) > 0 : true).map((c: any) => ({...c, isSpecial: false}))
+          ...data.categories.filter((c: any) => data.hideEmpty ? (c.entries || 0) > 0 : true).map((c: any) => ({...c, isSpecial: c.isSpecial === true}))
         ];
         const numMats = data.matsCount || 1;
 
@@ -292,26 +291,44 @@ export async function POST(req: NextRequest) {
           await Promise.all(batches.map(b => b.commit()));
         }
 
-        // Cache invalidation — non-fatal, skip if Redis env vars missing
-        if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
-          try {
-            const { redis } = await import('@taikaix/backend/lib/redis');
-            await redis.del(`comp:public:${data.competitionId}`);
-            await redis.del(`comp:schedule:${data.competitionId}`);
-          } catch (redisErr) {
-            console.warn('Redis cache invalidation failed (non-fatal):', redisErr);
-          }
-        }
-
-        // Algolia Indexing
+        // Secondary tasks (cache invalidation, indexing) in parallel, raced with a 2-second timeout to prevent Vercel serverless function timeouts
         try {
-          const { indexCompetition } = await import('@taikaix/backend/lib/algolia');
-          await indexCompetition({
-            id: data.competitionId,
-            ...compUpdateData
-          });
-        } catch (algoliaErr) {
-          console.error("Failed to index competition to Algolia", algoliaErr);
+          const secondaryTasks = [];
+
+          if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+            secondaryTasks.push((async () => {
+              try {
+                const { redis } = await import('@taikaix/backend/lib/redis');
+                await Promise.all([
+                  redis.del(`comp:public:${data.competitionId}`),
+                  redis.del(`comp:schedule:${data.competitionId}`)
+                ]);
+              } catch (redisErr) {
+                console.warn('Redis cache invalidation failed (non-fatal):', redisErr);
+              }
+            })());
+          }
+
+          secondaryTasks.push((async () => {
+            try {
+              const { indexCompetition } = await import('@taikaix/backend/lib/algolia');
+              await indexCompetition({
+                id: data.competitionId,
+                ...compUpdateData
+              });
+            } catch (algoliaErr) {
+              console.error("Algolia indexing failed (non-fatal):", algoliaErr);
+            }
+          })());
+
+          if (secondaryTasks.length > 0) {
+            await Promise.race([
+              Promise.all(secondaryTasks),
+              new Promise((resolve) => setTimeout(resolve, 2000))
+            ]);
+          }
+        } catch (postDeployErr) {
+          console.error("Post-deploy non-critical steps error:", postDeployErr);
         }
 
         return NextResponse.json({ success: true, message: 'Tournament deployed successfully' });

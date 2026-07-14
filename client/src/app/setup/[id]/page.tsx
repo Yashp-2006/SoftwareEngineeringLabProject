@@ -13,6 +13,7 @@ import PageSkeleton from '@/components/layout/PageSkeleton';
 import { toast } from 'react-hot-toast';
 import ConfirmModal from '@/components/ConfirmModal';
 import ScheduleKanban from './ScheduleKanban';
+import DateRangePicker from '@/components/DateRangePicker';
 import { db } from '@lib/firebase';
 import { doc, collection, writeBatch, getDocs, deleteDoc } from 'firebase/firestore';
 
@@ -156,6 +157,44 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         console.error('API Gateway Error:', err);
       } else {
         setLastSaved(new Date());
+        
+        // Direct Firestore update for startDate and endDate on the main competition document
+        const compRef = doc(db, 'competitions', id);
+        const updateObj: any = { updatedAt: new Date().toISOString() };
+        
+        if (compDate) {
+          try {
+            if (compDate.includes(' - ')) {
+              const parts = compDate.split(' - ');
+              updateObj.startDate = new Date(parts[0]).toISOString();
+              updateObj.endDate = new Date(parts[1]).toISOString();
+            } else if (compDate.includes('-')) {
+              const match = compDate.match(/^([a-zA-Z]+)\s+(\d+)-(\d+),\s+(\d{4})/);
+              if (match) {
+                const monthStr = match[1];
+                const startDay = parseInt(match[2]);
+                const endDay = parseInt(match[3]);
+                const yearVal = parseInt(match[4]);
+                updateObj.startDate = new Date(`${monthStr} ${startDay}, ${yearVal}`).toISOString();
+                updateObj.endDate = new Date(`${monthStr} ${endDay}, ${yearVal}`).toISOString();
+              } else {
+                const singleDate = new Date(compDate).toISOString();
+                updateObj.startDate = singleDate;
+                updateObj.endDate = singleDate;
+              }
+            } else {
+              const singleDate = new Date(compDate).toISOString();
+              updateObj.startDate = singleDate;
+              updateObj.endDate = singleDate;
+            }
+          } catch (parseDateErr) {
+            console.warn("Could not parse compDate for Firestore update:", parseDateErr);
+          }
+        }
+        
+        const draftBatch = writeBatch(db);
+        draftBatch.update(compRef, updateObj);
+        await draftBatch.commit().catch(err => console.warn('Failed to update competition dates:', err));
       }
     } catch (err) {
       console.error('Error saving draft via API Gateway:', err);
@@ -498,9 +537,46 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size must be less than 5MB');
+      return;
+    }
+
     const reader = new FileReader();
     reader.onloadend = () => {
-      setScoreboardLogo(reader.result as string);
+      const img = new Image();
+      img.src = reader.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 400;
+        const MAX_HEIGHT = 400;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          setScoreboardLogo(compressedDataUrl);
+        } else {
+          setScoreboardLogo(reader.result as string);
+        }
+      };
     };
     reader.readAsDataURL(file);
   };
@@ -1169,9 +1245,19 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                   <p className="text-small mb-4">Set up days and global time estimates for scheduling pools.</p>
                   
                   <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                    <div className="form-group" style={{ flex: 2, minWidth: '300px', position: 'relative' }}>
+                      <label className="text-micro">Dates (Calendar UI)</label>
+                      <DateRangePicker
+                        value={compDate}
+                        onChange={(rangeStr, daysCount) => {
+                          setCompDate(rangeStr);
+                          setTournamentDays(daysCount || 1);
+                        }}
+                      />
+                    </div>
                     <div className="form-group" style={{ flex: 1, minWidth: '150px' }}>
-                      <label className="text-micro">Tournament Days</label>
-                      <input type="number" min="1" className="input-field" value={tournamentDays} onChange={e => setTournamentDays(parseInt(e.target.value) || 1)} />
+                      <label className="text-micro">Computed Days</label>
+                      <input type="number" readOnly className="input-field" style={{ background: '#f5f5f5', cursor: 'not-allowed' }} value={tournamentDays} />
                     </div>
                     <div className="form-group" style={{ flex: 1, minWidth: '150px' }}>
                       <label className="text-micro">Match Time (mins)</label>
