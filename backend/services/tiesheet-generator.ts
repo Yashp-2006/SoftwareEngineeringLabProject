@@ -363,8 +363,26 @@ export function bucketAthletes(
     const uniqueEvents = [...new Set(expandedEvents)];
 
     for (const event of uniqueEvents) {
-      const matchedSpecial = specialCategories.find(sc => sc.name.toLowerCase() === event);
-      const matchedCustom = customCategories.find(cc => cc.name.toLowerCase() === event);
+      const cleanStr = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const eventClean = cleanStr(event);
+
+      const matchedSpecial = specialCategories.find(sc => {
+        const scClean = cleanStr(sc.name);
+        return scClean === eventClean || 
+               eventClean.includes(scClean) || 
+               scClean.includes(eventClean) ||
+               event.toLowerCase().includes(sc.name.toLowerCase()) ||
+               sc.name.toLowerCase().includes(event.toLowerCase());
+      });
+
+      const matchedCustom = customCategories.find(cc => {
+        const ccClean = cleanStr(cc.name);
+        return ccClean === eventClean || 
+               eventClean.includes(ccClean) || 
+               ccClean.includes(eventClean) ||
+               event.toLowerCase().includes(cc.name.toLowerCase()) ||
+               cc.name.toLowerCase().includes(event.toLowerCase());
+      });
       
       if (matchedSpecial) {
         addToCategory(matchedSpecial.name, athlete);

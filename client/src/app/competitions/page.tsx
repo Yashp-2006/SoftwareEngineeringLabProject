@@ -74,14 +74,94 @@ export default function CompetitionsPage() {
       isDestructive: false,
       onConfirm: async () => {
         closeConfirm();
+        const toastId = toast.loading('Updating status...');
         try {
-          const { doc, updateDoc } = await import('firebase/firestore');
+          const { doc, updateDoc, getDoc } = await import('firebase/firestore');
           const { db } = await import('@lib/firebase');
+
+          if (newStatus === 'live') {
+            const compSnap = await getDoc(doc(db, 'competitions', compId));
+            const compData = compSnap.exists() ? compSnap.data() : {};
+            
+            if (!compData.isSetupComplete) {
+              toast.loading('Deploying tournament...', { id: toastId });
+              const draftSnap = await getDoc(doc(db, 'competitions', compId, 'drafts', 'setup'));
+              
+              const draftData = draftSnap.exists() ? draftSnap.data() : {};
+              const cleanCategoriesForPayload = (cats: any[]) => {
+                return cats.map(c => {
+                  const { athletes, matches, ...rest } = c;
+                  const numOrUndef = (val: any) => {
+                    if (val === undefined || val === null || val === '') return undefined;
+                    const num = Number(val);
+                    return isNaN(num) ? undefined : num;
+                  };
+                  return {
+                    ...rest,
+                    entries: numOrUndef(c.entries || c.athletes?.length) || 0,
+                    isKata: c.isKata === true || c.isKata === 'true',
+                    isSpecial: c.isSpecial === true || c.isSpecial === 'true',
+                    minAge: numOrUndef(rest.minAge),
+                    maxAge: numOrUndef(rest.maxAge),
+                    minWeight: numOrUndef(rest.minWeight),
+                    maxWeight: numOrUndef(rest.maxWeight),
+                    judgeCount: numOrUndef(rest.judgeCount),
+                    matchTime: numOrUndef(rest.matchTime),
+                    restTime: numOrUndef(rest.restTime),
+                    medicalTime: numOrUndef(rest.medicalTime),
+                    bunkaiTime: numOrUndef(rest.bunkaiTime),
+                  };
+                });
+              };
+
+              const payload = {
+                competitionId: compId,
+                compName: draftData.compName || compData.name || 'Untitled',
+                matsCount: Number(draftData.matsCount) || Number(compData.mats) || 1,
+                poolSize: Number(draftData.poolSize) || 8,
+                compRules: draftData.compRules || compData.rules || 'custom',
+                compType: draftData.compType || compData.type || 'international',
+                bronzeRule: draftData.bronzeRule || 'two',
+                wkfMode: draftData.wkfMode || undefined,
+                wkfKataJudgeCount: draftData.wkfKataJudgeCount ? Number(draftData.wkfKataJudgeCount) : undefined,
+                categories: cleanCategoriesForPayload(draftData.categories || []),
+                hideEmpty: Boolean(draftData.hideEmpty),
+                scoreboardLogo: draftData.scoreboardLogo || null,
+                tournamentDays: Number(draftData.tournamentDays) || 1,
+                globalMatchTime: Number(draftData.globalMatchTime) || 3,
+                globalRestTime: Number(draftData.globalRestTime) || 1,
+                globalMedicalTime: Number(draftData.globalMedicalTime) || 1,
+                globalBunkaiTime: Number(draftData.globalBunkaiTime) || 5,
+                poolsSchedule: draftData.poolsSchedule || {}
+              };
+
+              const res = await fetch('/api/gateway', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'deployTournament', payload })
+              });
+
+              if (!res.ok) {
+                let errMsg = `Deployment failed (HTTP ${res.status})`;
+                try {
+                  const errData = await res.json();
+                  errMsg = errData.error || errData.message || errMsg;
+                } catch {}
+                throw new Error(errMsg);
+              }
+
+              toast.success('Tournament deployed and went live!', { id: toastId });
+              router.refresh();
+              return;
+            }
+          }
+
           await updateDoc(doc(db, 'competitions', compId), { status: newStatus });
-          toast.success('Status updated');
-        } catch (e) {
+          toast.success('Status updated', { id: toastId });
+          router.refresh();
+        } catch (e: any) {
           console.error(e);
-          toast.error('Failed to update status');
+          toast.error('Failed to update status: ' + (e.message || e), { id: toastId });
         }
       }
     });
