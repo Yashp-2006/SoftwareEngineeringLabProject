@@ -7,6 +7,7 @@ import { Search, Plus, Edit3, Archive, Trash2, ArrowRight, X, Eye, EyeOff, Uploa
 import { useAuth } from '@/components/auth/AuthProvider';
 import { toast } from 'react-hot-toast';
 import ConfirmModal from '@/components/ConfirmModal';
+import DateRangePicker from '@/components/DateRangePicker';
 
 export default function CompetitionsPage() {
   const router = useRouter();
@@ -15,7 +16,7 @@ export default function CompetitionsPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     name: '', dates: '', venue: '', type: 'national', rules: 'wkf', mats: '6', password: '',
-    startTime: '09:00', endTime: '18:00', estMinsPerPool: '45'
+    startTime: '09:00', endTime: '18:00', estMinsPerPool: '45', tournamentDays: 1
   });
   const [presetCategories, setPresetCategories] = useState<any[] | null>(null);
   const [presetFileName, setPresetFileName] = useState<string>('');
@@ -263,6 +264,110 @@ export default function CompetitionsPage() {
           color: var(--neutral-500);
           margin-bottom: 12px;
         }
+
+        /* Calendar Dropdown Styles */
+        .calendar-dropdown {
+          position: absolute;
+          top: calc(100% + 6px);
+          left: 0;
+          z-index: 1050;
+          width: 320px;
+          background: var(--shiro);
+          border: 1px solid var(--neutral-300);
+          border-radius: 12px;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+          padding: 16px;
+          animation: slideUpFade 180ms var(--ease-out);
+        }
+
+        @keyframes slideUpFade {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        .calendar-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 12px;
+        }
+
+        .calendar-month-title {
+          font-size: 14px;
+          font-weight: 700;
+          color: var(--neutral-900);
+        }
+
+        .cal-nav-btn {
+          background: none;
+          border: none;
+          cursor: pointer;
+          color: var(--neutral-600);
+          padding: 4px;
+          border-radius: 6px;
+          display: flex;
+          align-items: center;
+          transition: background-color 0.2s;
+        }
+
+        .cal-nav-btn:hover {
+          background: var(--neutral-100);
+          color: var(--neutral-900);
+        }
+
+        .calendar-weekdays {
+          display: grid;
+          grid-template-columns: repeat(7, 1fr);
+          text-align: center;
+          margin-bottom: 8px;
+        }
+
+        .weekday-cell {
+          font-size: 11px;
+          font-weight: 700;
+          color: var(--neutral-400);
+          text-transform: uppercase;
+        }
+
+        .calendar-days-grid {
+          display: grid;
+          grid-template-columns: repeat(7, 1fr);
+          row-gap: 4px;
+        }
+
+        .day-cell {
+          height: 36px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          font-size: 13px;
+          font-weight: 500;
+          position: relative;
+          color: var(--neutral-800);
+        }
+
+        .day-cell:hover:not(.day-selected-start):not(.day-selected-end) {
+          background: var(--neutral-100);
+          border-radius: 50%;
+        }
+
+        .day-outside {
+          color: var(--neutral-300);
+        }
+
+        .day-selected-start,
+        .day-selected-end {
+          background: var(--ao) !important;
+          color: #fff !important;
+          border-radius: 50%;
+          font-weight: 700;
+        }
+
+        .day-in-range {
+          background: rgba(26, 77, 181, 0.08);
+          color: var(--ao);
+        }
       `}} />
 
       {(role === 'admin' || role === 'guest_viewer') && (
@@ -449,9 +554,12 @@ export default function CompetitionsPage() {
               <input type="text" id="new-comp-name" className="input-field" placeholder="e.g. Kyoto 2026 Finals" value={formData.name} onChange={e => setFormData(p => ({ ...p, name: e.target.value }))} />
             </div>
             <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
-              <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+              <div className="form-group" style={{ flex: 1, marginBottom: 0, position: 'relative' }}>
                 <label>Dates</label>
-                <input type="text" id="new-comp-dates" className="input-field" placeholder="e.g. May 15-18, 2026" value={formData.dates} onChange={e => setFormData(p => ({ ...p, dates: e.target.value }))} />
+                <DateRangePicker
+                  value={formData.dates}
+                  onChange={(rangeStr, daysCount) => setFormData(p => ({ ...p, dates: rangeStr, tournamentDays: daysCount }))}
+                />
               </div>
               <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
                 <label>Venue</label>
@@ -524,12 +632,12 @@ export default function CompetitionsPage() {
           <div className="modal-footer">
             <button className="btn btn-secondary" onClick={() => { setIsModalOpen(false); setPresetCategories(null); setPresetFileName(''); }}>Cancel</button>
             <button className="btn btn-primary" onClick={async () => {
-              const { name, dates, venue, type, mats, password, startTime, endTime, estMinsPerPool } = formData;
+              const { name, dates, venue, type, mats, password, startTime, endTime, estMinsPerPool, tournamentDays } = formData;
               if (!name.trim()) { toast.error('Competition name is required'); return; }
               if (!password.trim()) { toast.error('A password is required to protect this competition'); return; }
               
               try {
-                const { collection, addDoc, doc, setDoc } = await import('firebase/firestore');
+                const { collection, addDoc } = await import('firebase/firestore');
                 const { db } = await import('@lib/firebase');
                 
                 const compData = {
@@ -540,15 +648,16 @@ export default function CompetitionsPage() {
                   startTime: startTime || '09:00',
                   endTime: endTime || '18:00',
                   estMinsPerPool: parseInt(estMinsPerPool) || 45,
+                  tournamentDays: tournamentDays || 1,
                   status: 'upcoming',
                   createdAt: new Date().toISOString()
                 };
                 
                 const newDocRef = await addDoc(collection(db, 'competitions'), compData);
-
+ 
                 toast.success('Competition created successfully!');
                 setIsModalOpen(false);
-                setFormData({ name: '', dates: '', venue: '', type: 'national', rules: 'custom', mats: '6', password: '', startTime: '09:00', endTime: '18:00', estMinsPerPool: '45' });
+                setFormData({ name: '', dates: '', venue: '', type: 'national', rules: 'custom', mats: '6', password: '', startTime: '09:00', endTime: '18:00', estMinsPerPool: '45', tournamentDays: 1 });
                 router.push(`/setup/${newDocRef.id}`);
               } catch (err) {
                 console.error(err);
