@@ -514,8 +514,12 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
       const buffer = await file.arrayBuffer();
       toast.loading('Computing brackets...', { id: toastId });
       const { parseExcelIntoCategories, generateBracket } = await import('@taikaix/backend/services/tiesheet-generator');
-      const customCats = compRules !== 'wkf' ? categories : [];
-      const { categoryMap, uniqueAthletesCount } = parseExcelIntoCategories(buffer, [], wkfMode, customCats);
+      const { generateWkfCategories } = await import('@taikaix/backend/lib/wkf-categories');
+      const wkfCatNames = new Set(generateWkfCategories(wkfMode));
+      const customCats = compRules === 'wkf'
+        ? categories.filter(c => !wkfCatNames.has(c.name))
+        : categories;
+      const { categoryMap, uniqueAthletesCount } = parseExcelIntoCategories(buffer, [], wkfMode, customCats, compRules);
 
       if (categoryMap.size === 0) {
         throw new Error('No athlete data found. Check that the sheet has a header row and at least one athlete row.');
@@ -665,8 +669,12 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
 
       const { normalizeAthleteRows, bucketAthletes, generateBracket } = await import('@taikaix/backend/services/tiesheet-generator');
       const athletes = normalizeAthleteRows(rows);
-      const customCats = compRules !== 'wkf' ? categories : [];
-      const { categoryMap } = bucketAthletes(athletes, [], wkfMode, customCats);
+      const { generateWkfCategories } = await import('@taikaix/backend/lib/wkf-categories');
+      const wkfCatNames = new Set(generateWkfCategories(wkfMode));
+      const customCats = compRules === 'wkf'
+        ? categories.filter(c => !wkfCatNames.has(c.name))
+        : categories;
+      const { categoryMap } = bucketAthletes(athletes, [], wkfMode, customCats, compRules);
 
       // Load existing categories to merge athletes and correctly regenerate brackets
       const catsRef = collection(db, 'competitions', id, 'categories');

@@ -1,7 +1,7 @@
 import { parseExcelIntoCategories, generateBracket, PoolSize, normalizeAthleteRows, bucketAthletes } from '@taikaix/backend/services/tiesheet-generator';
 import { rateLimiter } from '@lib/rate-limiter';
 import { NextResponse } from 'next/server';
-import { verifySession } from '@taikaix/backend/lib/firebase-admin';
+import { verifySession, adminDb } from '@taikaix/backend/lib/firebase-admin';
 
 // Parses file + generates brackets only — NO Firestore writes.
 // Firestore writes are done client-side to avoid Vercel timeout.
@@ -34,6 +34,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       );
     }
 
+    // Load competition details to check rules
+    const compSnap = await adminDb.collection('competitions').doc(id).get();
+    const compData = compSnap.exists ? compSnap.data() : null;
+    const compRules = compData?.rules || 'custom';
+
     const contentType = req.headers.get('content-type') || '';
     let compType = 'international';
     let poolSize: PoolSize = 8;
@@ -61,13 +66,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
       wkfMode = body.wkfMode || 'standard';
 
+      const { generateWkfCategories } = await import('@taikaix/backend/lib/wkf-categories');
+      const wkfCatNames = new Set(generateWkfCategories(wkfMode));
+      const filteredCustomCategories = compRules === 'wkf'
+        ? customCategories.filter((c: any) => !wkfCatNames.has(c.name))
+        : customCategories;
+
       const rawRows = body.rows || [];
       if (rawRows.length === 0) {
         return NextResponse.json({ success: false, error: 'No athlete data provided' }, { status: 400 });
       }
 
       const athletes = normalizeAthleteRows(rawRows);
-      const bucketed = bucketAthletes(athletes, specialCategories, wkfMode, customCategories);
+      const bucketed = bucketAthletes(athletes, specialCategories, wkfMode, filteredCustomCategories, compRules);
       categoryMap = bucketed.categoryMap;
       uniqueAthletesCount = bucketed.uniqueAthletesCount;
     } else {
@@ -98,9 +109,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
       wkfMode = (formData.get('wkfMode') as string) || 'standard';
 
+      const { generateWkfCategories } = await import('@taikaix/backend/lib/wkf-categories');
+      const wkfCatNames = new Set(generateWkfCategories(wkfMode));
+      const filteredCustomCategories = compRules === 'wkf'
+        ? customCategories.filter((c: any) => !wkfCatNames.has(c.name))
+        : customCategories;
+
       const buffer = await file.arrayBuffer();
       try {
-        const parsed = parseExcelIntoCategories(buffer, specialCategories, wkfMode, customCategories);
+        const parsed = parseExcelIntoCategories(buffer, specialCategories, wkfMode, filteredCustomCategories, compRules);
         categoryMap = parsed.categoryMap;
         uniqueAthletesCount = parsed.uniqueAthletesCount;
       } catch (parseErr: any) {

@@ -317,10 +317,11 @@ export function parseExcelIntoCategories(
   buffer: ArrayBuffer,
   specialCategories: SpecialCategoryRule[] = [],
   wkfMode: string = 'standard',
-  customCategories: SpecialCategoryRule[] = []
+  customCategories: SpecialCategoryRule[] = [],
+  compRules: string = 'custom'
 ): { categoryMap: Map<string, AthleteRow[]>, uniqueAthletesCount: number } {
   const athletes = parseExcel(buffer);
-  return { ...bucketAthletes(athletes, specialCategories, wkfMode, customCategories), uniqueAthletesCount: athletes.length };
+  return { ...bucketAthletes(athletes, specialCategories, wkfMode, customCategories, compRules), uniqueAthletesCount: athletes.length };
 }
 
 /**
@@ -331,7 +332,8 @@ export function bucketAthletes(
   athletes: AthleteRow[],
   specialCategories: SpecialCategoryRule[] = [],
   wkfMode: string = 'standard',
-  customCategories: SpecialCategoryRule[] = []
+  customCategories: SpecialCategoryRule[] = [],
+  compRules: string = 'custom'
 ): { categoryMap: Map<string, AthleteRow[]>, uniqueAthletesCount: number } {
   const categoryMap = new Map<string, AthleteRow[]>();
 
@@ -377,11 +379,21 @@ export function bucketAthletes(
 
       const matchedCustom = customCategories.find(cc => {
         const ccClean = cleanStr(cc.name);
-        return ccClean === eventClean || 
+        const nameMatches = ccClean === eventClean || 
                eventClean.includes(ccClean) || 
                ccClean.includes(eventClean) ||
                event.toLowerCase().includes(cc.name.toLowerCase()) ||
                cc.name.toLowerCase().includes(event.toLowerCase());
+        if (!nameMatches) return false;
+
+        // Apply constraints
+        if (cc.gender && cc.gender !== 'Any' && athlete.gender.charAt(0).toLowerCase() !== cc.gender.charAt(0).toLowerCase()) return false;
+        if (cc.minAge !== undefined && athlete.age < cc.minAge) return false;
+        if (cc.maxAge !== undefined && athlete.age >= cc.maxAge) return false;
+        if (cc.minWeight !== undefined && athlete.weight < cc.minWeight) return false;
+        if (cc.maxWeight !== undefined && athlete.weight >= cc.maxWeight) return false;
+
+        return true;
       });
       
       if (matchedSpecial) {
@@ -408,7 +420,7 @@ export function bucketAthletes(
 
     // 3. Fallback to standard Kumite or Custom Categories
     if (!addedToAny) {
-      if (customCategories.length > 0) {
+      if (compRules !== 'wkf' && customCategories.length > 0) {
         const match = customCategories.find(c => {
           if (c.gender && c.gender !== 'Any' && athlete.gender.charAt(0).toLowerCase() !== c.gender.charAt(0).toLowerCase()) return false;
           if (c.minAge !== undefined && athlete.age < c.minAge) return false;
