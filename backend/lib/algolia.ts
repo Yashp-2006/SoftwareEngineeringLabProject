@@ -11,8 +11,20 @@ if (!appId || !searchApiKey) {
   console.warn('[Algolia] NEXT_PUBLIC_ALGOLIA_APP_ID or NEXT_PUBLIC_ALGOLIA_SEARCH_KEY is not set. Search will be unavailable.');
 }
 
-export const searchClient = algoliasearch(appId || 'placeholder', searchApiKey || 'placeholder');
-export const adminClient = algoliasearch(appId || 'placeholder', adminApiKey || 'placeholder');
+export const searchClient = algoliasearch(appId || 'placeholder', searchApiKey || 'placeholder', {
+  timeouts: {
+    connect: 1000,
+    read: 1500,
+    write: 1500
+  }
+});
+export const adminClient = algoliasearch(appId || 'placeholder', adminApiKey || 'placeholder', {
+  timeouts: {
+    connect: 1000,
+    read: 1500,
+    write: 1500
+  }
+});
 
 export const indexCompetition = async (competitionData: any) => {
   if (process.env.ALGOLIA_ADMIN_KEY) {

@@ -3,7 +3,13 @@ import { Redis } from '@upstash/redis';
 export const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL || '',
   token: process.env.UPSTASH_REDIS_REST_TOKEN || '',
-});
+  fetch: (input: any, init: any) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 1500);
+    return fetch(input, { ...init, signal: controller.signal })
+      .finally(() => clearTimeout(timeoutId));
+  }
+} as any);
 
 /**
  * Utility to fetch data from cache or fallback to a provided fetcher function.

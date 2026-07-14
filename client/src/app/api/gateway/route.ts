@@ -2,7 +2,9 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60; // Allow up to 60s for large deployments
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb, verifySession } from '@taikaix/backend/lib/firebase-admin';
-import { saveSetupDraftSchema } from '@taikaix/backend/types/schemas';
+import { saveSetupDraftSchema, deployTournamentSchema, assignStaffSchema, updateScheduleSchema } from '@taikaix/backend/types/schemas';
+import { redis } from '@taikaix/backend/lib/redis';
+import { indexCompetition } from '@taikaix/backend/lib/algolia';
 import { z } from 'zod';
 
 export async function POST(req: NextRequest) {
@@ -36,7 +38,6 @@ export async function POST(req: NextRequest) {
       }
 
       case 'deployTournament': {
-        const { deployTournamentSchema } = await import('@taikaix/backend/types/schemas');
         const data = deployTournamentSchema.parse(payload);
         
         const batches = [];
@@ -298,7 +299,6 @@ export async function POST(req: NextRequest) {
           if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
             secondaryTasks.push((async () => {
               try {
-                const { redis } = await import('@taikaix/backend/lib/redis');
                 await Promise.all([
                   redis.del(`comp:public:${data.competitionId}`),
                   redis.del(`comp:schedule:${data.competitionId}`)
@@ -311,7 +311,6 @@ export async function POST(req: NextRequest) {
 
           secondaryTasks.push((async () => {
             try {
-              const { indexCompetition } = await import('@taikaix/backend/lib/algolia');
               await indexCompetition({
                 id: data.competitionId,
                 ...compUpdateData
@@ -335,9 +334,7 @@ export async function POST(req: NextRequest) {
       }
 
       case 'assignStaff': {
-        const { assignStaffSchema } = await import('@taikaix/backend/types/schemas');
         const data = assignStaffSchema.parse(payload);
-        const { redis } = await import('@taikaix/backend/lib/redis');
 
         // 1. Acquire Redis Lock to prevent double assignments
         const lockKey = `lock:assignStaff:${data.competitionId}:${data.assignmentId}`;
@@ -369,9 +366,7 @@ export async function POST(req: NextRequest) {
       }
 
       case 'updateSchedule': {
-        const { updateScheduleSchema } = await import('@taikaix/backend/types/schemas');
         const data = updateScheduleSchema.parse(payload);
-        const { redis } = await import('@taikaix/backend/lib/redis');
 
         const batches = [];
         let currentBatch = adminDb.batch();
