@@ -240,6 +240,24 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
           else if (draftData.lastActivePhase !== undefined) setHighestPhase(draftData.lastActivePhase);
           if (draftData.lastActivePhase !== undefined) setActivePhase(draftData.lastActivePhase);
           
+          if (draftData.tournamentDays !== undefined) setTournamentDays(draftData.tournamentDays);
+          else if (snap.exists() && snap.data().tournamentDays !== undefined) setTournamentDays(snap.data().tournamentDays);
+          
+          if (draftData.globalMatchTime !== undefined) setGlobalMatchTime(draftData.globalMatchTime);
+          else if (snap.exists() && snap.data().globalMatchTime !== undefined) setGlobalMatchTime(snap.data().globalMatchTime);
+          
+          if (draftData.globalRestTime !== undefined) setGlobalRestTime(draftData.globalRestTime);
+          else if (snap.exists() && snap.data().globalRestTime !== undefined) setGlobalRestTime(snap.data().globalRestTime);
+          
+          if (draftData.globalMedicalTime !== undefined) setGlobalMedicalTime(draftData.globalMedicalTime);
+          else if (snap.exists() && snap.data().globalMedicalTime !== undefined) setGlobalMedicalTime(snap.data().globalMedicalTime);
+          
+          if (draftData.globalBunkaiTime !== undefined) setGlobalBunkaiTime(draftData.globalBunkaiTime);
+          else if (snap.exists() && snap.data().globalBunkaiTime !== undefined) setGlobalBunkaiTime(snap.data().globalBunkaiTime);
+          
+          if (draftData.poolsSchedule !== undefined) setPoolsSchedule(draftData.poolsSchedule);
+          else if (snap.exists() && snap.data().poolsSchedule !== undefined) setPoolsSchedule(snap.data().poolsSchedule);
+          
           // WKF draft with no saved categories: generate preset list
           const effectiveRules = draftData.compRules ?? (snap.exists() ? snap.data()?.rules : undefined);
           const hasCategories = Array.isArray(draftData.categories) && draftData.categories.length > 0;
@@ -262,6 +280,13 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         setCompType(data.type || 'international');
         if (data.bronzeRule) setBronzeRule(data.bronzeRule);
         if (data.mats !== undefined) setMatsCount(data.mats);
+        
+        if (data.tournamentDays !== undefined) setTournamentDays(data.tournamentDays);
+        if (data.globalMatchTime !== undefined) setGlobalMatchTime(data.globalMatchTime);
+        if (data.globalRestTime !== undefined) setGlobalRestTime(data.globalRestTime);
+        if (data.globalMedicalTime !== undefined) setGlobalMedicalTime(data.globalMedicalTime);
+        if (data.globalBunkaiTime !== undefined) setGlobalBunkaiTime(data.globalBunkaiTime);
+        if (data.poolsSchedule !== undefined) setPoolsSchedule(data.poolsSchedule);
         
         if (data.rules === 'wkf') {
           const { generateWkfCategories } = await import('@taikaix/backend/lib/wkf-categories');

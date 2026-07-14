@@ -53,7 +53,13 @@ export async function POST(req: NextRequest) {
           }
         };
 
-        const catsSnapshot = await adminDb.collection('competitions').doc(data.competitionId).collection('categories').get();
+        // Fetch all dependencies concurrently to avoid Vercel 10s serverless timeout
+        const [catsSnapshot, compDocSnap, existingMatsSnap] = await Promise.all([
+          adminDb.collection('competitions').doc(data.competitionId).collection('categories').get(),
+          adminDb.collection('competitions').doc(data.competitionId).get(),
+          adminDb.collection('competitions').doc(data.competitionId).collection('mats').get()
+        ]);
+
         const existingCatsMap: Record<string, any> = {};
         catsSnapshot.docs.forEach((d: any) => {
           existingCatsMap[d.data().name] = d.ref;
@@ -64,7 +70,6 @@ export async function POST(req: NextRequest) {
         ];
         const numMats = data.matsCount || 1;
 
-        const compDocSnap = await adminDb.collection('competitions').doc(data.competitionId).get();
         const compDocData = compDocSnap.exists ? compDocSnap.data() : {};
 
         const parseTimeMins = (t: string) => {
@@ -243,7 +248,6 @@ export async function POST(req: NextRequest) {
         });
 
         // Create mats up to numMats and clean up any extra mats from previous configurations
-        const existingMatsSnap = await adminDb.collection('competitions').doc(data.competitionId).collection('mats').get();
         const existingMatIds = new Set(existingMatsSnap.docs.map((d: any) => d.id));
 
         for (let i = 1; i <= numMats; i++) {
