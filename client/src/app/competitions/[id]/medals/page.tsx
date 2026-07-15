@@ -32,7 +32,8 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
   const { id } = React.use(params);
   const { user, role, loading: authLoading } = useAuth();
   const [verified, setVerified] = useState(false);
-  const canWrite = role === 'medal_distributor' || role === 'admin' || role === 'guest_viewer';
+  const [staffRole, setStaffRole] = useState<string | null>(null);
+  const canWrite = role === 'medal_distributor' || role === 'admin' || role === 'guest_viewer' || staffRole === 'medal_distributor';
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
@@ -42,8 +43,8 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
   useEffect(() => {
     if (authLoading) return;
     
-    // Admins and viewers bypass staff check
-    if (role === 'admin' || role === 'audience' || role === 'guest_viewer' || !user) {
+    // Admins bypass staff check
+    if (role === 'admin') {
       setVerified(true);
       return;
     }
@@ -72,6 +73,7 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
         const staffData = staffDoc.data();
         
         if (staffData.approvalStatus === 'approved') {
+          setStaffRole(staffData.role);
           setVerified(true);
         } else {
           window.location.href = `/login/pending?compId=${id}&staffId=${staffDoc.id}`;

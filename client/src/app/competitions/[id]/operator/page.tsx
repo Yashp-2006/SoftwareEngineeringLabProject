@@ -18,13 +18,14 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
   const [isFullscreen, setIsFullscreen] = useState(false);
   const { user, role, loading: authLoading } = useAuth();
   const [verified, setVerified] = useState(false);
-  const isViewer = role === 'audience' || role === 'guest_viewer' || !role;
+  const [staffRole, setStaffRole] = useState<string | null>(null);
+  const isViewer = role === 'guest_viewer' || (!staffRole && role !== 'admin');
 
   useEffect(() => {
     if (authLoading) return;
     
-    // Admins and viewers bypass staff check
-    if (role === 'admin' || role === 'audience' || role === 'guest_viewer' || !user) {
+    // Admins bypass staff check
+    if (role === 'admin') {
       setVerified(true);
       return;
     }
@@ -54,6 +55,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
         const staffData = staffDoc.data();
         
         if (staffData.approvalStatus === 'approved') {
+          setStaffRole(staffData.role);
           // If no mat is specified in URL, redirect to their first assigned mat!
           const urlParams = new URLSearchParams(window.location.search);
           if (!urlParams.get('mat') && staffData.assignedMats && staffData.assignedMats.length > 0) {

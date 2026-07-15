@@ -39,12 +39,14 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
   const [categorySearchQuery, setCategorySearchQuery] = useState('');
   const [poolFilter, setPoolFilter] = useState('');
   const [loading, setLoading] = useState(true);
+  const [staffRole, setStaffRole] = useState<string | null>(null);
+  const canWrite = role === 'admin' || role === 'attendance_volunteer' || staffRole === 'attendance_volunteer';
 
   useEffect(() => {
     if (authLoading) return;
     
-    // Admins and viewers bypass staff check
-    if (role === 'admin' || role === 'audience' || role === 'guest_viewer' || !user) {
+    // Admins bypass staff check
+    if (role === 'admin') {
       setVerified(true);
       return;
     }
@@ -73,6 +75,7 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
         const staffData = staffDoc.data();
         
         if (staffData.approvalStatus === 'approved') {
+          setStaffRole(staffData.role);
           // Auto-select their assigned category if it exists!
           if (staffData.assignedCategories && staffData.assignedCategories.length > 0) {
             // Find corresponding category ID later once loaded
@@ -187,7 +190,7 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
     field: keyof Athlete,
     value: string | boolean
   ) => {
-    if (role === 'guest_viewer') return;
+    if (!canWrite) return;
     
     // Optimistic UI
     setCategories(prev =>
