@@ -232,6 +232,29 @@ export default function LiveMatPage({ params }: { params: Promise<{ matId: strin
         @keyframes slideInLeft { from { opacity: 0; transform: translateX(-100px); } to { opacity: 1; transform: translateX(0); } }
         @keyframes slideInRight { from { opacity: 0; transform: translateX(100px); } to { opacity: 1; transform: translateX(0); } }
         @keyframes popIn { to { opacity: 1; transform: scale(1); } }
+
+        /* Responsive Scaling for TV & Mobile */
+        @media (max-width: 1024px) {
+          .score-board {
+            grid-template-columns: 1fr 140px 1fr;
+            gap: var(--space-4);
+          }
+          .score-value { font-size: 140px; }
+          .competitor-name { font-size: 40px; }
+          .timer-value { font-size: 60px; }
+        }
+        @media (max-width: 768px) {
+          .score-board {
+            grid-template-columns: 1fr;
+            grid-template-rows: auto auto auto;
+            gap: var(--space-4);
+          }
+          .score-value { font-size: 80px; }
+          .competitor-name { font-size: 28px; }
+          .timer-value { font-size: 48px; }
+          .timer-center { order: -1; margin-bottom: 20px; }
+          .competitor-side { padding: var(--space-4); }
+        }
       `}} />
 
       {/* Scoreboard-specific minimal nav strip */}

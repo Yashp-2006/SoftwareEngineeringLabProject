@@ -1,0 +1,17 @@
+{
+  "status": "commited",
+  "type": "frontend",
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:3000/",
+  "executionArgs": {
+    "projectName": "TaikaiX",
+    "projectPath": "c:\\Users\\Yash\\Desktop\\VS Code\\TaikaiX",
+    "testIds": [],
+    "additionalInstruction": "Verify complete tournament setup, draft saving, and live deployment workflows.",
+    "serverMode": "production",
+    "envs": {
+      "API_KEY": "sk-user-xK7tHQVL8TbUAW3skL8b-mQOR5Wc2SDYrB3dz2Wj0qon4HoprKEsjUV8P25vawIv1X-nBlzTUTE5d8SJAuZ_I7by6vWSCUccyTYuYcqeEje1mcvyuiXsV3qxTsae9UyeR70"
+    }
+  },
+  "serverPort": 12283
+}

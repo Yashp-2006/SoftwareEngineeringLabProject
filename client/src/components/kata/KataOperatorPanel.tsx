@@ -507,7 +507,7 @@ export default function KataOperatorPanel({
           <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--neutral-700)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
             Kata Selection
           </div>
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+          <div className="flex-col-mobile" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
             <KataSelectionRow
               side="aka"
               playerName={akaName}
@@ -534,7 +534,7 @@ export default function KataOperatorPanel({
         {/* ── PERFORMANCE STOPWATCH ── */}
         {boutStarted && !boutFinished && (
           <div
-            className="kata-panel-section"
+            className="kata-panel-section flex-col-mobile"
             style={{
               padding: '16px',
               background: 'var(--neutral-50)',
@@ -610,7 +610,7 @@ export default function KataOperatorPanel({
         {boutStarted && (
           <div className="kata-panel-section" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {/* Selected kata chips */}
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div className="flex-col-mobile" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 {selectedKata.aka && (
                   <div style={{ padding: '4px 10px', background: 'rgba(217,38,44,0.08)', border: '1px solid rgba(217,38,44,0.2)', borderRadius: '6px', fontSize: '12px', fontWeight: 700, color: 'var(--aka)' }}>

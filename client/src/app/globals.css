@@ -575,6 +575,7 @@ nav {
   /* Visibility toggles */
   .hide-on-mobile { display: none !important; }
   .show-on-mobile { display: flex !important; }
+  .flex-col-mobile { flex-direction: column !important; }
 
   /* Typography scale */
   h1 { font-size: 26px; }
@@ -635,6 +636,12 @@ nav {
 
   .mat-grid {
     grid-template-columns: 1fr;
+  }
+
+  .table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   /* Cards */

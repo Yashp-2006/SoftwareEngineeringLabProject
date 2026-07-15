@@ -46,10 +46,19 @@ service cloud.firestore {
         allow update: if isAdmin() || isMedalDistributor();
       }
 
-      // Staff assignments — Admin only
+      // Staff assignments — Admin can manage; Authenticated users can request access
       match /staff/{assignmentId} {
         allow read: if true;
-        allow write: if isAdmin();
+        allow create: if isAdmin() || (
+          request.auth != null && 
+          request.resource.data.approvalStatus == 'pending'
+        );
+        allow update: if isAdmin() || (
+          request.auth != null && 
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['approvalStatus', 'requestUserId', 'requestTimestamp']) &&
+          request.resource.data.approvalStatus == 'pending'
+        );
+        allow delete: if isAdmin();
       }
 
       // Mats — Admin only (includes password field)

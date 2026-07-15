@@ -1,0 +1,525 @@
+[
+  {
+    "id": "TC001",
+    "title": "Run a live match through the operator console",
+    "description": "An official can move bouts, start a match, pause it, and update scores and penalties during live operation.",
+    "category": "Real-time Scoreboard and Operator Console",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open the operator console for an existing competition"
+      },
+      {
+        "type": "action",
+        "description": "Move a bout to a different mat queue"
+      },
+      {
+        "type": "action",
+        "description": "Start the selected match"
+      },
+      {
+        "type": "action",
+        "description": "Pause the selected match"
+      },
+      {
+        "type": "action",
+        "description": "Update the match score"
+      },
+      {
+        "type": "action",
+        "description": "Update the match penalties"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the live match state reflects the score and penalty updates"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the bout remains assigned to the selected mat queue"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC002",
+    "title": "Configure and deploy a competition setup",
+    "description": "An organizer can complete setup, save a draft, and deploy the competition structure successfully.",
+    "category": "Tournament Setup Wizard",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open an existing competition setup page"
+      },
+      {
+        "type": "action",
+        "description": "Pick a valid date range"
+      },
+      {
+        "type": "action",
+        "description": "Create a category for the competition"
+      },
+      {
+        "type": "action",
+        "description": "Configure the judge count for the competition"
+      },
+      {
+        "type": "action",
+        "description": "Save the setup as a draft"
+      },
+      {
+        "type": "action",
+        "description": "Deploy the competition structure"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the competition structure is deployed successfully"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the saved setup remains available after deployment"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC003",
+    "title": "Start and pause a match in the operator console",
+    "description": "An official can control match timing by starting and pausing a bout from the live console.",
+    "category": "Real-time Scoreboard and Operator Console",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open the operator console for an existing competition"
+      },
+      {
+        "type": "action",
+        "description": "Start the selected match"
+      },
+      {
+        "type": "action",
+        "description": "Pause the selected match"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the match is in a paused state"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify live match controls remain available"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC004",
+    "title": "Move bouts between mat queues from the operator console",
+    "description": "An official can reorganize bouts across mats and see the queue assignment update in the console.",
+    "category": "Real-time Scoreboard and Operator Console",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open the operator console for an existing competition"
+      },
+      {
+        "type": "action",
+        "description": "Move a bout to a different mat queue"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the bout appears in the new mat queue"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the previous queue no longer contains the bout"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC005",
+    "title": "Generate a competition structure from configured setup",
+    "description": "An organizer can complete setup details and generate the competition structure needed for the event.",
+    "category": "Tournament Setup Wizard",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open an existing competition setup page"
+      },
+      {
+        "type": "action",
+        "description": "Pick a valid date range"
+      },
+      {
+        "type": "action",
+        "description": "Create a category for the competition"
+      },
+      {
+        "type": "action",
+        "description": "Configure the judge count for the competition"
+      },
+      {
+        "type": "action",
+        "description": "Generate the competition structure"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the competition structure is generated"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify generated competition data is available in the setup view"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC006",
+    "title": "Save a competition setup draft",
+    "description": "An organizer can configure the competition setup and save progress without deploying it.",
+    "category": "Tournament Setup Wizard",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open an existing competition setup page"
+      },
+      {
+        "type": "action",
+        "description": "Pick a valid date range"
+      },
+      {
+        "type": "action",
+        "description": "Create a category for the competition"
+      },
+      {
+        "type": "action",
+        "description": "Configure the judge count for the competition"
+      },
+      {
+        "type": "action",
+        "description": "Save the setup as a draft"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the draft is saved successfully"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the competition setup remains editable"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC007",
+    "title": "Manage a competition from the competitions list",
+    "description": "An authenticated user can view the competitions list and open an existing competition into its management workflow.",
+    "category": "Tournament Setup Wizard",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /competitions"
+      },
+      {
+        "type": "action",
+        "description": "Open an existing competition from the list"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the competitions list is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the selected competition opens successfully"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC008",
+    "title": "Keep setup edits after navigating between competition records",
+    "description": "An authenticated organizer can move from the competitions list into setup and continue editing an existing competition record.",
+    "category": "Tournament Setup Wizard",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /competitions"
+      },
+      {
+        "type": "action",
+        "description": "Open an existing competition from the list"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to the competition setup page"
+      },
+      {
+        "type": "action",
+        "description": "Make a setup change to the competition"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the setup page reflects the competition record"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the setup change is preserved"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC009",
+    "title": "Handle protected route access after login",
+    "description": "An authenticated user can reach protected competition pages only after signing in successfully.",
+    "category": "Real-time Scoreboard and Operator Console",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /competitions"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the competitions page is accessible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify protected competition content is displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC010",
+    "title": "Show validation when required setup fields are incomplete",
+    "description": "An organizer sees validation feedback when trying to proceed without the required setup inputs and can correct them before saving.",
+    "category": "Tournament Setup Wizard",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open an existing competition setup page"
+      },
+      {
+        "type": "action",
+        "description": "Leave a required setup field empty"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to save the setup"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a setup validation error is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the setup is not saved"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC011",
+    "title": "Validate login errors and recover access",
+    "description": "A user entering invalid credentials sees validation feedback, then can correct the form and gain authenticated access.",
+    "category": "Real-time Scoreboard and Operator Console",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with invalid values"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with invalid values"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Correct the login credentials with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Correct the password with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify login validation feedback is shown after the invalid attempt"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify authenticated access is granted after correcting the credentials"
+      }
+    ],
+    "priority": "Low"
+  }
+]

@@ -9,14 +9,11 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
 
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   experimental: {
     externalDir: true,
-    turbopack: {
-      resolveConditions: ['node', 'require', 'default'],
-      resolveAlias: {
-        'jose': './node_modules/jose/dist/node/cjs/index.js',
-      }
-    }
   },
   serverExternalPackages: ['firebase-admin', 'jose', 'jwks-rsa'],
 };

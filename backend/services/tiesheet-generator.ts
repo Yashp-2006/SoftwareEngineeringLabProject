@@ -431,8 +431,6 @@ export function bucketAthletes(
         });
         if (match) {
           addToCategory(match.name, athlete);
-        } else {
-          addToCategory('Uncategorized', athlete);
         }
       } else {
         // Automatically enroll in both Kumite and Kata if no events were explicitly specified
