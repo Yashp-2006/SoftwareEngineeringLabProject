@@ -229,6 +229,27 @@ export default function LoginPage() {
       const { db } = await import('@lib/firebase');
       const { doc, updateDoc } = await import('firebase/firestore');
       const staffDocRef = doc(db, 'competitions', selectedCompId, 'staff', selectedStaffId);
+      
+      if (staffMember.approvalStatus === 'approved') {
+        // Just update their active user mapping
+        await updateDoc(staffDocRef, {
+          requestUserId: user.uid,
+          lastActiveAt: new Date().toISOString()
+        });
+        
+        let redirectUrl = `/competitions/${selectedCompId}`;
+        if (staffMember.role === 'score' && staffMember.assignedMats && staffMember.assignedMats.length > 0) {
+          redirectUrl = `/competitions/${selectedCompId}/operator?mat=${staffMember.assignedMats[0]}`;
+        } else if (staffMember.role === 'attendance') {
+          redirectUrl = `/competitions/${selectedCompId}/athletes`;
+        } else if (staffMember.role === 'medal') {
+          redirectUrl = `/competitions/${selectedCompId}/medals`;
+        }
+        window.location.href = redirectUrl;
+        return;
+      }
+
+      // Not approved yet, set to pending
       await updateDoc(staffDocRef, {
         approvalStatus: 'pending',
         requestUserId: user.uid,
