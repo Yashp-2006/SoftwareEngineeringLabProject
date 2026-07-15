@@ -203,33 +203,44 @@ export function normalizeAthleteRows(rawData: any[]): AthleteRow[] {
             break;
           }
         }
+        const calculateExactAge = (birthDate: Date): number => {
+          const today = new Date();
+          let age = today.getFullYear() - birthDate.getFullYear();
+          const m = today.getMonth() - birthDate.getMonth();
+          if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+            age--;
+          }
+          return age;
+        };
+
         if (dobVal) {
           if (!isNaN(Number(dobVal)) && Number(dobVal) > 1900 && Number(dobVal) <= new Date().getFullYear()) {
             parsedAge = new Date().getFullYear() - Number(dobVal); // Year string
           } else if (!isNaN(Number(dobVal))) {
              const excelEpoch = new Date(1899, 11, 30);
              const actualDate = new Date(excelEpoch.getTime() + Number(dobVal) * 86400000);
-             parsedAge = new Date().getFullYear() - actualDate.getFullYear(); // Excel serial date
+             parsedAge = calculateExactAge(actualDate); // Excel serial date
           } else {
             const strVal = String(dobVal).trim();
             const parts = strVal.split(/[-/\s]+/);
             if (parts.length === 3) {
               const p1 = Number(parts[0]);
+              const p2 = Number(parts[1]);
               const p3 = Number(parts[2]);
               
-              let year = -1;
-              if (p1 > 1900) year = p1; // YYYY-MM-DD
-              else if (p3 > 1900) year = p3; // DD-MM-YYYY or MM/DD/YYYY
+              let year = -1, month = 0, day = 1;
+              if (p1 > 1900) { year = p1; month = p2 - 1; day = p3; } // YYYY-MM-DD
+              else if (p3 > 1900) { year = p3; month = p2 - 1; day = p1; } // DD-MM-YYYY (assuming DD-MM-YYYY over MM-DD-YYYY for safety, fallback to standard date parsing later if needed)
               
-              if (year > 1900 && year <= new Date().getFullYear()) {
-                parsedAge = new Date().getFullYear() - year;
+              if (year > 1900 && year <= new Date().getFullYear() && !isNaN(month) && !isNaN(day)) {
+                parsedAge = calculateExactAge(new Date(year, month, day));
               }
             }
             
             if (isNaN(parsedAge)) {
               const d = new Date(strVal);
               if (!isNaN(d.getTime())) {
-                parsedAge = new Date().getFullYear() - d.getFullYear(); // Parsable date string fallback
+                parsedAge = calculateExactAge(d); // Parsable date string fallback
               }
             }
           }
