@@ -55,8 +55,19 @@ export default function LoginPage() {
     if (!currentUser.email) return false;
     try {
       const { db } = await import('@lib/firebase');
-      const { collection, getDocs, doc, updateDoc } = await import('firebase/firestore');
+      const { collection, getDocs, doc, updateDoc, getDoc } = await import('firebase/firestore');
       
+      // 1. Check if user is a global admin or guest_viewer
+      const userDocRef = doc(db, 'users', currentUser.uid);
+      const userDocSnap = await getDoc(userDocRef);
+      if (userDocSnap.exists()) {
+        const globalRole = userDocSnap.data().role;
+        if (globalRole === 'admin' || globalRole === 'guest_viewer') {
+          window.location.href = '/competitions';
+          return true;
+        }
+      }
+
       const urlCompId = new URLSearchParams(window.location.search).get('compId');
       let targetCompId = urlCompId;
       
@@ -87,6 +98,18 @@ export default function LoginPage() {
               requestTimestamp: new Date().toISOString()
             });
             window.location.href = `/login/pending?compId=${targetCompId}&staffId=${staffId}`;
+            return true;
+          } else {
+            // They are approved, redirect to their role-specific dashboard
+            let redirectUrl = `/competitions/${targetCompId}`;
+            if (staffData.role === 'score' && staffData.assignedMats && staffData.assignedMats.length > 0) {
+              redirectUrl = `/competitions/${targetCompId}/operator?mat=${staffData.assignedMats[0]}`;
+            } else if (staffData.role === 'attendance') {
+              redirectUrl = `/competitions/${targetCompId}/athletes`;
+            } else if (staffData.role === 'medal') {
+              redirectUrl = `/competitions/${targetCompId}/medals`;
+            }
+            window.location.href = redirectUrl;
             return true;
           }
         }
