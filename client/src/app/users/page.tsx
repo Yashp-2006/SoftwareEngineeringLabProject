@@ -27,13 +27,16 @@ const ROLE_DESCRIPTIONS: Record<string, string> = {
 
 const getNormalizedRole = (role: string) => {
   if (!role) return 'guest_viewer';
-  if (role === 'Viewer' || role === 'Guest Viewer') return 'guest_viewer';
-  if (role === 'Admin') return 'admin';
-  if (role === 'Scoreboard Controller' || role === 'Mat Operator') return 'mat_operator';
-  if (role === 'Attendance Volunteer') return 'attendance_volunteer';
-  if (role === 'Medal Distributor') return 'medal_distributor';
-  if (role === 'Judge' || role === 'judge') return 'judge';
-  return role;
+  const lower = role.toLowerCase();
+  if (lower === 'admin') return 'admin';
+  if (lower.includes('score') || lower.includes('mat')) return 'mat_operator';
+  if (lower.includes('attendance')) return 'attendance_volunteer';
+  if (lower.includes('medal')) return 'medal_distributor';
+  if (lower.includes('judge')) return 'judge';
+  if (lower.includes('viewer') || lower.includes('audience')) return 'guest_viewer';
+  
+  if (ROLE_MAP[role]) return role;
+  return 'guest_viewer'; // Prevent default select mismatch selecting admin
 };
 
 const ACADEMIES = [
@@ -74,13 +77,16 @@ export default function UsersPage() {
 
       const q = query(collection(db, 'users'));
       unsub = onSnapshot(q, (snap) => {
-        const data = snap.docs.map(d => ({
-          id: d.id,
-          name: d.data().displayName || d.data().name || (d.data().email ? d.data().email.split('@')[0] : 'Unknown User'),
-          email: d.data().email || 'No email',
-          role: getNormalizedRole(d.data().role),
-          academy: d.data().academy || 'No Academy'
-        })) as User[];
+        const data = snap.docs.map(d => {
+          const isAnon = d.data().isAnonymous || (!d.data().email && !d.data().displayName);
+          return {
+            id: d.id,
+            name: isAnon ? 'Anonymous PIN Login' : (d.data().displayName || d.data().name || (d.data().email ? d.data().email.split('@')[0] : 'Unknown User')),
+            email: d.data().email || 'No email',
+            role: getNormalizedRole(d.data().role),
+            academy: d.data().academy || 'No Academy'
+          };
+        }) as User[];
         setUsers(data);
         setLoading(false);
       });

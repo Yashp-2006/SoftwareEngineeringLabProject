@@ -233,6 +233,7 @@ export default function LoginPage() {
       if (staffMember.approvalStatus === 'approved') {
         // Just update their active user mapping
         await updateDoc(staffDocRef, {
+          userId: user.uid, // Fix: MUST update userId so checkStaff approves them
           requestUserId: user.uid,
           lastActiveAt: new Date().toISOString()
         });
