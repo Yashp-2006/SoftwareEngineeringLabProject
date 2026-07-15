@@ -1,86 +1,84 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Plus, X } from 'lucide-react';
-import gsap from 'gsap';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { Trash2, UserPlus, ShieldCheck, X, Check, Key, ShieldAlert } from 'lucide-react';
+import { db } from '@lib/firebase';
+import { collection, doc, setDoc, deleteDoc, updateDoc, query, getDoc, getDocs, onSnapshot } from 'firebase/firestore';
+import { toast } from 'react-hot-toast';
+import { gsap } from 'gsap';
 
 export interface StaffAssignment {
   id: string;
-  scope: string; // e.g. "MAT 01", "Senior Male Kumite -75kg", "National / State"
-  scopeSubtitle?: string;
-  role: string;
-  coverage?: string; // used for Medal Distributors
-  operator: string; // name
-  operatorSubtitle?: string;
-  type: 'score' | 'attendance' | 'medal' | 'judge';
+  name: string;
+  role: 'score' | 'attendance' | 'medal';
+  type?: 'score' | 'attendance' | 'medal';
+  email?: string;
+  pin?: string;
+  assignedMats?: string[];
+  assignedCategories?: string[];
+  assignedPools?: string[];
+  approvalStatus?: 'pending' | 'approved' | 'declined' | null;
+  requestUserId?: string;
+  userId?: string;
+  lastActiveAt?: string;
 }
-
-const INITIAL_DATA: StaffAssignment[] = [
-  // Mat Operators
-  { id: 's1', type: 'score', scope: 'MAT 01', operator: 'Lucas Rossi', operatorSubtitle: 'Mat Operator', role: 'Mat Operator', coverage: 'Senior Male Kumite -75kg', scopeSubtitle: 'Semi-Final' },
-  { id: 's2', type: 'score', scope: 'MAT 02', operator: 'Amina Ndiaye', operatorSubtitle: 'Mat Operator', role: 'Mat Operator', coverage: 'Senior Female Kata', scopeSubtitle: 'Round of 16' },
-  { id: 's3', type: 'score', scope: 'MAT 03', operator: 'Unassigned', role: 'Mat Operator', coverage: 'U21 Male Kumite +84kg', scopeSubtitle: 'Warm-up' },
-  { id: 's4', type: 'score', scope: 'MAT 04', operator: 'Kenji Sato', operatorSubtitle: 'Mat Operator', role: 'Mat Operator', coverage: 'Junior Female Kumite +59kg', scopeSubtitle: 'Quarter-Final' },
-  { id: 's5', type: 'score', scope: 'MAT 05', operator: 'Yumi Tanaka', operatorSubtitle: 'Mat Operator', role: 'Mat Operator', coverage: 'Senior Team Kata', scopeSubtitle: 'Next Match 11:40' },
-  
-  // Attendance
-  { id: 'a1', type: 'attendance', scope: 'Senior Male Kumite -75kg', operator: 'Maria Garcia', role: 'Attendance Volunteer', coverage: '30 / 32', scopeSubtitle: '2 pending' },
-  { id: 'a2', type: 'attendance', scope: 'Senior Female Kata', operator: 'Rafael Silva', role: 'Attendance Volunteer', coverage: '24 / 24', scopeSubtitle: 'All present' },
-  { id: 'a3', type: 'attendance', scope: 'U21 Male Kumite +84kg', operator: 'Aiko Mori', role: 'Attendance Volunteer', coverage: '12 / 16', scopeSubtitle: '4 pending' },
-  { id: 'a4', type: 'attendance', scope: 'Junior Female Kumite +59kg', operator: 'Elena Costa', role: 'Attendance Volunteer', coverage: '18 / 20', scopeSubtitle: '2 pending' },
-  { id: 'a5', type: 'attendance', scope: 'Senior Team Kata', operator: 'Unassigned', role: 'Attendance Volunteer', coverage: '0 / 8', scopeSubtitle: 'Awaiting arrival' },
-
-  // Medal
-  { id: 'm1', type: 'medal', scope: 'Medal Distributor 1', operator: 'Yuki Tanaka', operatorSubtitle: 'Lead Distributor', role: 'Medal Distributor', coverage: 'All Senior Categories' },
-  { id: 'm2', type: 'medal', scope: 'Medal Distributor 2', operator: 'Rafael Silva', role: 'Medal Distributor', coverage: 'Team Kata + Open Divisions' },
-  { id: 'm3', type: 'medal', scope: 'Medal Distributor 3', operator: 'Unassigned', role: 'Medal Distributor', coverage: 'Junior Categories' },
-
-  // Judges
-  { id: 'j1', type: 'judge', scope: 'MAT 01', scopeSubtitle: 'Judge 1', operator: 'Kenji Nakamura', role: 'Judge', coverage: 'All Matches on Mat 1' },
-  { id: 'j2', type: 'judge', scope: 'MAT 01', scopeSubtitle: 'Judge 2', operator: 'Unassigned', role: 'Judge', coverage: 'All Matches on Mat 1' },
-  { id: 'j3', type: 'judge', scope: 'MAT 02', scopeSubtitle: 'Judge 1', operator: 'Unassigned', role: 'Judge', coverage: 'All Matches on Mat 2' },
-];
 
 export default function StaffAssignmentManager({ competitionId, isSetupMode = false }: { competitionId: string, isSetupMode?: boolean }) {
   const { role } = useAuth();
   const isAdmin = role === 'admin';
+  
   const [staffData, setStaffData] = useState<StaffAssignment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [assignModalOpen, setAssignModalOpen] = useState(false);
-  const [selectedAssignmentId, setSelectedAssignmentId] = useState<string | null>(null);
-  const [selectedPerson, setSelectedPerson] = useState('');
-  const [coverageInput, setCoverageInput] = useState('');
-  const [scopeSubtitleInput, setScopeSubtitleInput] = useState('');
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [categories, setCategories] = useState<{id: string, name: string}[]>([]);
-  const [isSeeding, setIsSeeding] = useState(false);
-  const [matsList, setMatsList] = useState<string[]>(['MAT 01', 'MAT 02', 'MAT 03', 'MAT 04', 'MAT 05', 'MAT 06', 'MAT 07', 'MAT 08']);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [matsList, setMatsList] = useState<string[]>([]);
+  const [globalPoolSize, setGlobalPoolSize] = useState(8);
+
+  // Form states for adding a new roster member
+  const [newName, setNewName] = useState('');
+  const [newRole, setNewRole] = useState<'score' | 'attendance' | 'medal'>('score');
+  const [newEmail, setNewEmail] = useState('');
+  const [newPin, setNewPin] = useState('');
 
   useEffect(() => {
     let unsub: () => void;
     const setup = async () => {
-      const { db } = await import('@lib/firebase');
-      const { collection, onSnapshot, query, getDoc, doc } = await import('firebase/firestore');
+      try {
+        const compSnap = await getDoc(doc(db, 'competitions', competitionId));
+        if (compSnap.exists()) {
+          const compVal = compSnap.data();
+          const matsCount = compVal.mats || 8;
+          setGlobalPoolSize(compVal.poolSize || 8);
+          const matsArray = Array.from({ length: matsCount }, (_, i) => `MAT ${(i + 1).toString().padStart(2, '0')}`);
+          setMatsList(matsArray);
+        }
 
-      const compSnap = await getDoc(doc(db, 'competitions', competitionId));
-      const matsCount = compSnap.data()?.mats || 8;
-      const matsArray = Array.from({ length: matsCount }, (_, i) => `MAT ${(i + 1).toString().padStart(2, '0')}`);
-      setMatsList(matsArray);
+        const staffQ = query(collection(db, 'competitions', competitionId, 'staff'));
+        unsub = onSnapshot(staffQ, (snap) => {
+          const staff = snap.docs.map(d => ({
+            id: d.id,
+            ...d.data()
+          })) as StaffAssignment[];
+          setStaffData(staff);
+          setLoading(false);
+        });
 
-      const staffQ = query(collection(db, 'competitions', competitionId, 'staff'));
-      unsub = onSnapshot(staffQ, (snap) => {
-        const staff = snap.docs.map(d => ({
-          id: d.id,
-          ...d.data()
-        })) as StaffAssignment[];
-        setStaffData(staff);
+        const catSnap = await getDocs(collection(db, 'competitions', competitionId, 'categories'));
+        const cats = catSnap.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            name: data.name || doc.id,
+            entries: data.entries || data.athletes?.length || 0,
+            poolSize: data.poolSize || 8
+          };
+        }).filter(cat => cat.entries > 0); // Hide empty categories
+        setCategories(cats);
+
+      } catch (e) {
+        console.error('Failed to setup Staff Manager', e);
         setLoading(false);
-      });
-
-      const { getDocs } = await import('firebase/firestore');
-      const catSnap = await getDocs(collection(db, 'competitions', competitionId, 'categories'));
-      setCategories(catSnap.docs.map(doc => ({ id: doc.id, name: doc.data().name || doc.id })));
+      }
     };
 
     setup();
@@ -99,108 +97,137 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
     }
   }, [loading, staffData.length]);
 
-  const scoreStaff = staffData.filter(s => s.type === 'score');
-  const attendanceStaff = staffData.filter(s => s.type === 'attendance');
-  const medalStaff = staffData.filter(s => s.type === 'medal');
-  const judgeStaff = staffData.filter(s => s.type === 'judge');
-
-  const openModal = (assignId: string) => {
-    setSelectedAssignmentId(assignId);
-    const assignment = staffData.find(s => s.id === assignId);
-    setSelectedPerson(assignment?.operator !== 'Unassigned' ? assignment?.operator || '' : '');
-    setCoverageInput(assignment?.coverage || '');
-    if (assignment?.type === 'medal') {
-      setSelectedCategories(assignment.coverage ? assignment.coverage.split(', ') : []);
-    } else if (assignment?.type === 'attendance') {
-      // Keep track of the selected scope for attendance in a separate state, or reuse coverageInput
-      setCoverageInput(assignment.scope || '');
-    } else if (assignment?.type === 'judge') {
-      setCoverageInput(assignment.scope || '');
-      setScopeSubtitleInput(assignment.scopeSubtitle || '');
-    }
-    setAssignModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setAssignModalOpen(false);
-    setSelectedAssignmentId(null);
-  };
-
-  const handleAssignSubmit = async (e: React.FormEvent) => {
+  const handleAddRosterMember = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedAssignmentId) return;
-
-    const newName = selectedPerson || 'Unassigned';
-    const assignment = staffData.find(s => s.id === selectedAssignmentId);
-    if (!assignment) return;
-
-    const updates: any = {
-      operator: newName,
-      operatorSubtitle: newName !== 'Unassigned' ? assignment.role : null
-    };
-
-    if (assignment.type === 'medal') {
-      updates.coverage = selectedCategories.join(', ');
-    } else if (assignment.type === 'attendance') {
-      updates.scope = coverageInput;
-    } else if (assignment.type === 'judge') {
-      updates.scope = coverageInput;
-      updates.scopeSubtitle = scopeSubtitleInput;
-    }
-
-    // Optimistic
-    setStaffData(prev => prev.map(s => s.id === selectedAssignmentId ? { ...s, ...updates } as StaffAssignment : s));
-    closeModal();
+    if (!newName.trim()) return;
 
     try {
-      const payload = {
-        competitionId,
-        assignmentId: selectedAssignmentId,
-        updates
+      const newStaffId = 'staff-' + Math.random().toString(36).substr(2, 9);
+      const newStaffRef = doc(db, 'competitions', competitionId, 'staff', newStaffId);
+      
+      const payload: StaffAssignment = {
+        id: newStaffId,
+        name: newName.trim(),
+        role: newRole,
+        type: newRole,
+        email: newEmail.trim() || undefined,
+        pin: newPin.trim() || undefined,
+        assignedMats: [],
+        assignedCategories: [],
+        assignedPools: [],
+        approvalStatus: null
       };
 
-      const res = await fetch('/api/gateway', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'assignStaff', payload })
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        // Rollback optimistic update
-        setStaffData(prev => prev.map(s => s.id === selectedAssignmentId ? assignment : s));
-        console.error('API Gateway Error:', errorData);
-        alert(errorData.error || 'Failed to assign staff. It might be already assigned or locked.');
-      }
+      await setDoc(newStaffRef, payload);
+      toast.success('Roster member added successfully!');
+      
+      setNewName('');
+      setNewEmail('');
+      setNewPin('');
     } catch (err) {
-      console.error('Failed to update assignment', err);
-      // Rollback optimistic update
-      setStaffData(prev => prev.map(s => s.id === selectedAssignmentId ? assignment : s));
-      alert('Network error while assigning staff.');
+      console.error(err);
+      toast.error('Failed to add roster member.');
     }
   };
 
-  const handleSeedStaff = async () => {
-    setIsSeeding(true);
+  const handleDeleteRosterMember = async (id: string) => {
+    if (!confirm('Are you sure you want to remove this staff member?')) return;
     try {
-      const { db } = await import('@lib/firebase');
-      const { writeBatch, doc } = await import('firebase/firestore');
-      const batch = writeBatch(db);
-      
-      INITIAL_DATA.forEach(staff => {
-        const staffRef = doc(db, 'competitions', competitionId, 'staff', staff.id);
-        batch.set(staffRef, staff);
-      });
-      
-      await batch.commit();
+      await deleteDoc(doc(db, 'competitions', competitionId, 'staff', id));
+      toast.success('Roster member removed.');
     } catch (err) {
-      console.error('Failed to seed staff', err);
-    } finally {
-      setIsSeeding(false);
+      console.error(err);
+      toast.error('Failed to remove roster member.');
     }
   };
 
-  const activeAssignment = staffData.find(s => s.id === selectedAssignmentId);
+  const handleApproveRequest = async (staffId: string, reqUserId: string) => {
+    try {
+      const staffRef = doc(db, 'competitions', competitionId, 'staff', staffId);
+      await updateDoc(staffRef, {
+        approvalStatus: 'approved',
+        userId: reqUserId
+      });
+      toast.success('Access request approved!');
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to approve request.');
+    }
+  };
+
+  const handleDeclineRequest = async (staffId: string) => {
+    try {
+      const staffRef = doc(db, 'competitions', competitionId, 'staff', staffId);
+      await updateDoc(staffRef, {
+        approvalStatus: 'declined',
+        requestUserId: null
+      });
+      toast.success('Access request declined.');
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to decline request.');
+    }
+  };
+
+  const assignTask = async (
+    taskType: 'mat' | 'category' | 'pool',
+    taskKey: string,
+    newRosterId: string
+  ) => {
+    try {
+      // 1. Remove task key from previous owner
+      for (const s of staffData) {
+        let needsUpdate = false;
+        const updates: any = {};
+        
+        if (taskType === 'mat' && s.assignedMats?.includes(taskKey)) {
+          updates.assignedMats = s.assignedMats.filter(m => m !== taskKey);
+          needsUpdate = true;
+        } else if (taskType === 'category' && s.assignedCategories?.includes(taskKey)) {
+          updates.assignedCategories = s.assignedCategories.filter(c => c !== taskKey);
+          needsUpdate = true;
+        } else if (taskType === 'pool' && s.assignedPools?.includes(taskKey)) {
+          updates.assignedPools = s.assignedPools.filter(p => p !== taskKey);
+          needsUpdate = true;
+        }
+
+        if (needsUpdate) {
+          const docRef = doc(db, 'competitions', competitionId, 'staff', s.id);
+          await updateDoc(docRef, updates);
+        }
+      }
+
+      // 2. Add task key to new owner
+      if (newRosterId) {
+        const targetStaff = staffData.find(s => s.id === newRosterId);
+        if (targetStaff) {
+          const docRef = doc(db, 'competitions', competitionId, 'staff', newRosterId);
+          if (taskType === 'mat') {
+            await updateDoc(docRef, {
+              assignedMats: [...(targetStaff.assignedMats || []), taskKey]
+            });
+          } else if (taskType === 'category') {
+            await updateDoc(docRef, {
+              assignedCategories: [...(targetStaff.assignedCategories || []), taskKey]
+            });
+          } else if (taskType === 'pool') {
+            await updateDoc(docRef, {
+              assignedPools: [...(targetStaff.assignedPools || []), taskKey]
+            });
+          }
+        }
+      }
+      toast.success('Assignment updated successfully!');
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to update assignment.');
+    }
+  };
+
+  const pendingRequests = staffData.filter(s => s.approvalStatus === 'pending' && s.requestUserId);
+  const matOperators = staffData.filter(s => s.role === 'score');
+  const attendanceVolunteers = staffData.filter(s => s.role === 'attendance');
+  const medalDistributors = staffData.filter(s => s.role === 'medal');
 
   return (
     <>
@@ -208,7 +235,7 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
         .staff-stack {
           display: flex;
           flex-direction: column;
-          gap: var(--space-5);
+          gap: var(--space-6);
         }
         .staff-card {
           background: var(--shiro);
@@ -243,489 +270,358 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
           padding: 12px;
           border-bottom: 1px solid var(--neutral-100);
           font-size: 14px;
-          vertical-align: top;
+          vertical-align: middle;
         }
         .staff-table tr:last-child td {
           border-bottom: none;
         }
-        .staff-meta {
-          font-size: 12px;
-          color: var(--neutral-500);
-        }
-        .scope-pill {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          padding: 4px 10px;
-          border-radius: 999px;
-          font-size: 11px;
-          font-weight: 700;
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
-          background: var(--neutral-100);
-          color: var(--neutral-600);
-        }
-        .staff-actions {
-          display: flex;
-          gap: var(--space-2);
-          flex-wrap: wrap;
-        }
-        .assign-modal {
-          position: fixed;
-          inset: 0;
-          display: none;
-          align-items: center;
-          justify-content: center;
-          padding: var(--space-5);
-          background: rgba(15, 23, 42, 0.45);
-          z-index: 1000;
-        }
-        .assign-modal.active {
-          display: flex;
-        }
-        .assign-card {
-          width: min(640px, 94vw);
-          background: var(--shiro);
-          border-radius: 16px;
-          border: 1px solid var(--neutral-300);
-          padding: var(--space-6);
-          box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
-        }
-        .assign-header {
-          display: flex;
-          justify-content: space-between;
-          gap: var(--space-4);
-          align-items: flex-start;
-          margin-bottom: var(--space-4);
-        }
-        .icon-only {
-          width: 36px;
-          height: 36px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .assign-grid {
+        .form-grid {
           display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: var(--space-4);
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 16px;
+          margin-bottom: 16px;
         }
-        .assign-field label {
+        .form-field label {
           display: block;
           font-size: 12px;
           font-weight: 700;
           text-transform: uppercase;
           letter-spacing: 0.08em;
           color: var(--neutral-500);
-          margin-bottom: 8px;
+          margin-bottom: 6px;
         }
-        .assign-field input,
-        .assign-field select,
-        .assign-field textarea {
+        .form-field input,
+        .form-field select {
           width: 100%;
-          height: 42px;
-          border-radius: 10px;
+          height: 40px;
+          border-radius: 8px;
           border: 1.5px solid var(--neutral-300);
           padding: 0 12px;
-          font-family: var(--font-body);
           font-size: 14px;
           outline: none;
-          background: var(--shiro);
+          background: #fff;
         }
-        .assign-field textarea {
-          min-height: 72px;
-          padding: 10px 12px;
-          resize: vertical;
+        .status-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 2px 8px;
+          border-radius: 999px;
+          font-size: 11px;
+          font-weight: 700;
+          text-transform: uppercase;
         }
-        .assign-field input:disabled {
-          background: var(--neutral-100);
-          color: var(--neutral-600);
+        .status-badge.online { background: rgba(16,185,129,0.1); color: #10b981; }
+        .status-badge.pending { background: rgba(245,158,11,0.1); color: #d97706; }
+        .status-badge.offline { background: var(--neutral-100); color: var(--neutral-500); }
+        .grid-layout {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+          gap: 20px;
         }
-        .assign-field.full {
-          grid-column: 1 / -1;
-        }
-        .assign-footer {
+        .assignment-row {
           display: flex;
-          justify-content: flex-end;
-          gap: var(--space-3);
-          margin-top: var(--space-5);
+          justify-content: space-between;
+          align-items: center;
+          padding: 12px 0;
+          border-bottom: 1px solid var(--neutral-100);
         }
-        .empty-state {
-          padding: var(--space-10);
-          text-align: center;
-          background: var(--shiro);
-          border: 1px solid var(--neutral-300);
-          border-radius: 12px;
-          box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+        .assignment-row:last-child {
+          border-bottom: none;
         }
-        @media (max-width: 900px) {
-          .staff-table thead {
-            display: none;
-          }
-          .staff-table tr {
-            display: block;
-            border-bottom: 1px solid var(--neutral-200);
-            padding-bottom: var(--space-3);
-            margin-bottom: var(--space-3);
-          }
-          .staff-table td {
-            display: flex;
-            justify-content: space-between;
-            gap: var(--space-3);
-            border-bottom: none;
-            padding: 6px 0;
-          }
-          .staff-table td::before {
-            content: attr(data-label);
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            color: var(--neutral-500);
-          }
-        }
-        @media (max-width: 640px) {
-          .assign-grid {
-            grid-template-columns: 1fr;
-          }
+        .assignment-select {
+          height: 36px;
+          border-radius: 6px;
+          border: 1.5px solid var(--neutral-300);
+          padding: 0 8px;
+          font-size: 13px;
+          background: #fff;
+          outline: none;
+          max-width: 180px;
         }
       `}} />
 
       {loading ? (
         <div style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--neutral-500)' }}>
-          Loading staff roster...
-        </div>
-      ) : staffData.length === 0 ? (
-        <div className="empty-state">
-          <h3 style={{ marginBottom: '8px' }}>No Staff Assignments Found</h3>
-          <p style={{ color: 'var(--neutral-500)', marginBottom: '24px' }}>There are no staff roles seeded for this competition yet.</p>
-          <button className="btn btn-primary" onClick={handleSeedStaff} disabled={isSeeding}>
-            <Plus size={16} style={{ marginRight: '6px' }} />
-            {isSeeding ? 'Seeding...' : 'Seed Initial Staff Data'}
-          </button>
+          Loading staff and roster configurations...
         </div>
       ) : (
         <div className="staff-stack">
-          {/* Mat Operators */}
-          {scoreStaff.length > 0 && (
-            <section className="staff-card">
-              <div className="staff-header">
+          {/* Access Requests Queue */}
+          {pendingRequests.length > 0 && (
+            <section className="staff-card" style={{ border: '1.5px solid var(--ao)', background: 'rgba(26,77,181,0.02)' }}>
+              <div className="staff-header" style={{ marginBottom: '16px' }}>
                 <div>
-                  <h3>Mat Operators</h3>
-                  <p className="text-small">Who is running each mat right now and which category they are handling.</p>
+                  <h3 style={{ color: 'var(--ao)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <ShieldAlert size={20} /> Access Requests Queue
+                  </h3>
+                  <p className="text-small">Live connection requests that require organizer approval to enter the consoles.</p>
                 </div>
               </div>
               <div className="table-responsive">
-              <table className="staff-table">
-                <thead>
-                  <tr>
-                    <th>Mat</th>
-                    <th>Operator</th>
-                    <th>Current Category</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {scoreStaff.map(s => (
-                    <tr key={s.id}>
-                      <td data-label="Mat"><strong>{s.scope}</strong></td>
-                      <td data-label="Operator" className="staff-name">
-                        {s.operator}
-                        {s.operatorSubtitle && <><br /><span className="staff-meta">{s.operatorSubtitle}</span></>}
-                      </td>
-                      <td data-label="Current Category">
-                        {!isSetupMode ? (
-                          <>
-                            {s.coverage || 'Not started'}
-                            {s.scopeSubtitle && <><br /><span className="staff-meta">{s.scopeSubtitle}</span></>}
-                          </>
-                        ) : (
-                          <span className="staff-meta" style={{ fontStyle: 'italic' }}>Live status hidden during setup</span>
-                        )}
-                      </td>
-                      <td data-label="Actions">
-                        {isAdmin && (
-                          <div className="staff-actions">
-                            <button className="btn btn-ghost" onClick={() => openModal(s.id)}>
-                              {s.operator === 'Unassigned' ? 'Assign' : 'Reassign'}
+                <table className="staff-table">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Role</th>
+                      <th>Login Detail</th>
+                      <th style={{ textAlign: 'right' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pendingRequests.map(req => (
+                      <tr key={req.id}>
+                        <td><strong>{req.name}</strong></td>
+                        <td>
+                          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--neutral-600)' }}>
+                            {req.role === 'score' ? 'Mat Operator' : req.role === 'attendance' ? 'Attendance' : 'Medals'}
+                          </span>
+                        </td>
+                        <td>{req.email ? `Email: ${req.email}` : 'Quick PIN Login'}</td>
+                        <td style={{ textAlign: 'right' }}>
+                          <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                            <button onClick={() => handleDeclineRequest(req.id)} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }}>
+                              <X size={14} style={{ marginRight: '4px' }} /> Decline
+                            </button>
+                            <button onClick={() => handleApproveRequest(req.id, req.requestUserId!)} className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '12px' }}>
+                              <Check size={14} style={{ marginRight: '4px' }} /> Approve
                             </button>
                           </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </section>
           )}
 
-          {/* Judges */}
-          {judgeStaff.length > 0 && (
-            <section className="staff-card">
-              <div className="staff-header">
-                <div>
-                  <h3>Judges</h3>
-                  <p className="text-small">Assign judges to specific mats to allow them access to the judge panel.</p>
-                </div>
+          {/* Roster Management */}
+          <section className="staff-card">
+            <div className="staff-header">
+              <div>
+                <h3>Staff Roster Manager</h3>
+                <p className="text-small">Create and maintain the central staff roster list. Define their login credential type.</p>
               </div>
-              <div className="table-responsive">
-              <table className="staff-table">
-                <thead>
-                  <tr>
-                    <th>Assigned Mat / Category</th>
-                    <th>Judge Name</th>
-                    <th>Position</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {judgeStaff.map(s => (
-                    <tr key={s.id}>
-                      <td data-label="Assigned Mat / Category"><strong>{s.scope}</strong></td>
-                      <td data-label="Judge Name" className="staff-name">
-                        {s.operator}
-                        {s.operatorSubtitle && <><br /><span className="staff-meta">{s.operatorSubtitle}</span></>}
-                      </td>
-                      <td data-label="Position">
-                        {s.scopeSubtitle}
-                      </td>
-                      <td data-label="Actions">
-                        {isAdmin && (
-                          <div className="staff-actions">
-                            <button className="btn btn-ghost" onClick={() => openModal(s.id)}>
-                              {s.operator === 'Unassigned' ? 'Assign' : 'Reassign'}
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              </div>
-            </section>
-          )}
+            </div>
 
-          {/* Attendance Volunteers */}
-          {attendanceStaff.length > 0 && (
-            <section className="staff-card">
-              <div className="staff-header">
-                <div>
-                  <h3>Attendance Volunteers by Category</h3>
-                  <p className="text-small">Volunteer coverage for athlete check-in and readiness by division.</p>
+            {isAdmin && (
+              <form onSubmit={handleAddRosterMember} style={{ background: 'var(--neutral-50)', padding: '16px', borderRadius: '8px', border: '1px solid var(--neutral-200)', marginBottom: '24px' }}>
+                <h4 style={{ fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--neutral-600)', marginBottom: '12px' }}>Add Roster Member</h4>
+                <div className="form-grid">
+                  <div className="form-field">
+                    <label>Display Name</label>
+                    <input type="text" required placeholder="e.g. John Doe" value={newName} onChange={e => setNewName(e.target.value)} />
+                  </div>
+                  <div className="form-field">
+                    <label>Role</label>
+                    <select value={newRole} onChange={e => setNewRole(e.target.value as any)}>
+                      <option value="score">Mat Operator</option>
+                      <option value="attendance">Attendance Volunteer</option>
+                      <option value="medal">Medal Distributor</option>
+                    </select>
+                  </div>
+                  <div className="form-field">
+                    <label>Email (For Google/Email Login)</label>
+                    <input type="email" placeholder="john@example.com (optional)" value={newEmail} onChange={e => setNewEmail(e.target.value)} />
+                  </div>
+                  <div className="form-field">
+                    <label>PIN (4-Digits for Quick Login)</label>
+                    <input type="text" maxLength={4} placeholder="e.g. 1234 (optional)" value={newPin} onChange={e => setNewPin(e.target.value.replace(/\D/g, ''))} />
+                  </div>
                 </div>
-              </div>
-              <div className="table-responsive">
-              <table className="staff-table">
-                <thead>
-                  <tr>
-                    <th>Assigned Category</th>
-                    <th>Volunteer</th>
-                    <th>Check-in</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {attendanceStaff.map(s => (
-                    <tr key={s.id}>
-                      <td data-label="Assigned Category">{s.scope}</td>
-                      <td data-label="Volunteer" className="staff-name">
-                        {s.operator}
-                        {s.operatorSubtitle && <><br /><span className="staff-meta">{s.operatorSubtitle}</span></>}
-                      </td>
-                      <td data-label="Check-in">
-                        {!isSetupMode ? (
-                          <>
-                            <strong>{s.coverage || '0 / 0'}</strong>
-                            {s.scopeSubtitle && <><br /><span className="staff-meta">{s.scopeSubtitle}</span></>}
-                          </>
-                        ) : (
-                          <span className="staff-meta" style={{ fontStyle: 'italic' }}>Live status hidden during setup</span>
-                        )}
-                      </td>
-                      <td data-label="Actions">
-                        {isAdmin && (
-                          <div className="staff-actions">
-                            <button className="btn btn-ghost" onClick={() => openModal(s.id)}>
-                              {s.operator === 'Unassigned' ? 'Assign' : 'Reassign'}
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              </div>
-            </section>
-          )}
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button type="submit" className="btn btn-primary" style={{ height: '40px' }}>
+                    <UserPlus size={16} style={{ marginRight: '6px' }} /> Add to Roster
+                  </button>
+                </div>
+              </form>
+            )}
 
-          {/* Medal Distributors */}
-          {medalStaff.length > 0 && (
-            <section className="staff-card">
-              <div className="staff-header">
-                <div>
-                  <h3>Medal Distributors</h3>
-                  <p className="text-small">Who is assigned to distribute medals and the categories they cover.</p>
-                </div>
-              </div>
-              <div className="table-responsive">
+            <div className="table-responsive">
               <table className="staff-table">
                 <thead>
                   <tr>
-                    <th>Distributor</th>
-                    <th>Coverage (Categories)</th>
-                    <th>Actions</th>
+                    <th>Name</th>
+                    <th>Role</th>
+                    <th>Credentials</th>
+                    <th>Status</th>
+                    <th>Current Assignments</th>
+                    {isAdmin && <th style={{ textAlign: 'right' }}>Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
-                  {medalStaff.map(s => (
-                    <tr key={s.id}>
-                      <td data-label="Distributor" className="staff-name">
-                        {s.operator}
-                        {s.operatorSubtitle && <><br /><span className="staff-meta">{s.operatorSubtitle}</span></>}
-                      </td>
-                      <td data-label="Coverage">{s.coverage}</td>
-                      <td data-label="Actions">
-                        {isAdmin && (
-                          <div className="staff-actions">
-                            <button className="btn btn-ghost" onClick={() => openModal(s.id)}>
-                              {s.operator === 'Unassigned' ? 'Assign' : 'Reassign'}
-                            </button>
-                          </div>
-                        )}
+                  {staffData.length === 0 ? (
+                    <tr>
+                      <td colSpan={isAdmin ? 6 : 5} style={{ textAlign: 'center', color: 'var(--neutral-500)', padding: '24px' }}>
+                        No staff registered. Add staff members above.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    staffData.map(member => (
+                      <tr key={member.id} className="staff-card-row">
+                        <td><strong>{member.name}</strong></td>
+                        <td>
+                          <span style={{ fontSize: '12px', fontWeight: 600 }}>
+                            {member.role === 'score' ? 'Mat Operator' : member.role === 'attendance' ? 'Attendance' : 'Medals'}
+                          </span>
+                        </td>
+                        <td>
+                          {member.email && <div style={{ fontSize: '13px', color: 'var(--neutral-600)' }}>Email: {member.email}</div>}
+                          {member.pin && <div style={{ fontSize: '13px', color: 'var(--neutral-600)', display: 'flex', alignItems: 'center', gap: '4px' }}><Key size={12} /> PIN: {member.pin}</div>}
+                          {!member.email && !member.pin && <span style={{ fontSize: '12px', fontStyle: 'italic', color: 'var(--neutral-400)' }}>None configured</span>}
+                        </td>
+                        <td>
+                          {member.approvalStatus === 'approved' ? (
+                            <span className="status-badge online">Approved</span>
+                          ) : member.approvalStatus === 'pending' ? (
+                            <span className="status-badge pending">Pending</span>
+                          ) : (
+                            <span className="status-badge offline">Offline</span>
+                          )}
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                            {member.role === 'score' && (member.assignedMats || []).map(mat => (
+                              <span key={mat} style={{ fontSize: '11px', fontWeight: 700, padding: '2px 6px', background: 'var(--neutral-100)', borderRadius: '4px' }}>{mat}</span>
+                            ))}
+                            {member.role === 'attendance' && (member.assignedCategories || []).map(cat => (
+                              <span key={cat} style={{ fontSize: '11px', fontWeight: 700, padding: '2px 6px', background: 'var(--neutral-100)', borderRadius: '4px' }}>{cat}</span>
+                            ))}
+                            {member.role === 'medal' && (member.assignedPools || []).map(pool => (
+                              <span key={pool} style={{ fontSize: '11px', fontWeight: 700, padding: '2px 6px', background: 'var(--neutral-100)', borderRadius: '4px' }}>{pool}</span>
+                            ))}
+                            {((member.role === 'score' && (!member.assignedMats || member.assignedMats.length === 0)) ||
+                              (member.role === 'attendance' && (!member.assignedCategories || member.assignedCategories.length === 0)) ||
+                              (member.role === 'medal' && (!member.assignedPools || member.assignedPools.length === 0))) && (
+                              <span style={{ fontSize: '12px', fontStyle: 'italic', color: 'var(--neutral-400)' }}>Unassigned</span>
+                            )}
+                          </div>
+                        </td>
+                        {isAdmin && (
+                          <td style={{ textAlign: 'right' }}>
+                            <button onClick={() => handleDeleteRosterMember(member.id)} className="btn btn-ghost" style={{ padding: '6px', color: 'var(--aka)' }}>
+                              <Trash2 size={16} />
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
+            </div>
+          </section>
+
+          {/* Interactive Assignments */}
+          <div className="grid-layout">
+            
+            {/* Mat Operators assignments */}
+            <section className="staff-card">
+              <h3 style={{ marginBottom: '4px' }}>Mat Operators Mapping</h3>
+              <p className="text-small" style={{ marginBottom: '16px' }}>Assign roster operators to control the scoring consoles for active mats.</p>
+              <div>
+                {matsList.map(mat => {
+                  const assignedOp = matOperators.find(o => o.assignedMats?.includes(mat));
+                  return (
+                    <div key={mat} className="assignment-row">
+                      <span><strong>{mat}</strong></span>
+                      <select
+                        className="assignment-select"
+                        value={assignedOp?.id || ''}
+                        disabled={!isAdmin}
+                        onChange={e => assignTask('mat', mat, e.target.value)}
+                      >
+                        <option value="">Unassigned</option>
+                        {matOperators.map(op => (
+                          <option key={op.id} value={op.id}>{op.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  );
+                })}
               </div>
             </section>
-          )}
+
+            {/* Attendance Volunteers Mapping */}
+            <section className="staff-card">
+              <h3 style={{ marginBottom: '4px' }}>Attendance Volunteers Mapping</h3>
+              <p className="text-small" style={{ marginBottom: '16px' }}>Assign staff to manage check-in for specific active categories.</p>
+              <div style={{ maxHeight: '380px', overflowY: 'auto', paddingRight: '4px' }}>
+                {categories.length === 0 ? (
+                  <p style={{ fontSize: '13px', color: 'var(--neutral-500)', fontStyle: 'italic' }}>No active categories loaded.</p>
+                ) : (
+                  categories.map(cat => {
+                    const assignedVol = attendanceVolunteers.find(v => v.assignedCategories?.includes(cat.name));
+                    return (
+                      <div key={cat.id} className="assignment-row">
+                        <span style={{ fontSize: '13px', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={cat.name}>
+                          <strong>{cat.name}</strong> <span style={{ fontSize: '11px', color: 'var(--neutral-400)' }}>({cat.entries} entries)</span>
+                        </span>
+                        <select
+                          className="assignment-select"
+                          value={assignedVol?.id || ''}
+                          disabled={!isAdmin}
+                          onChange={e => assignTask('category', cat.name, e.target.value)}
+                        >
+                          <option value="">Unassigned</option>
+                          {attendanceVolunteers.map(vol => (
+                            <option key={vol.id} value={vol.id}>{vol.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </section>
+
+            {/* Medal Distributors Mapping */}
+            <section className="staff-card">
+              <h3 style={{ marginBottom: '4px' }}>Medal Distributors Mapping</h3>
+              <p className="text-small" style={{ marginBottom: '16px' }}>Map distributors to specific pool medals (e.g. Pool 1, Finals).</p>
+              <div style={{ maxHeight: '380px', overflowY: 'auto', paddingRight: '4px' }}>
+                {categories.length === 0 ? (
+                  <p style={{ fontSize: '13px', color: 'var(--neutral-500)', fontStyle: 'italic' }}>No active categories loaded.</p>
+                ) : (
+                  categories.map(cat => {
+                    const poolCount = Math.ceil(cat.entries / (cat.poolSize || globalPoolSize || 8));
+                    const pools = Array.from({ length: poolCount }, (_, index) => `${cat.name} - Pool ${index + 1}`);
+                    
+                    return (
+                      <div key={cat.id} style={{ borderBottom: '1px solid var(--neutral-200)', paddingBottom: '8px', marginBottom: '8px' }}>
+                        <div style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--neutral-500)', marginBottom: '4px' }}>{cat.name}</div>
+                        {pools.map(poolName => {
+                          const assignedDist = medalDistributors.find(d => d.assignedPools?.includes(poolName));
+                          const displayName = poolName.replace(`${cat.name} - `, '');
+                          
+                          return (
+                            <div key={poolName} className="assignment-row" style={{ paddingLeft: '8px', borderBottom: 'none' }}>
+                              <span style={{ fontSize: '13px' }}>{displayName}</span>
+                              <select
+                                className="assignment-select"
+                                value={assignedDist?.id || ''}
+                                disabled={!isAdmin}
+                                onChange={e => assignTask('pool', poolName, e.target.value)}
+                              >
+                                <option value="">Unassigned</option>
+                                {medalDistributors.map(dist => (
+                                  <option key={dist.id} value={dist.id}>{dist.name}</option>
+                                ))}
+                              </select>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </section>
+
+          </div>
         </div>
       )}
-
-      {/* Assign Modal */}
-      <div className={`assign-modal ${assignModalOpen ? 'active' : ''}`} aria-hidden={!assignModalOpen} onClick={(e) => {
-        if (e.target === e.currentTarget) closeModal();
-      }}>
-        <div className="assign-card">
-          <div className="assign-header">
-            <div>
-              <div className="text-micro">Live roster update</div>
-              <h3>Reassign {activeAssignment?.role}</h3>
-              <p className="text-small">Currently: {activeAssignment?.operator}</p>
-            </div>
-            <button className="btn btn-ghost icon-only" type="button" onClick={closeModal}>
-              <X size={20} />
-            </button>
-          </div>
-          <form onSubmit={handleAssignSubmit}>
-            <div className="assign-grid">
-              {activeAssignment?.type === 'medal' ? (
-                <div className="assign-field full">
-                  <label>Coverage (Select Categories)</label>
-                  <div style={{ maxHeight: '150px', overflowY: 'auto', border: '1.5px solid var(--neutral-300)', borderRadius: '10px', padding: '12px', background: 'var(--shiro)' }}>
-                    {categories.length === 0 ? (
-                      <p style={{ fontSize: '13px', color: 'var(--neutral-500)', margin: 0 }}>No categories found in this competition.</p>
-                    ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        {categories.map(cat => (
-                          <label key={cat.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0, textTransform: 'none', letterSpacing: 'normal', color: 'var(--neutral-700)' }}>
-                            <input 
-                              type="checkbox" 
-                              style={{ width: '16px', height: '16px' }}
-                              checked={selectedCategories.includes(cat.name)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedCategories(prev => [...prev, cat.name]);
-                                } else {
-                                  setSelectedCategories(prev => prev.filter(c => c !== cat.name));
-                                }
-                              }}
-                            />
-                            <span style={{ fontSize: '14px', fontWeight: 500 }}>{cat.name}</span>
-                          </label>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : activeAssignment?.type === 'attendance' ? (
-                <div className="assign-field full">
-                  <label>Assigned Category</label>
-                  <select value={coverageInput} onChange={e => setCoverageInput(e.target.value)}>
-                    <option value="">Select Category</option>
-                    {categories.map(cat => (
-                      <option key={cat.id} value={cat.name}>{cat.name}</option>
-                    ))}
-                  </select>
-                </div>
-              ) : activeAssignment?.type === 'judge' ? (
-                <>
-                  <div className="assign-field">
-                    <label>Assigned Mat / Category</label>
-                    <select value={coverageInput} onChange={e => setCoverageInput(e.target.value)}>
-                      <option value="">Select Mat or Category</option>
-                      <optgroup label="Mats">
-                        {matsList.map(mat => (
-                          <option key={mat} value={mat}>{mat}</option>
-                        ))}
-                      </optgroup>
-                      <optgroup label="Categories">
-                        {categories.map(cat => (
-                          <option key={cat.id} value={cat.name}>{cat.name}</option>
-                        ))}
-                      </optgroup>
-                    </select>
-                  </div>
-                  <div className="assign-field">
-                    <label>Position / Judge Number</label>
-                    <select value={scopeSubtitleInput} onChange={e => setScopeSubtitleInput(e.target.value)}>
-                      <option value="">Select Position</option>
-                      <option value="Judge 1">Judge 1</option>
-                      <option value="Judge 2">Judge 2</option>
-                      <option value="Judge 3">Judge 3</option>
-                      <option value="Judge 4">Judge 4</option>
-                      <option value="Judge 5">Judge 5</option>
-                      <option value="Match Supervisor">Match Supervisor</option>
-                      <option value="Tatami Manager">Tatami Manager</option>
-                    </select>
-                  </div>
-                </>
-              ) : (
-                <div className="assign-field full">
-                  <label>Assignment scope</label>
-                  <input type="text" value={`${activeAssignment?.scope || ''} ${activeAssignment?.scopeSubtitle ? '(' + activeAssignment.scopeSubtitle + ')' : ''}`} readOnly disabled />
-                </div>
-              )}
-              <div className="assign-field">
-                <label>Role</label>
-                <input type="text" value={activeAssignment?.role || ''} readOnly disabled />
-              </div>
-              <div className="assign-field">
-                <label>Assign to (Type 'Unassigned' to clear)</label>
-                <input 
-                  type="text" 
-                  required 
-                  value={selectedPerson} 
-                  onChange={e => setSelectedPerson(e.target.value)} 
-                  placeholder="Enter staff member's name..."
-                  list="staff-suggestions"
-                />
-                <datalist id="staff-suggestions">
-                  <option value="Unassigned" />
-                </datalist>
-              </div>
-            </div>
-            <div className="assign-footer">
-              <button className="btn btn-secondary" type="button" onClick={closeModal}>Cancel</button>
-              <button className="btn btn-primary" type="submit">Update Assignment</button>
-            </div>
-          </form>
-        </div>
-      </div>
     </>
   );
 }

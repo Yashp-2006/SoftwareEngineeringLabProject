@@ -16,8 +16,63 @@ import { KATA_LIST } from '@/lib/kata-list';
 export default function OperatorPortal({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const { role } = useAuth();
+  const { user, role, loading: authLoading } = useAuth();
+  const [verified, setVerified] = useState(false);
   const isViewer = role === 'audience' || role === 'guest_viewer' || !role;
+
+  useEffect(() => {
+    if (authLoading) return;
+    
+    // Admins and viewers bypass staff check
+    if (role === 'admin' || role === 'audience' || role === 'guest_viewer' || !user) {
+      setVerified(true);
+      return;
+    }
+    
+    const checkStaff = async () => {
+      try {
+        const { db } = await import('@lib/firebase');
+        const { collection, query, where, getDocs } = await import('firebase/firestore');
+        
+        // 1. Check if matched by UID
+        let q = query(collection(db, 'competitions', id, 'staff'), where('userId', '==', user.uid));
+        let snap = await getDocs(q);
+        
+        if (snap.empty && user.email) {
+          // 2. Check if matched by email
+          q = query(collection(db, 'competitions', id, 'staff'), where('email', '==', user.email));
+          snap = await getDocs(q);
+        }
+
+        if (snap.empty) {
+          // Not registered in roster
+          window.location.href = `/login?compId=${id}`;
+          return;
+        }
+        
+        const staffDoc = snap.docs[0];
+        const staffData = staffDoc.data();
+        
+        if (staffData.approvalStatus === 'approved') {
+          // If no mat is specified in URL, redirect to their first assigned mat!
+          const urlParams = new URLSearchParams(window.location.search);
+          if (!urlParams.get('mat') && staffData.assignedMats && staffData.assignedMats.length > 0) {
+            window.location.href = `/competitions/${id}/operator?mat=${staffData.assignedMats[0]}`;
+            return;
+          }
+          setVerified(true);
+        } else {
+          // Go to pending approval
+          window.location.href = `/login/pending?compId=${id}&staffId=${staffDoc.id}`;
+        }
+      } catch (err) {
+        console.error('Error verifying staff assignment:', err);
+        setVerified(true); // Fallback to not lock operator out in case of errors
+      }
+    };
+    
+    checkStaff();
+  }, [user, role, authLoading, id]);
 
   useEffect(() => {
     const handleFS = () => {
@@ -29,6 +84,14 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
     document.addEventListener('fullscreenchange', handleFS);
     return () => document.removeEventListener('fullscreenchange', handleFS);
   }, []);
+
+  if (!verified && !isViewer && role !== 'admin') {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--neutral-50)' }}>
+        <p style={{ color: 'var(--neutral-500)', fontSize: '14px', fontWeight: 600 }}>Verifying credentials and assignments...</p>
+      </div>
+    );
+  }
   
   // State
   const [aka, setAka] = useState({ name: 'AKA', country: '', academy: '', score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: '' });

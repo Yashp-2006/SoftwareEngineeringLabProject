@@ -30,12 +30,63 @@ interface Category {
 
 export default function AthletesPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
-  const { role } = useAuth();
+  const { user, role, loading: authLoading } = useAuth();
+  const [verified, setVerified] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [poolFilter, setPoolFilter] = useState('');
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (authLoading) return;
+    
+    // Admins and viewers bypass staff check
+    if (role === 'admin' || role === 'audience' || role === 'guest_viewer' || !user) {
+      setVerified(true);
+      return;
+    }
+    
+    const checkStaff = async () => {
+      try {
+        const { db } = await import('@lib/firebase');
+        const { collection, query, where, getDocs } = await import('firebase/firestore');
+        
+        // 1. Check if matched by UID
+        let q = query(collection(db, 'competitions', id, 'staff'), where('userId', '==', user.uid));
+        let snap = await getDocs(q);
+        
+        if (snap.empty && user.email) {
+          // 2. Check if matched by email
+          q = query(collection(db, 'competitions', id, 'staff'), where('email', '==', user.email));
+          snap = await getDocs(q);
+        }
+
+        if (snap.empty) {
+          window.location.href = `/login?compId=${id}`;
+          return;
+        }
+        
+        const staffDoc = snap.docs[0];
+        const staffData = staffDoc.data();
+        
+        if (staffData.approvalStatus === 'approved') {
+          // Auto-select their assigned category if it exists!
+          if (staffData.assignedCategories && staffData.assignedCategories.length > 0) {
+            // Find corresponding category ID later once loaded
+          }
+          setVerified(true);
+        } else {
+          window.location.href = `/login/pending?compId=${id}&staffId=${staffDoc.id}`;
+        }
+      } catch (err) {
+        console.error('Error verifying staff assignment:', err);
+        setVerified(true);
+      }
+    };
+    
+    checkStaff();
+  }, [user, role, authLoading, id]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [addingAthlete, setAddingAthlete] = useState(false);
   const addingAthleteRef = useRef(false);
@@ -240,6 +291,14 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
       setAddingAthlete(false);
     }
   };
+
+  if (!verified && role !== 'admin') {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--neutral-50)' }}>
+        <p style={{ color: 'var(--neutral-500)', fontSize: '14px', fontWeight: 600 }}>Verifying credentials and assignments...</p>
+      </div>
+    );
+  }
 
   return (
     <>
