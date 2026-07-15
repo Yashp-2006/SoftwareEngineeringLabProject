@@ -455,6 +455,10 @@ export default function ScheduleKanban({
           
           <div style={{ flex: 1 }}></div>
 
+          <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--neutral-600)', padding: '0 12px' }}>
+            Total Pools: {pools.length}
+          </div>
+
           <div style={{ position: 'relative', width: '250px' }}>
             <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--neutral-500)' }} />
             <input 
