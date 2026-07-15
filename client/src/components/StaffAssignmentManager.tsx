@@ -40,6 +40,10 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
   const [newEmail, setNewEmail] = useState('');
   const [newPin, setNewPin] = useState('');
 
+  // Confirmation modal states
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [memberToDelete, setMemberToDelete] = useState<string | null>(null);
+
   useEffect(() => {
     let unsub: () => void;
     const setup = async () => {
@@ -169,14 +173,22 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
     }
   };
 
-  const handleDeleteRosterMember = async (id: string) => {
-    if (!confirm('Are you sure you want to remove this staff member?')) return;
+  const handleDeleteRosterMember = (id: string) => {
+    setMemberToDelete(id);
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDeleteRosterMember = async () => {
+    if (!memberToDelete) return;
     try {
-      await deleteDoc(doc(db, 'competitions', competitionId, 'staff', id));
+      await deleteDoc(doc(db, 'competitions', competitionId, 'staff', memberToDelete));
       toast.success('Roster member removed.');
     } catch (err) {
       console.error(err);
       toast.error('Failed to remove roster member.');
+    } finally {
+      setDeleteConfirmOpen(false);
+      setMemberToDelete(null);
     }
   };
 
@@ -377,6 +389,66 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
           background: #fff;
           outline: none;
           max-width: 180px;
+        }
+        .confirm-modal-overlay {
+          position: fixed;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(15, 23, 42, 0.45);
+          backdrop-filter: blur(8px);
+          z-index: 2000;
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity 200ms cubic-bezier(0.23, 1, 0.32, 1);
+        }
+        .confirm-modal-overlay.active {
+          opacity: 1;
+          pointer-events: auto;
+        }
+        .confirm-modal-card {
+          width: min(400px, 92vw);
+          background: var(--shiro);
+          border-radius: 16px;
+          border: 1px solid var(--neutral-300);
+          padding: 24px;
+          box-shadow: 0 20px 50px rgba(15, 23, 42, 0.2);
+          transform: scale(0.95);
+          opacity: 0;
+          transition: transform 250ms cubic-bezier(0.23, 1, 0.32, 1), opacity 250ms cubic-bezier(0.23, 1, 0.32, 1);
+        }
+        .confirm-modal-overlay.active .confirm-modal-card {
+          transform: scale(1);
+          opacity: 1;
+        }
+        .confirm-btn-danger {
+          background: var(--aka);
+          color: #fff;
+          border: none;
+          padding: 10px 18px;
+          border-radius: 8px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+          outline: none;
+        }
+        .confirm-btn-danger:active {
+          transform: scale(0.97);
+        }
+        .confirm-btn-cancel {
+          background: #fff;
+          color: var(--neutral-700);
+          border: 1.5px solid var(--neutral-300);
+          padding: 10px 18px;
+          border-radius: 8px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+          outline: none;
+        }
+        .confirm-btn-cancel:active {
+          transform: scale(0.97);
         }
       `}} />
 
@@ -669,6 +741,29 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
           </div>
         </div>
       )}
+
+      {/* Custom Confirm Modal */}
+      <div className={`confirm-modal-overlay ${deleteConfirmOpen ? 'active' : ''}`} onClick={(e) => {
+        if (e.target === e.currentTarget) setDeleteConfirmOpen(false);
+      }}>
+        <div className="confirm-modal-card">
+          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px', borderRadius: '50%', background: 'rgba(217,38,44,0.1)', color: 'var(--aka)', marginBottom: '16px' }}>
+            <ShieldAlert size={24} />
+          </div>
+          <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--neutral-900)', marginBottom: '8px' }}>Remove Staff Member</h3>
+          <p style={{ fontSize: '14px', color: 'var(--neutral-500)', lineHeight: '1.5', marginBottom: '24px', textAlign: 'center' }}>
+            Are you sure you want to remove this staff member? This action will clear their current assignments and credentials.
+          </p>
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+            <button onClick={() => setDeleteConfirmOpen(false)} className="confirm-btn-cancel" type="button">
+              Cancel
+            </button>
+            <button onClick={confirmDeleteRosterMember} className="confirm-btn-danger" type="button">
+              Remove
+            </button>
+          </div>
+        </div>
+      </div>
     </>
   );
 }
