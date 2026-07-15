@@ -78,10 +78,10 @@ export default function CompetitionLayout({
   const isAdminOrGuest = role === 'admin' || role === 'guest_viewer';
   const showCategories = isAdminOrGuest;
   const showStaff = isAdminOrGuest;
-  const showAthletes = isAdminOrGuest || role === 'attendance_volunteer' || staffRole === 'attendance_volunteer';
+  const showAthletes = isAdminOrGuest || role === 'attendance_volunteer' || staffRole === 'attendance';
   const showRecords = isAdminOrGuest;
-  const showMedals = isAdminOrGuest || role === 'medal_distributor' || staffRole === 'medal_distributor';
-  const showOperator = isAdminOrGuest || role === 'mat_operator' || staffRole === 'mat_operator';
+  const showMedals = isAdminOrGuest || role === 'medal_distributor' || staffRole === 'medal';
+  const showOperator = isAdminOrGuest || role === 'mat_operator' || staffRole === 'score';
   // Judge tab only visible for signed-in users with judge or admin/guest_viewer role (removed per request)
   const showJudge = false;
 
