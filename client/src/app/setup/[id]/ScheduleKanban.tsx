@@ -24,7 +24,8 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { db } from '@lib/firebase';
 import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
-import { GripVertical } from 'lucide-react';
+import { Search, Calendar, GripVertical } from 'lucide-react';
+import { sortCategories } from '@/lib/categoryUtils';
 
 interface ScheduleKanbanProps {
   compId: string;
@@ -111,6 +112,7 @@ export default function ScheduleKanban({
   const [loading, setLoading] = useState(true);
   const [activeDay, setActiveDay] = useState<number>(1);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -125,9 +127,7 @@ export default function ScheduleKanban({
         const poolSizeVal = poolSize || compDocData?.poolSize || 8;
 
         const snap = await getDocs(collection(db, 'competitions', compId, 'categories'));
-        const cats = snap.docs
-          .map(d => ({ id: d.id, ...d.data() } as any))
-          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || a.name.localeCompare(b.name));
+        const cats = sortCategories(snap.docs.map(d => ({ id: d.id, ...d.data() } as any)));
         
         const generatedPools: any[] = [];
         cats.forEach(cat => {
@@ -249,18 +249,19 @@ export default function ScheduleKanban({
   }, [compId, importResult, globalMatchTime, globalRestTime, globalMedicalTime, globalBunkaiTime, setPoolsSchedule, matsCount, tournamentDays, poolSize]);
 
   const columns = useMemo(() => {
-    const unassigned = pools.filter(p => !poolsSchedule[p.id] || poolsSchedule[p.id].matId === -1).sort((a,b) => (poolsSchedule[a.id]?.order || 0) - (poolsSchedule[b.id]?.order || 0));
+    const filteredPools = pools.filter(p => p.categoryName.toLowerCase().includes(searchQuery.toLowerCase()));
+    const unassigned = filteredPools.filter(p => !poolsSchedule[p.id] || poolsSchedule[p.id].matId === -1).sort((a,b) => (poolsSchedule[a.id]?.order || 0) - (poolsSchedule[b.id]?.order || 0));
     
     return [
       { id: 'unassigned', title: 'Unassigned Pools', pools: unassigned, totalTime: 0 },
       ...Array.from({ length: matsCount }).map((_, i) => {
-        const matPools = pools.filter(p => poolsSchedule[p.id]?.day === activeDay && poolsSchedule[p.id]?.matId === (i + 1))
+        const matPools = filteredPools.filter(p => poolsSchedule[p.id]?.day === activeDay && poolsSchedule[p.id]?.matId === (i + 1))
           .sort((a,b) => poolsSchedule[a.id].order - poolsSchedule[b.id].order);
         const totalTime = matPools.reduce((sum, p) => sum + poolsSchedule[p.id].estTime, 0);
         return { id: `mat-${i + 1}`, title: `Mat ${i + 1} (Day ${activeDay})`, pools: matPools, totalTime };
       })
     ];
-  }, [pools, poolsSchedule, activeDay, matsCount]);
+  }, [pools, poolsSchedule, activeDay, matsCount, searchQuery]);
 
   function handleDragStart(event: DragStartEvent) {
     setActiveId(event.active.id as string);
@@ -431,25 +432,46 @@ export default function ScheduleKanban({
       </div>
       
       {tournamentDays >= 1 && (
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-          {Array.from({ length: tournamentDays }).map((_, i) => (
-            <button
-              key={i}
-              type="button"
-              className="btn"
+        <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            {Array.from({ length: tournamentDays }).map((_, i) => (
+              <button
+                key={`day-${i+1}`}
+                onClick={() => setActiveDay(i + 1)}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  border: activeDay === i + 1 ? '1px solid #171717' : '1px solid var(--neutral-300)',
+                  background: activeDay === i + 1 ? '#171717' : 'white',
+                  color: activeDay === i + 1 ? 'white' : 'var(--neutral-600)',
+                  fontWeight: 500,
+                  cursor: 'pointer'
+                }}
+              >
+                Day {i + 1}
+              </button>
+            ))}
+          </div>
+          
+          <div style={{ flex: 1 }}></div>
+
+          <div style={{ position: 'relative', width: '250px' }}>
+            <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--neutral-500)' }} />
+            <input 
+              type="text" 
+              placeholder="Search pools..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               style={{
-                background: activeDay === i + 1 ? 'var(--ao)' : 'var(--neutral-100)',
-                color: activeDay === i + 1 ? '#fff' : 'var(--neutral-700)',
-                fontWeight: 600,
-                border: 'none',
-                padding: '8px 16px',
-                borderRadius: '8px'
+                width: '100%',
+                padding: '8px 12px 8px 36px',
+                borderRadius: '8px',
+                border: '1px solid var(--neutral-300)',
+                fontSize: '14px',
+                outline: 'none'
               }}
-              onClick={() => setActiveDay(i + 1)}
-            >
-              Day {i + 1}
-            </button>
-          ))}
+            />
+          </div>
         </div>
       )}
 
