@@ -246,7 +246,7 @@ export function normalizeAthleteRows(rawData: any[]): AthleteRow[] {
           }
         }
       }
-      parsedAge = isNaN(parsedAge) ? 18 : parsedAge; // fallback
+      parsedAge = Math.floor(isNaN(parsedAge) ? 18 : parsedAge); // fallback & truncate
 
       const events: string[] = [];
       const splitEventVal = (v: string): string[] =>
@@ -302,7 +302,7 @@ export function normalizeAthleteRows(rawData: any[]): AthleteRow[] {
           `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         name: parsedName,
         gender: parsedGender,
-        weight: parseFloat(String(rawWeight).replace(/\s*(kg|kgs|lbs?|kilos?)\s*/gi, '').trim()) || 0,
+        weight: Math.floor(parseFloat(String(rawWeight).replace(/\s*(kg|kgs|lbs?|kilos?)\s*/gi, '').trim()) || 0),
         age: parsedAge,
         country: String(row['country'] || row['nation'] || row['nationality'] || ''),
         state: String(row['state'] || row['region'] || row['province'] || ''),
