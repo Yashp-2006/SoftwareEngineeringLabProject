@@ -24,6 +24,7 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
   const [matFilter, setMatFilter] = useState("all");
   const [filterType, setFilterType] = useState("all");
   const [filterGender, setFilterGender] = useState("all");
+  const [dayFilter, setDayFilter] = useState("all");
   const [lastSync, setLastSync] = useState<string>("--:--");
 
   // Fetch competition metadata
@@ -51,6 +52,9 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
         const scheduleRows: CategorySchedule[] = [];
         snapshot.docs.forEach(doc => {
           const data = doc.data();
+          const entries = data.athletes?.length ?? data.entries ?? 0;
+          if (entries === 0) return;
+
           if (data.pools && Array.isArray(data.pools) && data.pools.length > 0) {
             data.pools.forEach((p: any) => {
               const label = p.pool === 'finals' ? 'Finals' : `Pool ${p.pool}`;
@@ -95,6 +99,7 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
   const unscheduledCount = totalCategories - scheduledCount;
 
   const mats = Array.from(new Set(scheduleData.map(item => item.mat).filter(mat => mat && mat !== "—"))).sort();
+  const daysList = Array.from(new Set(scheduleData.map(item => item.day).filter(Boolean))).sort((a, b) => Number(a) - Number(b));
 
   // BUG FIX: Do NOT re-sort by time here. The schedule is ordered by the `order` field
   // set during drag-and-drop in the Category Management page. Sorting by start time
@@ -106,6 +111,7 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
     
     const matchesText = !query || nameLower.includes(query) || row.mat.toLowerCase().includes(query);
     const matchesMat = matFilter === "all" || row.mat === matFilter;
+    const matchesDay = dayFilter === "all" || String(row.day) === dayFilter;
     
     let matchesType = true;
     if (filterType !== 'all') {
@@ -124,7 +130,7 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
       if (filterGender === 'mixed') matchesGender = isMixed;
     }
     
-    return matchesText && matchesMat && matchesType && matchesGender;
+    return matchesText && matchesMat && matchesDay && matchesType && matchesGender;
   });
 
   return (
@@ -369,6 +375,12 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
                 <option value="male">Male</option>
                 <option value="female">Female</option>
                 <option value="mixed">Mixed</option>
+              </select>
+              <select className="schedule-select" value={dayFilter} onChange={e => setDayFilter(e.target.value)}>
+                <option value="all">All Days</option>
+                {daysList.map(day => (
+                  <option key={day} value={String(day)}>Day {day}</option>
+                ))}
               </select>
               <select className="schedule-select" value={matFilter} onChange={e => setMatFilter(e.target.value)}>
                 <option value="all">All Mats</option>

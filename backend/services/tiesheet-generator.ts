@@ -1102,7 +1102,7 @@ export function propagateByesAndWinners(matches: MatchNode[]): void {
         }
       }
 
-      if (!m.winnerId && m.status !== 'completed') {
+      if (!m.winnerId && m.status !== 'completed' && !(m as any).manualByeRevert) {
         const isTreeEmpty = (matchId: string | null): boolean => {
           if (!matchId) return true;
           const prev = matchMap.get(matchId);

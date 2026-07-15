@@ -29,5 +29,8 @@
   },
   "devDependencies": {
     "lightningcss": "^1.32.0"
+  },
+  "overrides": {
+    "jose": "^2.0.7"
   }
 }

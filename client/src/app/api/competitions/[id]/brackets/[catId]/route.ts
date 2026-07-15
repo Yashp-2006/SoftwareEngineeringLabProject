@@ -86,6 +86,7 @@ export async function PATCH(
         updatedTarget.akaKata = null;
         updatedTarget.aoKata = null;
         updatedTarget.selectedKata = null;
+        delete updatedTarget.manualByeRevert;
         
         matches[targetIdx] = updatedTarget;
         clearNextMatches(targetMatch.id);
@@ -109,6 +110,7 @@ export async function PATCH(
       }
 
       // Reset the current match
+      const isBye = currentMatch.byeFor || (!currentMatch.aka || !currentMatch.ao);
       matches[currentIdx] = {
         ...currentMatch,
         winnerId: null,
@@ -117,7 +119,8 @@ export async function PATCH(
         selectedKata: null,
         akaKata: null,
         aoKata: null,
-      };
+        manualByeRevert: isBye ? true : undefined,
+      } as any;
 
       await catRef.update({
         matches,
@@ -171,6 +174,7 @@ export async function PATCH(
           aoKata: selectedKata.ao?.name 
       } : {}),
     };
+    delete (matches[currentIdx] as any).manualByeRevert;
 
     // Propagate winner to the next match
     const nextMatchId = currentMatch.nextMatchId;

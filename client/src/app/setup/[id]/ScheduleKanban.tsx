@@ -37,6 +37,7 @@ interface ScheduleKanbanProps {
   poolsSchedule: Record<string, { matId: number; day: number; order: number; estTime: number }>;
   setPoolsSchedule: React.Dispatch<React.SetStateAction<Record<string, { matId: number; day: number; order: number; estTime: number }>>>;
   importResult: any;
+  poolSize: number;
 }
 
 function SortablePoolCard({ pool, id }: { pool: any, id: string }) {
@@ -104,7 +105,7 @@ function DroppableColumn({ id, title, pools, totalTime }: { id: string, title: s
 }
 
 export default function ScheduleKanban({
-  compId, tournamentDays, matsCount, globalMatchTime, globalRestTime, globalMedicalTime, globalBunkaiTime, poolsSchedule, setPoolsSchedule, importResult
+  compId, tournamentDays, matsCount, globalMatchTime, globalRestTime, globalMedicalTime, globalBunkaiTime, poolsSchedule, setPoolsSchedule, importResult, poolSize
 }: ScheduleKanbanProps) {
   const [pools, setPools] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -121,17 +122,20 @@ export default function ScheduleKanban({
       try {
         const compSnap = await getDoc(doc(db, 'competitions', compId));
         const compDocData = compSnap.data() as any;
-        const poolSize = compDocData?.poolSize || 8;
+        const poolSizeVal = poolSize || compDocData?.poolSize || 8;
 
         const snap = await getDocs(collection(db, 'competitions', compId, 'categories'));
-        const cats = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+        const cats = snap.docs
+          .map(d => ({ id: d.id, ...d.data() } as any))
+          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || a.name.localeCompare(b.name));
         
         const generatedPools: any[] = [];
         cats.forEach(cat => {
           const athleteCount = cat.athletes?.length || cat.entries || 0;
           if (athleteCount === 0) return;
           
-          const poolCount = Math.ceil(athleteCount / poolSize);
+          const catPoolSize = cat.poolSize || poolSizeVal;
+          const poolCount = Math.ceil(athleteCount / catPoolSize);
           const baseEntries = Math.floor(athleteCount / poolCount);
           const extraEntries = athleteCount % poolCount;
           
@@ -241,9 +245,8 @@ export default function ScheduleKanban({
         setLoading(false);
       }
     }
-    
     fetchPools();
-  }, [compId, importResult, globalMatchTime, globalRestTime, globalMedicalTime, globalBunkaiTime, setPoolsSchedule, matsCount, tournamentDays]);
+  }, [compId, importResult, globalMatchTime, globalRestTime, globalMedicalTime, globalBunkaiTime, setPoolsSchedule, matsCount, tournamentDays, poolSize]);
 
   const columns = useMemo(() => {
     const unassigned = pools.filter(p => !poolsSchedule[p.id] || poolsSchedule[p.id].matId === -1).sort((a,b) => (poolsSchedule[a.id]?.order || 0) - (poolsSchedule[b.id]?.order || 0));
@@ -339,6 +342,63 @@ export default function ScheduleKanban({
     });
   }
 
+  const handleManualAssign = () => {
+    setPoolsSchedule(prev => {
+      const next = { ...prev };
+      pools.forEach((pool, index) => {
+        next[pool.id] = {
+          matId: -1,
+          day: -1,
+          order: index,
+          estTime: pool.estTime
+        };
+      });
+      return next;
+    });
+  };
+
+  const handleAutoAssign = () => {
+    setPoolsSchedule(prev => {
+      const next: Record<string, any> = {};
+      
+      const matLoads: Record<string, number> = {};
+      for (let d = 1; d <= tournamentDays; d++) {
+        for (let m = 1; m <= matsCount; m++) {
+          matLoads[`${d}-${m}`] = 0;
+        }
+      }
+      
+      const sortedPools = [...pools].sort((a, b) => b.estTime - a.estTime);
+      
+      sortedPools.forEach(p => {
+        let minLoad = Infinity;
+        let bestDay = 1;
+        let bestMat = 1;
+        
+        for (let d = 1; d <= tournamentDays; d++) {
+          for (let m = 1; m <= matsCount; m++) {
+            const load = matLoads[`${d}-${m}`];
+            if (load < minLoad) {
+              minLoad = load;
+              bestDay = d;
+              bestMat = m;
+            }
+          }
+        }
+        
+        next[p.id] = { 
+          matId: bestMat, 
+          day: bestDay, 
+          order: Date.now() + Math.random() * 1000, 
+          estTime: p.estTime 
+        };
+        matLoads[`${bestDay}-${bestMat}`] += p.estTime;
+      });
+      
+      return next;
+    });
+  };
+
   if (loading) return <div style={{ padding: '24px', textAlign: 'center', color: 'var(--neutral-500)' }}>Loading pools...</div>;
 
   const activePool = activeId ? pools.find(p => p.id === activeId) : null;
@@ -349,6 +409,24 @@ export default function ScheduleKanban({
         <div>
           <h3 style={{ margin: 0 }}>Schedule & Mat Assignment</h3>
           <p className="text-small" style={{ color: 'var(--neutral-500)', marginTop: '4px' }}>Drag and drop generated categories onto mats.</p>
+        </div>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={handleManualAssign}
+            style={{ fontSize: '13px', fontWeight: 600, padding: '8px 16px' }}
+          >
+            Manual Assign
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={handleAutoAssign}
+            style={{ fontSize: '13px', fontWeight: 600, padding: '8px 16px' }}
+          >
+            Auto Assign
+          </button>
         </div>
       </div>
       

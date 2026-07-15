@@ -57,7 +57,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
 
   const [filterGender, setFilterGender] = useState<'all'|'male'|'female'>('all');
   const [filterDiscipline, setFilterDiscipline] = useState<'all'|'kata'|'kumite'>('all');
-  const [hideEmpty, setHideEmpty] = useState<boolean>(false);
+  const [hideEmpty, setHideEmpty] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState("");
   
   const [dragIdx, setDragIdx] = useState<number | null>(null);
@@ -226,10 +226,20 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
   const handleWkfModeChange = async (mode: string) => {
     setWkfMode(mode);
     const { generateWkfCategories } = await import('@taikaix/backend/lib/wkf-categories');
-    setCategories(generateWkfCategories(mode).map(name => {
-      const isKata = name.toLowerCase().includes('kata');
-      return { id: name, name, entries: 0, isKata, judgeCount: isKata ? wkfKataJudgeCount : undefined };
-    }));
+    setCategories(generateWkfCategories(mode).map(cat => ({
+      id: Math.random().toString(36).substring(2, 9),
+      name: cat.name,
+      entries: 0,
+      athletes: [],
+      isKata: cat.isKata,
+      gender: cat.gender,
+      discipline: cat.isKata ? 'Kata' : 'Kumite',
+      judgeCount: cat.isKata ? wkfKataJudgeCount : undefined,
+      minAge: cat.minAge,
+      maxAge: cat.maxAge,
+      minWeight: cat.minWeight,
+      maxWeight: cat.maxWeight,
+    })));
   };
 
   useEffect(() => {
@@ -272,7 +282,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
           if (draftData.bronzeRule !== undefined) setBronzeRule(draftData.bronzeRule);
           if (draftData.wkfMode !== undefined) setWkfMode(draftData.wkfMode);
           if (draftData.wkfKataJudgeCount !== undefined) setWkfKataJudgeCount(draftData.wkfKataJudgeCount);
-          if (draftData.categories !== undefined) setCategories(draftData.categories);
+          if (draftData.categories !== undefined) setCategories(draftData.categories.filter((c: any) => (c.entries || 0) > 0));
           if (draftData.importResult !== undefined) setImportResult(draftData.importResult);
           if (draftData.scoreboardLogo !== undefined) setScoreboardLogo(draftData.scoreboardLogo);
           if (draftData.highestPhase !== undefined) setHighestPhase(draftData.highestPhase);
@@ -304,10 +314,20 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
             const { generateWkfCategories } = await import('@taikaix/backend/lib/wkf-categories');
             const effectiveMode = draftData.wkfMode ?? 'standard';
             const effectiveJudgeCount: 3 | 5 | 7 = (draftData.wkfKataJudgeCount ?? 3) as 3 | 5 | 7;
-            setCategories(generateWkfCategories(effectiveMode).map(name => {
-              const isKata = name.toLowerCase().includes('kata');
-              return { id: name, name, entries: 0, isKata, judgeCount: isKata ? effectiveJudgeCount : undefined };
-            }));
+            setCategories(generateWkfCategories(effectiveMode).map(cat => ({
+              id: Math.random().toString(36).substring(2, 9),
+              name: cat.name,
+              entries: 0,
+              athletes: [],
+              isKata: cat.isKata,
+              gender: cat.gender,
+              discipline: cat.isKata ? 'Kata' : 'Kumite',
+              judgeCount: cat.isKata ? effectiveJudgeCount : undefined,
+              minAge: cat.minAge,
+              maxAge: cat.maxAge,
+              minWeight: cat.minWeight,
+              maxWeight: cat.maxWeight,
+            })));
           }
 
           setIsDataLoaded(true);
@@ -337,20 +357,25 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
             existingEntries.set(doc.data().name, doc.data().entries || 0);
           });
           
-          setCategories(generateWkfCategories(wkfMode).map(name => {
-            const isKata = name.toLowerCase().includes('kata');
-            return { 
-              id: name, 
-              name, 
-              entries: existingEntries.get(name) || 0,
-              isKata,
-              judgeCount: isKata ? wkfKataJudgeCount : undefined
-            };
+          const loadedCats = generateWkfCategories(wkfMode).map(cat => ({
+            id: Math.random().toString(36).substring(2, 9),
+            name: cat.name,
+            entries: existingEntries.get(cat.name) || 0,
+            athletes: [],
+            isKata: cat.isKata,
+            gender: cat.gender,
+            discipline: cat.isKata ? 'Kata' : 'Kumite',
+            judgeCount: cat.isKata ? wkfKataJudgeCount : undefined,
+            minAge: cat.minAge,
+            maxAge: cat.maxAge,
+            minWeight: cat.minWeight,
+            maxWeight: cat.maxWeight,
           }));
+          setCategories(loadedCats.filter(c => c.entries > 0));
         } else {
           const { collection, getDocs } = await import('firebase/firestore');
           const catSnap = await getDocs(collection(db, 'competitions', id, 'categories'));
-          setCategories(catSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+          setCategories(catSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any)).filter(c => (c.entries || 0) > 0));
         }
         setIsDataLoaded(true);
       } catch (err: any) {
@@ -479,23 +504,20 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
     try {
       const { generateWkfCategories } = await import('@taikaix/backend/lib/wkf-categories');
       const wkfCats = generateWkfCategories('standard');
-      const newCats = wkfCats.map(name => {
-        const isKata = name.toLowerCase().includes('kata');
-        let gender = 'Any';
-        if (name.includes('Male') && !name.includes('Female')) gender = 'Male';
-        if (name.includes('Female') && !name.includes('Male')) gender = 'Female';
-        let discipline = isKata ? 'Kata' : 'Kumite';
-        return {
-          id: Math.random().toString(36).substring(2, 9),
-          name,
-          entries: 0,
-          athletes: [],
-          isKata,
-          gender,
-          discipline,
-          judgeCount: isKata ? 3 : undefined
-        };
-      });
+      const newCats = wkfCats.map(cat => ({
+        id: Math.random().toString(36).substring(2, 9),
+        name: cat.name,
+        entries: 0,
+        athletes: [],
+        isKata: cat.isKata,
+        gender: cat.gender,
+        discipline: cat.isKata ? 'Kata' : 'Kumite',
+        judgeCount: cat.isKata ? 5 : undefined,
+        minAge: cat.minAge,
+        maxAge: cat.maxAge,
+        minWeight: cat.minWeight,
+        maxWeight: cat.maxWeight,
+      }));
       setCategories(prev => {
         const existingNames = new Set(prev.map(c => c.name));
         const filteredNewCats = newCats.filter(c => !existingNames.has(c.name));
@@ -591,7 +613,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
       toast.loading('Computing brackets...', { id: toastId });
       const { parseExcelIntoCategories, generateBracket } = await import('@taikaix/backend/services/tiesheet-generator');
       const { generateWkfCategories } = await import('@taikaix/backend/lib/wkf-categories');
-      const wkfCatNames = new Set(generateWkfCategories(wkfMode));
+      const wkfCatNames = new Set(generateWkfCategories(wkfMode).map(c => c.name));
       const customCats = compRules === 'wkf'
         ? categories.filter(c => !wkfCatNames.has(c.name))
         : categories;
@@ -746,7 +768,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
       const { normalizeAthleteRows, bucketAthletes, generateBracket } = await import('@taikaix/backend/services/tiesheet-generator');
       const athletes = normalizeAthleteRows(rows);
       const { generateWkfCategories } = await import('@taikaix/backend/lib/wkf-categories');
-      const wkfCatNames = new Set(generateWkfCategories(wkfMode));
+      const wkfCatNames = new Set(generateWkfCategories(wkfMode).map(c => c.name));
       const customCats = compRules === 'wkf'
         ? categories.filter(c => !wkfCatNames.has(c.name))
         : categories;
@@ -1697,6 +1719,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                     poolsSchedule={poolsSchedule}
                     setPoolsSchedule={setPoolsSchedule}
                     importResult={importResult}
+                    poolSize={poolSize}
                   />
               </div>
             </section>

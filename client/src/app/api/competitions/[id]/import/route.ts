@@ -67,7 +67,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       wkfMode = body.wkfMode || 'standard';
 
       const { generateWkfCategories } = await import('@taikaix/backend/lib/wkf-categories');
-      const wkfCatNames = new Set(generateWkfCategories(wkfMode));
+      const wkfCatNames = new Set(generateWkfCategories(wkfMode).map(c => c.name));
       const filteredCustomCategories = compRules === 'wkf'
         ? customCategories.filter((c: any) => !wkfCatNames.has(c.name))
         : customCategories;
@@ -110,7 +110,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       wkfMode = (formData.get('wkfMode') as string) || 'standard';
 
       const { generateWkfCategories } = await import('@taikaix/backend/lib/wkf-categories');
-      const wkfCatNames = new Set(generateWkfCategories(wkfMode));
+      const wkfCatNames = new Set(generateWkfCategories(wkfMode).map(c => c.name));
       const filteredCustomCategories = compRules === 'wkf'
         ? customCategories.filter((c: any) => !wkfCatNames.has(c.name))
         : customCategories;

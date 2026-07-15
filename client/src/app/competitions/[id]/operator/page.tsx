@@ -63,6 +63,18 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
   const [queueSearchQuery, setQueueSearchQuery] = useState('');
   const [queueFilterPool, setQueueFilterPool] = useState('1');
   
+  useEffect(() => {
+    const keys = Object.keys(poolStatuses);
+    if (keys.length > 0 && !keys.includes(queueFilterPool)) {
+      const sortedKeys = keys.sort((a,b) => {
+        if (a === 'finals') return 1;
+        if (b === 'finals') return -1;
+        return parseInt(a) - parseInt(b);
+      });
+      setQueueFilterPool(sortedKeys[0]);
+    }
+  }, [poolStatuses]);
+  
   const filteredQueue = queue.filter(match => {
     let matchFullName = `${match.aka} ${match.ao}`.toLowerCase();
     let matchesSearch = queueSearchQuery ? matchFullName.includes(queueSearchQuery.toLowerCase()) : true;
@@ -103,12 +115,14 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
   useEffect(() => {
     const mm = Math.floor(timer / 60).toString().padStart(2, '0');
     const ss = (timer % 60).toString().padStart(2, '0');
-    const payload = {
+    const isKataMatch = activeCategoryName?.toLowerCase().includes('kata') || false;
+    const payload: any = {
       status: status === 'finished' ? 'standby' : (status === 'upcoming' ? 'upcoming' : (running ? 'live' : 'paused')),
       currentCategory: activeCategoryName || 'No Active Category',
-      isKata: activeCategoryName?.toLowerCase().includes('kata') || false,
+      isKata: isKataMatch,
       numberOfJudges: activeCategoryData?.numberOfJudges || 3,
       currentMatch: queue[0]?.displayId || 'Standby',
+      matchId: activeMatchId || queue[0]?.id || null,
       akaName: aka.name, akaCountry: aka.country, akaAcademy: aka.academy,
       aoName: ao.name, aoCountry: ao.country, aoAcademy: ao.academy,
       scores: { aka: aka.score, ao: ao.score },
@@ -116,9 +130,14 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
       aoStats: { yuko: ao.yuko, waza: ao.waza, ippon: ao.ippon, senshu: ao.senshu },
       akaPenalties: { c1: aka.c1, c2: aka.c2, c3: aka.c3, hc: aka.hc, h: aka.h },
       aoPenalties:  { c1: ao.c1,  c2: ao.c2,  c3: ao.c3,  hc: ao.hc,  h: ao.h  },
-      timerSeconds: timer, timerRunning: running, timeRemaining: `${mm}:${ss}`,
       restTimerSeconds: restTimer, restTimerRunning: restRunning,
     };
+
+    if (!isKataMatch) {
+      payload.timerSeconds = timer;
+      payload.timerRunning = running;
+      payload.timeRemaining = `${mm}:${ss}`;
+    }
 
     // Immediate sync for non-timer events (score/status/penalty changes)
     // Debounced to 500ms for timer ticks to avoid 1 write/sec write storms
@@ -130,7 +149,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
     return () => {
       if (rtdbDebounceTimer.current) clearTimeout(rtdbDebounceTimer.current);
     };
-  }, [id, aka, ao, timer, status, running, activeCategoryName, queue, syncRTDB, isViewer]);
+  }, [id, aka, ao, timer, status, running, activeCategoryName, queue, syncRTDB, isViewer, activeMatchId]);
 
   // Viewer RTDB listener
   useEffect(() => {
@@ -214,7 +233,9 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
       );
 
       unsubscribe = onSnapshot(qMat, (snap) => {
-        let cats = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+        let cats = snap.docs
+          .map(d => ({ id: d.id, ...d.data() } as any))
+          .filter(c => (c.athletes?.length ?? c.entries ?? 0) > 0);
         
         let completed: any[] = [];
         cats.forEach(cat => {
@@ -263,7 +284,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
             aoAcademy: m.ao?.academy || '',
             aoCountry: m.ao?.country || m.ao?.state || '',
             category: activeCat.name,
-            pool: m.pool || (m.id && m.id.includes('Pool') ? m.id.split('-')[0].replace('Pool', '') : null),
+            pool: m.pool || (m.id && m.id.includes('Pool') ? m.id.split('-')[0].replace('Pool', '') : (m.id && m.id.includes('finals') ? 'finals' : '1')),
             akaReady: m.aka?.readiness === 'ready',
             aoReady: m.ao?.readiness === 'ready',
           })).filter((m: any) => !m.aka.startsWith('Winner M') && !m.ao.startsWith('Winner M'));
@@ -271,7 +292,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
           
           const poolStats: Record<string, { total: number, completed: number }> = {};
           matches.forEach((m: any) => {
-            const p = m.pool || (m.id && m.id.includes('Pool') ? m.id.split('-')[0].replace('Pool', '') : null);
+            const p = m.pool || (m.id && m.id.includes('Pool') ? m.id.split('-')[0].replace('Pool', '') : (m.id && m.id.includes('finals') ? 'finals' : '1'));
             if (!p) return;
             
             // Check if it's a real match (has at least one player or comes from another match)
@@ -1492,8 +1513,12 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                       color: queueFilterPool && poolStatuses[queueFilterPool] ? '#065f46' : 'inherit'
                     }}
                   >
-                    {Object.keys(poolStatuses).sort((a,b) => parseInt(a) - parseInt(b)).map(p => (
-                      <option key={p} value={p}>Pool {p} {poolStatuses[p] ? '✅' : '🔴'}</option>
+                    {Object.keys(poolStatuses).sort((a,b) => {
+                      if (a === 'finals') return 1;
+                      if (b === 'finals') return -1;
+                      return parseInt(a) - parseInt(b);
+                    }).map(p => (
+                      <option key={p} value={p}>{p === 'finals' ? 'Finals' : `Pool ${p}`} {poolStatuses[p] ? '✅' : '🔴'}</option>
                     ))}
                   </select>
                   {!isViewer && (

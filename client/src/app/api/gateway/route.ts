@@ -1,3 +1,4 @@
+// gateway v2 – auth via REST API (no jose ESM)
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60; // Allow up to 60s for large deployments
 import { NextRequest, NextResponse } from 'next/server';
@@ -38,9 +39,11 @@ export async function POST(req: NextRequest) {
       }
 
       case 'deployTournament': {
+        console.log('[deploy] start compId:', payload?.competitionId, 'cats:', payload?.categories?.length);
         const data = deployTournamentSchema.parse(payload);
+        console.log('[deploy] zod OK, cats:', data.categories.length);
         
-        const batches = [];
+        const batches: FirebaseFirestore.WriteBatch[] = [];
         let currentBatch = adminDb.batch();
         let opCount = 0;
 
@@ -54,11 +57,13 @@ export async function POST(req: NextRequest) {
           }
         };
 
+        console.log('[deploy] fetching Firestore docs...');
         const [catsSnapshot, compDocSnap, existingMatsSnap] = await Promise.all([
           adminDb.collection('competitions').doc(data.competitionId).collection('categories').select('name').get(),
           adminDb.collection('competitions').doc(data.competitionId).get(),
           adminDb.collection('competitions').doc(data.competitionId).collection('mats').get()
         ]);
+        console.log('[deploy] docs fetched. compExists:', compDocSnap.exists, 'existingCats:', catsSnapshot.size, 'existingMats:', existingMatsSnap.size);
 
         const existingCatsMap: Record<string, any> = {};
         catsSnapshot.docs.forEach((d: any) => {
@@ -282,14 +287,19 @@ export async function POST(req: NextRequest) {
           compUpdateData.scoreboardLogo = data.scoreboardLogo;
         }
 
-        addOp((b) => b.update(adminDb.collection('competitions').doc(data.competitionId), JSON.parse(JSON.stringify(compUpdateData))));
+        addOp((b) => b.set(adminDb.collection('competitions').doc(data.competitionId), JSON.parse(JSON.stringify(compUpdateData)), { merge: true }));
 
         if (opCount > 0) {
           batches.push(currentBatch);
         }
 
+        console.log('[deploy] total ops:', opCount + batches.length > 0 ? 'approx ' + (batches.length * 400 + opCount) : opCount, 'batches:', batches.length);
+
         if (batches.length > 0) {
-          await Promise.all(batches.map(b => b.commit()));
+          await Promise.all(batches.map((b, i) => b.commit().then(() => console.log(`[deploy] batch ${i} OK`)).catch((err: any) => {
+            console.error(`[deploy] Batch ${i} commit failed:`, err?.message || err, err?.code);
+            throw err;
+          })));
         }
 
         // Secondary tasks (cache invalidation, indexing) in parallel, raced with a 2-second timeout to prevent Vercel serverless function timeouts

@@ -11,9 +11,13 @@ const nextConfig = {
 
   experimental: {
     externalDir: true,
+    turbopack: {
+      resolveConditions: ['node', 'require', 'default'],
+      resolveAlias: {
+        'jose': './node_modules/jose/dist/node/cjs/index.js',
+      }
+    }
   },
-
-  // Increase body size limit for Excel file uploads (tournament rosters can be large)
   serverExternalPackages: ['firebase-admin', 'jose', 'jwks-rsa'],
 };
 

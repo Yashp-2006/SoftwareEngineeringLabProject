@@ -103,9 +103,12 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
             cat.id = docSnap.id;
             const matName = (cat.mat || 'Unassigned').toUpperCase();
 
-            if (cat.status === 'live') lCats.push(cat);
-            else if (cat.status === 'done' || cat.status === 'completed') fCats.push(cat);
-            else uCats.push(cat);
+            const entries = cat.athletes?.length ?? cat.entries ?? 0;
+            if (entries > 0) {
+              if (cat.status === 'live') lCats.push(cat);
+              else if (cat.status === 'done' || cat.status === 'completed') fCats.push(cat);
+              else uCats.push(cat);
+            }
 
             if (cat.matches) {
               const completed = cat.matches.filter((m: any) => m.status === 'completed').map((m: any) => ({

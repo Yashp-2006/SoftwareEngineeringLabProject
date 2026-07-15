@@ -8,74 +8,89 @@ interface DateRangePickerProps {
   onChange: (rangeStr: string, daysCount: number) => void;
 }
 
+// Helper to parse date string safely
+const parseDateStr = (str: string): Date | null => {
+  if (!str) return null;
+  const parsed = Date.parse(str.trim());
+  return isNaN(parsed) ? null : new Date(parsed);
+};
+
+// Robust date range parser supporting multiple formats:
+// 1. YYYY-MM-DD to YYYY-MM-DD
+// 2. Jul 10-12, 2026
+// 3. Jul 10 - Jul 12, 2026
+const parseInputRange = (str: string): { start: Date | null; end: Date | null; daysCount: number } => {
+  if (!str) return { start: null, end: null, daysCount: 1 };
+
+  const separators = [' to ', ' - ', ' – '];
+  for (const sep of separators) {
+    if (str.includes(sep)) {
+      const parts = str.split(sep);
+      const start = parseDateStr(parts[0]);
+      const end = parseDateStr(parts[1]);
+      if (start && end) {
+        const diffTime = Math.abs(end.getTime() - start.getTime());
+        const daysCount = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+        return { start, end, daysCount };
+      }
+    }
+  }
+
+  const rangeDashMatch = str.match(/^([a-zA-Z]+)\s+(\d+)-(\d+),\s+(\d{4})/);
+  if (rangeDashMatch) {
+    const monthStr = rangeDashMatch[1];
+    const startDay = parseInt(rangeDashMatch[2]);
+    const endDay = parseInt(rangeDashMatch[3]);
+    const yearVal = parseInt(rangeDashMatch[4]);
+    
+    const start = parseDateStr(`${monthStr} ${startDay}, ${yearVal}`);
+    const end = parseDateStr(`${monthStr} ${endDay}, ${yearVal}`);
+    if (start && end) {
+      const diffTime = Math.abs(end.getTime() - start.getTime());
+      const daysCount = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+      return { start, end, daysCount };
+    }
+  }
+
+  const single = parseDateStr(str);
+  if (single) {
+    return { start: single, end: single, daysCount: 1 };
+  }
+
+  return { start: null, end: null, daysCount: 1 };
+};
+
 export default function DateRangePicker({ value, onChange }: DateRangePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
   const [hoveredDate, setHoveredDate] = useState<Date | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [inputValue, setInputValue] = useState(value || '');
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Parse initial value if any
+  // Sync props value to internal input state & calendar selection
   useEffect(() => {
+    setInputValue(value || '');
     if (!value) {
-      setStartDate(null);
-      setEndDate(null);
+      // Only reset local selection state if calendar is not currently active/open
+      if (!isOpen) {
+        setStartDate(null);
+        setEndDate(null);
+      }
       return;
     }
     
-    // Quick helper to parse string to Date safely
-    const parseDateStr = (str: string): Date | null => {
-      const parsed = Date.parse(str);
-      return isNaN(parsed) ? null : new Date(parsed);
-    };
-
-    try {
-      if (value.includes(' - ')) {
-        const parts = value.split(' - ');
-        const start = parseDateStr(parts[0]);
-        const end = parseDateStr(parts[1]);
-        if (start) {
-          setStartDate(start);
-          setCurrentMonth(start);
-        }
-        if (end) setEndDate(end);
-      } else if (value.includes('-')) {
-        // e.g. "Jul 14-16, 2026"
-        const match = value.match(/^([a-zA-Z]+)\s+(\d+)-(\d+),\s+(\d{4})/);
-        if (match) {
-          const monthStr = match[1];
-          const startDay = parseInt(match[2]);
-          const endDay = parseInt(match[3]);
-          const yearVal = parseInt(match[4]);
-          
-          const start = parseDateStr(`${monthStr} ${startDay}, ${yearVal}`);
-          const end = parseDateStr(`${monthStr} ${endDay}, ${yearVal}`);
-          if (start) {
-            setStartDate(start);
-            setCurrentMonth(start);
-          }
-          if (end) setEndDate(end);
-        } else {
-          const single = parseDateStr(value);
-          if (single) {
-            setStartDate(single);
-            setCurrentMonth(single);
-            setEndDate(single);
-          }
-        }
-      } else {
-        const single = parseDateStr(value);
-        if (single) {
-          setStartDate(single);
-          setCurrentMonth(single);
-          setEndDate(single);
-        }
-      }
-    } catch (e) {
-      console.warn("DateRangePicker initial value parsing failed:", e);
+    const { start, end } = parseInputRange(value);
+    if (start) {
+      setStartDate(start);
+      // Auto-focus calendar view to the start date month
+      setCurrentMonth(start);
     }
-  }, [value]);
+    if (end) {
+      setEndDate(end);
+    }
+  }, [value, isOpen]);
 
   // Click outside to close
   useEffect(() => {
@@ -119,16 +134,44 @@ export default function DateRangePicker({ value, onChange }: DateRangePickerProp
     if (!startDate || (startDate && endDate)) {
       setStartDate(date);
       setEndDate(null);
+      // Construct single-day string temporarily so parent receives update
+      const rangeStr = formatDateRange(date, date);
+      setInputValue(rangeStr);
     } else if (startDate && !endDate) {
       if (date < startDate) {
         setStartDate(date);
+        const rangeStr = formatDateRange(date, date);
+        setInputValue(rangeStr);
       } else {
         setEndDate(date);
         const rangeStr = formatDateRange(startDate, date);
         const count = getDaysCount(startDate, date);
+        setInputValue(rangeStr);
         onChange(rangeStr, count);
         setIsOpen(false);
       }
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setInputValue(val);
+    
+    if (!val.trim()) {
+      setStartDate(null);
+      setEndDate(null);
+      onChange('', 1);
+      return;
+    }
+
+    const { start, end, daysCount } = parseInputRange(val);
+    if (start && end) {
+      setStartDate(start);
+      setEndDate(end);
+      onChange(val, daysCount);
+    } else {
+      // Send raw typed value to parent immediately so form submission works
+      onChange(val, 1);
     }
   };
 
@@ -193,33 +236,46 @@ export default function DateRangePicker({ value, onChange }: DateRangePickerProp
   ];
 
   return (
-    <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
+    <div ref={containerRef} className="date-picker-container" style={{ position: 'relative', width: '100%' }}>
       <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
         <input
           type="text"
-          readOnly
-          className="input-field"
+          id="dates-input"
+          data-testid="dates-input"
+          className="input-field date-range-input"
           placeholder="Select competition dates..."
-          value={value}
+          value={inputValue}
+          onChange={handleInputChange}
           onClick={() => setIsOpen(true)}
           style={{ cursor: 'pointer', paddingRight: '36px' }}
         />
         <Calendar
           size={16}
+          className="calendar-icon"
           style={{ position: 'absolute', right: '12px', color: 'var(--neutral-500)', pointerEvents: 'none' }}
         />
       </div>
 
       {isOpen && (
-        <div className="calendar-dropdown">
+        <div className="calendar-dropdown" data-testid="calendar-dropdown">
           <div className="calendar-header">
-            <button type="button" className="cal-nav-btn" onClick={prevMonth}>
+            <button
+              type="button"
+              className="cal-nav-btn prev-month-btn"
+              data-testid="prev-month-btn"
+              onClick={prevMonth}
+            >
               <ChevronLeft size={16} />
             </button>
-            <div className="calendar-month-title">
+            <div className="calendar-month-title" data-testid="calendar-month-title">
               {monthNames[month]} {year}
             </div>
-            <button type="button" className="cal-nav-btn" onClick={nextMonth}>
+            <button
+              type="button"
+              className="cal-nav-btn next-month-btn"
+              data-testid="next-month-btn"
+              onClick={nextMonth}
+            >
               <ChevronRight size={16} />
             </button>
           </div>
@@ -230,7 +286,7 @@ export default function DateRangePicker({ value, onChange }: DateRangePickerProp
             ))}
           </div>
 
-          <div className="calendar-days-grid">
+          <div className="calendar-days-grid" data-testid="calendar-days-grid">
             {days.map(({ date, isCurrentMonth }, idx) => {
               const selectType = isSelected(date);
               const inRange = isInRange(date);
@@ -241,10 +297,14 @@ export default function DateRangePicker({ value, onChange }: DateRangePickerProp
               if (selectType === 'end') dayClass += ' day-selected-end';
               if (inRange) dayClass += ' day-in-range';
 
+              // Unique datatestid for specific days of the month e.g., day-10, day-12
+              const testId = `day-${isCurrentMonth ? '' : 'outside-'}${date.getDate()}`;
+
               return (
                 <div
                   key={idx}
                   className={dayClass}
+                  data-testid={testId}
                   onClick={() => handleDateClick(date)}
                   onMouseEnter={() => startDate && !endDate && setHoveredDate(date)}
                 >

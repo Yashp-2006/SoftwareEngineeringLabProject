@@ -31,6 +31,9 @@ export default function PlayerRecordsPage({ params }: { params: Promise<{ id: st
   
   const [editingRecord, setEditingRecord] = useState<AthleteRecord | null>(null);
   const [saving, setSaving] = useState(false);
+  const [categoriesList, setCategoriesList] = useState<any[]>([]);
+  const [originalCategoryId, setOriginalCategoryId] = useState<string>('');
+  const [formOfPlaying, setFormOfPlaying] = useState<'kata' | 'kumite' | 'custom'>('kumite');
 
   // Filter & Pagination States
   const [filterGender, setFilterGender] = useState<string>('all');
@@ -49,6 +52,8 @@ export default function PlayerRecordsPage({ params }: { params: Promise<{ id: st
       const catQ = query(collection(db, 'competitions', id, 'categories'), orderBy('order'));
       unsubscribe = onSnapshot(catQ, (catSnap) => {
         const allRecords: AthleteRecord[] = [];
+        const cats = catSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+        setCategoriesList(cats);
         
         catSnap.docs.forEach(d => {
           const data = d.data();
@@ -149,59 +154,115 @@ export default function PlayerRecordsPage({ params }: { params: Promise<{ id: st
     try {
       const { db } = await import('@lib/firebase');
       const { doc, getDoc, updateDoc } = await import('firebase/firestore');
-      const catRef = doc(db, 'competitions', id, 'categories', editingRecord.categoryId);
-      const catSnap = await getDoc(catRef);
-      
-      if (!catSnap.exists()) throw new Error('Category not found');
 
-      const data = catSnap.data();
-      
-      // Update athletes array
-      const updatedAthletes = (data.athletes || []).map((a: any) => {
-        if (a.playerId === editingRecord.id || a.name === editingRecord.id) {
-          return { 
-            ...a, 
-            name: editingRecord.name,
-            gender: editingRecord.gender,
-            age: Number(editingRecord.age),
-            weight: Number(editingRecord.weight),
-            academy: editingRecord.academy,
-            state: editingRecord.state,
-            coachName: editingRecord.coachName,
-            phone: editingRecord.phone,
-            email: editingRecord.email
-          };
+      if (editingRecord.categoryId !== originalCategoryId) {
+        // Move athlete between categories
+        const oldCatRef = doc(db, 'competitions', id, 'categories', originalCategoryId);
+        const oldCatSnap = await getDoc(oldCatRef);
+        if (!oldCatSnap.exists()) throw new Error('Old category not found');
+        const oldCatData = oldCatSnap.data();
+        
+        // Remove athlete from old category
+        const oldAthletes = (oldCatData.athletes || []).filter((a: any) => a.playerId !== editingRecord.id && a.name !== editingRecord.id);
+        await updateDoc(oldCatRef, { athletes: oldAthletes });
+        
+        // Load new category
+        const newCatRef = doc(db, 'competitions', id, 'categories', editingRecord.categoryId);
+        const newCatSnap = await getDoc(newCatRef);
+        if (!newCatSnap.exists()) throw new Error('New category not found');
+        const newCatData = newCatSnap.data();
+        
+        // Create the athlete payload
+        const newAthlete = {
+          playerId: editingRecord.id,
+          name: editingRecord.name,
+          gender: editingRecord.gender,
+          age: Number(editingRecord.age),
+          weight: Number(editingRecord.weight),
+          academy: editingRecord.academy,
+          state: editingRecord.state,
+          coachName: editingRecord.coachName || '',
+          phone: editingRecord.phone || '',
+          email: editingRecord.email || ''
+        };
+        
+        // Add to new category
+        const newAthletes = [...(newCatData.athletes || []), newAthlete];
+        await updateDoc(newCatRef, { athletes: newAthletes });
+        
+        // Call regenerate for old category (if it has athletes left)
+        if (oldAthletes.length > 0) {
+          await fetch(`/api/competitions/${id}/brackets/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ categoryId: originalCategoryId })
+          });
+        } else {
+          // If no athletes are left, clear matches
+          await updateDoc(oldCatRef, { matches: [] });
         }
-        return a;
-      });
-
-      // Update matches array (both aka and ao)
-      const updatedMatches = (data.matches || []).map((m: any) => {
-        const newM = { ...m };
-        if (m.aka && (m.aka.playerId === editingRecord.id || m.aka.name === editingRecord.id)) {
-          newM.aka = { 
-            ...m.aka, 
-            name: editingRecord.name,
-            gender: editingRecord.gender,
-            age: Number(editingRecord.age),
-            weight: Number(editingRecord.weight),
-            academy: editingRecord.academy
-          };
-        }
-        if (m.ao && (m.ao.playerId === editingRecord.id || m.ao.name === editingRecord.id)) {
-          newM.ao = { 
-            ...m.ao, 
-            name: editingRecord.name,
-            gender: editingRecord.gender,
-            age: Number(editingRecord.age),
-            weight: Number(editingRecord.weight),
-            academy: editingRecord.academy
-          };
-        }
-        return newM;
-      });
-
-      await updateDoc(catRef, { athletes: updatedAthletes, matches: updatedMatches });
+        
+        // Call regenerate for new category
+        await fetch(`/api/competitions/${id}/brackets/generate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ categoryId: editingRecord.categoryId })
+        });
+      } else {
+        const catRef = doc(db, 'competitions', id, 'categories', editingRecord.categoryId);
+        const catSnap = await getDoc(catRef);
+        
+        if (!catSnap.exists()) throw new Error('Category not found');
+  
+        const data = catSnap.data();
+        
+        // Update athletes array
+        const updatedAthletes = (data.athletes || []).map((a: any) => {
+          if (a.playerId === editingRecord.id || a.name === editingRecord.id) {
+            return { 
+              ...a, 
+              name: editingRecord.name,
+              gender: editingRecord.gender,
+              age: Number(editingRecord.age),
+              weight: Number(editingRecord.weight),
+              academy: editingRecord.academy,
+              state: editingRecord.state,
+              coachName: editingRecord.coachName,
+              phone: editingRecord.phone,
+              email: editingRecord.email
+            };
+          }
+          return a;
+        });
+  
+        // Update matches array (both aka and ao)
+        const updatedMatches = (data.matches || []).map((m: any) => {
+          const newM = { ...m };
+          if (m.aka && (m.aka.playerId === editingRecord.id || m.aka.name === editingRecord.id)) {
+            newM.aka = { 
+              ...m.aka, 
+              name: editingRecord.name,
+              gender: editingRecord.gender,
+              age: Number(editingRecord.age),
+              weight: Number(editingRecord.weight),
+              academy: editingRecord.academy
+            };
+          }
+          if (m.ao && (m.ao.playerId === editingRecord.id || m.ao.name === editingRecord.id)) {
+            newM.ao = { 
+              ...m.ao, 
+              name: editingRecord.name,
+              gender: editingRecord.gender,
+              age: Number(editingRecord.age),
+              weight: Number(editingRecord.weight),
+              academy: editingRecord.academy
+            };
+          }
+          return newM;
+        });
+  
+        await updateDoc(catRef, { athletes: updatedAthletes, matches: updatedMatches });
+      }
       toast.success('Record updated successfully');
       setEditingRecord(null);
     } catch (err: any) {
@@ -562,7 +623,15 @@ export default function PlayerRecordsPage({ params }: { params: Promise<{ id: st
                         </td>
                         <td>
                           {role === 'admin' && (
-                            <button className="edit-btn" onClick={() => setEditingRecord({...record})}>
+                            <button className="edit-btn" onClick={() => {
+                              setEditingRecord({...record});
+                              setOriginalCategoryId(record.categoryId);
+                              const cat = categoriesList.find(c => c.id === record.categoryId);
+                              let form: 'kata' | 'kumite' | 'custom' = 'kumite';
+                              if (cat?.isSpecial) form = 'custom';
+                              else if (cat?.isKata) form = 'kata';
+                              setFormOfPlaying(form);
+                            }}>
                               <Edit size={14} /> Edit
                             </button>
                           )}
@@ -673,6 +742,97 @@ export default function PlayerRecordsPage({ params }: { params: Promise<{ id: st
                 <div className="form-group">
                   <label>State / Region</label>
                   <input className="form-input" value={editingRecord.state || ''} onChange={e => setEditingRecord({...editingRecord, state: e.target.value})} />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '12px' }}>
+                  <div className="form-group">
+                    <label>Form of Playing</label>
+                    <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: 500 }}>
+                        <input
+                          type="radio"
+                          name="formOfPlaying"
+                          value="kata"
+                          checked={formOfPlaying === 'kata'}
+                          onChange={() => {
+                            setFormOfPlaying('kata');
+                            const firstKata = categoriesList.find(c => c.isKata && !c.isSpecial);
+                            if (firstKata) {
+                              setEditingRecord({ ...editingRecord, categoryId: firstKata.id, categoryName: firstKata.name });
+                            } else {
+                              setEditingRecord({ ...editingRecord, categoryId: '', categoryName: '' });
+                            }
+                          }}
+                        />
+                        Kata
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: 500 }}>
+                        <input
+                          type="radio"
+                          name="formOfPlaying"
+                          value="kumite"
+                          checked={formOfPlaying === 'kumite'}
+                          onChange={() => {
+                            setFormOfPlaying('kumite');
+                            const firstKumite = categoriesList.find(c => !c.isKata && !c.isSpecial);
+                            if (firstKumite) {
+                              setEditingRecord({ ...editingRecord, categoryId: firstKumite.id, categoryName: firstKumite.name });
+                            } else {
+                              setEditingRecord({ ...editingRecord, categoryId: '', categoryName: '' });
+                            }
+                          }}
+                        />
+                        Kumite
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: 500 }}>
+                        <input
+                          type="radio"
+                          name="formOfPlaying"
+                          value="custom"
+                          checked={formOfPlaying === 'custom'}
+                          onChange={() => {
+                            setFormOfPlaying('custom');
+                            const firstCustom = categoriesList.find(c => c.isSpecial);
+                            if (firstCustom) {
+                              setEditingRecord({ ...editingRecord, categoryId: firstCustom.id, categoryName: firstCustom.name });
+                            } else {
+                              setEditingRecord({ ...editingRecord, categoryId: '', categoryName: '' });
+                            }
+                          }}
+                        />
+                        Custom/Special
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Category</label>
+                    <select
+                      className="form-input"
+                      value={editingRecord.categoryId}
+                      onChange={e => {
+                        const targetId = e.target.value;
+                        const cat = categoriesList.find(c => c.id === targetId);
+                        if (cat) {
+                          setEditingRecord({ ...editingRecord, categoryId: targetId, categoryName: cat.name });
+                        }
+                      }}
+                      style={{ overflowY: 'auto' }}
+                    >
+                      <option value="">Select Category...</option>
+                      {categoriesList
+                        .filter(c => {
+                          if (formOfPlaying === 'kata') return c.isKata && !c.isSpecial;
+                          if (formOfPlaying === 'kumite') return !c.isKata && !c.isSpecial;
+                          return c.isSpecial;
+                        })
+                        .map(c => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>

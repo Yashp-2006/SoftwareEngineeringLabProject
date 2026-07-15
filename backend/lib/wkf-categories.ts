@@ -84,38 +84,81 @@ export const WKF_CATEGORIES = [
   "U8 (6-7) Male / Female Kata"
 ];
 
-export function generateWkfCategories(mode: string = 'standard'): string[] {
-  if (mode === 'standard') return [...WKF_CATEGORIES];
+export interface WkfCategoryDetails {
+  name: string;
+  gender: 'Male' | 'Female' | 'Any';
+  minAge?: number;
+  maxAge?: number;
+  minWeight?: number;
+  maxWeight?: number;
+  isKata: boolean;
+}
 
-  const unique = new Set<string>();
+export function parseWkfCategoryName(name: string): Omit<WkfCategoryDetails, 'name'> {
+  let gender: 'Male' | 'Female' | 'Any' = 'Any';
+  if (name.includes('Male / Female') || name.includes('Mixed Gender')) gender = 'Any';
+  else if (name.includes('Male')) gender = 'Male';
+  else if (name.includes('Female')) gender = 'Female';
 
-  for (const cat of WKF_CATEGORIES) {
-    if (cat.includes('Toddler')) {
-      unique.add(cat);
-      continue;
-    }
+  let minAge: number | undefined;
+  let maxAge: number | undefined;
+  if (name.includes('Senior (18+)')) { minAge = 18; maxAge = 99; }
+  else if (name.includes('Under 21 (18-20)')) { minAge = 18; maxAge = 21; }
+  else if (name.includes('Junior / U18 (16-17)')) { minAge = 16; maxAge = 18; }
+  else if (name.includes('Cadet / U16 (14-15)')) { minAge = 14; maxAge = 16; }
+  else if (name.includes('U14 (12-13)')) { minAge = 12; maxAge = 14; }
+  else if (name.includes('U12 (10-11)')) { minAge = 10; maxAge = 12; }
+  else if (name.includes('U10 (8-9)')) { minAge = 8; maxAge = 10; }
+  else if (name.includes('U8 (6-7)')) { minAge = 6; maxAge = 8; }
+  else if (name.includes('Toddler')) { minAge = 3; maxAge = 6; }
 
-    const isMale = cat.includes('Male');
-    const genderSplit = isMale ? 'Male' : 'Female';
-    
-    // Some categories like U8 have "Male / Female"
-    if (cat.includes('Male / Female')) {
-      const parts = cat.split('Male / Female');
-      if (mode === 'age') unique.add(parts[0].trim() + ' Male / Female');
-      else if (mode === 'weight') unique.add('Male / Female ' + parts[1].trim());
-      continue;
-    }
-
-    const parts = cat.split(genderSplit);
-    const agePart = parts[0].trim();
-    const weightPart = parts[1].trim();
-
-    if (mode === 'age') {
-      unique.add(`${agePart} ${genderSplit}`.trim());
-    } else if (mode === 'weight') {
-      unique.add(`${genderSplit} ${weightPart}`.trim());
-    }
+  let minWeight: number | undefined;
+  let maxWeight: number | undefined;
+  const wMatch = name.match(/([+-])(\d+)\s*kg/);
+  if (wMatch) {
+    const val = parseInt(wMatch[2]);
+    if (wMatch[1] === '-') { maxWeight = val; }
+    else if (wMatch[1] === '+') { minWeight = val; }
   }
 
-  return Array.from(unique);
+  const isKata = name.toLowerCase().includes('kata');
+
+  return { gender, minAge, maxAge, minWeight, maxWeight, isKata };
+}
+
+export function generateWkfCategories(mode: string = 'standard'): WkfCategoryDetails[] {
+  const baseNames: string[] = [];
+  if (mode === 'standard') {
+    baseNames.push(...WKF_CATEGORIES);
+  } else {
+    const unique = new Set<string>();
+    for (const cat of WKF_CATEGORIES) {
+      if (cat.includes('Toddler')) {
+        unique.add(cat);
+        continue;
+      }
+      const isMale = cat.includes('Male');
+      const genderSplit = isMale ? 'Male' : 'Female';
+      if (cat.includes('Male / Female')) {
+        const parts = cat.split('Male / Female');
+        if (mode === 'age') unique.add(parts[0].trim() + ' Male / Female');
+        else if (mode === 'weight') unique.add('Male / Female ' + parts[1].trim());
+        continue;
+      }
+      const parts = cat.split(genderSplit);
+      const agePart = parts[0].trim();
+      const weightPart = parts[1].trim();
+      if (mode === 'age') {
+        unique.add(`${agePart} ${genderSplit}`.trim());
+      } else if (mode === 'weight') {
+        unique.add(`${genderSplit} ${weightPart}`.trim());
+      }
+    }
+    baseNames.push(...Array.from(unique));
+  }
+
+  return baseNames.map(name => ({
+    name,
+    ...parseWkfCategoryName(name)
+  }));
 }
