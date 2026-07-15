@@ -301,7 +301,6 @@ export default function ScoreboardPage({ params }: { params: Promise<{ matchId: 
     ));
   };
 
-  // If RTDB data indicates this is a Kata match, render KataLiveScoreboard
   if (rtdbData?.isKata) {
     const nJudges = rtdbData.numberOfJudges || 3;
     const { judgeVotes, akaFlags, aoFlags } = deriveJudgeVotes(rtdbData.kataScores, nJudges);
@@ -320,6 +319,8 @@ export default function ScoreboardPage({ params }: { params: Promise<{ matchId: 
           judgeVotes={judgeVotes}
           akaFlags={rtdbData.kataVotes?.aka ?? akaFlags}
           aoFlags={rtdbData.kataVotes?.ao ?? aoFlags}
+          revealVotes={rtdbData.revealVotes === true}
+          revealCountdown={rtdbData.revealCountdown || 0}
           timeRemaining={
             rtdbData.timeRemaining || 
             (rtdbData.teamTimerSeconds !== undefined 

@@ -46,6 +46,10 @@ export interface KataLiveScoreboardProps {
   // Kata winner (if decided)
   kataWinner?: 'aka' | 'ao' | 'tie_pending' | null;
   winnerName?: string;
+
+  // Reveal settings
+  revealVotes?: boolean;
+  revealCountdown?: number;
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────────
@@ -74,6 +78,8 @@ export default function KataLiveScoreboard({
   isFullscreen,
   kataWinner,
   winnerName,
+  revealVotes = true,
+  revealCountdown = 0,
 }: KataLiveScoreboardProps) {
   const judges = Array.from({ length: numberOfJudges }, (_, i) => i);
 
@@ -125,6 +131,36 @@ export default function KataLiveScoreboard({
     <>
       <style dangerouslySetInnerHTML={{ __html: kataScoreboadStyles }} />
       <div className="kls-root">
+        {revealCountdown > 0 && (
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.95)',
+            backdropFilter: 'blur(12px)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 3000,
+            borderRadius: '16px',
+            color: '#fff',
+          }}>
+            <div style={{ fontSize: '1.2cqw', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.2em', color: 'var(--neutral-400)', marginBottom: '24px' }}>
+              Revealing Judges' Decision
+            </div>
+            <div style={{
+              fontSize: '10cqw',
+              fontWeight: 900,
+              fontFamily: 'var(--font-display)',
+              lineHeight: 1,
+              animation: 'kls-pulse-dot 1s ease-in-out infinite',
+              color: 'var(--ao)'
+            }}>
+              {revealCountdown}
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="kls-header">
           <div>
@@ -147,7 +183,7 @@ export default function KataLiveScoreboard({
           <div className="kls-judge-col" style={{ gap: `${judgeGap}px` }}>
             {judges.map(i => {
               const vote = judgeVotes[i];
-              const hasFlag = vote === 'aka';
+              const hasFlag = revealVotes && vote === 'aka';
               return (
                 <div
                   key={i}
@@ -176,7 +212,7 @@ export default function KataLiveScoreboard({
               <div className="kls-fighter-name">{akaName}</div>
             </div>
             <div className="kls-fighter-body">
-              <div className="kls-flag-count kls-flag-count-aka">{akaFlags}</div>
+              <div className="kls-flag-count kls-flag-count-aka">{revealVotes ? akaFlags : 0}</div>
               <div className="kls-flag-label">FLAGS</div>
             </div>
             <div className="kls-fighter-foot">
@@ -223,7 +259,7 @@ export default function KataLiveScoreboard({
               <div className="kls-fighter-name">{aoName}</div>
             </div>
             <div className="kls-fighter-body">
-              <div className="kls-flag-count kls-flag-count-ao">{aoFlags}</div>
+              <div className="kls-flag-count kls-flag-count-ao">{revealVotes ? aoFlags : 0}</div>
               <div className="kls-flag-label">FLAGS</div>
             </div>
             <div className="kls-fighter-foot">
@@ -242,7 +278,7 @@ export default function KataLiveScoreboard({
           <div className="kls-judge-col" style={{ gap: `${judgeGap}px` }}>
             {judges.map(i => {
               const vote = judgeVotes[i];
-              const hasFlag = vote === 'ao';
+              const hasFlag = revealVotes && vote === 'ao';
               return (
                 <div
                   key={i}

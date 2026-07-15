@@ -272,6 +272,8 @@ export default function LiveMatPage({ params }: { params: Promise<{ matId: strin
                 judgeVotes={judgeVotes}
                 akaFlags={matchData.kataVotes?.aka ?? akaFlags}
                 aoFlags={matchData.kataVotes?.ao ?? aoFlags}
+                revealVotes={matchData.revealVotes === true}
+                revealCountdown={matchData.revealCountdown || 0}
                 timeRemaining={formatTime(time)}
                 matchStatus={matchData.status === 'live' ? 'LIVE' : matchData.status?.toUpperCase() || 'STANDBY'}
                 title={`TAIKAIX LIVE — MAT ${matId.padStart(2, '0')}`}

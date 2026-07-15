@@ -72,6 +72,9 @@ export default function KataOperatorPanel({
 
   const [tieModalOpen, setTieModalOpen] = useState(false);
 
+  // Reveal countdown state
+  const [revealing, setRevealing] = useState(false);
+
   // Kata Stopwatch
   const [teamTimer, setTeamTimer] = useState(0);
   const [timerRunning, setTimerRunning] = useState(false);
@@ -94,6 +97,32 @@ export default function KataOperatorPanel({
     },
     [competitionId, matId]
   );
+
+  const startRevealCountdown = async () => {
+    const { judgeVotes } = deriveJudgeVotes(liveVotes, numberOfJudges);
+    const votedCount = judgeVotes.filter((v) => v !== null).length;
+    if (votedCount < numberOfJudges) {
+      const missing = numberOfJudges - votedCount;
+      toast.error(`${missing} judge${missing > 1 ? 's' : ''} haven't voted yet.`);
+      return;
+    }
+
+    setRevealing(true);
+    let count = 3;
+    await syncRTDB({ revealCountdown: count, revealVotes: false });
+
+    const interval = setInterval(async () => {
+      count -= 1;
+      if (count <= 0) {
+        clearInterval(interval);
+        setRevealing(false);
+        await syncRTDB({ revealCountdown: 0, revealVotes: true });
+        handleFinishBout();
+      } else {
+        await syncRTDB({ revealCountdown: count });
+      }
+    }, 1000);
+  };
 
   // Auto-sync rest timer to RTDB when updated
   useEffect(() => {
@@ -131,6 +160,8 @@ export default function KataOperatorPanel({
       boutFinished: false,
       kataScores: null,
       kataVotes: null,
+      revealVotes: false,
+      revealCountdown: 0,
     });
   };
 
@@ -333,6 +364,8 @@ export default function KataOperatorPanel({
       kataVotes: { aka: akaFlags, ao: aoFlags },
       kataWinner: winner,
       boutFinished: true,
+      revealVotes: true,
+      revealCountdown: 0,
     });
 
     if (winner === 'tie_pending') {
@@ -353,6 +386,8 @@ export default function KataOperatorPanel({
       kataVotes: null,
       kataWinner: null,
       boutFinished: false,
+      revealVotes: false,
+      revealCountdown: 0,
     });
     toast.success('Revote requested. Judges can now vote again.');
   };
@@ -792,24 +827,49 @@ export default function KataOperatorPanel({
                     {judgeVotes.filter((v) => v !== null).length}/{numberOfJudges} judges voted
                   </span>
                 )}
+                
+                {allJudgesVoted && (
+                  <button
+                    type="button"
+                    className="kata-btn"
+                    onClick={startRevealCountdown}
+                    disabled={revealing}
+                    style={{
+                      padding: '10px 24px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: 'var(--ao)',
+                      color: '#fff',
+                      fontWeight: 800,
+                      fontSize: '13px',
+                      cursor: 'pointer',
+                      letterSpacing: '0.04em',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    {revealing ? 'Revealing...' : '⏱ Reveal & Finish (3s)'}
+                  </button>
+                )}
+
                 <button
                   type="button"
                   className="kata-btn"
                   onClick={handleFinishBout}
+                  disabled={revealing || !allJudgesVoted}
                   style={{
-                    padding: '10px 28px',
+                    padding: '10px 20px',
                     borderRadius: '8px',
-                    border: 'none',
-                    background: allJudgesVoted ? 'var(--neutral-900)' : 'var(--neutral-300)',
-                    color: '#fff',
-                    fontWeight: 800,
+                    border: '1.5px solid var(--neutral-300)',
+                    background: '#fff',
+                    color: allJudgesVoted ? 'var(--neutral-850)' : 'var(--neutral-400)',
+                    fontWeight: 700,
                     fontSize: '13px',
                     cursor: allJudgesVoted ? 'pointer' : 'default',
                     letterSpacing: '0.04em',
                     textTransform: 'uppercase',
                   }}
                 >
-                  Finish Bout
+                  Reveal Instantly
                 </button>
               </div>
             )}

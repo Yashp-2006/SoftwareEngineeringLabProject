@@ -105,6 +105,8 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
   const [kataWinner, setKataWinner] = useState<string | null>(null);
   const [kataScores, setKataScores] = useState<any>(null);
   const [selectedKata, setSelectedKata] = useState<any>(null);
+  const [revealVotes, setRevealVotes] = useState(false);
+  const [revealCountdown, setRevealCountdown] = useState(0);
   const [restTimer, setRestTimer] = useState(0);
   const [restRunning, setRestRunning] = useState(false);
 
@@ -235,6 +237,8 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
           setKataWinner(val.kataWinner || null);
           setKataScores(val.kataScores || null);
           setSelectedKata(val.selectedKata || null);
+          setRevealVotes(val.revealVotes || false);
+          setRevealCountdown(val.revealCountdown || 0);
           if (val.timeRemaining) {
             const [mm, ss] = val.timeRemaining.split(':').map(Number);
             if (!isNaN(mm) && !isNaN(ss)) setTimer(mm * 60 + ss);
@@ -265,6 +269,8 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
           setKataWinner(val.kataWinner || null);
           setKataScores(val.kataScores || null);
           setSelectedKata(val.selectedKata || null);
+          setRevealVotes(val.revealVotes || false);
+          setRevealCountdown(val.revealCountdown || 0);
         }
       });
       unsubscribe = () => off(liveRef);
@@ -998,6 +1004,8 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                 judgeVotes={derivedKataData.judgeVotes}
                 akaFlags={kataVotes?.aka ?? derivedKataData.akaFlags}
                 aoFlags={kataVotes?.ao ?? derivedKataData.aoFlags}
+                revealVotes={revealVotes}
+                revealCountdown={revealCountdown}
                 timeRemaining={`${Math.floor(timer / 60).toString().padStart(2, '0')}:${(timer % 60).toString().padStart(2, '0')}`}
                 matchStatus={status === 'finished' ? 'COMPLETED' : (running ? 'LIVE' : status.toUpperCase())}
                 logoUrl={compData?.scoreboardLogo}
