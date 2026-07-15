@@ -9,6 +9,7 @@ import { toast } from 'react-hot-toast';
 import { useAuth } from '@/components/auth/AuthProvider';
 
 import SpecialCategoryModal from '@/components/SpecialCategoryModal';
+import { sortCategories } from '@/lib/categoryUtils';
 
 // ─── Main Page ───────────────────────────────────────────────────────────────
 export default function BracketPage({ params }: { params: Promise<{ id: string }> }) {
@@ -93,14 +94,8 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
     const q = query(collection(db, 'competitions', id, 'categories'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const cats = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
-      cats.sort((a, b) => {
-        const order = { live: 0, upcoming: 1, completed: 2 };
-        const ao = order[a.status as keyof typeof order] ?? 1;
-        const bo = order[b.status as keyof typeof order] ?? 1;
-        if (ao !== bo) return ao - bo;
-        return (a.name || '').localeCompare(b.name || '', undefined, { numeric: true });
-      });
-      setCategories(cats);
+      const sorted = sortCategories(cats);
+      setCategories(sorted);
     });
     return () => unsubscribe();
   }, [id]);

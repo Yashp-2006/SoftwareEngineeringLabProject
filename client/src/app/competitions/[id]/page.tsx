@@ -7,6 +7,7 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { Lock, Unlock, Users, Calendar, Layout, Award, Edit3, Share2, Eye, EyeOff, Download } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import OnSpotEntryModal from '@/components/OnSpotEntryModal';
+import { sortCategories } from '@/lib/categoryUtils';
 
 export default function CompetitionDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
@@ -73,6 +74,7 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
   const [filterType, setFilterType] = useState('all');
   const [filterGender, setFilterGender] = useState('all');
   const [filterMat, setFilterMat] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // 1. Fetch competition data via onSnapshot instead of static fetch
   useEffect(() => {
@@ -143,9 +145,9 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
           });
 
           setRecentMatches(allMatches.reverse());
-          setLiveCategories(lCats);
-          setUpcomingCategories(uCats);
-          setFinishedCategories(fCats);
+          setLiveCategories(sortCategories(lCats));
+          setUpcomingCategories(sortCategories(uCats));
+          setFinishedCategories(sortCategories(fCats));
 
           const formattedBoards: Record<string, any[]> = {};
           for (const mat of Object.keys(matStats).sort()) {
@@ -359,6 +361,17 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
             <div className="text-small">Not calculated yet</div>
           </div>
 
+          <div style={{ gridColumn: '1 / -1', marginBottom: '8px' }}>
+            <input 
+              type="text" 
+              placeholder="Search categories..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="input-base"
+              style={{ width: '100%', maxWidth: '400px' }}
+            />
+          </div>
+
           {/* ROW 2: LIVE & UPCOMING */}
           <div className="bento-tile bento-reveal span-2-2" style={{ border: liveCategories.length > 0 ? '1.5px solid var(--aka)' : undefined }}>
             <div className="flex-between mb-4">
@@ -368,9 +381,9 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
               </div>
             </div>
             
-            {liveCategories.length > 0 ? (
+            {liveCategories.filter(cat => cat.name.toLowerCase().includes(searchQuery.toLowerCase())).length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                {liveCategories.map((cat, idx) => {
+                {liveCategories.filter(cat => cat.name.toLowerCase().includes(searchQuery.toLowerCase())).map((cat, idx) => {
                   const totalMatches = cat.matches?.length || 0;
                   const completedMatches = cat.matches?.filter((m: any) => m.status === 'completed').length || 0;
                   const pct = totalMatches > 0 ? Math.round((completedMatches / totalMatches) * 100) : 0;
@@ -415,10 +428,10 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
           </div>
 
           <div className="bento-tile bento-reveal span-2-2">
-            <div className="text-micro mb-4">Upcoming (Next 5)</div>
-            {upcomingCategories.length > 0 ? (
+            <div className="text-micro mb-4">Upcoming</div>
+            {upcomingCategories.filter(cat => cat.name.toLowerCase().includes(searchQuery.toLowerCase())).length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {upcomingCategories.slice(0, 5).map((cat, idx) => (
+                {upcomingCategories.filter(cat => cat.name.toLowerCase().includes(searchQuery.toLowerCase())).map((cat, idx) => (
                   <div key={cat.id} style={{ paddingBottom: '12px', borderBottom: idx < Math.min(upcomingCategories.length, 5) - 1 ? '1px solid var(--neutral-100)' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: '14px', fontWeight: 500 }}>{cat.name}</span>
                     <span className="data-mono text-small" style={{ fontWeight: 600 }}>{cat.mat || 'Unassigned'}</span>

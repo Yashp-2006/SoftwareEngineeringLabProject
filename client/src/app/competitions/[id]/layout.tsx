@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -17,6 +17,7 @@ export default function CompetitionLayout({
   const router = useRouter();
   const { role, user, loading: authLoading } = useAuth();
   const { id } = React.use(params);
+  const [staffRole, setStaffRole] = useState<string | null>(null);
 
   const isActive = (segment: string) => pathname.includes(segment);
   const isRoot = pathname === `/competitions/${id}`;
@@ -45,15 +46,42 @@ export default function CompetitionLayout({
     }
   }, [authLoading, user, id, isRoot, router]);
 
+  useEffect(() => {
+    if (!user) {
+      setStaffRole(null);
+      return;
+    }
+    const fetchStaffRole = async () => {
+      try {
+        const { db } = await import('@lib/firebase');
+        const { collection, query, where, getDocs } = await import('firebase/firestore');
+        const q = query(
+          collection(db, 'competitions', id, 'staff'),
+          where('requestUserId', '==', user.uid),
+          where('approvalStatus', '==', 'approved')
+        );
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          setStaffRole(snap.docs[0].data().role);
+        } else {
+          setStaffRole(null);
+        }
+      } catch (e) {
+        console.error('Error fetching staff role:', e);
+      }
+    };
+    fetchStaffRole();
+  }, [user, id]);
+
   // Role-based visibility — requires active sign-in for staff tabs
   const isAdmin = role === 'admin';
   const isAdminOrGuest = role === 'admin' || role === 'guest_viewer';
   const showCategories = isAdminOrGuest;
   const showStaff = isAdminOrGuest;
-  const showAthletes = isAdminOrGuest || role === 'attendance_volunteer';
+  const showAthletes = isAdminOrGuest || role === 'attendance_volunteer' || staffRole === 'attendance_volunteer';
   const showRecords = isAdminOrGuest;
-  const showMedals = isAdminOrGuest || role === 'medal_distributor';
-  const showOperator = isAdminOrGuest || role === 'mat_operator';
+  const showMedals = isAdminOrGuest || role === 'medal_distributor' || staffRole === 'medal_distributor';
+  const showOperator = isAdminOrGuest || role === 'mat_operator' || staffRole === 'mat_operator';
   // Judge tab only visible for signed-in users with judge or admin/guest_viewer role (removed per request)
   const showJudge = false;
 

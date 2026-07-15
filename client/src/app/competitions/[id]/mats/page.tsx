@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { LayoutGrid, Plus, Timer, Activity, Coffee, CalendarPlus, Key, Eye, EyeOff, Trash2, Image as ImageIcon, X, Trophy, Medal } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { sortCategories } from '@/lib/categoryUtils';
 
 interface MatData {
   id: string; // e.g. 'mat-1'
@@ -78,6 +79,9 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
           const matName = (data.mat || '').toUpperCase();
           if (!byMat[matName]) byMat[matName] = [];
           byMat[matName].push({ name: data.name, status: data.status || 'upcoming', entries: data.entries || 0, athletes: data.athletes || [] });
+        });
+        Object.keys(byMat).forEach(matName => {
+          byMat[matName] = sortCategories(byMat[matName]);
         });
         setCategoryByMat(byMat);
       });

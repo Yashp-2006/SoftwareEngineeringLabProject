@@ -223,8 +223,12 @@ export default function LoginPage() {
       }
 
       const { signInAnonymously } = await import('firebase/auth');
-      const credential = await signInAnonymously(auth);
-      const user = credential.user;
+      
+      let user = auth.currentUser;
+      if (!user || !user.isAnonymous) {
+        const credential = await signInAnonymously(auth);
+        user = credential.user;
+      }
 
       const { db } = await import('@lib/firebase');
       const { doc, updateDoc } = await import('firebase/firestore');

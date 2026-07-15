@@ -326,6 +326,14 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
         .staff-table tr:last-child td {
           border-bottom: none;
         }
+        @media (max-width: 768px) {
+          .staff-table thead { display: none; }
+          .staff-table, .staff-table tbody, .staff-table tr, .staff-table td { display: block; width: 100%; }
+          .staff-table tr { margin-bottom: 16px; border: 1px solid var(--neutral-200); border-radius: 12px; padding: 12px; background: #fff; }
+          .staff-table td { border-bottom: none !important; padding: 4px 0; text-align: left !important; }
+          .staff-table td > div { justify-content: flex-start !important; }
+          .form-grid { grid-template-columns: 1fr; }
+        }
         .form-grid {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));

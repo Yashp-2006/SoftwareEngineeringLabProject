@@ -6,6 +6,7 @@ import { Search } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/components/auth/AuthProvider';
 import PageSkeleton from '@/components/layout/PageSkeleton';
+import { sortCategories } from '@/lib/categoryUtils';
 
 interface Athlete {
   id: string;
@@ -35,6 +36,7 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
   const [categories, setCategories] = useState<Category[]>([]);
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [categorySearchQuery, setCategorySearchQuery] = useState('');
   const [poolFilter, setPoolFilter] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -144,8 +146,9 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
           };
         });
 
-        setCategories(catList);
-        setActiveCategoryId(prev => prev ?? catList[0]?.id ?? null);
+        const sorted = sortCategories(catList);
+        setCategories(sorted);
+        setActiveCategoryId(prev => prev ?? sorted[0]?.id ?? null);
         setLoading(false);
       });
     };
@@ -507,7 +510,17 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
         ) : (
           <section className="athletes-layout">
             <aside className="category-panel">
-              {categories.map(cat => (
+              <div style={{ padding: '12px', borderBottom: '1px solid var(--neutral-200)' }}>
+                <input 
+                  type="text" 
+                  placeholder="Search categories..." 
+                  value={categorySearchQuery}
+                  onChange={(e) => setCategorySearchQuery(e.target.value)}
+                  className="search-input"
+                  style={{ width: '100%', height: '32px' }}
+                />
+              </div>
+              {categories.filter(cat => cat.name.toLowerCase().includes(categorySearchQuery.toLowerCase())).map(cat => (
                 <button
                   key={cat.id}
                   className={`category-button ${cat.id === activeCategoryId ? 'active' : ''}`}

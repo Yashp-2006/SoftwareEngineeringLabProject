@@ -362,14 +362,22 @@ function drawPageHeader(
 export async function exportTiesheetsPDF(options: ExportOptions): Promise<void> {
   const {
     competitionName,
-    categories,
+    categories: rawCategories,
     isArchived = false,
     venue = '',
     date = '',
   } = options;
 
+  const categories = [...rawCategories].sort((a, b) => {
+    const ageA = getAgeFromCategory(a.name);
+    const ageB = getAgeFromCategory(b.name);
+    if (ageA !== ageB) return ageA - ageB;
+    return a.name.localeCompare(b.name);
+  });
+
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   let isFirst = true;
+  let globalPageNumber = 1;
 
   for (let catIdx = 0; catIdx < categories.length; catIdx++) {
     const cat = categories[catIdx];
@@ -406,7 +414,7 @@ export async function exportTiesheetsPDF(options: ExportOptions): Promise<void> 
       /* ── Header */
       const contentY = drawPageHeader(
         doc, competitionName, cat.name, venue, date, cat.matNo || '',
-        catIdx + 1, poolNo,
+        globalPageNumber++, poolNo,
       );
 
       /* ── Bracket dimensions */
@@ -487,4 +495,17 @@ export async function exportTiesheetsPDF(options: ExportOptions): Promise<void> 
 
   const fileName = `${competitionName.replace(/[^a-z0-9]/gi, '_')}_Tiesheets.pdf`;
   doc.save(fileName);
+}
+function getAgeFromCategory(catName: string): number {
+  if (catName.includes('U8')) return 8;
+  if (catName.includes('U10')) return 10;
+  if (catName.includes('U12')) return 12;
+  if (catName.includes('U14')) return 14;
+  if (catName.includes('U16') || catName.includes('Cadet')) return 16;
+  if (catName.includes('U18') || catName.includes('Junior')) return 18;
+  if (catName.includes('Senior')) return 20;
+  if (catName.includes('Veteran')) return 35;
+  const ageMatch = catName.match(/(\d+)\s*Years?/i) || catName.match(/\((\d+)-/);
+  if (ageMatch) return parseInt(ageMatch[1], 10);
+  return 99;
 }

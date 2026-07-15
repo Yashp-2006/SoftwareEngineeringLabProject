@@ -433,10 +433,8 @@ export function bucketAthletes(
           addToCategory(match.name, athlete);
         }
       } else {
-        // Automatically enroll in both Kumite and Kata if no events were explicitly specified
+        // Automatically enroll in Kumite if no events were explicitly specified
         addToCategory(determineCategory(athlete, specialCategories, wkfMode), athlete);
-        const baseKata = determineCategory(athlete, specialCategories, 'age');
-        addToCategory(`${baseKata} Kata`, athlete);
       }
     }
   }
@@ -472,89 +470,94 @@ export function determineCategory(athlete: AthleteRow, specialCategories: Specia
 
   if (ageGroup === 'Senior (18+)') {
     if (genderGroup === 'Male') {
-      if (w <= 60) weightGroup = '-60 kg';
-      else if (w <= 67) weightGroup = '-67 kg';
-      else if (w <= 75) weightGroup = '-75 kg';
-      else if (w <= 84) weightGroup = '-84 kg';
+      if (w < 60) weightGroup = '-60 kg';
+      else if (w < 67) weightGroup = '-67 kg';
+      else if (w < 75) weightGroup = '-75 kg';
+      else if (w < 84) weightGroup = '-84 kg';
       else weightGroup = '+84 kg';
     } else {
-      if (w <= 50) weightGroup = '-50 kg';
-      else if (w <= 55) weightGroup = '-55 kg';
-      else if (w <= 61) weightGroup = '-61 kg';
-      else if (w <= 68) weightGroup = '-68 kg';
+      if (w < 50) weightGroup = '-50 kg';
+      else if (w < 55) weightGroup = '-55 kg';
+      else if (w < 61) weightGroup = '-61 kg';
+      else if (w < 68) weightGroup = '-68 kg';
       else weightGroup = '+68 kg';
     }
   } else if (ageGroup === 'Junior / U18 (16-17)') {
     if (genderGroup === 'Male') {
-      if (w <= 55) weightGroup = '-55 kg';
-      else if (w <= 61) weightGroup = '-61 kg';
-      else if (w <= 68) weightGroup = '-68 kg';
-      else if (w <= 76) weightGroup = '-76 kg';
+      if (w < 55) weightGroup = '-55 kg';
+      else if (w < 61) weightGroup = '-61 kg';
+      else if (w < 68) weightGroup = '-68 kg';
+      else if (w < 76) weightGroup = '-76 kg';
       else weightGroup = '+76 kg';
     } else {
-      if (w <= 48) weightGroup = '-48 kg';
-      else if (w <= 53) weightGroup = '-53 kg';
-      else if (w <= 59) weightGroup = '-59 kg';
-      else if (w <= 66) weightGroup = '-66 kg';
+      if (w < 48) weightGroup = '-48 kg';
+      else if (w < 53) weightGroup = '-53 kg';
+      else if (w < 59) weightGroup = '-59 kg';
+      else if (w < 66) weightGroup = '-66 kg';
       else weightGroup = '+66 kg';
     }
   } else if (ageGroup === 'Cadet / U16 (14-15)') {
     if (genderGroup === 'Male') {
-      if (w <= 52) weightGroup = '-52 kg';
-      else if (w <= 57) weightGroup = '-57 kg';
-      else if (w <= 63) weightGroup = '-63 kg';
-      else if (w <= 70) weightGroup = '-70 kg';
+      if (w < 52) weightGroup = '-52 kg';
+      else if (w < 57) weightGroup = '-57 kg';
+      else if (w < 63) weightGroup = '-63 kg';
+      else if (w < 70) weightGroup = '-70 kg';
       else weightGroup = '+70 kg';
     } else {
-      if (w <= 47) weightGroup = '-47 kg';
-      else if (w <= 54) weightGroup = '-54 kg';
-      else if (w <= 61) weightGroup = '-61 kg';
+      if (w < 47) weightGroup = '-47 kg';
+      else if (w < 54) weightGroup = '-54 kg';
+      else if (w < 61) weightGroup = '-61 kg';
       else weightGroup = '+61 kg';
     }
   } else {
     // U14, U12, U10, U8
     if (ageGroup === 'U14 (12-13)') {
       if (genderGroup === 'Male') {
-        if (w <= 40) weightGroup = '-40 kg';
-        else if (w <= 45) weightGroup = '-45 kg';
-        else if (w <= 50) weightGroup = '-50 kg';
-        else if (w <= 55) weightGroup = '-55 kg';
+        if (w < 40) weightGroup = '-40 kg';
+        else if (w < 45) weightGroup = '-45 kg';
+        else if (w < 50) weightGroup = '-50 kg';
+        else if (w < 55) weightGroup = '-55 kg';
         else weightGroup = '+55 kg';
       } else {
-        if (w <= 42) weightGroup = '-42 kg';
-        else if (w <= 47) weightGroup = '-47 kg';
-        else if (w <= 52) weightGroup = '-52 kg';
+        if (w < 42) weightGroup = '-42 kg';
+        else if (w < 47) weightGroup = '-47 kg';
+        else if (w < 52) weightGroup = '-52 kg';
         else weightGroup = '+52 kg';
       }
     } else if (ageGroup === 'U12 (10-11)') {
       if (genderGroup === 'Male') {
-        if (w <= 30) weightGroup = '-30 kg';
-        else if (w <= 35) weightGroup = '-35 kg';
-        else if (w <= 40) weightGroup = '-40 kg';
-        else if (w <= 45) weightGroup = '-45 kg';
+        if (w < 30) weightGroup = '-30 kg';
+        else if (w < 35) weightGroup = '-35 kg';
+        else if (w < 40) weightGroup = '-40 kg';
+        else if (w < 45) weightGroup = '-45 kg';
         else weightGroup = '+45 kg';
       } else {
-        if (w <= 30) weightGroup = '-30 kg';
-        else if (w <= 35) weightGroup = '-35 kg';
-        else if (w <= 40) weightGroup = '-40 kg';
+        if (w < 30) weightGroup = '-30 kg';
+        else if (w < 35) weightGroup = '-35 kg';
+        else if (w < 40) weightGroup = '-40 kg';
         else weightGroup = '+40 kg';
       }
     } else if (ageGroup === 'U10 (8-9)') {
       if (genderGroup === 'Male') {
-        if (w <= 25) weightGroup = '-25 kg';
-        else if (w <= 30) weightGroup = '-30 kg';
-        else if (w <= 35) weightGroup = '-35 kg';
+        if (w < 25) weightGroup = '-25 kg';
+        else if (w < 30) weightGroup = '-30 kg';
+        else if (w < 35) weightGroup = '-35 kg';
         else weightGroup = '+35 kg';
       } else {
-        if (w <= 25) weightGroup = '-25 kg';
-        else if (w <= 30) weightGroup = '-30 kg';
+        if (w < 25) weightGroup = '-25 kg';
+        else if (w < 30) weightGroup = '-30 kg';
         else weightGroup = '+30 kg';
       }
     } else { // U8
-      if (w <= 20) weightGroup = '-20 kg';
-      else if (w <= 25) weightGroup = '-25 kg';
-      else weightGroup = '+25 kg';
-      genderGroup = 'Male / Female';
+      if (genderGroup === 'Male') {
+        if (w < 20) weightGroup = '-20 kg';
+        else if (w < 25) weightGroup = '-25 kg';
+        else weightGroup = '+25 kg';
+      } else {
+        if (w < 20) weightGroup = '-20 kg';
+        else if (w < 25) weightGroup = '-25 kg';
+        else weightGroup = '+25 kg';
+      }
     }
   }
 
