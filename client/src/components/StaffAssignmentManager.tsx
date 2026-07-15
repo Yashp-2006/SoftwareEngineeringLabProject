@@ -97,6 +97,45 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
     }
   }, [loading, staffData.length]);
 
+  const generateSinglePin = () => {
+    const randomPin = Math.floor(1000 + Math.random() * 9000).toString();
+    setNewPin(randomPin);
+  };
+
+  const handleAutoAssignAllPins = async () => {
+    try {
+      const { writeBatch } = await import('firebase/firestore');
+      const batch = writeBatch(db);
+      
+      let updatedCount = 0;
+      const existingPins = new Set(staffData.map(s => s.pin).filter(Boolean));
+      
+      for (const member of staffData) {
+        if (!member.pin) {
+          let randomPin = '';
+          do {
+            randomPin = Math.floor(1000 + Math.random() * 9000).toString();
+          } while (existingPins.has(randomPin));
+          
+          existingPins.add(randomPin);
+          const memberRef = doc(db, 'competitions', competitionId, 'staff', member.id);
+          batch.update(memberRef, { pin: randomPin });
+          updatedCount++;
+        }
+      }
+      
+      if (updatedCount > 0) {
+        await batch.commit();
+        toast.success(`Automatically assigned PINs to ${updatedCount} staff members!`);
+      } else {
+        toast.success('All staff members already have PINs configured.');
+      }
+    } catch (err) {
+      console.error('Failed to auto assign PINs:', err);
+      toast.error('Failed to automatically assign PINs.');
+    }
+  };
+
   const handleAddRosterMember = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName.trim()) return;
@@ -427,10 +466,18 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
                   </div>
                   <div className="form-field">
                     <label>PIN (4-Digits for Quick Login)</label>
-                    <input type="text" maxLength={4} placeholder="e.g. 1234 (optional)" value={newPin} onChange={e => setNewPin(e.target.value.replace(/\D/g, ''))} />
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <input type="text" maxLength={4} placeholder="e.g. 1234 (optional)" value={newPin} onChange={e => setNewPin(e.target.value.replace(/\D/g, ''))} style={{ flex: 1 }} />
+                      <button type="button" onClick={generateSinglePin} className="btn btn-secondary" style={{ height: '40px', padding: '0 12px', fontSize: '13px' }}>
+                        Generate
+                      </button>
+                    </div>
                   </div>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                  <button type="button" onClick={handleAutoAssignAllPins} className="btn btn-secondary" style={{ height: '40px' }}>
+                    <Key size={16} style={{ marginRight: '6px' }} /> Auto-Assign All PINs
+                  </button>
                   <button type="submit" className="btn btn-primary" style={{ height: '40px' }}>
                     <UserPlus size={16} style={{ marginRight: '6px' }} /> Add to Roster
                   </button>
