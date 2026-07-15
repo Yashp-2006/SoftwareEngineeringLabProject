@@ -383,22 +383,23 @@ export async function exportTiesheetsPDF(options: ExportOptions): Promise<void> 
     const cat = categories[catIdx];
     if (!cat.matches || cat.matches.length === 0) continue;
 
-    /* Split by pool prefix (Pool1-, Pool2-, ..., finals-) */
+    /* Split by pool prefix (Pool1-, P1-, ..., finals-, FINAL) */
     const rawPoolIds = Array.from(
       new Set(
         cat.matches
-          .filter(m => m.id.includes('-'))
-          .map(m => m.id.split('-')[0])
-          .filter(p => p.startsWith('Pool') || p === 'finals')
+          .map(m => m.id.includes('-') ? m.id.split('-')[0] : m.id)
+          .filter(p => p.startsWith('Pool') || p.match(/^P\d+$/) || p.toLowerCase() === 'finals' || p === 'FINAL' || p === 'BRONZE')
       )
     );
 
-    // Sort: PoolX numerically, finals at the end
+    // Sort: PoolX or PX numerically, finals at the end
     const poolIds = rawPoolIds.sort((a, b) => {
-      if (a === 'finals') return 1;
-      if (b === 'finals') return -1;
-      const numA = parseInt(a.replace('Pool', '')) || 0;
-      const numB = parseInt(b.replace('Pool', '')) || 0;
+      const aLower = a.toLowerCase();
+      const bLower = b.toLowerCase();
+      if (['finals', 'final', 'bronze'].includes(aLower)) return 1;
+      if (['finals', 'final', 'bronze'].includes(bLower)) return -1;
+      const numA = parseInt(a.replace(/^(Pool|P)/i, '')) || 0;
+      const numB = parseInt(b.replace(/^(Pool|P)/i, '')) || 0;
       return numA - numB;
     });
 
@@ -406,7 +407,7 @@ export async function exportTiesheetsPDF(options: ExportOptions): Promise<void> 
       poolIds.length > 0
         ? poolIds.map(pid => ({
             poolLabel: pid,
-            matches: cat.matches.filter(m => m.id.startsWith(pid + '-')),
+            matches: cat.matches.filter(m => m.id.startsWith(pid + '-') || m.id === pid),
           }))
         : [{ poolLabel: 'Pool1', matches: cat.matches }];
 
@@ -415,7 +416,7 @@ export async function exportTiesheetsPDF(options: ExportOptions): Promise<void> 
       if (!isFirst) doc.addPage();
       isFirst = false;
 
-      const poolNo = parseInt(poolLabel.replace('Pool', '')) || (poolLabel === 'finals' ? 'Finals' : pi + 1);
+      const poolNo = parseInt(poolLabel.replace(/^(Pool|P)/i, '')) || (['finals', 'final', 'bronze'].includes(poolLabel.toLowerCase()) ? poolLabel.toUpperCase() : pi + 1);
       const rounds = getRounds(matches);
       const numRounds = rounds.length;
       if (numRounds === 0) continue;

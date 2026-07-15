@@ -389,9 +389,9 @@ export function bucketAthletes(
         // Apply constraints
         if (cc.gender && cc.gender !== 'Any' && athlete.gender.charAt(0).toLowerCase() !== cc.gender.charAt(0).toLowerCase()) return false;
         if (cc.minAge !== undefined && athlete.age < cc.minAge) return false;
-        if (cc.maxAge !== undefined && athlete.age > cc.maxAge) return false;
+        if (cc.maxAge !== undefined && athlete.age >= cc.maxAge) return false;
         if (cc.minWeight !== undefined && athlete.weight < cc.minWeight) return false;
-        if (cc.maxWeight !== undefined && athlete.weight > cc.maxWeight) return false;
+        if (cc.maxWeight !== undefined && athlete.weight >= cc.maxWeight) return false;
 
         return true;
       });
@@ -1020,9 +1020,9 @@ export function seedSpecialCategory(
           const weight = ath.weight || 0;
 
           if (rule.minAge !== undefined && age < rule.minAge) return;
-          if (rule.maxAge !== undefined && age > rule.maxAge) return;
+          if (rule.maxAge !== undefined && age >= rule.maxAge) return;
           if (rule.minWeight !== undefined && weight < rule.minWeight) return;
-          if (rule.maxWeight !== undefined && weight > rule.maxWeight) return;
+          if (rule.maxWeight !== undefined && weight >= rule.maxWeight) return;
 
           seen.add(ath.playerId);
           eligible.push({ ...ath, medal, sourceCategory: catDoc.name });
