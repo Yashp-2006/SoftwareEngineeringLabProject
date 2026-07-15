@@ -296,7 +296,7 @@ function drawPageHeader(
   date: string,
   matNo: string,
   tiesheetNo: number,
-  poolNo: number,
+  poolNo: number | string,
 ): number {
   const y = MARGIN;
 
@@ -383,15 +383,24 @@ export async function exportTiesheetsPDF(options: ExportOptions): Promise<void> 
     const cat = categories[catIdx];
     if (!cat.matches || cat.matches.length === 0) continue;
 
-    /* Split by pool prefix (Pool1-, Pool2-, ...) */
-    const poolIds = Array.from(
+    /* Split by pool prefix (Pool1-, Pool2-, ..., finals-) */
+    const rawPoolIds = Array.from(
       new Set(
         cat.matches
           .filter(m => m.id.includes('-'))
           .map(m => m.id.split('-')[0])
-          .filter(p => p.startsWith('Pool'))
+          .filter(p => p.startsWith('Pool') || p === 'finals')
       )
-    ).sort();
+    );
+
+    // Sort: PoolX numerically, finals at the end
+    const poolIds = rawPoolIds.sort((a, b) => {
+      if (a === 'finals') return 1;
+      if (b === 'finals') return -1;
+      const numA = parseInt(a.replace('Pool', '')) || 0;
+      const numB = parseInt(b.replace('Pool', '')) || 0;
+      return numA - numB;
+    });
 
     const pools =
       poolIds.length > 0
@@ -406,7 +415,7 @@ export async function exportTiesheetsPDF(options: ExportOptions): Promise<void> 
       if (!isFirst) doc.addPage();
       isFirst = false;
 
-      const poolNo = parseInt(poolLabel.replace('Pool', '')) || pi + 1;
+      const poolNo = parseInt(poolLabel.replace('Pool', '')) || (poolLabel === 'finals' ? 'Finals' : pi + 1);
       const rounds = getRounds(matches);
       const numRounds = rounds.length;
       if (numRounds === 0) continue;
