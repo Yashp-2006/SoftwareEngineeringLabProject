@@ -389,9 +389,9 @@ export function bucketAthletes(
         // Apply constraints
         if (cc.gender && cc.gender !== 'Any' && athlete.gender.charAt(0).toLowerCase() !== cc.gender.charAt(0).toLowerCase()) return false;
         if (cc.minAge !== undefined && athlete.age < cc.minAge) return false;
-        if (cc.maxAge !== undefined && athlete.age >= cc.maxAge) return false;
+        if (cc.maxAge !== undefined && athlete.age > cc.maxAge) return false;
         if (cc.minWeight !== undefined && athlete.weight < cc.minWeight) return false;
-        if (cc.maxWeight !== undefined && athlete.weight >= cc.maxWeight) return false;
+        if (cc.maxWeight !== undefined && athlete.weight > cc.maxWeight) return false;
 
         return true;
       });
@@ -424,9 +424,9 @@ export function bucketAthletes(
         const match = customCategories.find(c => {
           if (c.gender && c.gender !== 'Any' && athlete.gender.charAt(0).toLowerCase() !== c.gender.charAt(0).toLowerCase()) return false;
           if (c.minAge !== undefined && athlete.age < c.minAge) return false;
-          if (c.maxAge !== undefined && athlete.age >= c.maxAge) return false;
+          if (c.maxAge !== undefined && athlete.age > c.maxAge) return false;
           if (c.minWeight !== undefined && athlete.weight < c.minWeight) return false;
-          if (c.maxWeight !== undefined && athlete.weight >= c.maxWeight) return false;
+          if (c.maxWeight !== undefined && athlete.weight > c.maxWeight) return false;
           return true;
         });
         if (match) {
