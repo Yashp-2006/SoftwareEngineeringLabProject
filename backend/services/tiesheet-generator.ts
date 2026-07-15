@@ -194,7 +194,7 @@ export function normalizeAthleteRows(rawData: any[]): AthleteRow[] {
       if (parsedName.toUpperCase() === 'BYE') continue; // Skip explicit BYE rows to let generator handle empty slots
       parsedAcademy = parsedAcademy.trim() || 'Unknown';
 
-      let parsedAge = parseInt(String(row['age'] ?? ''), 10);
+      let parsedAge = parseFloat(String(row['age'] ?? ''));
       if (isNaN(parsedAge) || !row['age']) {
         let dobVal: any = null;
         for (const k of Object.keys(row)) {
