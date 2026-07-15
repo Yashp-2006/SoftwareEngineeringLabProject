@@ -67,7 +67,7 @@ export default function Sidebar() {
         <div className="nav-profile hide-on-mobile">
           {loading ? (
             <div className="avatar" style={{ background: 'var(--neutral-300)' }} />
-          ) : user ? (
+          ) : user && !user.isAnonymous ? (
             <>
               <Link
                 href="/profile"
@@ -185,7 +185,7 @@ export default function Sidebar() {
             }}
           />
 
-          {user ? (
+          {user && !user.isAnonymous ? (
             <Link
               href="/profile"
               className="nav-link"
