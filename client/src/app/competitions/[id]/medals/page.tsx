@@ -33,7 +33,7 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
   const { user, role, loading: authLoading } = useAuth();
   const [verified, setVerified] = useState(false);
   const [staffRole, setStaffRole] = useState<string | null>(null);
-  const canWrite = role === 'medal' || role === 'admin' || staffRole === 'medal';
+  const canWrite = role === 'admin' || role === 'medal' || role === 'medal_distributor' || staffRole === 'medal' || staffRole === 'medal_distributor';
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
