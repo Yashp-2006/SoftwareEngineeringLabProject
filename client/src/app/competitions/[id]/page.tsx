@@ -327,6 +327,9 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
           <div className="page-header-actions">
             {role === 'admin' && (
               <>
+                <Link href={`/setup/${id}`} className="btn btn-secondary">
+                  <Edit3 size={16} /> Setup Wizard
+                </Link>
                 <button className="btn btn-secondary" onClick={handleShareLink}>
                   <Share2 size={16} /> Public Link
                 </button>
