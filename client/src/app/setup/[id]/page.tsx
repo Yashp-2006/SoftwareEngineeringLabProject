@@ -70,6 +70,10 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
   const [globalMedicalTime, setGlobalMedicalTime] = useState<number>(0);
   const [globalBunkaiTime, setGlobalBunkaiTime] = useState<number>(0);
   const [poolsSchedule, setPoolsSchedule] = useState<Record<string, { matId: number; day: number; order: number; estTime: number }>>({});
+  
+  const [compStartTime, setCompStartTime] = useState<string>('09:00');
+  const [compEndTime, setCompEndTime] = useState<string>('18:00');
+  const [compEstMinsPerPool, setCompEstMinsPerPool] = useState<number>(45);
 
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
@@ -126,7 +130,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
       const payload = stripUndefined({
         competitionId: id,
         compName: compName || 'Untitled',
-        matsCount,
+        matsCount: Number(matsCount) || 1,
         poolSize,
         compRules: compRules || 'custom',
         compType,
@@ -160,7 +164,12 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         
         // Direct Firestore update for startDate and endDate on the main competition document
         const compRef = doc(db, 'competitions', id);
-        const updateObj: any = { updatedAt: new Date().toISOString() };
+        const updateObj: any = { 
+          updatedAt: new Date().toISOString(),
+          startTime: compStartTime,
+          endTime: compEndTime,
+          estMinsPerPool: compEstMinsPerPool
+        };
         
         if (compDate) {
           try {
@@ -217,10 +226,11 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
     }, 1500);
     return () => clearTimeout(timer);
   }, [
-    compName, matsCount, poolSize, compRules, compType, 
+    compName, compVenue, compDate, matsCount, poolSize, compRules, compType, 
     bronzeRule, wkfMode, wkfKataJudgeCount, categories, 
     importResult, scoreboardLogo, activePhase, highestPhase, isDataLoaded,
-    tournamentDays, globalMatchTime, globalRestTime, globalMedicalTime, globalBunkaiTime, poolsSchedule
+    tournamentDays, compStartTime, compEndTime, compEstMinsPerPool,
+    globalMatchTime, globalRestTime, globalMedicalTime, globalBunkaiTime, poolsSchedule
   ]);
 
   const handleWkfModeChange = async (mode: string) => {
@@ -267,6 +277,10 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
           const endDate = mainData.endDate ? new Date(mainData.endDate).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
           setCompDate(endDate && startDate !== endDate ? `${startDate} - ${endDate}` : startDate);
         }
+        if (mainData.startTime) setCompStartTime(mainData.startTime);
+        if (mainData.endTime) setCompEndTime(mainData.endTime);
+        if (mainData.estMinsPerPool) setCompEstMinsPerPool(mainData.estMinsPerPool);
+        else if (mainData.estMinsPerCategory) setCompEstMinsPerPool(mainData.estMinsPerCategory);
 
         // Try to load draft first
         const draftSnap = await getDoc(doc(db, 'competitions', id, 'drafts', 'setup'));
@@ -1279,6 +1293,18 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                     <div className="form-group" style={{ flex: 1, minWidth: '150px' }}>
                       <label className="text-micro">Computed Days</label>
                       <input type="number" readOnly className="input-field" style={{ background: '#f5f5f5', cursor: 'not-allowed' }} value={tournamentDays} />
+                    </div>
+                    <div className="form-group" style={{ flex: 1, minWidth: '150px' }}>
+                      <label className="text-micro">Start Time</label>
+                      <input type="time" className="input-field" value={compStartTime} onChange={e => setCompStartTime(e.target.value)} />
+                    </div>
+                    <div className="form-group" style={{ flex: 1, minWidth: '150px' }}>
+                      <label className="text-micro">End Time</label>
+                      <input type="time" className="input-field" value={compEndTime} onChange={e => setCompEndTime(e.target.value)} />
+                    </div>
+                    <div className="form-group" style={{ flex: 1, minWidth: '150px' }}>
+                      <label className="text-micro">Est. Min / Pool</label>
+                      <input type="number" min="5" className="input-field" value={compEstMinsPerPool} onChange={e => setCompEstMinsPerPool(parseInt(e.target.value) || 45)} />
                     </div>
                     <div className="form-group" style={{ flex: 1, minWidth: '150px' }}>
                       <label className="text-micro">Match Time (mins)</label>

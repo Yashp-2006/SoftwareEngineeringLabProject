@@ -83,12 +83,16 @@ export async function POST(req: NextRequest) {
           return h * 60 + (m || 0);
         };
         const configStartMins = parseTimeMins(compDocData?.startTime || '09:00');
+        const configEndMins = parseTimeMins(compDocData?.endTime || '18:00');
         const configEstMins = parseInt(compDocData?.estMinsPerPool) || parseInt(compDocData?.estMinsPerCategory) || 45;
         const poolSize = data.poolSize || 8;
 
         // 1. Gather all pools and finals for all categories
         const scheduledPoolsList: any[] = [];
-        let unassignedCount = 0;
+        const matTrackers = Array.from({ length: numMats }, () => ({
+          currentMins: configStartMins,
+          day: 1
+        }));
         allCats.forEach((cat) => {
           const athleteCount = cat.entries || 0;
           if (athleteCount === 0) return;
@@ -110,14 +114,29 @@ export async function POST(req: NextRequest) {
 
             const entriesInPool = baseEntries + (p - 1 < extraEntries ? 1 : 0);
             const matchesInPool = cat.isKata ? entriesInPool : Math.max(0, entriesInPool - 1);
-            const estTime = poolSched?.estTime || Math.ceil((mTime + rTime) * matchesInPool + rTime + medTime);
+            const estTime = poolSched?.estTime || configEstMins;
 
             let matId = 1;
+            let day = 1;
             if (poolSched && poolSched.matId !== -1) {
               matId = poolSched.matId;
+              day = poolSched.day !== -1 ? poolSched.day : 1;
             } else {
-              matId = (unassignedCount % numMats) + 1;
-              unassignedCount++;
+              let bestMatIdx = 0;
+              for (let i = 1; i < numMats; i++) {
+                if (matTrackers[i].day < matTrackers[bestMatIdx].day || 
+                    (matTrackers[i].day === matTrackers[bestMatIdx].day && matTrackers[i].currentMins < matTrackers[bestMatIdx].currentMins)) {
+                  bestMatIdx = i;
+                }
+              }
+              const tracker = matTrackers[bestMatIdx];
+              if (tracker.currentMins + estTime > configEndMins && tracker.currentMins > configStartMins) {
+                tracker.day++;
+                tracker.currentMins = configStartMins;
+              }
+              matId = bestMatIdx + 1;
+              day = tracker.day;
+              tracker.currentMins += estTime;
             }
             assignedMatId = matId;
 
@@ -127,7 +146,7 @@ export async function POST(req: NextRequest) {
               categoryName: cat.name,
               poolLabel: String(p),
               matId: matId,
-              day: poolSched && poolSched.day !== -1 ? poolSched.day : 1,
+              day: day,
               order: poolSched ? poolSched.order : 0,
               duration: estTime,
               isFinals: false
@@ -139,13 +158,23 @@ export async function POST(req: NextRequest) {
             const finalsSched = data.poolsSchedule?.[finalsId];
 
             const matchesInFinals = cat.isKata ? poolCount : Math.max(0, poolCount - 1);
-            const estTime = finalsSched?.estTime || Math.ceil((mTime + rTime) * matchesInFinals + rTime + medTime);
+            const estTime = finalsSched?.estTime || configEstMins;
 
             let finalsMatId = 1;
+            let finalsDay = 1;
             if (finalsSched && finalsSched.matId !== -1) {
               finalsMatId = finalsSched.matId;
+              finalsDay = finalsSched.day !== -1 ? finalsSched.day : 1;
             } else {
-              finalsMatId = assignedMatId;
+              let bestMatIdx = assignedMatId - 1;
+              const tracker = matTrackers[bestMatIdx];
+              if (tracker.currentMins + estTime > configEndMins && tracker.currentMins > configStartMins) {
+                tracker.day++;
+                tracker.currentMins = configStartMins;
+              }
+              finalsMatId = bestMatIdx + 1;
+              finalsDay = tracker.day;
+              tracker.currentMins += estTime;
             }
 
             scheduledPoolsList.push({
@@ -154,7 +183,7 @@ export async function POST(req: NextRequest) {
               categoryName: cat.name,
               poolLabel: 'finals',
               matId: finalsMatId,
-              day: finalsSched && finalsSched.day !== -1 ? finalsSched.day : 1,
+              day: finalsDay,
               order: finalsSched ? finalsSched.order : 0,
               duration: estTime,
               isFinals: true

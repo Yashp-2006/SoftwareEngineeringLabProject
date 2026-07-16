@@ -395,7 +395,6 @@ export function bucketAthletes(
                ccClean.includes(eventClean) ||
                event.toLowerCase().includes(cc.name.toLowerCase()) ||
                cc.name.toLowerCase().includes(event.toLowerCase());
-        if (!nameMatches) return false;
 
         // Apply constraints
         if (cc.gender && cc.gender !== 'Any' && athlete.gender.charAt(0).toLowerCase() !== cc.gender.charAt(0).toLowerCase()) return false;
@@ -404,7 +403,28 @@ export function bucketAthletes(
         if (cc.minWeight !== undefined && athlete.weight < cc.minWeight) return false;
         if (cc.maxWeight !== undefined && athlete.weight >= cc.maxWeight) return false;
 
-        return true;
+        if (nameMatches) return true;
+
+        if (compRules !== 'wkf') {
+          const ccNameLower = cc.name.toLowerCase();
+          const eventLower = event.toLowerCase();
+          const isKata = eventLower.includes('kata');
+          const isKumite = eventLower.includes('kumite');
+          
+          if (isKata || isKumite) {
+            const ccIsKata = ccNameLower.includes('kata');
+            const ccIsKumite = ccNameLower.includes('kumite');
+            if (isKata && ccIsKata) return true;
+            if (isKumite && ccIsKumite) return true;
+            if (!ccIsKata && !ccIsKumite) return true;
+          } else {
+            const ccIsKata = ccNameLower.includes('kata');
+            const ccIsKumite = ccNameLower.includes('kumite');
+            if (!ccIsKata && !ccIsKumite) return true;
+          }
+        }
+
+        return false;
       });
       
       if (matchedSpecial) {
@@ -413,13 +433,18 @@ export function bucketAthletes(
       } else if (matchedCustom) {
         addToCategory(matchedCustom.name, athlete);
         addedToAny = true;
-      } else if (event.includes('kata') && !event.includes('kumite')) {
-        const base = determineCategory(athlete, specialCategories, 'age');
-        addToCategory(`${base} Kata`, athlete);
-        addedToAny = true;
-      } else if (event.includes('kumite') && !event.includes('kata')) {
-        addToCategory(determineCategory(athlete, specialCategories, wkfMode), athlete);
-        addedToAny = true;
+      } else if (compRules === 'wkf' || customCategories.length === 0) {
+        if (event.includes('kata') && !event.includes('kumite')) {
+          const base = determineCategory(athlete, specialCategories, 'age');
+          addToCategory(`${base} Kata`, athlete);
+          addedToAny = true;
+        } else if (event.includes('kumite') && !event.includes('kata')) {
+          addToCategory(determineCategory(athlete, specialCategories, wkfMode), athlete);
+          addedToAny = true;
+        } else if (!event.includes('kata') && !event.includes('kumite')) {
+          addToCategory(event, athlete);
+          addedToAny = true;
+        }
       }
     }
 
@@ -435,9 +460,9 @@ export function bucketAthletes(
         const match = customCategories.find(c => {
           if (c.gender && c.gender !== 'Any' && athlete.gender.charAt(0).toLowerCase() !== c.gender.charAt(0).toLowerCase()) return false;
           if (c.minAge !== undefined && athlete.age < c.minAge) return false;
-          if (c.maxAge !== undefined && athlete.age > c.maxAge) return false;
+          if (c.maxAge !== undefined && athlete.age >= c.maxAge) return false;
           if (c.minWeight !== undefined && athlete.weight < c.minWeight) return false;
-          if (c.maxWeight !== undefined && athlete.weight > c.maxWeight) return false;
+          if (c.maxWeight !== undefined && athlete.weight >= c.maxWeight) return false;
           return true;
         });
         if (match) {
