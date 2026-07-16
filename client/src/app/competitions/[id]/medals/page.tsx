@@ -600,7 +600,7 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
                       onChange={e => setSearchQuery(e.target.value)}
                     />
                   </div>
-                  {canWrite && (
+                  {role === 'admin' && (
                     <button className="btn-action" onClick={() => setSpecialModalOpen(true)}>
                       <Zap size={16} /> Create Finals Tiesheet
                     </button>
