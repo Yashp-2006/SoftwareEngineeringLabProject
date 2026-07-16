@@ -40,7 +40,7 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
   const [poolFilter, setPoolFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [staffRole, setStaffRole] = useState<string | null>(null);
-  const canWrite = role === 'admin' || role === 'attendance' || staffRole === 'attendance';
+  const canWrite = role === 'admin' || role === 'attendance' || role === 'attendance_volunteer' || staffRole === 'attendance' || staffRole === 'attendance_volunteer';
 
   useEffect(() => {
     if (authLoading) return;
