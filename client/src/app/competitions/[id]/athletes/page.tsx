@@ -477,11 +477,18 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
           .athletes-layout { grid-template-columns: 1fr; }
           .category-panel {
             position: static;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: var(--space-2);
+            max-height: none;
+            padding-bottom: 0;
           }
-          .category-button { margin-bottom: 0; }
+          .category-list {
+            display: flex;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            gap: var(--space-2);
+            padding-bottom: var(--space-2);
+            margin-top: var(--space-3);
+          }
+          .category-button { margin-bottom: 0; min-width: 220px; }
         }
       `}} />
 
@@ -523,22 +530,24 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
                   style={{ width: '100%', height: '32px' }}
                 />
               </div>
-              {categories.filter(cat => cat.name.toLowerCase().includes(categorySearchQuery.toLowerCase())).map(cat => (
-                <button
-                  key={cat.id}
-                  className={`category-button ${cat.id === activeCategoryId ? 'active' : ''}`}
-                  onClick={() => {
-                    setActiveCategoryId(cat.id);
-                    setSearchQuery('');
-                  }}
-                >
-                  <div className="category-name">{cat.name}</div>
-                  <div className="category-meta">
-                    <span>{cat.mat}</span>
-                    <span>{cat.status.toUpperCase()}</span>
-                  </div>
-                </button>
-              ))}
+              <div className="category-list">
+                {categories.filter(cat => cat.name.toLowerCase().includes(categorySearchQuery.toLowerCase())).map(cat => (
+                  <button
+                    key={cat.id}
+                    className={`category-button ${cat.id === activeCategoryId ? 'active' : ''}`}
+                    onClick={() => {
+                      setActiveCategoryId(cat.id);
+                      setSearchQuery('');
+                    }}
+                  >
+                    <div className="category-name">{cat.name}</div>
+                    <div className="category-meta">
+                      <span>{cat.mat}</span>
+                      <span>{cat.status.toUpperCase()}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
             </aside>
 
             <div className="athletes-panel">
