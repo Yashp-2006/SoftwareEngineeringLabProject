@@ -21,7 +21,8 @@ service cloud.firestore {
       // Categories
       match /categories/{categoryId} {
         allow read: if true;
-        allow write: if isAdmin();
+        allow create, delete: if isAdmin();
+        allow update: if isAdmin() || isMatOperator() || isAttendanceVolunteer();
 
         // Matches — Mat Operator can update score/timer fields
         match /matches/{matchId} {
