@@ -940,23 +940,22 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         toast.error('No categories with athletes found. Import athletes first.');
         return;
       }
-      let ok = 0; let fail = 0;
-      await Promise.all(standardCats.map(async (cat) => {
-        try {
-          const res = await fetch(`/api/competitions/${id}/brackets/generate`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ categoryId: cat.id, poolSize, compType }),
-          });
-          const json = await res.json();
-          if (json.success) ok++; else fail++;
-        } catch { fail++; }
-      }));
-      toast.dismiss(toastId);
-      if (fail === 0) {
-        toast.success(`Tiesheets regenerated for ${ok} categories!`);
-      } else {
-        toast.success(`Regenerated ${ok} categories. ${fail} skipped (no athletes).`);
+      try {
+        const res = await fetch(`/api/competitions/${id}/brackets/generate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ categoryIds: standardCats.map(c => c.id), poolSize, compType }),
+        });
+        const json = await res.json();
+        toast.dismiss(toastId);
+        if (json.success) {
+          toast.success(`Tiesheets regenerated for ${json.categoriesProcessed || standardCats.length} categories!`);
+        } else {
+          toast.error(json.error || 'Failed to regenerate some categories.');
+        }
+      } catch (err: any) {
+        toast.dismiss(toastId);
+        toast.error('Network error during regeneration');
       }
     } catch (e: any) {
       toast.dismiss(toastId);

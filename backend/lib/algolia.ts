@@ -11,20 +11,35 @@ if (!appId || !searchApiKey) {
   console.warn('[Algolia] NEXT_PUBLIC_ALGOLIA_APP_ID or NEXT_PUBLIC_ALGOLIA_SEARCH_KEY is not set. Search will be unavailable.');
 }
 
+let algoliaFailures = 0;
+let algoliaOpenUntil = 0;
+const ALGOLIA_MAX_FAILURES = 5;
+const ALGOLIA_RESET_MS = 30000;
+
 export const searchClient = algoliasearch(appId || 'placeholder', searchApiKey || 'placeholder', {
-  timeouts: {
-    connect: 1000,
-    read: 1500,
-    write: 1500
-  }
+  timeouts: { connect: 1000, read: 1500, write: 1500 }
 });
-export const adminClient = algoliasearch(appId || 'placeholder', adminApiKey || 'placeholder', {
-  timeouts: {
-    connect: 1000,
-    read: 1500,
-    write: 1500
-  }
+const rawAdminClient = algoliasearch(appId || 'placeholder', adminApiKey || 'placeholder', {
+  timeouts: { connect: 1000, read: 1500, write: 1500 }
 });
+
+export const adminClient = {
+  ...rawAdminClient,
+  saveObject: async (params: any) => {
+    if (Date.now() < algoliaOpenUntil) {
+      throw new Error('Circuit breaker open for Algolia');
+    }
+    try {
+      const res = await rawAdminClient.saveObject(params);
+      algoliaFailures = 0;
+      return res;
+    } catch (err) {
+      algoliaFailures++;
+      if (algoliaFailures >= ALGOLIA_MAX_FAILURES) algoliaOpenUntil = Date.now() + ALGOLIA_RESET_MS;
+      throw err;
+    }
+  }
+};
 
 export const indexCompetition = async (competitionData: any) => {
   if (process.env.ALGOLIA_ADMIN_KEY) {

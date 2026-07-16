@@ -1,12 +1,34 @@
 import { Redis } from '@upstash/redis';
 
+let cbFailures = 0;
+let cbOpenUntil = 0;
+const CB_MAX_FAILURES = 5;
+const CB_RESET_MS = 30000;
+
 export const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL || '',
   token: process.env.UPSTASH_REDIS_REST_TOKEN || '',
   fetch: (input: any, init: any) => {
+    if (Date.now() < cbOpenUntil) {
+      return Promise.reject(new Error('Circuit breaker open for Redis'));
+    }
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 1500);
     return fetch(input, { ...init, signal: controller.signal })
+      .then(res => {
+        if (!res.ok && res.status >= 500) {
+          cbFailures++;
+          if (cbFailures >= CB_MAX_FAILURES) cbOpenUntil = Date.now() + CB_RESET_MS;
+        } else {
+          cbFailures = 0;
+        }
+        return res;
+      })
+      .catch(err => {
+        cbFailures++;
+        if (cbFailures >= CB_MAX_FAILURES) cbOpenUntil = Date.now() + CB_RESET_MS;
+        throw err;
+      })
       .finally(() => clearTimeout(timeoutId));
   }
 } as any);

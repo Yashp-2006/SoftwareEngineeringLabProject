@@ -129,6 +129,17 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
 
   const handlePromote = async (matchId: string, winnerId: string, _nextMatchId: string | null, byeFor?: 'aka' | 'ao') => {
     if (!activeCategoryId) return;
+    
+    // Optimistic UI Update
+    const previousCategories = [...categories];
+    setCategories(prev => prev.map(cat => {
+      if (cat.id !== activeCategoryId) return cat;
+      return {
+        ...cat,
+        matches: cat.matches?.map((m: any) => m.id === matchId ? { ...m, winnerId, status: 'completed' } : m)
+      };
+    }));
+
     try {
       const res = await fetch(`/api/competitions/${id}/brackets/${activeCategoryId}`, {
         method: 'PATCH',
@@ -139,10 +150,12 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
       if (data.success) {
         toast.success(byeFor ? `Advanced by BYE (${byeFor.toUpperCase()} absent/DQ)` : 'Athlete advanced successfully!');
       } else {
+        setCategories(previousCategories);
         toast.error('Failed to advance athlete: ' + data.error);
       }
     } catch (err) {
       console.error('Error promoting athlete:', err);
+      setCategories(previousCategories);
       toast.error('Failed to promote athlete. Please try again.');
     }
   };
@@ -156,6 +169,26 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
     targetCategoryId?: string,
     action?: 'swap' | 'move'
   ) => {
+    // Optimistic UI Update
+    const previousCategories = [...categories];
+    setCategories(prev => {
+      const newCats = JSON.parse(JSON.stringify(prev));
+      const sourceCat = newCats.find((c: any) => c.id === categoryId);
+      const targetCat = targetCategoryId ? newCats.find((c: any) => c.id === targetCategoryId) : sourceCat;
+      
+      if (sourceCat && targetCat) {
+        const sourceMatch = sourceCat.matches?.find((m: any) => m.id === sourceMatchId);
+        const targetMatch = targetCat.matches?.find((m: any) => m.id === targetMatchId);
+        
+        if (sourceMatch && targetMatch) {
+          const temp = sourceMatch[sourceSide];
+          sourceMatch[sourceSide] = targetMatch[targetSide];
+          targetMatch[targetSide] = temp;
+        }
+      }
+      return newCats;
+    });
+
     try {
       const res = await fetch(`/api/competitions/${id}/brackets/${categoryId}/swap`, {
         method: 'PATCH',
@@ -166,15 +199,27 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
       if (data.success) {
         toast.success(action === 'move' ? 'Athlete moved successfully!' : 'Athletes swapped successfully!');
       } else {
+        setCategories(previousCategories);
         toast.error('Failed to update tiesheet: ' + data.error);
       }
     } catch (err) {
       console.error('Error updating tiesheet:', err);
+      setCategories(previousCategories);
       toast.error('Failed to update tiesheet. Please try again.');
     }
   };
 
   const handleRevertMatch = async (categoryId: string, matchId: string) => {
+    // Optimistic UI Update
+    const previousCategories = [...categories];
+    setCategories(prev => prev.map(cat => {
+      if (cat.id !== categoryId) return cat;
+      return {
+        ...cat,
+        matches: cat.matches?.map((m: any) => m.id === matchId ? { ...m, winnerId: null, status: 'pending' } : m)
+      };
+    }));
+
     try {
       const res = await fetch(`/api/competitions/${id}/brackets/${categoryId}`, {
         method: 'PATCH',
@@ -185,10 +230,12 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
       if (data.success) {
         toast.success('Match reverted successfully!');
       } else {
+        setCategories(previousCategories);
         toast.error('Failed to revert match: ' + data.error);
       }
     } catch (err) {
       console.error('Error reverting match:', err);
+      setCategories(previousCategories);
       toast.error('Failed to revert match. Please try again.');
     }
   };

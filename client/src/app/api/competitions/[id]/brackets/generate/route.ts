@@ -21,30 +21,34 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
     const { id } = await params;
     const body = await req.json();
-    const { categoryId, specialCategoryId, poolSize: rawPoolSize, compType = 'international', useRoundRobin } = body;
+    const { categoryId, categoryIds, specialCategoryId, poolSize: rawPoolSize, compType = 'international', useRoundRobin } = body;
     const poolSize = ([4, 8, 16, 32].includes(rawPoolSize) ? rawPoolSize : 8) as PoolSize;
 
     const competitionRef = adminDb.collection('competitions').doc(id);
     const categoriesRef = competitionRef.collection('categories');
 
     // ── Standard category regeneration ──
-    if (categoryId) {
-      const catDoc = await categoriesRef.doc(categoryId).get();
-      if (!catDoc.exists) {
-        return NextResponse.json({ success: false, error: 'Category not found' }, { status: 404 });
-      }
+    const targetCategoryIds = categoryIds || (categoryId ? [categoryId] : []);
 
-      const catData = catDoc.data()!;
-      const athletes = catData.athletes || [];
+    if (targetCategoryIds.length > 0) {
+      const batches: any[] = [];
+      let currentBatch = adminDb.batch();
+      let opCount = 0;
+      let totalMatchesGenerated = 0;
+      let totalAthleteCount = 0;
 
-      if (athletes.length === 0) {
-        return NextResponse.json({ success: false, error: 'Category has no athletes' }, { status: 400 });
-      }
+      for (const catId of targetCategoryIds) {
+        const catDoc = await categoriesRef.doc(catId).get();
+        if (!catDoc.exists) continue;
 
-      const matches = generateBracket(athletes, compType, poolSize, { useRoundRobin: catData.useRoundRobin || useRoundRobin });
+        const catData = catDoc.data()!;
+        const athletes = catData.athletes || [];
 
-      await categoriesRef.doc(categoryId).update({
-        matches: matches.map(m => ({
+        if (athletes.length === 0) continue;
+
+        const matches = generateBracket(athletes, compType, poolSize, { useRoundRobin: catData.useRoundRobin || useRoundRobin });
+
+        const matchesPayload = matches.map(m => ({
           id: m.id,
           round: m.round,
           matchNumber: m.matchNumber,
@@ -58,14 +62,37 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           nextMatchId: m.nextMatchId || null,
           status: m.status,
           mat: null,
-        })),
-        updatedAt: new Date().toISOString(),
-      });
+        }));
+
+        currentBatch.update(categoriesRef.doc(catId), {
+          matches: matchesPayload,
+          updatedAt: new Date().toISOString(),
+        });
+
+        totalMatchesGenerated += matches.length;
+        totalAthleteCount += athletes.length;
+        opCount++;
+
+        if (opCount === 400) {
+          batches.push(currentBatch);
+          currentBatch = adminDb.batch();
+          opCount = 0;
+        }
+      }
+
+      if (opCount > 0) {
+        batches.push(currentBatch);
+      }
+
+      if (batches.length > 0) {
+        await Promise.all(batches.map(b => b.commit()));
+      }
 
       return NextResponse.json({
         success: true,
-        matchesGenerated: matches.length,
-        athleteCount: athletes.length,
+        matchesGenerated: totalMatchesGenerated,
+        athleteCount: totalAthleteCount,
+        categoriesProcessed: targetCategoryIds.length
       });
     }
 
