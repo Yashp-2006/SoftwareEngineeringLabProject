@@ -132,29 +132,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        // Restrict Specific Portals
-        // audience role can access /operator in viewer mode (PasswordGateway + isViewer flag handle it)
-        if (pathname.includes('/operator') && role !== 'mat_operator' && role !== 'audience' && !isAdminOrGuest) {
-          router.push('/competitions');
-        }
-        if (pathname.includes('/judge') && role !== 'judge' && !isAdminOrGuest) {
-          router.push('/competitions');
-        }
-        if (pathname.includes('/staff') && !isAdminOrGuest) {
-          router.push('/competitions');
-        }
-        if (pathname.includes('/records') && !isAdminOrGuest) {
-          router.push('/competitions');
-        }
-        if (pathname.includes('/categories') && !isAdminOrGuest) {
-          router.push('/competitions');
-        }
-        if (pathname.includes('/medals') && role !== 'medal_distributor' && !isAdminOrGuest) {
-          router.push('/competitions');
-        }
-        if (pathname.includes('/athletes') && role !== 'attendance_volunteer' && !isAdminOrGuest) {
-          router.push('/competitions');
-        }
+        // Removed global portal restrictions because competition pages (like /athletes, /medals) 
+        // check their own competition-specific staff subcollections.
       }
     }
   }, [user, role, loading, pathname, router]);
