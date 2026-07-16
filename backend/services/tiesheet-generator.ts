@@ -390,36 +390,28 @@ export function bucketAthletes(
 
       const matchedCustom = customCategories.find(cc => {
         const ccClean = cleanStr(cc.name);
-        const nameMatches = ccClean === eventClean || 
-               eventClean.includes(ccClean) || 
-               ccClean.includes(eventClean) ||
-               event.toLowerCase().includes(cc.name.toLowerCase()) ||
-               cc.name.toLowerCase().includes(event.toLowerCase());
+        const exactNameMatch = ccClean === eventClean;
+        if (exactNameMatch) return true;
 
-        // Apply constraints
+        const hasConstraints = (cc.gender && cc.gender !== 'Any') || cc.minAge !== undefined || cc.maxAge !== undefined || cc.minWeight !== undefined || cc.maxWeight !== undefined;
+        if (!hasConstraints) return false;
+
         if (cc.gender && cc.gender !== 'Any' && athlete.gender.charAt(0).toLowerCase() !== cc.gender.charAt(0).toLowerCase()) return false;
         if (cc.minAge !== undefined && athlete.age < cc.minAge) return false;
         if (cc.maxAge !== undefined && athlete.age >= cc.maxAge) return false;
         if (cc.minWeight !== undefined && athlete.weight < cc.minWeight) return false;
         if (cc.maxWeight !== undefined && athlete.weight >= cc.maxWeight) return false;
 
-        if (nameMatches) return true;
-
         const ccNameLower = cc.name.toLowerCase();
         const eventLower = event.toLowerCase();
         const isKata = eventLower.includes('kata');
         const isKumite = eventLower.includes('kumite');
-        
-        const ccIsKata = ccNameLower.includes('kata') || cc.discipline === 'Kata';
-        const ccIsKumite = ccNameLower.includes('kumite') || cc.discipline === 'Kumite';
+        const ccIsKata = ccNameLower.includes('kata') || (cc as any).discipline === 'Kata';
+        const ccIsKumite = ccNameLower.includes('kumite') || (cc as any).discipline === 'Kumite';
 
-        if (isKata || isKumite) {
-          if (isKata && ccIsKata) return true;
-          if (isKumite && ccIsKumite) return true;
-          if (!ccIsKata && !ccIsKumite) return true;
-        } else {
-          if (!ccIsKata && !ccIsKumite) return true;
-        }
+        if (isKata && ccIsKata) return true;
+        if (isKumite && ccIsKumite) return true;
+        if (!isKata && !isKumite && !ccIsKata && !ccIsKumite) return true;
 
         return false;
       });
@@ -455,6 +447,9 @@ export function bucketAthletes(
     if (!addedToAny) {
       if (customCategories.length > 0) {
         const match = customCategories.find(c => {
+          const hasConstraints = (c.gender && c.gender !== 'Any') || c.minAge !== undefined || c.maxAge !== undefined || c.minWeight !== undefined || c.maxWeight !== undefined;
+          if (!hasConstraints) return false;
+
           if (c.gender && c.gender !== 'Any' && athlete.gender.charAt(0).toLowerCase() !== c.gender.charAt(0).toLowerCase()) return false;
           if (c.minAge !== undefined && athlete.age < c.minAge) return false;
           if (c.maxAge !== undefined && athlete.age >= c.maxAge) return false;

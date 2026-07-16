@@ -620,7 +620,8 @@ export function BracketViewer({
                     boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
                     zIndex: 100,
                     minWidth: '120px',
-                    overflow: 'hidden'
+                    overflowY: 'auto',
+                    maxHeight: '300px'
                   }}
                 >
                   {availablePools.map(p => (
