@@ -1,4 +1,4 @@
-﻿export function getAgeFromCategory(catName: string): number {
+export function getAgeFromCategory(catName: string): number {
   if (catName.includes('U8')) return 8;
   if (catName.includes('U10')) return 10;
   if (catName.includes('U12')) return 12;
@@ -8,7 +8,7 @@
   if (catName.includes('Senior')) return 20;
   if (catName.includes('Veteran')) return 35;
   
-  const ageMatch = catName.match(/(\d+)\s*Years?/i) || catName.match(/\((\d+)-/);
+  const ageMatch = catName.match(/(\d+)\s*Years?/i) || catName.match(/(?:^|\s|\()(\d+)-/);
   if (ageMatch) {
     return parseInt(ageMatch[1], 10);
   }

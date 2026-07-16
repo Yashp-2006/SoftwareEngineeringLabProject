@@ -14,6 +14,7 @@ import { toast } from 'react-hot-toast';
 import ConfirmModal from '@/components/ConfirmModal';
 import ScheduleKanban from './ScheduleKanban';
 import DateRangePicker from '@/components/DateRangePicker';
+import { sortCategories } from '@/lib/categoryUtils';
 import { db } from '@lib/firebase';
 import { doc, collection, writeBatch, getDocs, deleteDoc } from 'firebase/firestore';
 
@@ -1065,7 +1066,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
     setDragIdx(null);
   };
 
-  const filteredCategories = categories.filter(c => {
+  const filteredCategories = sortCategories(categories.filter(c => {
     if (hideEmpty && (!c.entries || c.entries === 0)) return false;
     const lowerName = c.name.toLowerCase();
     if (searchQuery && !lowerName.includes(searchQuery.toLowerCase())) return false;
@@ -1075,7 +1076,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
     if (filterDiscipline === 'kata' && !isKata) return false;
     if (filterDiscipline === 'kumite' && isKata) return false;
     return true;
-  });
+  }));
 
   if (!isDataLoaded) return <PageSkeleton />;
 
