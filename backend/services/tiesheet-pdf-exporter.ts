@@ -431,7 +431,7 @@ export async function exportTiesheetsPDF(options: ExportOptions): Promise<void> 
       const bracketY    = contentY + 1;
       const medalistW   = isArchived ? 52 : 0;
       const availW      = PAGE_W - MARGIN * 2 - medalistW - (medalistW > 0 ? 4 : 0);
-      const matchW      = Math.floor((availW - (numRounds - 1) * CONNECTOR_W) / numRounds);
+      const matchW      = Math.floor((availW - numRounds * CONNECTOR_W) / (numRounds + 1));
       const bracketX    = MARGIN;
       const availH      = PAGE_H - bracketY - MARGIN - 2;
 
@@ -479,6 +479,35 @@ export async function exportTiesheetsPDF(options: ExportOptions): Promise<void> 
             if (Math.abs(fromY - toY) > 0.5)
               doc.line(midX, Math.min(fromY, toY), midX, Math.max(fromY, toY)); // vertical join
             doc.line(midX, toY, connX + CONNECTOR_W, toY); // horizontal into next
+          } else {
+            /* ── Winner Box */
+            const fromY = my + BLOCK_H / 2;
+            const connX = rx + matchW;
+            doc.setDrawColor(...GRAY_400);
+            doc.setLineWidth(0.3);
+            doc.line(connX, fromY, connX + CONNECTOR_W, fromY);
+            
+            const winX = connX + CONNECTOR_W;
+            const winY = fromY - ATHLETE_H / 2;
+            doc.setFillColor(...WHITE);
+            doc.setDrawColor(...GRAY_200);
+            doc.rect(winX, winY, matchW, ATHLETE_H, 'FD');
+            doc.setFillColor(...GOLD_C);
+            doc.rect(winX, winY, 2, ATHLETE_H, 'F');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(5);
+            doc.setTextColor(...GRAY_400);
+            doc.text("WINNER", winX + 3.5, winY + 3.5);
+            
+            if (match.winnerId) {
+               const winner = match.winnerId === match.aka?.playerId ? match.aka : match.ao;
+               if (winner) {
+                 doc.setFont('helvetica', 'bold');
+                 doc.setFontSize(7);
+                 doc.setTextColor(...BLACK);
+                 doc.text(winner.name.toUpperCase(), winX + 3.5, winY + 8, { maxWidth: matchW - 5 });
+               }
+            }
           }
         }
       }
@@ -489,7 +518,7 @@ export async function exportTiesheetsPDF(options: ExportOptions): Promise<void> 
           cat.athletes ??
           (matches.flatMap(m => [m.aka, m.ao]).filter(Boolean) as TiesheetAthlete[]);
         const medalists = getMedalists(matches, allAthletes);
-        const medX = bracketX + numRounds * (matchW + CONNECTOR_W) + 4;
+        const medX = bracketX + (numRounds + 1) * matchW + numRounds * CONNECTOR_W + 4;
         const medY = bracketY + availH * 0.2;
         const medW = medalistW - 4;
         if (medW > 30) {
