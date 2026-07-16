@@ -15,6 +15,7 @@ export default function PasswordGateway({ children }: { children: React.ReactNod
 
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [inputName, setInputName] = useState('');
   const [inputPassword, setInputPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -62,6 +63,26 @@ export default function PasswordGateway({ children }: { children: React.ReactNod
           if (!actualPassword) {
             setError('No password has been set for this mat yet. Configure it in the Setup Wizard.');
           } else if (actualPassword === inputPassword) {
+            
+            // Assign name, global role and local staff record
+            if (user && inputName.trim()) {
+              const { setDoc } = await import('firebase/firestore');
+              await setDoc(doc(db, 'users', user.uid), {
+                displayName: inputName.trim(),
+                role: 'mat_operator'
+              }, { merge: true });
+
+              await setDoc(doc(db, 'competitions', id, 'staff', user.uid), {
+                userId: user.uid,
+                name: inputName.trim(),
+                email: 'pin-login@anonymous.local',
+                role: 'score',
+                approvalStatus: 'approved',
+                assignedCategories: [],
+                assignedMats: [matId.replace('mat-', '')]
+              }, { merge: true });
+            }
+
             sessionStorage.setItem(authKey, 'true');
             setIsAuthenticated(true);
             setError('');
@@ -76,6 +97,23 @@ export default function PasswordGateway({ children }: { children: React.ReactNod
         if (snap.exists()) {
           const actualPassword = snap.data().password;
           if (actualPassword === inputPassword) {
+            
+            if (user && inputName.trim()) {
+              const { setDoc } = await import('firebase/firestore');
+              await setDoc(doc(db, 'users', user.uid), {
+                displayName: inputName.trim(),
+                role: 'guest_viewer'
+              }, { merge: true });
+
+              await setDoc(doc(db, 'competitions', id, 'staff', user.uid), {
+                userId: user.uid,
+                name: inputName.trim(),
+                email: 'pin-login@anonymous.local',
+                role: 'guest_viewer',
+                approvalStatus: 'approved'
+              }, { merge: true });
+            }
+
             sessionStorage.setItem(authKey, 'true');
             setIsAuthenticated(true);
             setError('');
@@ -87,6 +125,7 @@ export default function PasswordGateway({ children }: { children: React.ReactNod
         }
       }
     } catch (err) {
+      console.error(err);
       setError('An error occurred verifying the password.');
     }
   };
@@ -113,6 +152,17 @@ export default function PasswordGateway({ children }: { children: React.ReactNod
         </div>
         
         <form onSubmit={handleSubmit}>
+          <div className="form-group" style={{ marginBottom: '16px' }}>
+            <input
+              type="text"
+              className="input-field"
+              placeholder="Your Name (Staff Name)"
+              value={inputName}
+              onChange={e => setInputName(e.target.value)}
+              required
+              style={{ borderColor: 'var(--neutral-300)' }}
+            />
+          </div>
           <div className="form-group" style={{ marginBottom: '16px' }}>
             <div style={{ position: 'relative' }}>
               <input
