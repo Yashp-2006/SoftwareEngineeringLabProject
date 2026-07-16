@@ -405,23 +405,20 @@ export function bucketAthletes(
 
         if (nameMatches) return true;
 
-        if (compRules !== 'wkf') {
-          const ccNameLower = cc.name.toLowerCase();
-          const eventLower = event.toLowerCase();
-          const isKata = eventLower.includes('kata');
-          const isKumite = eventLower.includes('kumite');
-          
-          if (isKata || isKumite) {
-            const ccIsKata = ccNameLower.includes('kata');
-            const ccIsKumite = ccNameLower.includes('kumite');
-            if (isKata && ccIsKata) return true;
-            if (isKumite && ccIsKumite) return true;
-            if (!ccIsKata && !ccIsKumite) return true;
-          } else {
-            const ccIsKata = ccNameLower.includes('kata');
-            const ccIsKumite = ccNameLower.includes('kumite');
-            if (!ccIsKata && !ccIsKumite) return true;
-          }
+        const ccNameLower = cc.name.toLowerCase();
+        const eventLower = event.toLowerCase();
+        const isKata = eventLower.includes('kata');
+        const isKumite = eventLower.includes('kumite');
+        
+        const ccIsKata = ccNameLower.includes('kata') || cc.discipline === 'Kata';
+        const ccIsKumite = ccNameLower.includes('kumite') || cc.discipline === 'Kumite';
+
+        if (isKata || isKumite) {
+          if (isKata && ccIsKata) return true;
+          if (isKumite && ccIsKumite) return true;
+          if (!ccIsKata && !ccIsKumite) return true;
+        } else {
+          if (!ccIsKata && !ccIsKumite) return true;
         }
 
         return false;
@@ -456,7 +453,7 @@ export function bucketAthletes(
 
     // 3. Fallback to standard Kumite or Custom Categories
     if (!addedToAny) {
-      if (compRules !== 'wkf' && customCategories.length > 0) {
+      if (customCategories.length > 0) {
         const match = customCategories.find(c => {
           if (c.gender && c.gender !== 'Any' && athlete.gender.charAt(0).toLowerCase() !== c.gender.charAt(0).toLowerCase()) return false;
           if (c.minAge !== undefined && athlete.age < c.minAge) return false;
@@ -467,6 +464,8 @@ export function bucketAthletes(
         });
         if (match) {
           addToCategory(match.name, athlete);
+        } else if (compRules === 'wkf') {
+          addToCategory(determineCategory(athlete, specialCategories, wkfMode), athlete);
         }
       } else {
         // Automatically enroll in Kumite if no events were explicitly specified
