@@ -21,11 +21,96 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
     const { id } = await params;
     const body = await req.json();
-    const { categoryId, categoryIds, specialCategoryId, poolSize: rawPoolSize, compType = 'international', useRoundRobin } = body;
+    const { categoryId, categoryIds, specialCategoryId, poolSize: rawPoolSize, compType = 'international', useRoundRobin, rebucketAll, wkfMode, compRules } = body;
     const poolSize = ([4, 8, 16, 32].includes(rawPoolSize) ? rawPoolSize : 8) as PoolSize;
 
     const competitionRef = adminDb.collection('competitions').doc(id);
     const categoriesRef = competitionRef.collection('categories');
+
+    // ── Global Rebucketing ──
+    if (rebucketAll) {
+      const { bucketAthletes } = await import('@taikaix/backend/services/tiesheet-generator');
+      
+      const catsSnap = await categoriesRef.get();
+      const allCategories = catsSnap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
+      
+      // Extract all athletes globally
+      const allAthletes: any[] = [];
+      for (const c of allCategories) {
+        if (c.athletes && c.athletes.length > 0) {
+          allAthletes.push(...c.athletes);
+        }
+      }
+
+      // Deduplicate
+      const uniqueAthletes = Array.from(new Map(allAthletes.map(a => [a.playerId, a])).values());
+
+      // Custom categories passed from client are already saved in firestore (the setup page saves them automatically).
+      // But we need to distinguish between custom and wkf. We can just pass all non-special categories.
+      const { generateWkfCategories } = await import('@taikaix/backend/lib/wkf-categories');
+      const wkfCatNames = new Set(generateWkfCategories(wkfMode || 'standard').map(c => c.name));
+      const customCats = compRules === 'wkf' 
+         ? allCategories.filter(c => !c.isSpecial && !wkfCatNames.has(c.name))
+         : allCategories.filter(c => !c.isSpecial);
+      
+      const { categoryMap } = bucketAthletes(uniqueAthletes, [], wkfMode || 'standard', customCats, compRules || 'international');
+
+      let processed = 0;
+      const batches = [];
+      let currentBatch = adminDb.batch();
+      let opCount = 0;
+
+      for (const oldCat of allCategories) {
+        if (oldCat.isSpecial) continue;
+        
+        const newAthletes = categoryMap.get(oldCat.name) || [];
+        const oldAthletes = oldCat.athletes || [];
+        
+        const oldIds = oldAthletes.map((a: any) => a.playerId).sort().join(',');
+        const newIds = newAthletes.map((a: any) => a.playerId).sort().join(',');
+
+        if (oldIds !== newIds) {
+           newAthletes.sort((a: any, b: any) => a.name.localeCompare(b.name));
+           
+           const catUpdate: any = {
+             athletes: newAthletes,
+             entries: newAthletes.length,
+             updatedAt: new Date().toISOString()
+           };
+
+           if (newAthletes.length > 0) {
+             const matches = generateBracket(newAthletes, compType, poolSize, { useRoundRobin: oldCat.useRoundRobin || useRoundRobin });
+             catUpdate.matches = matches.map(m => ({
+               id: m.id,
+               round: m.round,
+               matchNumber: m.matchNumber,
+               aka: m.aka || null,
+               ao: m.ao || null,
+               akaFromMatchId: m.akaFromMatchId || null,
+               aoFromMatchId: m.aoFromMatchId || null,
+               akaScore: 0,
+               aoScore: 0,
+               winnerId: m.winnerId || null,
+               nextMatchId: m.nextMatchId || null,
+               status: m.status,
+               mat: null,
+             }));
+           } else {
+             catUpdate.matches = [];
+           }
+
+           currentBatch.update(categoriesRef.doc(oldCat.id), catUpdate);
+           processed++;
+           opCount++;
+           if (opCount === 400) { batches.push(currentBatch); currentBatch = adminDb.batch(); opCount = 0; }
+        }
+      }
+
+      if (opCount > 0) batches.push(currentBatch);
+      await Promise.all(batches.map(b => b.commit()));
+
+      return NextResponse.json({ success: true, categoriesProcessed: processed });
+    }
 
     // ── Standard category regeneration ──
     const targetCategoryIds = categoryIds || (categoryId ? [categoryId] : []);

@@ -949,17 +949,17 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
       ]);
       const snap = await getDocs(collection(db, 'competitions', id, 'categories'));
       const cats = snap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
-      const standardCats = cats.filter(c => !c.isSpecial && (c.athletes?.length ?? 0) > 0);
+      const standardCats = cats.filter(c => !c.isSpecial);
       if (standardCats.length === 0) {
         toast.dismiss(toastId);
-        toast.error('No categories with athletes found. Import athletes first.');
+        toast.error('No standard categories found.');
         return;
       }
       try {
         const res = await fetch(`/api/competitions/${id}/brackets/generate`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ categoryIds: standardCats.map(c => c.id), poolSize, compType }),
+          body: JSON.stringify({ rebucketAll: true, compType, poolSize, wkfMode, compRules }),
         });
         const json = await res.json();
         toast.dismiss(toastId);
