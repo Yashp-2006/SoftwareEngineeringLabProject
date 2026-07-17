@@ -59,15 +59,17 @@ export async function POST(req: NextRequest) {
 
         console.log('[deploy] fetching Firestore docs...');
         const [catsSnapshot, compDocSnap, existingMatsSnap] = await Promise.all([
-          adminDb.collection('competitions').doc(data.competitionId).collection('categories').select('name').get(),
+          adminDb.collection('competitions').doc(data.competitionId).collection('categories').get(),
           adminDb.collection('competitions').doc(data.competitionId).get(),
           adminDb.collection('competitions').doc(data.competitionId).collection('mats').get()
         ]);
         console.log('[deploy] docs fetched. compExists:', compDocSnap.exists, 'existingCats:', catsSnapshot.size, 'existingMats:', existingMatsSnap.size);
 
         const existingCatsMap: Record<string, any> = {};
+        const existingDataMap: Record<string, any> = {};
         catsSnapshot.docs.forEach((d: any) => {
           existingCatsMap[d.data().name] = d.ref;
+          existingDataMap[d.data().name] = d.data();
         });
 
         const allCats = [
@@ -257,7 +259,9 @@ export async function POST(req: NextRequest) {
             scheduledEndTime: lastPool.endTime || '18:00',
             order: firstPool.order || 0,
             isSpecial: cat.isSpecial,
-            pools: dbPools
+            pools: dbPools,
+            athletes: existingDataMap[cat.name]?.athletes || [],
+            matches: existingDataMap[cat.name]?.matches || []
           };
 
           if (cat.matchTime !== undefined) updateData.matchTime = cat.matchTime;
