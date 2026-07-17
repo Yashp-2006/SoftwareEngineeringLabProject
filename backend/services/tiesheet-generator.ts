@@ -72,9 +72,14 @@ const PARSE_PAGE_SIZE = 500;
  * so each iteration stays bounded — avoids a single massive loop tick.
  * Athletes are returned sorted A-Z by name.
  */
-export function parseExcel(buffer: ArrayBuffer): AthleteRow[] {
-  const dataArray = new Uint8Array(buffer);
-  const workbook = xlsx.read(dataArray, { type: 'array' });
+export function parseExcel(buffer: ArrayBuffer | string): AthleteRow[] {
+  let workbook;
+  if (typeof buffer === 'string') {
+    workbook = xlsx.read(buffer, { type: 'string' });
+  } else {
+    const dataArray = new Uint8Array(buffer);
+    workbook = xlsx.read(dataArray, { type: 'array' });
+  }
   let allRows: any[] = [];
 
   // Read all sheets (some tournaments export one sheet per category)
@@ -325,14 +330,14 @@ export function normalizeAthleteRows(rawData: any[]): AthleteRow[] {
  * Parses an Excel file and buckets athletes into category groups.
  */
 export function parseExcelIntoCategories(
-  buffer: ArrayBuffer,
+  buffer: ArrayBuffer | string,
   specialCategories: SpecialCategoryRule[] = [],
   wkfMode: string = 'standard',
-  customCategories: SpecialCategoryRule[] = [],
-  compRules: string = 'custom'
+  customCategories: any[] = [],
+  compRules: string = 'wkf'
 ): { categoryMap: Map<string, AthleteRow[]>, uniqueAthletesCount: number } {
   const athletes = parseExcel(buffer);
-  return { ...bucketAthletes(athletes, specialCategories, wkfMode, customCategories, compRules), uniqueAthletesCount: athletes.length };
+  return bucketAthletes(athletes, specialCategories, wkfMode, customCategories, compRules);
 }
 
 /**
@@ -461,6 +466,8 @@ export function bucketAthletes(
           addToCategory(match.name, athlete);
         } else if (compRules === 'wkf') {
           addToCategory(determineCategory(athlete, specialCategories, wkfMode), athlete);
+        } else {
+          addToCategory('Uncategorized', athlete);
         }
       } else {
         // Automatically enroll in Kumite if no events were explicitly specified

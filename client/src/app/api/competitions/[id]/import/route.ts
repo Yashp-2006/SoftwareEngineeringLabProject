@@ -115,7 +115,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         ? customCategories.filter((c: any) => !wkfCatNames.has(c.name))
         : customCategories;
 
-      const buffer = await file.arrayBuffer();
+      let buffer: ArrayBuffer | string;
+      if (file.name.toLowerCase().endsWith('.csv')) {
+        buffer = await file.text();
+      } else {
+        buffer = await file.arrayBuffer();
+      }
       try {
         const parsed = parseExcelIntoCategories(buffer, specialCategories, wkfMode, filteredCustomCategories, compRules);
         categoryMap = parsed.categoryMap;

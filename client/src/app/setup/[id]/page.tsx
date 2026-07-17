@@ -624,7 +624,12 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
 
     try {
       // 1. Parse xlsx client-side
-      const buffer = await file.arrayBuffer();
+      let buffer: ArrayBuffer | string;
+      if (file.name.toLowerCase().endsWith('.csv')) {
+        buffer = await file.text();
+      } else {
+        buffer = await file.arrayBuffer();
+      }
       toast.loading('Computing brackets...', { id: toastId });
       const { parseExcelIntoCategories, generateBracket } = await import('@taikaix/backend/services/tiesheet-generator');
       const { generateWkfCategories } = await import('@taikaix/backend/lib/wkf-categories');
