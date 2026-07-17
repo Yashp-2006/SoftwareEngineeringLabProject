@@ -16,7 +16,7 @@ import ScheduleKanban from './ScheduleKanban';
 import DateRangePicker from '@/components/DateRangePicker';
 import { sortCategories } from '@/lib/categoryUtils';
 import { db } from '@lib/firebase';
-import { doc, collection, writeBatch, getDocs, deleteDoc } from 'firebase/firestore';
+import { doc, collection, writeBatch, getDocs, deleteDoc, onSnapshot } from 'firebase/firestore';
 
 export default function SetupWizard({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
@@ -2333,18 +2333,26 @@ function SetupBracketPreview({ competitionId, initialCategoryId, onClose }: {
 
   React.useEffect(() => {
     let unsub: (() => void) | undefined;
-    const load = async () => {
-      const [{ collection, onSnapshot }, { db }] = await Promise.all([
-        import('firebase/firestore'),
-        import('@lib/firebase')
-      ]);
+    
+    try {
       unsub = onSnapshot(collection(db, 'competitions', competitionId, 'categories'), snap => {
-        const filtered = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter((c: any) => c.entries > 0);
-        setCategories(filtered);
+        const allDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const filtered = allDocs.filter((c: any) => c.entries > 0 || c.athletes?.length > 0);
+        console.log('SetupBracketPreview loaded docs:', allDocs.length, 'filtered:', filtered.length);
+        
+        setCategories(filtered.length > 0 ? filtered : allDocs);
+        setLoading(false);
+      }, error => {
+        console.error('SetupBracketPreview onSnapshot error:', error);
+        toast.error('Error loading categories from Firestore: ' + error.message);
         setLoading(false);
       });
-    };
-    load();
+    } catch (err: any) {
+      console.error('SetupBracketPreview setup error:', err);
+      toast.error('Failed to setup Firestore listener.');
+      setLoading(false);
+    }
+    
     return () => unsub?.();
   }, [competitionId]);
 
@@ -2352,8 +2360,12 @@ function SetupBracketPreview({ competitionId, initialCategoryId, onClose }: {
 
   if (categories.length === 0) return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ background: 'white', borderRadius: '16px', padding: '32px' }}>
-        <p>No categories found. Import an Excel file first.</p>
+      <div style={{ background: 'white', borderRadius: '16px', padding: '32px', maxWidth: '500px' }}>
+        <h3 style={{ marginTop: 0, color: 'var(--aka)' }}>Debug Info</h3>
+        <p>No categories found in Firestore for competition ID: <strong>{competitionId}</strong>.</p>
+        <p className="text-small" style={{ color: 'var(--neutral-500)' }}>
+          This means the `competitions/{competitionId}/categories` collection is completely empty according to Firestore, or there is a permission issue.
+        </p>
         <button type="button" className="btn btn-secondary" onClick={onClose} style={{ marginTop: '16px' }}>Close</button>
       </div>
     </div>
