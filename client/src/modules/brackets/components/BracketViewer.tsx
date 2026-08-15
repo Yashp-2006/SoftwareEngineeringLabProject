@@ -42,6 +42,51 @@ export default function BracketViewer({ matches, categoryName, isKata: propIsKat
     return () => el.removeEventListener('wheel', onWheel);
   }, []);
 
+  // Pinch-to-zoom for mobile
+  const lastTouchDistance = useRef<number | null>(null);
+  useEffect(() => {
+    const el = scrollAreaRef.current;
+    if (!el) return;
+    
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        e.preventDefault(); // Prevent default scroll when pinching
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        lastTouchDistance.current = Math.hypot(dx, dy);
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && lastTouchDistance.current !== null) {
+        e.preventDefault();
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.hypot(dx, dy);
+        
+        const delta = (dist - lastTouchDistance.current) * 0.005;
+        lastTouchDistance.current = dist;
+        setZoom(prev => Math.max(0.2, Math.min(2, +(prev + delta).toFixed(3))));
+      }
+    };
+
+    const onTouchEnd = () => {
+      lastTouchDistance.current = null;
+    };
+
+    el.addEventListener('touchstart', onTouchStart, { passive: false });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', onTouchEnd);
+    el.addEventListener('touchcancel', onTouchEnd);
+
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+      el.removeEventListener('touchcancel', onTouchEnd);
+    };
+  }, []);
+
   // Auto fit on first render after matches load
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -280,6 +325,13 @@ export default function BracketViewer({ matches, categoryName, isKata: propIsKat
         }
         .bracket-round:last-child .match-wrapper::after {
           display: none;
+        }
+        @media (max-width: 768px) {
+          .bracket-node { width: 240px; }
+          .bracket-container { gap: 60px; padding: 16px 12px 24px; }
+          .bracket-round { min-width: 240px; }
+          .competitor-row { padding: 12px 12px; min-height: 70px; }
+          .comp-score { font-size: 24px; margin-left: 10px; }
         }
       `}} />
 

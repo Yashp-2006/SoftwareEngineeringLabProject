@@ -116,6 +116,21 @@ export default function KumiteLiveScoreboard({
         .kls-win-name { font-family: var(--font-display); font-size: 10cqw; text-transform: uppercase; text-align: center; line-height: 1; max-width: 90cqw; }
         .kls-win-aka { color: var(--aka); }
         .kls-win-ao { color: var(--ao); }
+        
+        @media (max-width: 768px) {
+          .kls-container {
+            display: flex;
+            overflow-x: auto;
+            scroll-snap-type: x mandatory;
+            scroll-behavior: smooth;
+          }
+          .kls-container::-webkit-scrollbar { display: none; }
+          .kls-side { min-width: 100vw; scroll-snap-align: start; padding: 6cqw; }
+          .kls-center { min-width: 100vw; scroll-snap-align: start; }
+          .kls-score { font-size: 30cqw; }
+          .kls-name { font-size: 10cqw; }
+          .kls-timer { font-size: 12cqw; }
+        }
       `}} />
 
       <div className={`kls-overlay ${winnerName ? 'active' : ''}`}>

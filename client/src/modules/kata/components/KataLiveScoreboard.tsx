@@ -649,6 +649,21 @@ const kataScoreboadStyles = `
     from { opacity: 0; transform: scale(0.92); }
     to { opacity: 1; transform: scale(1); }
   }
+
+  @media (max-width: 768px) {
+    .kls-container {
+      display: flex;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      scroll-behavior: smooth;
+    }
+    .kls-container::-webkit-scrollbar { display: none; }
+    .kls-side { min-width: 100vw; scroll-snap-align: start; padding: 24px; }
+    .kls-center { min-width: 100vw; scroll-snap-align: start; }
+    .kls-name { font-size: 40px; }
+    .kls-timer { font-size: 48px; }
+    .kls-flag-count { font-size: 100px; }
+  }
 `;
 
 // ─── Helper: derive judgeVotes array from RTDB kataScores ────────────────────
