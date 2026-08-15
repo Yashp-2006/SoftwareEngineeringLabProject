@@ -53,25 +53,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               const currentRole = (userDoc.data().role as UserRole) || 'audience';
               setRole(currentRole);
 
-              await setDoc(userDocRef, {
-                email: currentUser.email,
-                displayName: currentUser.displayName || null,
-                photoURL: currentUser.photoURL || null,
-                // Note: 'role' is intentionally NOT written here.
-                // Role is server-authoritative — we read it above but never write it
-                // from the client to prevent privilege escalation.
-                lastLoginAt: new Date().toISOString()
-              }, { merge: true });
+              if (!currentUser.isAnonymous) {
+                await setDoc(userDocRef, {
+                  email: currentUser.email,
+                  displayName: currentUser.displayName || null,
+                  photoURL: currentUser.photoURL || null,
+                  // Note: 'role' is intentionally NOT written here.
+                  // Role is server-authoritative — we read it above but never write it
+                  // from the client to prevent privilege escalation.
+                  lastLoginAt: new Date().toISOString()
+                }, { merge: true });
+              }
             } else {
-              // New user — write doc with default audience role
-              await setDoc(userDocRef, {
-                email: currentUser.email || null,
-                displayName: currentUser.displayName || null,
-                photoURL: currentUser.photoURL || null,
-                isAnonymous: currentUser.isAnonymous,
-                createdAt: new Date().toISOString(),
-                lastLoginAt: new Date().toISOString()
-              });
+              // New user — only write doc if NOT anonymous
+              if (!currentUser.isAnonymous) {
+                await setDoc(userDocRef, {
+                  email: currentUser.email || null,
+                  displayName: currentUser.displayName || null,
+                  photoURL: currentUser.photoURL || null,
+                  isAnonymous: false,
+                  createdAt: new Date().toISOString(),
+                  lastLoginAt: new Date().toISOString()
+                });
+              }
               setRole('audience');
             }
           } catch (error) {

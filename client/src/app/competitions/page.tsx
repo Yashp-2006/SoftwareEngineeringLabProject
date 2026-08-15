@@ -254,7 +254,10 @@ export default function CompetitionsPage() {
           position: relative;
           border-left: 4px solid var(--neutral-300);
           min-width: 0;
+          display: flex;
+          flex-direction: column;
         }
+        .comp-card .mt-4 { margin-top: auto; padding-top: var(--space-3); }
         .comp-card.live { border-left-color: var(--aka); }
         .comp-card.upcoming { border-left-color: var(--status-upcoming); }
         .comp-card.done { border-left-color: var(--status-done); }
@@ -262,25 +265,16 @@ export default function CompetitionsPage() {
         .comp-actions {
           display: flex;
           gap: var(--space-2);
+          justify-content: flex-end;
+          margin-bottom: var(--space-3);
           opacity: 0;
-          transition: opacity 0.2s;
+          transition: opacity 180ms cubic-bezier(0.23, 1, 0.32, 1);
         }
         .comp-card:hover .comp-actions { opacity: 1; }
         
         @media (max-width: 768px) {
           .comp-actions {
             opacity: 1;
-            position: relative;
-            top: 0; right: 0;
-            justify-content: flex-end;
-            margin-bottom: var(--space-3);
-          }
-        }
-        @media (min-width: 769px) {
-          .comp-actions {
-            position: absolute;
-            top: var(--space-4);
-            right: var(--space-4);
           }
         }
 
@@ -468,7 +462,7 @@ export default function CompetitionsPage() {
           </div>
           <div className="page-header-actions">
             <div style={{ position: 'relative', width: '100%', maxWidth: '300px' }}>
-              <input type="text" placeholder="Search events..." id="comp-search" style={{ width: '100%', height: '44px', borderRadius: '6px', border: '1.5px solid var(--neutral-300)', padding: '0 var(--space-7) 0 var(--space-4)', fontFamily: 'var(--font-body)', transition: 'all 160ms var(--ease-out)' }} />
+                <input type="text" placeholder="Search events..." id="comp-search" style={{ width: '100%', height: '44px', borderRadius: '8px', border: '1.5px solid var(--neutral-300)', padding: '0 var(--space-7) 0 var(--space-4)', fontFamily: 'var(--font-body)', fontSize: '14px', background: 'var(--shiro)', color: 'var(--neutral-900)', outline: 'none', transition: 'border-color 160ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 160ms cubic-bezier(0.23, 1, 0.32, 1)' }} onFocus={e => { e.currentTarget.style.borderColor = 'var(--ao)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(26, 77, 181, 0.12)'; }} onBlur={e => { e.currentTarget.style.borderColor = 'var(--neutral-300)'; e.currentTarget.style.boxShadow = 'none'; }} />
               <Search style={{ position: 'absolute', right: '12px', top: '13px', width: '18px', color: 'var(--neutral-500)' }} />
             </div>
             {role === 'admin' && (

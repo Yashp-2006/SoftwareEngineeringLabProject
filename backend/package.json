@@ -17,8 +17,9 @@
     "@upstash/redis": "^1.38.0",
     "algoliasearch": "^5.55.1",
     "bcryptjs": "^3.0.3",
+    "dotenv": "^17.4.2",
     "firebase": "^12.15.0",
-    "firebase-admin": "^14.1.0",
+    "firebase-admin": "^14.2.0",
     "jspdf": "^4.2.1",
     "xlsx": "^0.18.5",
     "zod": "^4.4.3"

@@ -202,7 +202,7 @@ export default function LandingPage() {
         )}
       </main>
 
-      <style jsx global>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @keyframes fadeSlideIn {
           from {
             opacity: 0;
@@ -213,7 +213,7 @@ export default function LandingPage() {
             transform: translateY(0);
           }
         }
-      `}</style>
+      `}} />
     </div>
   );
 }

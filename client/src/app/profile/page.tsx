@@ -1,18 +1,51 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Mail, MapPin, Calendar, Edit3, ExternalLink, FileText, Trash2 } from 'lucide-react';
 import { useAuth } from '@/modules/auth/components/AuthProvider';
 import { auth, db } from '@lib/firebase';
 import { deleteUser } from 'firebase/auth';
-import { doc, deleteDoc } from 'firebase/firestore';
+import { doc, deleteDoc, collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 
 export default function ProfilePage() {
   const { user, role } = useAuth();
   const router = useRouter();
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [competitions, setCompetitions] = useState<any[]>([]);
+  const [stats, setStats] = useState({ total: 0, matches: 0 });
+
+  useEffect(() => {
+    const loadProfileData = async () => {
+      try {
+        const q = query(collection(db, 'competitions'), orderBy('createdAt', 'desc'));
+        const snap = await getDocs(q);
+        
+        let total = 0;
+        let matches = 0;
+        const comps: any[] = [];
+        
+        snap.forEach(doc => {
+          total++;
+          const data = doc.data();
+          if (data.status === 'live' || data.status === 'completed') {
+            matches += (data.athletesCount || data.entries || 0); // rough approximation of matches
+          }
+          if (comps.length < 5) {
+            comps.push({ id: doc.id, ...data });
+          }
+        });
+        
+        setStats({ total, matches });
+        setCompetitions(comps);
+      } catch (err) {
+        console.error("Failed to load profile data", err);
+      }
+    };
+    
+    loadProfileData();
+  }, []);
 
   const handleDeleteAccount = async () => {
     if (!user) return;
@@ -128,12 +161,12 @@ export default function ProfilePage() {
 
         <section className="stats-row">
           <div className="stat-card">
-            <div className="stat-value">12</div>
+            <div className="stat-value">{stats.total}</div>
             <div className="stat-label">Competitions</div>
           </div>
           <div className="stat-card">
-            <div className="stat-value">156</div>
-            <div className="stat-label">Matches Called</div>
+            <div className="stat-value">{stats.matches}</div>
+            <div className="stat-label">Total Matches Run</div>
           </div>
         </section>
 
@@ -141,81 +174,41 @@ export default function ProfilePage() {
           <h2 className="section-title">Competition History</h2>
           
           <div className="comp-list">
-            <div className="comp-item">
-              <div className="comp-info">
-                <div className="comp-date-badge">
-                  <span className="comp-date-day">15</span>
-                  <span className="comp-date-month">May</span>
-                </div>
-                <div className="comp-details">
-                  <h4>Kyoto 2026 Finals</h4>
-                  <p>Kyoto Imperial Arena</p>
-                </div>
+            {competitions.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 'var(--space-6)', color: 'var(--neutral-500)' }}>
+                No competitions found.
               </div>
-              <div className="comp-status">
-                <span className="status-chip status-live">Live Now</span>
-                <Link href="/competitions/1" className="btn btn-ghost" style={{ padding: '8px' }}>
-                  <ExternalLink size={16} />
-                </Link>
-              </div>
-            </div>
-
-            <div className="comp-item">
-              <div className="comp-info">
-                <div className="comp-date-badge">
-                  <span className="comp-date-day">02</span>
-                  <span className="comp-date-month">Jun</span>
-                </div>
-                <div className="comp-details">
-                  <h4>Osaka Regional Cup</h4>
-                  <p>Osaka Prefectural Gym</p>
-                </div>
-              </div>
-              <div className="comp-status">
-                <span className="status-chip status-upcoming">Upcoming</span>
-                <Link href="#" className="btn btn-ghost" style={{ padding: '8px' }}>
-                  <ExternalLink size={16} />
-                </Link>
-              </div>
-            </div>
-
-            <div className="comp-item">
-              <div className="comp-info">
-                <div className="comp-date-badge">
-                  <span className="comp-date-day">10</span>
-                  <span className="comp-date-month">Apr</span>
-                </div>
-                <div className="comp-details">
-                  <h4>Tokyo Masters</h4>
-                  <p>Nippon Budokan</p>
-                </div>
-              </div>
-              <div className="comp-status">
-                <span className="status-chip status-done" style={{ background: 'var(--neutral-100)', color: 'var(--neutral-500)' }}>Completed</span>
-                <Link href="/archives/tokyo-masters" className="btn btn-ghost" style={{ padding: '8px' }}>
-                  <ExternalLink size={16} />
-                </Link>
-              </div>
-            </div>
-            
-            <div className="comp-item">
-              <div className="comp-info">
-                <div className="comp-date-badge">
-                  <span className="comp-date-day">22</span>
-                  <span className="comp-date-month">Mar</span>
-                </div>
-                <div className="comp-details">
-                  <h4>Nagoya Open 2026</h4>
-                  <p>Nagoya City Gym</p>
-                </div>
-              </div>
-              <div className="comp-status">
-                <span className="status-chip status-done" style={{ background: 'var(--neutral-100)', color: 'var(--neutral-500)' }}>Completed</span>
-                <Link href="/archives/nagoya-open" className="btn btn-ghost" style={{ padding: '8px' }}>
-                  <FileText size={16} />
-                </Link>
-              </div>
-            </div>
+            ) : (
+              competitions.map((comp) => {
+                const date = new Date(comp.startDate || comp.createdAt || Date.now());
+                const day = date.getDate().toString().padStart(2, '0');
+                const month = date.toLocaleString('default', { month: 'short' });
+                
+                return (
+                  <div key={comp.id} className="comp-item">
+                    <div className="comp-info">
+                      <div className="comp-date-badge">
+                        <span className="comp-date-day">{day}</span>
+                        <span className="comp-date-month">{month}</span>
+                      </div>
+                      <div className="comp-details">
+                        <h4>{comp.name || 'Unnamed Tournament'}</h4>
+                        <p>{comp.venue || 'No venue specified'}</p>
+                      </div>
+                    </div>
+                    <div className="comp-status">
+                      {comp.status === 'live' && <span className="status-chip status-live">Live Now</span>}
+                      {(comp.status === 'upcoming' || comp.status === 'setup' || comp.status === 'draft') && <span className="status-chip status-upcoming">Upcoming</span>}
+                      {(comp.status === 'completed' || comp.status === 'archived') && <span className="status-chip status-done" style={{ background: 'var(--neutral-100)', color: 'var(--neutral-500)' }}>Completed</span>}
+                      
+                      <Link href={`/competitions/${comp.id}`} className="btn btn-ghost" style={{ padding: '8px' }}>
+                        <ExternalLink size={16} />
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </section>
 
