@@ -2,10 +2,10 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Maximize2, X, Play, Pause, RotateCcw, Coffee } from 'lucide-react';
-import ConfirmModal from '@/components/ConfirmModal';
-import KataLiveScoreboard, { deriveJudgeVotes } from '@/components/kata/KataLiveScoreboard';
-import KumiteLiveScoreboard from '@/components/kumite/KumiteLiveScoreboard';
-import ScaleWrapper from '@/components/ScaleWrapper';
+import ConfirmModal from '@/modules/shared/components/ConfirmModal';
+import KataLiveScoreboard, { deriveJudgeVotes } from '@/modules/kata/components/KataLiveScoreboard';
+import KumiteLiveScoreboard from '@/modules/kumite/components/KumiteLiveScoreboard';
+import ScaleWrapper from '@/modules/shared/components/ScaleWrapper';
 
 type FighterState = {
   name: string;

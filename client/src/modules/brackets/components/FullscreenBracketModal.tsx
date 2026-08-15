@@ -323,7 +323,7 @@ const BracketNode = ({
   );
 };
 
-import { useAuth } from '@/components/auth/AuthProvider';
+import { useAuth } from '@/modules/auth/components/AuthProvider';
 
 // --- BracketViewer: the zoomable bracket canvas ---
 export function BracketViewer({
@@ -472,8 +472,9 @@ export function BracketViewer({
 
   // Store fitToScreen in a ref so the resize listener doesn't re-subscribe every render
   const fitToScreenRef = useRef(fitToScreen);
-  fitToScreenRef.current = fitToScreen;
-
+  useEffect(() => {
+    fitToScreenRef.current = fitToScreen;
+  }, [fitToScreen]);
   useEffect(() => {
     const stableFit = () => fitToScreenRef.current();
     const t = setTimeout(stableFit, 200);

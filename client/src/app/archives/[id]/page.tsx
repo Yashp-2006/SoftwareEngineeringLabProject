@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Download, ExternalLink, Filter } from 'lucide-react';
-import FullscreenBracketModal from '@/components/FullscreenBracketModal';
+import FullscreenBracketModal from '@/modules/brackets/components/FullscreenBracketModal';
 import dynamic from 'next/dynamic';
 import {
   Chart as ChartJS,
@@ -83,7 +83,7 @@ export default function ArchiveDetail({ params }: { params: Promise<{ id: string
         alert('No categories found for this competition.');
         return;
       }
-      const { exportTiesheetsPDF } = await import('@taikaix/backend/services/tiesheet-pdf-exporter');
+      const { exportTiesheetsPDF } = await import('@taikaix/backend/services/tiesheet/pdf-exporter');
       
       const compDate = compData?.startDate ? new Date(compData.startDate).toLocaleDateString() : '';
 

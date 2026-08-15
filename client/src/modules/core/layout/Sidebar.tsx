@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useAuth } from '@/components/auth/AuthProvider';
+import { useAuth } from '@/modules/auth/components/AuthProvider';
 import { Menu, X, ChevronDown } from 'lucide-react';
 
 export default function Sidebar() {
@@ -40,7 +40,7 @@ export default function Sidebar() {
 
         <div className="nav-links hide-on-mobile">
           {(!loading && (role === 'admin' || role === 'guest_viewer')) && (
-            <Link href="/" className={`nav-link ${pathname === '/' ? 'active' : ''}`}>
+            <Link href="/dashboard" className={`nav-link ${pathname === '/dashboard' ? 'active' : ''}`}>
               Dashboard
             </Link>
           )}
@@ -150,7 +150,7 @@ export default function Sidebar() {
 
           {(!loading && (role === 'admin' || role === 'guest_viewer')) && (
             <Link
-              href="/"
+              href="/dashboard"
               className="nav-link"
               style={{ padding: '10px 12px', borderRadius: '8px', height: 'auto', minHeight: '44px' }}
               onClick={() => setMobileMenuOpen(false)}

@@ -4,8 +4,8 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Search, Edit, Filter } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { useAuth } from '@/components/auth/AuthProvider';
-import PageSkeleton from '@/components/layout/PageSkeleton';
+import { useAuth } from '@/modules/auth/components/AuthProvider';
+import PageSkeleton from '@/modules/core/layout/PageSkeleton';
 
 interface AthleteRecord {
   categoryId: string;
@@ -50,37 +50,41 @@ export default function PlayerRecordsPage({ params }: { params: Promise<{ id: st
       const { collection, onSnapshot, query, orderBy } = await import('firebase/firestore');
 
       const catQ = query(collection(db, 'competitions', id, 'categories'), orderBy('order'));
+      let debounceTimer: NodeJS.Timeout | null = null;
       unsubscribe = onSnapshot(catQ, (catSnap) => {
-        const allRecords: AthleteRecord[] = [];
-        const cats = catSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
-        setCategoriesList(cats);
+        if (debounceTimer) clearTimeout(debounceTimer);
+        const docs = catSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
         
-        catSnap.docs.forEach(d => {
-          const data = d.data();
-          const rawAthletes: any[] = data.athletes || [];
+        debounceTimer = setTimeout(() => {
+          const allRecords: AthleteRecord[] = [];
+          setCategoriesList(docs);
           
-          rawAthletes.forEach(a => {
-            allRecords.push({
-              categoryId: d.id,
-              categoryName: data.name || '',
-              id: a.playerId || a.name,
-              name: a.name || '',
-              gender: a.gender || 'male',
-              age: a.age || 0,
-              weight: a.weight || 0,
-              academy: a.academy || '',
-              state: a.state || '',
-              coachName: a.coachName || '',
-              phone: a.phone || '',
-              email: a.email || ''
+          docs.forEach(d => {
+            const rawAthletes: any[] = d.athletes || [];
+            
+            rawAthletes.forEach(a => {
+              allRecords.push({
+                categoryId: d.id,
+                categoryName: d.name || '',
+                id: a.playerId || a.name,
+                name: a.name || '',
+                gender: a.gender || 'male',
+                age: a.age || 0,
+                weight: a.weight || 0,
+                academy: a.academy || '',
+                state: a.state || '',
+                coachName: a.coachName || '',
+                phone: a.phone || '',
+                email: a.email || ''
+              });
             });
           });
-        });
 
-        // Sort alphabetically by name
-        allRecords.sort((a, b) => a.name.localeCompare(b.name));
-        setRecords(allRecords);
-        setLoading(false);
+          // Sort alphabetically by name
+          allRecords.sort((a, b) => a.name.localeCompare(b.name));
+          setRecords(allRecords);
+          setLoading(false);
+        }, 200);
       });
     };
 

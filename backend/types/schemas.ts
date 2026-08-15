@@ -101,3 +101,49 @@ export const updateScheduleSchema = z.object({
     scheduledEndTime: z.string().nullable()
   }))
 });
+
+// API Request Schemas
+export const addAthleteSchema = z.object({
+  categoryId: z.string().min(1, 'Category ID is required'),
+  athleteData: athleteSchema.extend({
+    interestSpecial: z.string().optional().nullable(),
+  }),
+});
+
+export const updateBracketSchema = z.object({
+  matchId: z.string().min(1, 'Match ID is required'),
+  winnerId: z.string().optional().nullable(),
+  byeFor: z.enum(['aka', 'ao']).optional().nullable(),
+  selectedKata: z.any().optional().nullable(),
+  action: z.enum(['revert']).optional().nullable(),
+});
+
+export const swapMatchSchema = z.object({
+  matchId: z.string().min(1, 'Match ID is required'),
+  action: z.enum(['move', 'swap']),
+  targetPlayerId: z.string().optional().nullable(),
+  sourcePlayerId: z.string().optional().nullable(),
+});
+
+export const generateBracketSchema = z.object({
+  categoryId: z.string().optional(),
+  categoryIds: z.array(z.string()).optional(),
+  specialCategoryId: z.string().optional(),
+  poolSize: z.union([z.number(), z.string()]).optional(),
+  compType: z.string().optional(),
+  useRoundRobin: z.boolean().optional(),
+  rebucketAll: z.boolean().optional(),
+  wkfMode: z.string().optional(),
+  compRules: z.string().optional(),
+});
+
+export const matPasswordSchema = z.object({
+  matId: z.string().optional(),
+  password: z.string().optional(),
+  bulkPasswords: z.array(z.object({
+    id: z.string(),
+    password: z.string(),
+  })).optional(),
+}).refine(data => (data.matId && data.password !== undefined) || data.bulkPasswords, {
+  message: "Either matId and password, or bulkPasswords must be provided",
+});

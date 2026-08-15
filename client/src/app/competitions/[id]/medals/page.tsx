@@ -3,9 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Search, Trophy, Zap } from 'lucide-react';
-import PageSkeleton from '@/components/layout/PageSkeleton';
-import SpecialCategoryModal from '@/components/SpecialCategoryModal';
-import { useAuth } from '@/components/auth/AuthProvider';
+import PageSkeleton from '@/modules/core/layout/PageSkeleton';
+import SpecialCategoryModal from '@/modules/competitions/components/category/SpecialCategoryModal';
+import { useAuth } from '@/modules/auth/components/AuthProvider';
 
 interface Athlete {
   id: string;

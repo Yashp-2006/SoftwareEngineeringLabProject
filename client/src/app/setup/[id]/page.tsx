@@ -4,16 +4,20 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, Save, CheckCircle, Combine, Plus, Edit2, Trash2, Star, FileSpreadsheet, RefreshCw, Key, ChevronDown, Eye, EyeOff, UploadCloud, X, Download, Search, GripVertical } from 'lucide-react';
-import FullscreenBracketModal from '@/components/FullscreenBracketModal';
-import UndersizedPoolsModal from '@/components/UndersizedPoolsModal';
-import StaffAssignmentManager from '@/components/StaffAssignmentManager';
-import EditCategoryModal from '@/components/EditCategoryModal';
-import OnSpotEntryModal from '@/components/OnSpotEntryModal';
-import PageSkeleton from '@/components/layout/PageSkeleton';
+import FullscreenBracketModal from '@/modules/brackets/components/FullscreenBracketModal';
+import UndersizedPoolsModal from '@/modules/brackets/components/UndersizedPoolsModal';
+import StaffAssignmentManager from '@/modules/staff/components/StaffAssignmentManager';
+import EditCategoryModal from '@/modules/competitions/components/category/EditCategoryModal';
+import OnSpotEntryModal from '@/modules/competitions/components/athlete/OnSpotEntryModal';
+import PageSkeleton from '@/modules/core/layout/PageSkeleton';
 import { toast } from 'react-hot-toast';
-import ConfirmModal from '@/components/ConfirmModal';
+import ConfirmModal from '@/modules/shared/components/ConfirmModal';
 import ScheduleKanban from './ScheduleKanban';
-import DateRangePicker from '@/components/DateRangePicker';
+import CategoriesPhase from '@/modules/competitions/components/setup/CategoriesPhase';
+import ImportPhase from '@/modules/competitions/components/setup/ImportPhase';
+import MatsPhase from '@/modules/competitions/components/setup/MatsPhase';
+import PreviewPhase from '@/modules/competitions/components/setup/PreviewPhase';
+import DateRangePicker from '@/modules/shared/components/DateRangePicker';
 import { sortCategories } from '@/lib/categoryUtils';
 import { db } from '@lib/firebase';
 import { doc, collection, writeBatch, getDocs, deleteDoc, onSnapshot } from 'firebase/firestore';
@@ -115,20 +119,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
   const saveDraft = async (targetPhase: number) => {
     setIsSaving(true);
     try {
-      // Clean undefined values for Zod and API
-      const stripUndefined = (obj: any): any => {
-        if (Array.isArray(obj)) return obj.map(stripUndefined);
-        if (obj !== null && typeof obj === 'object') {
-          const clean: any = {};
-          for (const [k, v] of Object.entries(obj)) {
-            if (v !== undefined) clean[k] = stripUndefined(v);
-          }
-          return clean;
-        }
-        return obj;
-      };
-
-      const payload = stripUndefined({
+      const payload = {
         competitionId: id,
         compName: compName || 'Untitled',
         matsCount: Number(matsCount) || 1,
@@ -149,7 +140,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         poolsSchedule,
         lastActivePhase: targetPhase,
         highestPhase: Math.max(highestPhase, targetPhase)
-      });
+      };
 
       const res = await fetch('/api/gateway', {
         method: 'POST',
@@ -452,15 +443,13 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
   const saveMatPassword = async (idx: number, password: string) => {
     const matId = `mat-${idx + 1}`;
     try {
-      const [{ db }, { doc, setDoc }] = await Promise.all([
-        import('@lib/firebase'),
-        import('firebase/firestore')
-      ]);
-      await setDoc(
-        doc(db, 'competitions', id, 'mats', matId),
-        { password },
-        { merge: true }
-      );
+      const res = await fetch(`/api/competitions/${id}/mats`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ matId, password })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error?.message || 'Failed to save password');
       toast.success(`Password saved for Mat ${String(idx + 1).padStart(2, '0')}`);
     } catch (err) {
       console.error('Failed to save mat password', err);
@@ -487,32 +476,30 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
     downloadAnchorNode.remove();
   };
 
-  const handleImportPreset = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportPreset = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const imported = JSON.parse(event.target?.result as string);
-        if (Array.isArray(imported)) {
-          const newCats = imported.map(cat => ({
-            ...cat,
-            id: Math.random().toString(36).substring(2, 9),
-            entries: 0,
-            athletes: []
-          }));
-          setCategories(prev => [...prev, ...newCats]);
-          toast.success(`Imported ${newCats.length} categories`);
-        } else {
-          toast.error('Invalid preset format');
-        }
-      } catch (err) {
-        toast.error('Failed to parse preset file');
+    try {
+      const text = await file.text();
+      const imported = JSON.parse(text);
+      if (Array.isArray(imported)) {
+        const newCats = imported.map(cat => ({
+          ...cat,
+          id: Math.random().toString(36).substring(2, 9),
+          entries: 0,
+          athletes: []
+        }));
+        setCategories(prev => [...prev, ...newCats]);
+        toast.success(`Imported ${newCats.length} categories`);
+      } else {
+        toast.error('Invalid preset format');
       }
+    } catch (err) {
+      toast.error('Failed to parse preset file');
+    } finally {
       e.target.value = '';
-    };
-    reader.readAsText(file);
+    }
   };
 
   const handleLoadWkfCategories = async () => {
@@ -631,7 +618,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         buffer = await file.arrayBuffer();
       }
       toast.loading('Computing brackets...', { id: toastId });
-      const { parseExcelIntoCategories, generateBracket } = await import('@taikaix/backend/services/tiesheet-generator');
+      const { parseExcelIntoCategories, generateBracket } = await import('@taikaix/backend/services/tiesheet/generator');
       const { generateWkfCategories } = await import('@taikaix/backend/lib/wkf-categories');
       const wkfCatNames = new Set(generateWkfCategories(wkfMode).map(c => c.name));
       const customCats = compRules === 'wkf'
@@ -726,7 +713,12 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         if (++opCount === BATCH_SIZE) { batches.push(currentBatch); currentBatch = writeBatch(db); opCount = 0; }
       }
       if (opCount > 0) batches.push(currentBatch);
-      await Promise.all(batches.map(b => b.commit()));
+      for (let i = 0; i < batches.length; i++) {
+        await batches[i].commit();
+        if (i < batches.length - 1) {
+          await new Promise(r => setTimeout(r, 100)); // Yield main thread
+        }
+      }
 
       // Update competition stats
       const totalEntries = allCategories.reduce((s, c) => s + c.athletes.length, 0);
@@ -785,7 +777,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         Email: a.email || '',
       }));
 
-      const { normalizeAthleteRows, bucketAthletes, generateBracket } = await import('@taikaix/backend/services/tiesheet-generator');
+      const { normalizeAthleteRows, bucketAthletes, generateBracket } = await import('@taikaix/backend/services/tiesheet/generator');
       const athletes = normalizeAthleteRows(rows);
       const { generateWkfCategories } = await import('@taikaix/backend/lib/wkf-categories');
       const wkfCatNames = new Set(generateWkfCategories(wkfMode).map(c => c.name));
@@ -920,7 +912,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         toast.error('No categories found. Import athletes first.');
         return;
       }
-      const { exportTiesheetsPDF } = await import('@taikaix/backend/services/tiesheet-pdf-exporter');
+      const { exportTiesheetsPDF } = await import('@taikaix/backend/services/tiesheet/pdf-exporter');
       await exportTiesheetsPDF({
         competitionName: compName,
         categories: cats.map((c: any) => ({
@@ -1280,200 +1272,30 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                   </div>
                 </div>
               )}
-              <div className="category-manager">
-                <div className="cat-group" style={{ marginBottom: 'var(--space-4)' }}>
-                  <h3>Schedule Configuration</h3>
-                  <p className="text-small mb-4">Set up days and global time estimates for scheduling pools.</p>
-                  
-                  <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
-                    <div className="form-group" style={{ flex: 2, minWidth: '300px', position: 'relative' }}>
-                      <label className="text-micro">Dates (Calendar UI)</label>
-                      <DateRangePicker
-                        value={compDate}
-                        onChange={(rangeStr, daysCount) => {
-                          setCompDate(rangeStr);
-                          setTournamentDays(daysCount || 1);
-                        }}
-                      />
-                    </div>
-                    <div className="form-group" style={{ flex: 1, minWidth: '150px' }}>
-                      <label className="text-micro">Computed Days</label>
-                      <input type="number" readOnly className="input-field" style={{ background: '#f5f5f5', cursor: 'not-allowed' }} value={tournamentDays} />
-                    </div>
-                    <div className="form-group" style={{ flex: 1, minWidth: '150px' }}>
-                      <label className="text-micro">Start Time</label>
-                      <input type="time" className="input-field" value={compStartTime} onChange={e => setCompStartTime(e.target.value)} />
-                    </div>
-                    <div className="form-group" style={{ flex: 1, minWidth: '150px' }}>
-                      <label className="text-micro">End Time</label>
-                      <input type="time" className="input-field" value={compEndTime} onChange={e => setCompEndTime(e.target.value)} />
-                    </div>
-                    <div className="form-group" style={{ flex: 1, minWidth: '150px' }}>
-                      <label className="text-micro">Est. Min / Pool</label>
-                      <input type="number" min="5" className="input-field" value={compEstMinsPerPool} onChange={e => setCompEstMinsPerPool(parseInt(e.target.value) || 45)} />
-                    </div>
-                    <div className="form-group" style={{ flex: 1, minWidth: '150px' }}>
-                      <label className="text-micro">Match Time (mins)</label>
-                      <input type="number" min="0" className="input-field" value={globalMatchTime} onChange={e => setGlobalMatchTime(parseFloat(e.target.value) || 0)} />
-                    </div>
-                    <div className="form-group" style={{ flex: 1, minWidth: '150px' }}>
-                      <label className="text-micro">Rest/Buffer (mins)</label>
-                      <input type="number" min="0" className="input-field" value={globalRestTime} onChange={e => setGlobalRestTime(parseFloat(e.target.value) || 0)} />
-                    </div>
-                    <div className="form-group" style={{ flex: 1, minWidth: '150px' }}>
-                      <label className="text-micro">Medical Time (mins)</label>
-                      <input type="number" min="0" className="input-field" value={globalMedicalTime} onChange={e => setGlobalMedicalTime(parseFloat(e.target.value) || 0)} />
-                    </div>
-                    <div className="form-group" style={{ flex: 1, minWidth: '150px' }}>
-                      <label className="text-micro">Bunkai Buffer (mins)</label>
-                      <input type="number" min="0" className="input-field" value={globalBunkaiTime} onChange={e => setGlobalBunkaiTime(parseFloat(e.target.value) || 0)} />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="cat-group">
-                  <div className="flex-between" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
-                    <div style={{ minWidth: '200px' }}>
-                      <h3>Categories</h3>
-                      <p className="text-small">Divisions for the tournament.</p>
-                    </div>
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                      <>
-                        <button type="button" className="btn btn-ghost" style={{ height: '36px', padding: '0 12px' }} onClick={handleExportPreset}>
-                          <Download size={16} /> Export
-                        </button>
-                        <button type="button" className="btn btn-ghost" style={{ height: '36px', padding: '0 12px' }} onClick={() => document.getElementById('preset-upload')?.click()}>
-                          <UploadCloud size={16} /> Import
-                        </button>
-                        <button type="button" className="btn btn-ghost" onClick={handleLoadWkfCategories} style={{ color: 'var(--ao)', borderColor: 'var(--ao)', height: '36px', padding: '0 12px' }}>
-                          <RefreshCw size={16} /> Load WKF Rules
-                        </button>
-                        <input type="file" id="preset-upload" style={{ display: 'none' }} accept=".json" onChange={handleImportPreset} />
-                        <button type="button" className="btn btn-ghost" style={{ height: '36px', padding: '0 12px' }} onClick={() => setModalType('merge')}>
-                          <Combine size={16} /> Merge
-                        </button>
-                        <button type="button" className="btn btn-secondary" style={{ height: '36px', padding: '0 12px' }} onClick={() => setModalType('standard')}>
-                          <Plus size={16} /> Add Category
-                        </button>
-                      </>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>
-                    <div className="search-bar" style={{ display: 'flex', alignItems: 'center', background: 'var(--shiro)', border: '1px solid var(--neutral-300)', borderRadius: '8px', padding: '0 12px', height: '36px', flex: 1, minWidth: '200px' }}>
-                      <Search size={16} style={{ color: 'var(--neutral-500)', marginRight: '8px' }} />
-                      <input 
-                        type="text" 
-                        placeholder="Search categories..." 
-                        value={searchQuery}
-                        onChange={e => setSearchQuery(e.target.value)}
-                        style={{ border: 'none', outline: 'none', background: 'transparent', width: '100%', fontSize: '14px' }}
-                      />
-                    </div>
-                    <select className="input-field" style={{ width: '160px', height: '36px', marginBottom: 0 }} value={filterGender} onChange={e => setFilterGender(e.target.value as any)}>
-                      <option value="all">All Genders</option>
-                      <option value="male">Male</option>
-                      <option value="female">Female</option>
-                    </select>
-                    <select className="input-field" style={{ width: '160px', height: '36px', marginBottom: 0 }} value={filterDiscipline} onChange={e => setFilterDiscipline(e.target.value as any)}>
-                      <option value="all">All Disciplines</option>
-                      <option value="kata">Kata Only</option>
-                      <option value="kumite">Kumite Only</option>
-                    </select>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: 'var(--neutral-700)', marginLeft: '4px' }}>
-                      <input type="checkbox" checked={hideEmpty} onChange={e => setHideEmpty(e.target.checked)} />
-                      Hide 0 Entries
-                    </label>
-                  </div>
-
-                  <div className="table-responsive" style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                    <table className="cat-table">
-                      <thead style={{ position: 'sticky', top: 0, background: 'var(--shiro)', zIndex: 10 }}>
-                        <tr>
-                          <th style={{ width: '32px' }}></th>
-                          
-                          <th>Category Name</th>
-                          <th>Discipline</th>
-                          <th>Requirements</th>
-                          <th>Entries</th>
-                          <th style={{ textAlign: 'right' }}>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredCategories.map((cat, idx) => (
-                          <tr 
-                            key={cat.id || idx}
-                            draggable
-                            onDragStart={e => handleDragStart(e, idx)}
-                            onDragOver={e => handleRowDragOver(e, idx)}
-                            onDrop={e => handleRowDrop(e, idx)}
-                            style={{ 
-                              opacity: dragIdx === idx ? 0.5 : 1,
-                              borderTop: dragOverIdx === idx && dragIdx !== null && dragIdx > idx ? '2px solid var(--ao)' : 'none',
-                              borderBottom: dragOverIdx === idx && dragIdx !== null && dragIdx < idx ? '2px solid var(--ao)' : 'none',
-                              cursor: 'move'
-                            }}
-                          >
-                            <td style={{ color: 'var(--neutral-400)', cursor: 'grab' }}><GripVertical size={16} /></td>
-                            
-                            <td style={{ fontWeight: 500 }}>{cat.name}</td>
-                            <td>
-                              <span className="status-chip status-live" style={{ background: cat.discipline === 'Kata' ? '#eff6ff' : '#fff1f2', color: cat.discipline === 'Kata' ? '#1d4ed8' : '#be123c', fontSize: '10px', padding: '2px 6px', marginRight: '4px', borderRadius: '4px', fontWeight: 700 }}>
-                                  {cat.discipline || 'Kumite'}
-                                </span>
-                            </td>
-                            <td>
-                              <>
-                                  {cat.gender && cat.gender !== 'Any' && <span className="status-chip status-live" style={{ background: 'var(--neutral-100)', color: 'var(--neutral-600)', fontSize: '10px', padding: '2px 6px', marginRight: '4px' }}>{cat.gender}</span>}
-                                  {(cat.minAge !== undefined || cat.maxAge !== undefined) && <span className="status-chip status-live" style={{ background: 'var(--neutral-100)', color: 'var(--neutral-600)', fontSize: '10px', padding: '2px 6px', marginRight: '4px' }}>Age: {cat.minAge || 0}-{cat.maxAge || 99}</span>}
-                                  {(cat.minWeight !== undefined || cat.maxWeight !== undefined) && <span className="status-chip status-live" style={{ background: 'var(--neutral-100)', color: 'var(--neutral-600)', fontSize: '10px', padding: '2px 6px', marginRight: '4px' }}>Weight: {cat.minWeight || 0}-{cat.maxWeight || 300}kg</span>}
-                                </>
-                              {(cat.isKata || cat.name.toLowerCase().includes('kata')) && (
-                                <div style={{ marginTop: '6px' }}>
-                                  <span style={{ fontSize: '11px', fontWeight: 600, marginRight: '8px' }}>Judges:</span>
-                                  {[3, 5, 7].map(count => (
-                                    <label key={count} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer', marginRight: '8px', fontSize: '11px' }}>
-                                      <input 
-                                        type="radio" 
-                                        name={`judgeCount-${cat.id || idx}`} 
-                                        value={count} 
-                                        checked={(cat.judgeCount || wkfKataJudgeCount || 3) === count} 
-                                        onChange={() => {
-                                          setCategories(prev => prev.map(c => c.id === cat.id ? { ...c, judgeCount: count } : c));
-                                        }} 
-                                      />
-                                      {count}
-                                    </label>
-                                  ))}
-                                </div>
-                              )}
-                            </td>
-                            <td>{cat.entries}</td>
-                            <td style={{ textAlign: 'right' }}>
-                              <button type="button" className="btn btn-ghost" style={{ padding: '4px' }} onClick={() => {
-                                setEditCatId(cat.id);
-                                setEditCatName(cat.name);
-                                setEditCatData({ ...cat });
-                                setModalType('editCategory');
-                              }}><Edit2 size={16} /></button>
-                              <button type="button" className="btn btn-ghost" style={{ padding: '4px', color: 'var(--aka)' }} onClick={() => setCategories(categories.filter(c => c.id !== cat.id))}><Trash2 size={16} /></button>
-                            </td>
-                          </tr>
-                        ))}
-                        {filteredCategories.length === 0 && (
-                          <tr>
-                            <td colSpan={5} style={{ textAlign: 'center', color: 'var(--neutral-500)', padding: 'var(--space-6)' }}>
-                              No categories found matching filters.
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* Special Categories are created in the live competition (Bracket/Tiesheet page) */}
-              </div>
+              <CategoriesPhase
+                compDate={compDate} setCompDate={setCompDate}
+                tournamentDays={tournamentDays} setTournamentDays={setTournamentDays}
+                compStartTime={compStartTime} setCompStartTime={setCompStartTime}
+                compEndTime={compEndTime} setCompEndTime={setCompEndTime}
+                compEstMinsPerPool={compEstMinsPerPool} setCompEstMinsPerPool={setCompEstMinsPerPool}
+                globalMatchTime={globalMatchTime} setGlobalMatchTime={setGlobalMatchTime}
+                globalRestTime={globalRestTime} setGlobalRestTime={setGlobalRestTime}
+                globalMedicalTime={globalMedicalTime} setGlobalMedicalTime={setGlobalMedicalTime}
+                globalBunkaiTime={globalBunkaiTime} setGlobalBunkaiTime={setGlobalBunkaiTime}
+                handleExportPreset={handleExportPreset}
+                handleImportPreset={handleImportPreset}
+                handleLoadWkfCategories={handleLoadWkfCategories}
+                setModalType={setModalType}
+                searchQuery={searchQuery} setSearchQuery={setSearchQuery}
+                filterGender={filterGender} setFilterGender={setFilterGender}
+                filterDiscipline={filterDiscipline} setFilterDiscipline={setFilterDiscipline}
+                hideEmpty={hideEmpty} setHideEmpty={setHideEmpty}
+                filteredCategories={filteredCategories}
+                categories={categories} setCategories={setCategories}
+                dragIdx={dragIdx} dragOverIdx={dragOverIdx}
+                handleDragStart={handleDragStart} handleRowDragOver={handleRowDragOver} handleRowDrop={handleRowDrop}
+                wkfKataJudgeCount={wkfKataJudgeCount as number} setEditCatId={setEditCatId} setEditCatName={setEditCatName} setEditCatData={setEditCatData}
+              />
             </section>
           )}
 
@@ -1487,134 +1309,15 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                   </div>
                 </div>
               )}
-              <div className="category-manager">
-                <div className="cat-group">
-                  <h3>Match Pool Size</h3>
-                  <p className="text-small">Pick a standard pool size. Max supported size is 32.</p>
-                  <div className="pool-size-options" style={{ marginTop: 'var(--space-4)' }}>
-                    {([4, 8, 16, 32] as const).map(size => (
-                      <label key={size} className="pool-size-option">
-                        <input type="radio" name="pool-size" value={size} checked={poolSize === size} onChange={() => setPoolSize(size)} />
-                        <span>{size}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="cat-group" style={{ marginBottom: 'var(--space-4)' }}>
-                    <div style={{ padding: 'var(--space-3)', background: 'var(--neutral-50)', borderRadius: '8px' }}>
-                        <h4 style={{ margin: '0 0 var(--space-2) 0', fontSize: '13px' }}>Kata Judge Count</h4>
-                        <p className="text-small" style={{ marginBottom: 'var(--space-3)', color: 'var(--neutral-600)' }}>Applies to all generated Kata categories.</p>
-                        <div style={{ display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
-                          {[3, 5, 7].map(count => (
-                            <label key={count} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                              <input type="radio" name="wkfKataJudgeCount" value={count} checked={wkfKataJudgeCount === count} onChange={() => {
-                                setWkfKataJudgeCount(count as 3|5|7);
-                                setCategories(prev => prev.map(c => 
-                                  c.name.toLowerCase().includes('kata') ? { ...c, judgeCount: count } : c
-                                ));
-                              }} />
-                              <span className="text-small">{count} Judges</span>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                <div className="cat-group">
-                  <div className="flex-between mb-4">
-                    <div>
-                      <h3>Tiesheet Data Import</h3>
-                      <p className="text-small">Upload your CSV or Excel files to automatically generate brackets.</p>
-                    </div>
-                  </div>
-
-                  <div 
-                    className="dropzone" 
-                    onClick={() => document.getElementById('excel-upload')?.click()}
-                    onDrop={handleDrop}
-                    onDragOver={handleDragOver}
-                    onDragEnter={handleDragOver}
-                  >
-                    {importResult ? (
-                      <>
-                        <CheckCircle className="dropzone-icon" style={{ color: 'var(--midori, #10b981)' }} />
-                        <h3 style={{ color: 'var(--midori, #10b981)' }}>Upload Successful!</h3>
-                        <p className="text-small" style={{ marginBottom: 'var(--space-4)' }}>
-                          {importResult.categoriesTotal} categories, {importResult.athletesImported} athletes imported.
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <FileSpreadsheet className="dropzone-icon" />
-                        <h3>Drag & drop your registration file here</h3>
-                        <p className="text-small" style={{ marginBottom: 'var(--space-4)' }}>Supports .csv, .xls, .xlsx (Max 10MB)</p>
-                      </>
-                    )}
-                    <button type="button" className="btn btn-primary" disabled={uploading}>
-                      {uploading ? 'Processing...' : importResult ? 'Upload Another File' : 'Browse Files'}
-                    </button>
-                    <input type="file" id="excel-upload" style={{ display: 'none' }} accept=".csv, .xls, .xlsx" onChange={handleFileUpload} />
-                  </div>
-                  
-                  <div style={{ display: 'flex', justifyContent: 'center', marginTop: 'var(--space-5)' }}>
-                    <button type="button" className="btn btn-secondary" onClick={() => {
-                      setModalFormData({ name: '', age: '', state: '', academy: '', district: '', weight: '', phone: '', email: '', kata: 'yes', kumite: 'yes', gender: 'Male' });
-                      setModalType('onspot');
-                    }}>
-                      <Plus size={16} /> Add On-Spot Entry
-                    </button>
-                  </div>
-
-                  {manualAthletes.length > 0 && (
-                    <div style={{ marginTop: 'var(--space-6)', background: 'var(--shiro)', borderRadius: '12px', padding: 'var(--space-5)', border: '1px solid var(--neutral-300)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
-                        <h4 style={{ margin: 0 }}>On-Spot Entries ({manualAthletes.length})</h4>
-                        <button type="button" className="btn btn-primary" onClick={handleManualImport} disabled={uploading}>
-                          {uploading ? 'Processing...' : 'Import Manual Entries'}
-                        </button>
-                      </div>
-                      <div style={{ overflowX: 'auto' }}>
-                        <table className="cat-table">
-                          <thead>
-                            <tr>
-                              <th>Name</th>
-                              <th>Age</th>
-                              <th>Weight</th>
-                              <th>Academy</th>
-                              <th>Events</th>
-                              <th></th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {manualAthletes.map((a, i) => {
-                              const events = [];
-                              if (a.kata === 'yes') events.push('Kata');
-                              if (a.kumite === 'yes') events.push('Kumite');
-                              return (
-                                <tr key={i}>
-                                  <td>{a.name}</td>
-                                  <td>{a.age}</td>
-                                  <td>{a.weight}kg</td>
-                                  <td>{a.academy}</td>
-                                  <td>{events.join(', ')}</td>
-                                  <td style={{ textAlign: 'right' }}>
-                                    <button type="button" className="btn btn-ghost" style={{ color: 'var(--status-ended)', padding: '4px' }} onClick={() => {
-                                      setManualAthletes(prev => prev.filter((_, idx) => idx !== i));
-                                    }}>
-                                      <Trash2 size={16} />
-                                    </button>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
+              <ImportPhase
+                poolSize={poolSize} setPoolSize={setPoolSize}
+                wkfKataJudgeCount={wkfKataJudgeCount as number} setWkfKataJudgeCount={setWkfKataJudgeCount}
+                setCategories={setCategories} importResult={importResult}
+                uploading={uploading} handleDrop={handleDrop} handleDragOver={handleDragOver}
+                handleFileUpload={handleFileUpload} setModalFormData={setModalFormData}
+                setModalType={setModalType} manualAthletes={manualAthletes}
+                setManualAthletes={setManualAthletes} handleManualImport={handleManualImport}
+              />
             </section>
           )}
 
@@ -1629,114 +1332,14 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                 </div>
               )}
               <div className="category-manager">
-                  <div className="cat-group">
-                    <div className="flex-between">
-                      <div>
-                        <h3>Mats & Capacity</h3>
-                        <p className="text-small">The mat count drives score operator assignments and security setup.</p>
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'flex-end', marginTop: 'var(--space-4)' }}>
-                      <div style={{ flex: 1 }}>
-                        <label className="text-micro" style={{ display: 'block', marginBottom: '8px' }}>Total Active Mats</label>
-                        <input 
-                          type="number" 
-                          className="input-field" 
-                          value={matsCount} 
-                          onChange={e => {
-                            const val = e.target.value;
-                            if (val === '') {
-                              setMatsCount('' as any);
-                            } else {
-                              const parsed = parseInt(val);
-                              setMatsCount(isNaN(parsed) ? 1 : Math.min(20, Math.max(1, parsed)));
-                            }
-                          }} 
-                          onBlur={() => {
-                            if (!matsCount || isNaN(matsCount as number) || (matsCount as number) < 1) {
-                              setMatsCount(1);
-                            }
-                          }}
-                          min="1" 
-                          max="20" 
-                          style={{ marginBottom: 0 }} 
-                        />
-                      </div>
-                      <button 
-                        type="button" 
-                        className="btn btn-primary" 
-                        style={{ height: '44px', padding: '0 24px' }} 
-                        onClick={() => {
-                          if (!matsCount || (matsCount as number) < 1) setMatsCount(1);
-                          toast.success(`Capacity successfully updated to ${matsCount || 1} mats!`);
-                        }}
-                      >Apply Capacity</button>
-                    </div>
-
-                    <div style={{ marginTop: 'var(--space-4)', padding: 'var(--space-4)', background: 'var(--neutral-50)', borderRadius: '12px', border: '1px dashed var(--neutral-300)' }}>
-                      <div className="flex-between mb-4">
-                        <div>
-                          <h4 style={{ margin: 0, fontSize: '14px' }}>Scoreboard Logo (Optional)</h4>
-                          <p className="text-small" style={{ marginTop: '4px' }}>Upload a 1:1 ratio logo to display on all live scoreboards.</p>
-                        </div>
-                        {scoreboardLogo && (
-                          <button type="button" className="btn btn-ghost" onClick={() => setScoreboardLogo(null)} style={{ color: 'var(--aka)' }}>
-                            <Trash2 size={14} style={{ marginRight: '6px' }}/> Remove
-                          </button>
-                        )}
-                      </div>
-                      <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                        {scoreboardLogo && (
-                          <div style={{ width: '48px', height: '48px', borderRadius: '8px', overflow: 'hidden', background: '#fff', border: '1px solid var(--neutral-200)', flexShrink: 0 }}>
-                            <img src={scoreboardLogo} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                          </div>
-                        )}
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          onChange={handleLogoUpload}
-                          className="input-field" 
-                          style={{ flex: 1, padding: '8px', height: 'auto', background: '#fff' }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex-between mb-4" style={{ marginTop: 'var(--space-4)' }}>
-                    <div>
-                      <h3>Mat Security</h3>
-                      <p className="text-small">Set unique access passwords for each mat score table.</p>
-                    </div>
-                    <button type="button" className="btn btn-ghost" onClick={bulkSetMatPasswords}>
-                      <Key size={16} /> Bulk Set
-                    </button>
-                  </div>
-                  <div className="mat-setup-list">
-                    {Array.from({ length: Number(matsCount) || 1 }).map((_, i) => (
-                      <div key={i} className="mat-setup-card">
-                        <div className="mat-header">
-                          <div className="mat-number-badge">{i + 1}</div>
-                          <span className="status-chip" style={{ background: 'var(--neutral-100)', color: 'var(--neutral-600)' }}>Pending</span>
-                        </div>
-                        <div className="form-group" style={{ marginBottom: 0 }}>
-                          <label className="text-micro">Scoreboard Access Password</label>
-                          <div className="password-input-group">
-                            <input
-                              type={showPasswordMap[i] ? "text" : "password"}
-                              placeholder="Enter mat password"
-                              value={matPasswordMap[i] ?? ''}
-                              onChange={e => setMatPasswordMap(prev => ({ ...prev, [i]: e.target.value }))}
-                              onBlur={() => {
-                                if (matPasswordMap[i]?.trim()) saveMatPassword(i, matPasswordMap[i].trim());
-                              }}
-                            />
-                            <div className="toggle-password" onClick={() => togglePassword(i)}>
-                              {showPasswordMap[i] ? <EyeOff size={16} /> : <Eye size={16} />}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                <MatsPhase
+                  matsCount={matsCount} setMatsCount={setMatsCount}
+                  scoreboardLogo={scoreboardLogo} setScoreboardLogo={setScoreboardLogo}
+                  handleLogoUpload={handleLogoUpload} bulkSetMatPasswords={bulkSetMatPasswords}
+                  showPasswordMap={showPasswordMap} togglePassword={togglePassword}
+                  matPasswordMap={matPasswordMap} setMatPasswordMap={setMatPasswordMap}
+                  saveMatPassword={saveMatPassword}
+                />
                   
                   {/* Kanban Schedule Editor */}
                   <ScheduleKanban
@@ -1766,62 +1369,16 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                   </div>
                 </div>
               )}
-              <div className="cat-group">
-                <p className="text-small">Pool size: {poolSize} (configured in Phase 2)</p>
-                {!importResult && categories.length === 0 ? (
-                  <div style={{ padding: 'var(--space-6)', textAlign: 'center', background: 'var(--neutral-50)', borderRadius: '12px', border: '1px dashed var(--neutral-300)' }}>
-                    <p style={{ color: 'var(--neutral-500)' }}>No categories defined yet. Please upload an Excel file in Phase 1 or create categories manually.</p>
-                  </div>
-                ) : (
-                  <div className="mat-setup-card" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', padding: 'var(--space-4)' }}>
-                    <div style={{ flex: '1 1 200px' }}>
-                      <h4 style={{ margin: '0 0 4px 0' }}>{importResult ? importResult.categoriesTotal : categories.length} Categories Generated</h4>
-                      <p className="text-small" style={{ color: 'var(--neutral-500)', margin: 0 }}>
-                        {importResult ? importResult.athletesImported : 'N/A'} Athletes {importResult ? 'Imported' : ''} • Pool size: {poolSize}
-                      </p>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
-                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                        <button type="button"
-                          className="btn btn-secondary"
-                          onClick={() => setUndersizedModalOpen(true)}
-                          disabled={!importResult && categories.length === 0}
-                        >
-                          <Combine size={16} style={{ marginRight: '6px' }} />
-                          Manage Undersized Pools
-                        </button>
-                        <button type="button"
-                          className="btn btn-secondary"
-                          style={{ color: 'var(--aka)', borderColor: 'var(--aka)' }}
-                          onClick={handleRegenerateTiesheets}
-                          disabled={regeneratingTiesheets || (!importResult && categories.length === 0)}
-                          title="Re-run bracket generation for all categories. Use this if tiesheets didn't load correctly."
-                        >
-                          <RefreshCw size={16} style={{ marginRight: '6px' }} />
-                          {regeneratingTiesheets ? 'Regenerating...' : 'Regenerate Tiesheets'}
-                        </button>
-                      </div>
-                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                        <button type="button"
-                          className="btn btn-primary"
-                          onClick={() => { setPreviewCatId(null); setPreviewModalOpen(true); }}
-                        >
-                          <Eye size={16} style={{ marginRight: '8px' }} />
-                          Preview Tiesheets
-                        </button>
-                        <button type="button"
-                          className="btn btn-secondary"
-                          onClick={handleDownloadTiesheets}
-                          disabled={downloadingTiesheets || (!importResult && categories.length === 0)}
-                        >
-                          <Download size={16} style={{ marginRight: '6px' }} />
-                          {downloadingTiesheets ? 'Generating...' : 'Download Tiesheets'}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <PreviewPhase
+                poolSize={poolSize} importResult={importResult}
+                categories={categories} setUndersizedModalOpen={setUndersizedModalOpen}
+                handleRegenerateTiesheets={handleRegenerateTiesheets}
+                regeneratingTiesheets={regeneratingTiesheets}
+                setPreviewCatId={setPreviewCatId}
+                setPreviewModalOpen={setPreviewModalOpen}
+                handleDownloadTiesheets={handleDownloadTiesheets}
+                downloadingTiesheets={downloadingTiesheets}
+              />
             </section>
           )}
 
@@ -2078,16 +1635,18 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                 setMatPasswordMap(newMap);
                 
                 try {
-                  const [{ db }, { doc, writeBatch }] = await Promise.all([
-                    import('@lib/firebase'),
-                    import('firebase/firestore')
-                  ]);
-                  const batch = writeBatch(db);
+                  const bulkPasswords = [];
                   for (let i = 0; i < matsCount; i++) {
-                    const matId = `mat-${i + 1}`;
-                    batch.set(doc(db, 'competitions', id, 'mats', matId), { password: pwd }, { merge: true });
+                    bulkPasswords.push({ id: `mat-${i + 1}`, password: pwd });
                   }
-                  await batch.commit();
+                  const res = await fetch(`/api/competitions/${id}/mats`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bulkPasswords })
+                  });
+                  const data = await res.json();
+                  if (!res.ok || !data.success) throw new Error(data.error?.message || 'Failed to bulk set passwords');
+                  
                   toast.success('Bulk set passwords successfully!');
                 } catch (err) {
                   console.error(err);

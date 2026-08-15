@@ -1,7 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb } from '@taikaix/backend/lib/firebase-admin';
-import { fetchWithCache } from '@taikaix/backend/lib/redis';
+import { PublicService } from '@/modules/competitions/services/public.server';
 
 export async function GET(
   req: NextRequest,
@@ -9,39 +8,21 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const cacheKey = `comp:public:${id}`;
-
-    // Cache the public details for 60 seconds
-    const data = await fetchWithCache(cacheKey, 60, async () => {
-      const compSnap = await adminDb.collection('competitions').doc(id).get();
-      if (!compSnap.exists) {
-        return null;
-      }
-      
-      const compData = compSnap.data() || {};
-      
-      const catSnap = await adminDb.collection('competitions').doc(id).collection('categories').get();
-      const categories = catSnap.docs.map((d: any) => {
-        const catData = d.data() || {};
-        if (catData.athletes) {
-          catData.athletes = catData.athletes.map(({ phone: _p, email: _e, ...safe }: any) => safe);
-        }
-        return { id: d.id, ...catData };
-      });
-
-      return {
-        ...compData,
-        categories
-      };
-    });
+    const data = await PublicService.getPublicCompetition(id);
 
     if (!data) {
-      return NextResponse.json({ error: 'Competition not found' }, { status: 404 });
+      return NextResponse.json({ success: false, error: { code: 'NOT_FOUND', message: 'Competition not found' } }, { status: 404 });
     }
 
-    return NextResponse.json(data);
+    return NextResponse.json({ success: true, ...data });
   } catch (err: any) {
     console.error('Failed to fetch public competition data', err);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    const msg = err?.message || 'Internal Server Error';
+
+    if (msg.startsWith('NOT_FOUND:')) {
+      return NextResponse.json({ success: false, error: { code: 'NOT_FOUND', message: msg.replace('NOT_FOUND: ', '') } }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: false, error: { code: 'INTERNAL_ERROR', message: msg } }, { status: 500 });
   }
 }

@@ -2,28 +2,34 @@ import { NextResponse } from 'next/server';
 import { db } from '@lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { verifySession } from '@taikaix/backend/lib/firebase-admin';
+import { cookies } from 'next/headers';
+import { z } from 'zod';
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const cookieStr = request.headers.get('cookie') || '';
-    const token = cookieStr.match(/(?:^|;)\s*session\s*=\s*([^;]+)/)?.[1];
-    const { role } = await verifySession(token);
+    const sessionToken = (await cookies()).get('session')?.value;
+    const { role } = await verifySession(sessionToken);
     if (role !== 'admin' && role !== 'guest_viewer' && role !== 'attendance_volunteer') {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 403 });
+      return NextResponse.json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } }, { status: 403 });
     }
     const { id: competitionId } = await params;
     const body = await request.json();
-    const { name, gender, age, weight, categoryId, academy } = body;
+    
+    // We can just manually validate since it's simple or use a local schema
+    const schema = z.object({
+      name: z.string().min(1, 'Name is required'),
+      categoryId: z.string().min(1, 'Category ID is required'),
+      gender: z.string().optional(),
+      age: z.union([z.number(), z.string()]).optional(),
+      weight: z.union([z.number(), z.string()]).optional(),
+      academy: z.string().optional()
+    });
 
-    if (!name || !categoryId) {
-      return NextResponse.json(
-        { success: false, error: { code: 'bad_request', message: 'Name and Category ID are required' } },
-        { status: 400 }
-      );
-    }
+    const validated = schema.parse(body);
+    const { name, gender, age, weight, categoryId, academy } = validated;
 
     const athleteId = `late-${Date.now()}`;
     const newAthlete = {
@@ -51,10 +57,13 @@ export async function POST(
       data: newAthlete
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Athlete Add Error:', error);
+    if (error instanceof z.ZodError || error?.name === 'ZodError') {
+      return NextResponse.json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Validation Error', details: error.issues || error.errors } }, { status: 400 });
+    }
     return NextResponse.json(
-      { success: false, error: { code: 'internal_error', message: 'Failed to add late athlete' } },
+      { success: false, error: { code: 'INTERNAL_ERROR', message: 'Failed to add late athlete' } },
       { status: 500 }
     );
   }

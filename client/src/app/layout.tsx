@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Script from "next/script";
 import "./globals.css";
-import Sidebar from "@/components/layout/Sidebar";
-import { AuthProvider } from "@/components/auth/AuthProvider";
+import Sidebar from "@/modules/core/layout/Sidebar";
+import { AuthProvider } from "@/modules/auth/components/AuthProvider";
 import { Toaster } from "react-hot-toast";
 
 export const metadata: Metadata = {

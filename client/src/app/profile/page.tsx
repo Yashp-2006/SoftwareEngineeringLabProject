@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Mail, MapPin, Calendar, Edit3, ExternalLink, FileText, Trash2 } from 'lucide-react';
-import { useAuth } from '@/components/auth/AuthProvider';
+import { useAuth } from '@/modules/auth/components/AuthProvider';
 import { auth, db } from '@lib/firebase';
 import { deleteUser } from 'firebase/auth';
 import { doc, deleteDoc } from 'firebase/firestore';
@@ -26,7 +26,7 @@ export default function ProfilePage() {
       await deleteDoc(doc(db, 'users', user.uid));
       // Delete Firebase Auth account
       await deleteUser(user);
-      router.push('/');
+      router.push('/dashboard');
     } catch (err: any) {
       // Firebase requires recent login for deletion
       if (err?.code === 'auth/requires-recent-login') {

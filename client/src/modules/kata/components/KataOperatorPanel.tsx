@@ -167,11 +167,13 @@ export default function KataOperatorPanel({
 
   // ─── Live vote listener ────────────────────────────────────────────────────────
   useEffect(() => {
-    let unsub: () => void = () => {};
+    let unsub: (() => void) | null = null;
+    let isMounted = true;
     const setup = async () => {
       try {
         const { rtdb } = await import('@lib/firebase');
         const { ref, onValue, off } = await import('firebase/database');
+        if (!isMounted) return;
         const r = ref(rtdb, `live_scores/${competitionId}/mats/${matId}`);
         const handler = onValue(r, (snap) => {
           if (!snap.exists()) return;
@@ -194,7 +196,10 @@ export default function KataOperatorPanel({
       }
     };
     setup();
-    return () => unsub();
+    return () => {
+      isMounted = false;
+      if (unsub) unsub();
+    };
   }, [competitionId, matId, matchId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Hydrate from RTDB on mount ───────────────────────────────────────────────

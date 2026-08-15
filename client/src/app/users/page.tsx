@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Search, Trash2 } from 'lucide-react';
-import { useAuth } from '@/components/auth/AuthProvider';
+import { useAuth } from '@/modules/auth/components/AuthProvider';
 
 const ROLE_MAP: Record<string, string> = {
   'admin': 'Admin',

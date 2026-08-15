@@ -4,10 +4,11 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Search, Plus, Edit3, Archive, Trash2, ArrowRight, X, Eye, EyeOff, UploadCloud, FileJson } from 'lucide-react';
-import { useAuth } from '@/components/auth/AuthProvider';
+import { useAuth } from '@/modules/auth/components/AuthProvider';
 import { toast } from 'react-hot-toast';
-import ConfirmModal from '@/components/ConfirmModal';
-import DateRangePicker from '@/components/DateRangePicker';
+import ConfirmModal from '@/modules/shared/components/ConfirmModal';
+import DateRangePicker from '@/modules/shared/components/DateRangePicker';
+import PremiumCTA from '@/modules/shared/components/PremiumCTA';
 
 export default function CompetitionsPage() {
   const router = useRouter();
@@ -482,14 +483,15 @@ export default function CompetitionsPage() {
           {loading ? (
              <div style={{ gridColumn: '1 / -1', padding: 'var(--space-8)', textAlign: 'center' }}>Loading...</div>
           ) : competitions.filter(c => filter === 'all' ? true : c.status === filter).length === 0 ? (
-            <div style={{ gridColumn: '1 / -1', padding: 'var(--space-8)', textAlign: 'center', background: 'var(--shiro)', borderRadius: '16px', border: '1px dashed var(--neutral-300)' }}>
-              <h3 style={{ color: 'var(--neutral-900)', marginBottom: '8px' }}>No Competitions Found</h3>
-              <p style={{ color: 'var(--neutral-500)' }}>There are currently no events matching your criteria.</p>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <PremiumCTA 
+                title="Design the Ultimate Tournament"
+                description="Use TaikaiX's premium feature suite to plan, bracket, and deploy your next event globally in minutes."
+                buttonText="Create the first competition"
+                onClick={() => setIsModalOpen(true)}
+              />
               {role === 'admin' && (
                 <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '16px' }}>
-                  <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
-                    Create the first competition
-                  </button>
                   <button 
                     className="btn btn-secondary"
                     onClick={() => {

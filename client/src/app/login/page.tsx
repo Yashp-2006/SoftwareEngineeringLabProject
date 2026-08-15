@@ -190,7 +190,7 @@ export default function LoginPage() {
       await setDoc(staffDocRef, {
         id: newStaffId,
         name: enrollName.trim(),
-        role: enrollRole,
+        requestedRole: enrollRole,
         type: enrollRole,
         email: auth.currentUser.email || undefined,
         assignedMats: [],

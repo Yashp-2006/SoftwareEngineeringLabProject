@@ -2,9 +2,9 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { useAuth } from '@/components/auth/AuthProvider';
+import { useAuth } from '@/modules/auth/components/AuthProvider';
 import { Award, Loader2, ShieldAlert, LogOut, ArrowLeft, Lock } from 'lucide-react';
-import PageSkeleton from '@/components/layout/PageSkeleton';
+import PageSkeleton from '@/modules/core/layout/PageSkeleton';
 import { toast } from 'react-hot-toast';
 import { rtdb } from '@lib/firebase';
 import { ref, onValue, off, update } from 'firebase/database';

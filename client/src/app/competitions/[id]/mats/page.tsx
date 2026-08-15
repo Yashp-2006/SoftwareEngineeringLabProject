@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useAuth } from '@/components/auth/AuthProvider';
+import { useAuth } from '@/modules/auth/components/AuthProvider';
 import { LayoutGrid, Plus, Timer, Activity, Coffee, CalendarPlus, Key, Eye, EyeOff, Trash2, Image as ImageIcon, X, Trophy, Medal } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { sortCategories } from '@/lib/categoryUtils';

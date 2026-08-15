@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '@/components/auth/AuthProvider';
+import { useAuth } from '@/modules/auth/components/AuthProvider';
 import { Trash2, UserPlus, ShieldCheck, X, Check, Key, ShieldAlert } from 'lucide-react';
 import { db } from '@lib/firebase';
 import { collection, doc, setDoc, deleteDoc, updateDoc, query, getDoc, getDocs, onSnapshot } from 'firebase/firestore';

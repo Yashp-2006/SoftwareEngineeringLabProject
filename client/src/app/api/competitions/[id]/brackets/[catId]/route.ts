@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 import { adminDb, verifySession } from '@taikaix/backend/lib/firebase-admin';
+import { cookies } from 'next/headers';
+import { updateBracketSchema } from '@taikaix/backend/types/schemas';
+import { z } from 'zod';
 
 /**
  * PATCH /api/competitions/{id}/brackets/{catId}
@@ -15,15 +18,15 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string; catId: string }> }
 ) {
   try {
-    const cookieStr = req.headers.get('cookie') || '';
-    const token = cookieStr.match(/(?:^|;)\s*session\s*=\s*([^;]+)/)?.[1];
-    const { role } = await verifySession(token);
+    const sessionToken = (await cookies()).get('session')?.value;
+    const { role } = await verifySession(sessionToken);
     if (role !== 'admin' && role !== 'guest_viewer' && role !== 'mat_operator') {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 403 });
+      return NextResponse.json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } }, { status: 403 });
     }
     const { id, catId } = await params;
     const body = await req.json();
-    const { matchId, winnerId, byeFor, selectedKata, action } = body;
+    const validated = updateBracketSchema.parse(body);
+    const { matchId, winnerId, byeFor, selectedKata, action } = validated;
     // byeFor = 'aka' | 'ao' — means that side won by BYE (opponent disqualified/absent)
 
     if (!matchId) {
@@ -31,7 +34,7 @@ export async function PATCH(
     }
 
     if (action !== 'revert' && !winnerId && !selectedKata) {
-      return NextResponse.json({ success: false, error: 'winnerId or selectedKata is required' }, { status: 400 });
+      return NextResponse.json({ success: false, error: { code: 'BAD_REQUEST', message: 'winnerId or selectedKata is required' } }, { status: 400 });
     }
 
     const catRef = adminDb
@@ -42,7 +45,7 @@ export async function PATCH(
 
     const catSnap = await catRef.get();
     if (!catSnap.exists) {
-      return NextResponse.json({ success: false, error: 'Category not found' }, { status: 404 });
+      return NextResponse.json({ success: false, error: { code: 'NOT_FOUND', message: 'Category not found' } }, { status: 404 });
     }
 
     const catData = catSnap.data()!;
@@ -51,7 +54,7 @@ export async function PATCH(
     // Find the current match
     const currentIdx = matches.findIndex(m => m.id === matchId);
     if (currentIdx === -1) {
-      return NextResponse.json({ success: false, error: 'Match not found' }, { status: 404 });
+      return NextResponse.json({ success: false, error: { code: 'NOT_FOUND', message: 'Match not found' } }, { status: 404 });
     }
 
     const currentMatch = matches[currentIdx];
@@ -59,7 +62,7 @@ export async function PATCH(
     // Handle revert action
     if (action === 'revert') {
       if (!currentMatch.winnerId && currentMatch.status !== 'completed') {
-        return NextResponse.json({ success: false, error: 'Match is not completed' }, { status: 400 });
+        return NextResponse.json({ success: false, error: { code: 'BAD_REQUEST', message: 'Match is not completed' } }, { status: 400 });
       }
 
       const clearNextMatches = (currentMatchId: string) => {
@@ -102,7 +105,7 @@ export async function PATCH(
           if (isNextMatchPlayed || nextMatch.status === 'live') {
             return NextResponse.json({ 
               success: false, 
-              error: 'Cannot revert this match because the winner has already completed the next round. Please revert the next round\'s match first.' 
+              error: { code: 'BAD_REQUEST', message: 'Cannot revert this match because the winner has already completed the next round. Please revert the next round\'s match first.' } 
             }, { status: 400 });
           }
           clearNextMatches(matchId);
@@ -159,7 +162,7 @@ export async function PATCH(
     }
 
     if (!winnerData) {
-      return NextResponse.json({ success: false, error: 'Winner not found in match' }, { status: 400 });
+      return NextResponse.json({ success: false, error: { code: 'BAD_REQUEST', message: 'Winner not found in match' } }, { status: 400 });
     }
 
     // Mark current match completed
@@ -191,7 +194,7 @@ export async function PATCH(
     }
 
     // Auto-advance players in subsequent matches if they face empty brackets
-    const { propagateByesAndWinners } = await import('@taikaix/backend/services/tiesheet-generator');
+    const { propagateByesAndWinners } = await import('@taikaix/backend/services/tiesheet/generator');
     propagateByesAndWinners(matches);
 
 
@@ -243,7 +246,10 @@ export async function PATCH(
     return NextResponse.json({ success: true, nextMatchId: nextMatchId || null });
   } catch (error: any) {
     console.error('[brackets/PATCH]', error);
-    return NextResponse.json({ success: false, error: 'Failed to update bracket' }, { status: 500 });
+    if (error instanceof z.ZodError || error?.name === 'ZodError') {
+      return NextResponse.json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Validation Error', details: error.issues || error.errors } }, { status: 400 });
+    }
+    return NextResponse.json({ success: false, error: { code: 'INTERNAL_ERROR', message: 'Failed to update bracket' } }, { status: 500 });
   }
 }
 
@@ -269,6 +275,6 @@ export async function GET(
     return NextResponse.json({ success: true, data: { id: snap.id, ...data } });
   } catch (error: any) {
     console.error('[brackets/GET]', error);
-    return NextResponse.json({ success: false, error: 'Failed to fetch category' }, { status: 500 });
+    return NextResponse.json({ success: false, error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch category' } }, { status: 500 });
   }
 }

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ChevronDown } from 'lucide-react';
-import KataLiveScoreboard, { deriveJudgeVotes } from '@/components/kata/KataLiveScoreboard';
+import KataLiveScoreboard, { deriveJudgeVotes } from '@/modules/kata/components/KataLiveScoreboard';
 
 export default function LiveMatPage({ params }: { params: Promise<{ matId: string }> }) {
   const { matId } = React.use(params);

@@ -3,10 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useAuth } from '@/components/auth/AuthProvider';
+import { useAuth } from '@/modules/auth/components/AuthProvider';
 import { Lock, Unlock, Users, Calendar, Layout, Award, Edit3, Share2, Eye, EyeOff, Download } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import OnSpotEntryModal from '@/components/OnSpotEntryModal';
+import OnSpotEntryModal from '@/modules/competitions/components/athlete/OnSpotEntryModal';
 import { sortCategories } from '@/lib/categoryUtils';
 
 export default function CompetitionDetail({ params }: { params: Promise<{ id: string }> }) {
@@ -93,72 +93,79 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
           }
         });
 
-        unsubCats = onSnapshot(collection(db, 'competitions', id, 'categories'), (snap) => {
-          let allMatches: any[] = [];
-          let matStats: Record<string, Record<string, { gold: number, silver: number, bronze: number, points: number }>> = {};
-          let lCats: any[] = [];
-          let uCats: any[] = [];
-          let fCats: any[] = [];
+          let debounceTimer: NodeJS.Timeout | null = null;
+          
+          unsubCats = onSnapshot(collection(db, 'competitions', id, 'categories'), (snap) => {
+            if (debounceTimer) clearTimeout(debounceTimer);
+            
+            // Extract immutable data from snap for the timeout
+            const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            
+            debounceTimer = setTimeout(() => {
+              let allMatches: any[] = [];
+              let matStats: Record<string, Record<string, { gold: number, silver: number, bronze: number, points: number }>> = {};
+              let lCats: any[] = [];
+              let uCats: any[] = [];
+              let fCats: any[] = [];
 
-          snap.docs.forEach(docSnap => {
-            const cat = docSnap.data();
-            cat.id = docSnap.id;
-            const matName = (cat.mat || 'Unassigned').toUpperCase();
+              docs.forEach((cat: any) => {
+                const matName = (cat.mat || 'Unassigned').toUpperCase();
 
-            const entries = cat.athletes?.length ?? cat.entries ?? 0;
-            if (entries > 0) {
-              if (cat.status === 'live') lCats.push(cat);
-              else if (cat.status === 'done' || cat.status === 'completed') fCats.push(cat);
-              else uCats.push(cat);
-            }
+                const entries = cat.athletes?.length ?? cat.entries ?? 0;
+                if (entries > 0) {
+                  if (cat.status === 'live') lCats.push(cat);
+                  else if (cat.status === 'done' || cat.status === 'completed') fCats.push(cat);
+                  else uCats.push(cat);
+                }
 
-            if (cat.matches) {
-              const completed = cat.matches.filter((m: any) => m.status === 'completed').map((m: any) => ({
-                ...m,
-                categoryName: cat.name,
-                mat: cat.mat,
-              }));
-              allMatches.push(...completed);
-            }
+                if (cat.matches) {
+                  const completed = cat.matches.filter((m: any) => m.status === 'completed').map((m: any) => ({
+                    ...m,
+                    categoryName: cat.name,
+                    mat: cat.mat,
+                  }));
+                  allMatches.push(...completed);
+                }
 
-            if (!matStats[matName]) matStats[matName] = {};
-            if (cat.athletes) {
-              cat.athletes.forEach((ath: any) => {
-                if (ath.medal) {
-                  const academy = ath.academy || 'Unknown';
-                  if (!matStats[matName][academy]) {
-                    matStats[matName][academy] = { gold: 0, silver: 0, bronze: 0, points: 0 };
-                  }
-                  if (ath.medal === 'gold') {
-                    matStats[matName][academy].gold += 1;
-                    matStats[matName][academy].points += 3;
-                  } else if (ath.medal === 'silver') {
-                    matStats[matName][academy].silver += 1;
-                    matStats[matName][academy].points += 2;
-                  } else if (ath.medal === 'bronze') {
-                    matStats[matName][academy].bronze += 1;
-                    matStats[matName][academy].points += 1;
-                  }
+                if (!matStats[matName]) matStats[matName] = {};
+                if (cat.athletes) {
+                  cat.athletes.forEach((ath: any) => {
+                    if (ath.medal) {
+                      const academy = ath.academy || 'Unknown';
+                      if (!matStats[matName][academy]) {
+                        matStats[matName][academy] = { gold: 0, silver: 0, bronze: 0, points: 0 };
+                      }
+                      if (ath.medal === 'gold') {
+                        matStats[matName][academy].gold += 1;
+                        matStats[matName][academy].points += 3;
+                      } else if (ath.medal === 'silver') {
+                        matStats[matName][academy].silver += 1;
+                        matStats[matName][academy].points += 2;
+                      } else if (ath.medal === 'bronze') {
+                        matStats[matName][academy].bronze += 1;
+                        matStats[matName][academy].points += 1;
+                      }
+                    }
+                  });
                 }
               });
-            }
+
+              setRecentMatches(allMatches.reverse());
+              setLiveCategories(sortCategories(lCats));
+              setUpcomingCategories(sortCategories(uCats));
+              setFinishedCategories(sortCategories(fCats));
+
+              const formattedBoards: Record<string, any[]> = {};
+              for (const mat of Object.keys(matStats).sort()) {
+                const arr = Object.entries(matStats[mat]).map(([academy, stats]) => ({ academy, ...stats }));
+                arr.sort((a, b) => b.points - a.points || b.gold - a.gold || b.silver - a.silver || b.bronze - a.bronze);
+                if (arr.length > 0) {
+                  formattedBoards[mat] = arr;
+                }
+              }
+              setMatLeaderboards(formattedBoards);
+            }, 200);
           });
-
-          setRecentMatches(allMatches.reverse());
-          setLiveCategories(sortCategories(lCats));
-          setUpcomingCategories(sortCategories(uCats));
-          setFinishedCategories(sortCategories(fCats));
-
-          const formattedBoards: Record<string, any[]> = {};
-          for (const mat of Object.keys(matStats).sort()) {
-            const arr = Object.entries(matStats[mat]).map(([academy, stats]) => ({ academy, ...stats }));
-            arr.sort((a, b) => b.points - a.points || b.gold - a.gold || b.silver - a.silver || b.bronze - a.bronze);
-            if (arr.length > 0) {
-              formattedBoards[mat] = arr;
-            }
-          }
-          setMatLeaderboards(formattedBoards);
-        });
       } catch (err) {
         console.error('Failed to load competition', err);
       }

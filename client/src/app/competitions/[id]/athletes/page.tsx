@@ -4,8 +4,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Search } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { useAuth } from '@/components/auth/AuthProvider';
-import PageSkeleton from '@/components/layout/PageSkeleton';
+import { useAuth } from '@/modules/auth/components/AuthProvider';
+import PageSkeleton from '@/modules/core/layout/PageSkeleton';
 import { sortCategories } from '@/lib/categoryUtils';
 
 interface Athlete {

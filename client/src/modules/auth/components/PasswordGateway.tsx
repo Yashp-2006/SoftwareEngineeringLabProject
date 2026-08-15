@@ -5,7 +5,7 @@ import { Lock, Eye, EyeOff } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@lib/firebase';
 import { useSearchParams, useParams } from 'next/navigation';
-import { useAuth } from '@/components/auth/AuthProvider';
+import { useAuth } from '@/modules/auth/components/AuthProvider';
 
 export default function PasswordGateway({ children }: { children: React.ReactNode }) {
   const { id } = useParams() as { id: string };
@@ -68,8 +68,7 @@ export default function PasswordGateway({ children }: { children: React.ReactNod
             if (user && inputName.trim()) {
               const { setDoc } = await import('firebase/firestore');
               await setDoc(doc(db, 'users', user.uid), {
-                displayName: inputName.trim(),
-                role: 'mat_operator'
+                displayName: inputName.trim()
               }, { merge: true });
 
               await setDoc(doc(db, 'competitions', id, 'staff', user.uid), {
@@ -101,8 +100,7 @@ export default function PasswordGateway({ children }: { children: React.ReactNod
             if (user && inputName.trim()) {
               const { setDoc } = await import('firebase/firestore');
               await setDoc(doc(db, 'users', user.uid), {
-                displayName: inputName.trim(),
-                role: 'guest_viewer'
+                displayName: inputName.trim()
               }, { merge: true });
 
               await setDoc(doc(db, 'competitions', id, 'staff', user.uid), {

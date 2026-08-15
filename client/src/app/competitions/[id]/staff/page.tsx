@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { RefreshCw } from 'lucide-react';
-import StaffAssignmentManager from '@/components/StaffAssignmentManager';
+import StaffAssignmentManager from '@/modules/staff/components/StaffAssignmentManager';
 
 export default function StaffPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);

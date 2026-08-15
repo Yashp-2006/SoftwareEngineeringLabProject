@@ -2,14 +2,14 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Maximize, ArrowLeft, Play, Pause, Flag, RotateCw, Coffee } from 'lucide-react';
-import Header from '@/components/layout/Header';
-import PasswordGateway from '@/components/auth/PasswordGateway';
+import Header from '@/modules/core/layout/Header';
+import PasswordGateway from '@/modules/auth/components/PasswordGateway';
 import { toast } from 'react-hot-toast';
-import KataOperatorPanel from '@/components/kata/KataOperatorPanel';
-import KataLiveScoreboard, { deriveJudgeVotes } from '@/components/kata/KataLiveScoreboard';
-import KumiteLiveScoreboard from '@/components/kumite/KumiteLiveScoreboard';
-import { useAuth } from '@/components/auth/AuthProvider';
-import ScaleWrapper from '@/components/ScaleWrapper';
+import KataOperatorPanel from '@/modules/kata/components/KataOperatorPanel';
+import KataLiveScoreboard, { deriveJudgeVotes } from '@/modules/kata/components/KataLiveScoreboard';
+import KumiteLiveScoreboard from '@/modules/kumite/components/KumiteLiveScoreboard';
+import { useAuth } from '@/modules/auth/components/AuthProvider';
+import ScaleWrapper from '@/modules/shared/components/ScaleWrapper';
 import { Suspense } from 'react';
 import { KATA_LIST } from '@/lib/kata-list';
 
@@ -87,14 +87,6 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
     return () => document.removeEventListener('fullscreenchange', handleFS);
   }, []);
 
-  if (!verified && !isViewer && role !== 'admin') {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--neutral-50)' }}>
-        <p style={{ color: 'var(--neutral-500)', fontSize: '14px', fontWeight: 600 }}>Verifying credentials and assignments...</p>
-      </div>
-    );
-  }
-  
   // State
   const [aka, setAka] = useState({ name: 'AKA', country: '', academy: '', score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: '' });
   const [ao, setAo] = useState({ name: 'AO', country: '', academy: '', score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: '' });
@@ -142,13 +134,14 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
     }
   }, [poolStatuses]);
   
-  const filteredQueue = queue.filter(match => {
+  const filteredQueue = React.useMemo(() => queue.filter(match => {
     let matchFullName = `${match.aka} ${match.ao}`.toLowerCase();
     let matchesSearch = queueSearchQuery ? matchFullName.includes(queueSearchQuery.toLowerCase()) : true;
     let matchesCat = activeCategoryName ? match.category === activeCategoryName : true;
     let matchesPool = queueFilterPool ? String(match.pool) === queueFilterPool : true;
     return matchesSearch && matchesCat && matchesPool;
-  });
+  }), [queue, queueSearchQuery, activeCategoryName, queueFilterPool]);
+  
   const visibleQueue = filteredQueue;
   
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
@@ -984,6 +977,14 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
 
   const matIdParam = typeof window !== 'undefined' ? (new URLSearchParams(window.location.search).get('mat') || 'mat-1') : 'mat-1';
   const matNum = matIdParam.replace('mat-', '').padStart(2, '0');
+
+  if (!verified && !isViewer && role !== 'admin') {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--neutral-50)' }}>
+        <p style={{ color: 'var(--neutral-500)', fontSize: '14px', fontWeight: 600 }}>Verifying credentials and assignments...</p>
+      </div>
+    );
+  }
 
   return (
     <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>

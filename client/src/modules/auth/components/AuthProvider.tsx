@@ -68,7 +68,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 email: currentUser.email || null,
                 displayName: currentUser.displayName || null,
                 photoURL: currentUser.photoURL || null,
-                role: 'audience',
                 isAnonymous: currentUser.isAnonymous,
                 createdAt: new Date().toISOString(),
                 lastLoginAt: new Date().toISOString()
@@ -119,7 +118,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (user && role) {
         if (pathname === '/login') {
           if (!user.isAnonymous) {
-            router.push('/');
+            router.push('/dashboard');
           }
           return;
         }

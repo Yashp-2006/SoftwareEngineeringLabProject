@@ -3,12 +3,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { db } from '@lib/firebase';
 import { collection, onSnapshot, query, doc, getDoc } from 'firebase/firestore';
-import FullscreenBracketModal from '@/components/FullscreenBracketModal';
+import FullscreenBracketModal from '@/modules/brackets/components/FullscreenBracketModal';
 import { Eye, Trophy, Target, Clock, X, Plus, Star, Zap, Download, UserPlus } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { useAuth } from '@/components/auth/AuthProvider';
+import { useAuth } from '@/modules/auth/components/AuthProvider';
 
-import SpecialCategoryModal from '@/components/SpecialCategoryModal';
+import SpecialCategoryModal from '@/modules/competitions/components/category/SpecialCategoryModal';
 import { sortCategories } from '@/lib/categoryUtils';
 
 // ─── Main Page ───────────────────────────────────────────────────────────────
@@ -244,7 +244,7 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
     if (downloadingTiesheets || categories.length === 0) return;
     setDownloadingTiesheets(true);
     try {
-      const { exportTiesheetsPDF } = await import('@taikaix/backend/services/tiesheet-pdf-exporter');
+      const { exportTiesheetsPDF } = await import('@taikaix/backend/services/tiesheet/pdf-exporter');
       await exportTiesheetsPDF({
         competitionName: compData?.name || 'TaikaiX Competition',
         categories: categories.map((c: any) => ({
