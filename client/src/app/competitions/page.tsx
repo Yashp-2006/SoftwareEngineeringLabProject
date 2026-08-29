@@ -461,36 +461,7 @@ export default function CompetitionsPage() {
 
       <main className="container">
 
-        {/* Guest sign-in banner — only shown to unauthenticated visitors */}
-        {!authLoading && (!user || user.isAnonymous) && (
-          <div style={{
-            background: 'var(--ao-light)',
-            border: '1px solid var(--ao)',
-            borderRadius: '10px',
-            padding: '14px 20px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '12px',
-            marginBottom: 'var(--space-5)',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ fontSize: '18px' }} aria-hidden="true">🏆</span>
-              <div>
-                <div style={{ fontFamily: 'var(--font-body)', fontSize: '14px', fontWeight: 600, color: 'var(--ao)' }}>
-                  You&apos;re browsing as a guest
-                </div>
-                <div style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--ao)', opacity: 0.75 }}>
-                  Sign in to manage competitions, add athletes, and operate mats.
-                </div>
-              </div>
-            </div>
-            <a href="/login" className="btn btn-secondary" style={{ textDecoration: 'none', fontSize: '13px', height: '38px', padding: '0 16px', flexShrink: 0 }}>
-              Sign In
-            </a>
-          </div>
-        )}
+
 
         <header className="page-header">
           <div>
@@ -515,46 +486,52 @@ export default function CompetitionsPage() {
              <div style={{ gridColumn: '1 / -1', padding: 'var(--space-8)', textAlign: 'center' }}>Loading...</div>
           ) : competitions.filter(c => filter === 'all' ? true : c.status === filter).length === 0 ? (
             <div style={{ gridColumn: '1 / -1' }}>
-              <PremiumCTA 
-                title="Design the Ultimate Tournament"
-                description="Use TaikaiX's premium feature suite to plan, bracket, and deploy your next event globally in minutes."
-                buttonText="Create the first competition"
-                onClick={() => setIsModalOpen(true)}
-              />
-              {role === 'admin' && (
-                <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '16px' }}>
-                  <button 
-                    className="btn btn-secondary"
-                    onClick={() => {
-                      setConfirmState({
-                        isOpen: true,
-                        title: 'Add Dummy Competitions',
-                        message: 'Add 3 dummy competitions to the database for testing?',
-                        isDestructive: false,
-                        onConfirm: async () => {
-                          closeConfirm();
-                          try {
-                            const { collection, addDoc } = await import('firebase/firestore');
-                            const { db } = await import('@lib/firebase');
-                            
-                            const dummies = [
-                              { name: "Tokyo Open 2026", type: "international", rules: "wkf", status: "upcoming", mats: 4, createdAt: new Date().toISOString() },
-                              { name: "Kyoto Nationals", type: "national", rules: "wkf", status: "upcoming", mats: 6, createdAt: new Date().toISOString() },
-                              { name: "Osaka Regional Qualifier", type: "regional", rules: "wkf", status: "upcoming", mats: 2, createdAt: new Date().toISOString() }
-                            ];
-                            
-                            await Promise.all(dummies.map(d => addDoc(collection(db, 'competitions'), d)));
-                            toast.success('Added dummy competitions');
-                          } catch (err) {
-                            console.error(err);
-                            toast.error("Failed to add dummy competitions.");
+              {role === 'admin' ? (
+                <>
+                  <PremiumCTA 
+                    title="Design the Ultimate Tournament"
+                    description="Use TaikaiX's premium feature suite to plan, bracket, and deploy your next event globally in minutes."
+                    buttonText="Create the first competition"
+                    onClick={() => setIsModalOpen(true)}
+                  />
+                  <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '16px' }}>
+                    <button 
+                      className="btn btn-secondary"
+                      onClick={() => {
+                        setConfirmState({
+                          isOpen: true,
+                          title: 'Add Dummy Competitions',
+                          message: 'Add 3 dummy competitions to the database for testing?',
+                          isDestructive: false,
+                          onConfirm: async () => {
+                            closeConfirm();
+                            try {
+                              const { collection, addDoc } = await import('firebase/firestore');
+                              const { db } = await import('@lib/firebase');
+                              
+                              const dummies = [
+                                { name: "Tokyo Open 2026", type: "international", rules: "wkf", status: "upcoming", mats: 4, createdAt: new Date().toISOString() },
+                                { name: "Kyoto Nationals", type: "national", rules: "wkf", status: "upcoming", mats: 6, createdAt: new Date().toISOString() },
+                                { name: "Osaka Regional Qualifier", type: "regional", rules: "wkf", status: "upcoming", mats: 2, createdAt: new Date().toISOString() }
+                              ];
+                              
+                              await Promise.all(dummies.map(d => addDoc(collection(db, 'competitions'), d)));
+                              toast.success('Added dummy competitions');
+                            } catch (err) {
+                              console.error(err);
+                              toast.error("Failed to add dummy competitions.");
+                            }
                           }
-                        }
-                      });
-                    }}
-                  >
-                    Populate with Demo Data
-                  </button>
+                        });
+                      }}
+                    >
+                      Populate with Demo Data
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--neutral-500)', fontFamily: 'var(--font-body)', fontSize: '14px' }}>
+                  No competitions available right now.
                 </div>
               )}
             </div>
