@@ -18,7 +18,8 @@ export default function CompetitionsPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     name: '', dates: '', venue: '', type: 'national', rules: 'wkf', mats: '6', password: '',
-    startTime: '09:00', endTime: '18:00', estMinsPerPool: '45', tournamentDays: 1
+    startTime: '09:00', endTime: '18:00', estMinsPerPool: '45', tournamentDays: 1,
+    globalMatchTime: '3', globalRestTime: '1', globalMedicalTime: '0', globalBunkaiTime: '0'
   });
   const [presetCategories, setPresetCategories] = useState<any[] | null>(null);
   const [presetFileName, setPresetFileName] = useState<string>('');
@@ -673,10 +674,9 @@ export default function CompetitionsPage() {
               <input type="number" id="new-comp-mats" className="input-field" placeholder="e.g. 6" min="1" max="20" style={{ width: '120px' }} value={formData.mats} onChange={e => setFormData(p => ({ ...p, mats: e.target.value }))} />
             </div>
 
-            {/* Timing Section */}
             <div className="timing-section">
               <div className="timing-section-title">⏱ Schedule Settings</div>
-              <div style={{ display: 'flex', gap: '12px' }}>
+              <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
                 <div style={{ flex: 1 }}>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px', color: 'var(--neutral-700)' }}>Start Time</label>
                   <input type="time" id="new-comp-start" className="input-field" value={formData.startTime} onChange={e => setFormData(p => ({ ...p, startTime: e.target.value }))} />
@@ -688,6 +688,24 @@ export default function CompetitionsPage() {
                 <div style={{ flex: 1 }}>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px', color: 'var(--neutral-700)' }}>Est. Min / Pool</label>
                   <input type="number" id="new-comp-est" className="input-field" placeholder="45" min="5" max="240" value={formData.estMinsPerPool} onChange={e => setFormData(p => ({ ...p, estMinsPerPool: e.target.value }))} />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px', color: 'var(--neutral-700)' }}>Match Time (mins)</label>
+                  <input type="number" className="input-field" min="0" value={formData.globalMatchTime} onChange={e => setFormData(p => ({ ...p, globalMatchTime: e.target.value }))} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px', color: 'var(--neutral-700)' }}>Rest/Buffer (mins)</label>
+                  <input type="number" className="input-field" min="0" value={formData.globalRestTime} onChange={e => setFormData(p => ({ ...p, globalRestTime: e.target.value }))} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px', color: 'var(--neutral-700)' }}>Medical Time (mins)</label>
+                  <input type="number" className="input-field" min="0" value={formData.globalMedicalTime} onChange={e => setFormData(p => ({ ...p, globalMedicalTime: e.target.value }))} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px', color: 'var(--neutral-700)' }}>Bunkai Buffer (mins)</label>
+                  <input type="number" className="input-field" min="0" value={formData.globalBunkaiTime} onChange={e => setFormData(p => ({ ...p, globalBunkaiTime: e.target.value }))} />
                 </div>
               </div>
               <p style={{ fontSize: '11px', color: 'var(--neutral-500)', marginTop: '8px', marginBottom: 0 }}>
@@ -739,6 +757,10 @@ export default function CompetitionsPage() {
                   startTime: startTime || '09:00',
                   endTime: endTime || '18:00',
                   estMinsPerPool: parseInt(estMinsPerPool) || 45,
+                  globalMatchTime: parseFloat(formData.globalMatchTime) || 3,
+                  globalRestTime: parseFloat(formData.globalRestTime) || 1,
+                  globalMedicalTime: parseFloat(formData.globalMedicalTime) || 0,
+                  globalBunkaiTime: parseFloat(formData.globalBunkaiTime) || 0,
                   tournamentDays: tournamentDays || 1,
                   status: 'upcoming',
                   createdAt: new Date().toISOString()
@@ -748,7 +770,7 @@ export default function CompetitionsPage() {
  
                 toast.success('Competition created successfully!');
                 setIsModalOpen(false);
-                setFormData({ name: '', dates: '', venue: '', type: 'national', rules: 'custom', mats: '6', password: '', startTime: '09:00', endTime: '18:00', estMinsPerPool: '45', tournamentDays: 1 });
+                setFormData({ name: '', dates: '', venue: '', type: 'national', rules: 'custom', mats: '6', password: '', startTime: '09:00', endTime: '18:00', estMinsPerPool: '45', tournamentDays: 1, globalMatchTime: '3', globalRestTime: '1', globalMedicalTime: '0', globalBunkaiTime: '0' });
                 router.push(`/setup/${newDocRef.id}`);
               } catch (err) {
                 console.error(err);

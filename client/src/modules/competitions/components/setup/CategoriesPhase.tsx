@@ -65,65 +65,7 @@ export default function CategoriesPhase({
 }: CategoriesPhaseProps) {
   return (
     <div className="category-manager">
-      <div className="cat-group" style={{ marginBottom: 'var(--space-4)' }}>
-        <h3>Schedule Configuration</h3>
-        <p className="text-small mb-4">Set up days and global time estimates for scheduling pools.</p>
-        
-        <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
-          <div className="form-group" style={{ flex: 1, minWidth: '150px' }}>
-            <label className="text-micro">Start Date</label>
-            <input type="date" className="input-field" value={compDate.split(' to ')[0] || compDate} onChange={e => {
-              const start = e.target.value;
-              const end = compDate.split(' to ')[1] || start;
-              setCompDate(`${start} to ${end}`);
-              const days = Math.ceil((new Date(end).getTime() - new Date(start).getTime()) / (1000 * 3600 * 24)) + 1;
-              setTournamentDays(days > 0 ? days : 1);
-            }} />
-          </div>
-          <div className="form-group" style={{ flex: 1, minWidth: '150px' }}>
-            <label className="text-micro">End Date</label>
-            <input type="date" className="input-field" value={compDate.split(' to ')[1] || ''} onChange={e => {
-              const start = compDate.split(' to ')[0] || compDate;
-              const end = e.target.value;
-              setCompDate(`${start} to ${end}`);
-              const days = Math.ceil((new Date(end).getTime() - new Date(start).getTime()) / (1000 * 3600 * 24)) + 1;
-              setTournamentDays(days > 0 ? days : 1);
-            }} />
-          </div>
-          <div className="form-group" style={{ flex: 1, minWidth: '150px' }}>
-            <label className="text-micro">Computed Days</label>
-            <input type="number" readOnly className="input-field" style={{ background: '#f5f5f5', cursor: 'not-allowed' }} value={tournamentDays} />
-          </div>
-          <div className="form-group" style={{ flex: 1, minWidth: '150px' }}>
-            <label className="text-micro">Start Time</label>
-            <input type="time" className="input-field" value={compStartTime} onChange={e => setCompStartTime(e.target.value)} />
-          </div>
-          <div className="form-group" style={{ flex: 1, minWidth: '150px' }}>
-            <label className="text-micro">End Time</label>
-            <input type="time" className="input-field" value={compEndTime} onChange={e => setCompEndTime(e.target.value)} />
-          </div>
-          <div className="form-group" style={{ flex: 1, minWidth: '150px' }}>
-            <label className="text-micro">Est. Min / Pool</label>
-            <input type="number" min="5" className="input-field" value={compEstMinsPerPool} onChange={e => setCompEstMinsPerPool(parseInt(e.target.value) || 45)} />
-          </div>
-          <div className="form-group" style={{ flex: 1, minWidth: '150px' }}>
-            <label className="text-micro">Match Time (mins)</label>
-            <input type="number" min="0" className="input-field" value={globalMatchTime} onChange={e => setGlobalMatchTime(parseFloat(e.target.value) || 0)} />
-          </div>
-          <div className="form-group" style={{ flex: 1, minWidth: '150px' }}>
-            <label className="text-micro">Rest/Buffer (mins)</label>
-            <input type="number" min="0" className="input-field" value={globalRestTime} onChange={e => setGlobalRestTime(parseFloat(e.target.value) || 0)} />
-          </div>
-          <div className="form-group" style={{ flex: 1, minWidth: '150px' }}>
-            <label className="text-micro">Medical Time (mins)</label>
-            <input type="number" min="0" className="input-field" value={globalMedicalTime} onChange={e => setGlobalMedicalTime(parseFloat(e.target.value) || 0)} />
-          </div>
-          <div className="form-group" style={{ flex: 1, minWidth: '150px' }}>
-            <label className="text-micro">Bunkai Buffer (mins)</label>
-            <input type="number" min="0" className="input-field" value={globalBunkaiTime} onChange={e => setGlobalBunkaiTime(parseFloat(e.target.value) || 0)} />
-          </div>
-        </div>
-      </div>
+
 
       <div className="cat-group">
         <div className="flex-between" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
