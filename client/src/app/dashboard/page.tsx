@@ -4,7 +4,6 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/modules/auth/components/AuthProvider';
-import PremiumCTA from '@/modules/shared/components/PremiumCTA';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -560,14 +559,7 @@ export default function DashboardPage() {
           </div>
         </section>
         
-        <section className="dashboard-bento stagger-in" style={{ marginBottom: 'var(--space-6)' }}>
-          <PremiumCTA 
-            title="Design the Ultimate Tournament"
-            description="Use TaikaiX's premium feature suite to plan, bracket, and deploy your next event globally in minutes."
-            buttonText="Create New Event"
-            href="/competitions"
-          />
-        </section>
+
 
         <section className="stagger-in">
           <div className="flex-between mb-4">
