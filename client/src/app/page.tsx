@@ -57,49 +57,49 @@ export default function LandingPage() {
   return (
     <>
       <style>{`
-        /* Core Physics & Custom Easings (Emil-Design-Eng) */
+        /* Brutalist / Combat Sports Aesthetic */
         :root {
-          --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
-          --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+          --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-        /* Solid Ambient Background */
+        /* Stark Ambient Background */
         .ambient-bg {
           position: fixed;
           top: 0; left: 0; right: 0; bottom: 0;
-          background-color: #FAFAFA;
+          background-color: #FFFFFF;
+          background-image: radial-gradient(var(--neutral-300) 1px, transparent 1px);
+          background-size: 24px 24px;
+          opacity: 0.4;
           z-index: -1;
         }
 
-        /* Minimal Nav */
+        /* Sharp Nav */
         .premium-nav {
           position: sticky;
-          top: 24px;
-          margin: 0 auto;
-          width: calc(100% - 48px);
-          max-width: 1200px;
+          top: 0;
+          margin: 0;
+          width: 100%;
+          max-width: 100%;
           height: 64px;
-          border-radius: 12px;
           background: #FFFFFF;
-          border: 1px solid var(--neutral-200);
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+          border-bottom: 2px solid var(--kuro);
           display: flex;
           align-items: center;
           padding: 0 24px;
           z-index: 100;
-          transition: transform 0.3s;
         }
 
         /* Hero Typography */
         .hero-title {
           font-family: var(--font-display);
-          font-size: clamp(48px, 10vw, 96px);
+          font-size: clamp(56px, 12vw, 110px);
           line-height: 0.9;
           color: var(--kuro);
           text-transform: uppercase;
-          letter-spacing: -0.02em;
+          letter-spacing: -0.04em;
           text-wrap: balance;
-          font-weight: 800;
+          font-weight: 900;
+          font-style: italic;
         }
         .hero-subtitle {
           font-family: var(--font-body);
@@ -108,118 +108,112 @@ export default function LandingPage() {
           max-width: 600px;
           margin: 24px auto 48px auto;
           line-height: 1.6;
+          font-weight: 500;
         }
 
-        /* Search Command Center */
+        /* Search Command Center - Brutalist */
         .search-container {
           position: relative;
           width: 100%;
-          max-width: 680px;
+          max-width: 720px;
           margin: 0 auto;
-          border-radius: 12px;
           background: #FFFFFF;
-          border: 1px solid var(--neutral-300);
-          box-shadow: 0 4px 12px rgba(0,0,0,0.03);
-          transition: all 300ms var(--ease-out);
-          overflow: hidden;
+          border: 3px solid var(--kuro);
+          box-shadow: 6px 6px 0px var(--aka);
+          transition: all 200ms var(--ease-out);
+          display: flex;
         }
         .search-container.focused {
-          border-color: var(--ao);
-          box-shadow: 0 0 0 4px rgba(0, 102, 255, 0.1);
+          transform: translate(-2px, -2px);
+          box-shadow: 8px 8px 0px var(--aka);
         }
         
         .search-input {
           width: 100%;
-          height: 64px;
+          height: 72px;
           padding: 0 24px 0 64px;
           border: none;
           outline: none;
           background: transparent;
           font-family: var(--font-body);
-          font-size: 16px;
+          font-size: 18px;
+          font-weight: 600;
           color: var(--kuro);
         }
-        .search-input::placeholder { color: var(--neutral-400); }
+        .search-input::placeholder { color: var(--neutral-400); font-weight: 500; }
         
         .search-icon {
           position: absolute;
           left: 24px;
           top: 50%;
           transform: translateY(-50%);
-          color: var(--neutral-400);
-          transition: color 200ms var(--ease-out);
+          color: var(--kuro);
         }
-        .search-container.focused .search-icon { color: var(--ao); }
         
         /* Pressable Buttons */
         .btn-pressable {
-          transition: transform 160ms var(--ease-out), background 160ms var(--ease-out);
+          transition: transform 100ms linear;
         }
-        .btn-pressable:active { transform: scale(0.97); }
+        .btn-pressable:active { transform: scale(0.96); }
 
         .search-btn {
-          position: absolute;
-          right: 8px;
-          top: 8px;
-          bottom: 8px;
-          padding: 0 24px;
+          margin: 6px;
+          padding: 0 32px;
           background: var(--kuro);
           color: var(--shiro);
           border: none;
-          border-radius: 8px;
-          font-family: var(--font-body);
-          font-size: 14px;
-          font-weight: 600;
+          font-family: var(--font-display);
+          font-size: 18px;
+          font-weight: 700;
+          text-transform: uppercase;
           cursor: pointer;
-          transition: all 200ms var(--ease-out);
+          transition: background 150ms;
         }
-        .search-btn:hover { background: var(--neutral-800); }
-        .search-btn:active { transform: scale(0.95); }
+        .search-btn:hover { background: var(--aka); }
 
         /* Minimal Rounded Cards */
         .features-grid {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-          gap: 24px;
+          gap: 32px;
           margin-top: 100px;
         }
         .premium-card {
           background: #FFFFFF;
-          border: 1px solid var(--neutral-200);
-          border-radius: 16px;
+          border: 3px solid var(--kuro);
           padding: 32px;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.02);
-          transition: all 300ms var(--ease-out);
+          box-shadow: 6px 6px 0px var(--neutral-200);
+          transition: all 200ms var(--ease-out);
           position: relative;
         }
         .premium-card:hover {
-          border-color: var(--neutral-300);
-          box-shadow: 0 8px 24px rgba(0,0,0,0.06);
-          transform: translateY(-4px);
+          box-shadow: 8px 8px 0px var(--card-accent);
+          transform: translate(-2px, -2px);
         }
         
         .card-icon-wrap {
-          width: 48px;
-          height: 48px;
-          border-radius: 12px;
-          background: var(--neutral-100);
+          width: 56px;
+          height: 56px;
+          border: 2px solid var(--kuro);
+          background: #FFF;
           display: flex;
           align-items: center;
           justify-content: center;
-          margin-bottom: 20px;
+          margin-bottom: 24px;
           color: var(--kuro);
           transition: all 200ms var(--ease-out);
         }
         .premium-card:hover .card-icon-wrap {
           background: var(--card-accent);
           color: var(--shiro);
+          border-color: var(--card-accent);
         }
 
-        /* Emil Staggered Reveals */
-        .stagger-1 { animation: slide-up 600ms var(--ease-out) 0s forwards; opacity: 0; transform: translateY(20px); }
-        .stagger-2 { animation: slide-up 600ms var(--ease-out) 0.1s forwards; opacity: 0; transform: translateY(20px); }
-        .stagger-3 { animation: slide-up 600ms var(--ease-out) 0.2s forwards; opacity: 0; transform: translateY(20px); }
-        .stagger-4 { animation: slide-up 600ms var(--ease-out) 0.3s forwards; opacity: 0; transform: translateY(20px); }
+        /* Snappy Reveals */
+        .stagger-1 { animation: slide-up 400ms var(--ease-out) 0s forwards; opacity: 0; transform: translateY(15px); }
+        .stagger-2 { animation: slide-up 400ms var(--ease-out) 0.05s forwards; opacity: 0; transform: translateY(15px); }
+        .stagger-3 { animation: slide-up 400ms var(--ease-out) 0.1s forwards; opacity: 0; transform: translateY(15px); }
+        .stagger-4 { animation: slide-up 400ms var(--ease-out) 0.15s forwards; opacity: 0; transform: translateY(15px); }
         
         @keyframes slide-up {
           to { opacity: 1; transform: translateY(0); }
@@ -227,8 +221,7 @@ export default function LandingPage() {
 
         @media (prefers-reduced-motion: reduce) {
           .stagger-1, .stagger-2, .stagger-3, .stagger-4 { animation: none; opacity: 1; transform: none; }
-          .search-container.focused { transform: none; box-shadow: none; }
-          .btn-pressable:active, .search-btn:active { transform: none; }
+          .search-container.focused { transform: none; }
           .premium-card:hover { transform: none; }
         }
       `}</style>
@@ -240,30 +233,30 @@ export default function LandingPage() {
         
         {/* MINIMAL NAV */}
         <nav className="premium-nav stagger-1">
-          <span className="nav-logo" style={{ color: 'var(--kuro)', margin: 0, fontSize: '18px', fontWeight: 700, letterSpacing: '-0.02em' }}>TAIKAIX</span>
+          <span className="nav-logo" style={{ color: 'var(--kuro)', margin: 0, fontSize: '24px', fontWeight: 900, fontStyle: 'italic', letterSpacing: '-0.04em' }}>TAIKAIX</span>
 
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '16px' }}>
             {!authLoading && user && !user.isAnonymous ? (
               <Link href="/dashboard" className="btn-pressable" style={{ 
-                fontFamily: 'var(--font-body)', fontSize: '14px', fontWeight: 600, color: 'var(--shiro)', 
-                background: 'var(--kuro)', padding: '8px 16px', borderRadius: '8px', textDecoration: 'none'
+                fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--shiro)', 
+                background: 'var(--kuro)', padding: '10px 24px', textDecoration: 'none', textTransform: 'uppercase'
               }}>
                 Dashboard
               </Link>
             ) : (
               <>
                 <Link href="/login" className="btn-pressable" style={{ 
-                  fontFamily: 'var(--font-body)', color: 'var(--neutral-600)', fontSize: '14px', fontWeight: 600, 
-                  textDecoration: 'none', padding: '8px 16px', transition: 'color 0.2s' 
+                  fontFamily: 'var(--font-display)', color: 'var(--kuro)', fontSize: '15px', fontWeight: 700, 
+                  textDecoration: 'none', padding: '10px 16px', textTransform: 'uppercase'
                 }}
-                  onMouseEnter={e => (e.currentTarget.style.color = 'var(--kuro)')}
-                  onMouseLeave={e => (e.currentTarget.style.color = 'var(--neutral-600)')}
+                  onMouseEnter={e => (e.currentTarget.style.color = 'var(--aka)')}
+                  onMouseLeave={e => (e.currentTarget.style.color = 'var(--kuro)')}
                 >
                   Sign In
                 </Link>
                 <Link href="/login" className="btn-pressable" style={{ 
-                  fontFamily: 'var(--font-body)', fontSize: '14px', fontWeight: 600, color: 'var(--shiro)', 
-                  background: 'var(--kuro)', padding: '8px 16px', borderRadius: '8px', textDecoration: 'none'
+                  fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--shiro)', 
+                  background: 'var(--kuro)', padding: '10px 24px', textDecoration: 'none', textTransform: 'uppercase'
                 }}>
                   Get Started
                 </Link>
@@ -273,13 +266,13 @@ export default function LandingPage() {
         </nav>
 
         {/* MAIN CANVAS */}
-        <main style={{ flex: 1, padding: 'clamp(60px, 8vw, 100px) var(--space-6) var(--space-8)', position: 'relative', zIndex: 10 }}>
+        <main style={{ flex: 1, padding: 'clamp(80px, 10vw, 120px) var(--space-6) var(--space-8)', position: 'relative', zIndex: 10 }}>
           
           <div style={{ maxWidth: '1000px', margin: '0 auto', textAlign: 'center' }}>
             
             <h1 className="hero-title stagger-2">
-              Run Tournaments<br />
-              <span style={{ color: 'var(--aka)' }}>Beautifully.</span>
+              RUN TOURNAMENTS.<br />
+              <span style={{ color: 'var(--aka)' }}>DOMINATE THE MAT.</span>
             </h1>
             
             <p className="hero-subtitle stagger-3">
@@ -289,7 +282,7 @@ export default function LandingPage() {
             {/* COMMAND CENTER */}
             <div className="stagger-4" style={{ width: '100%', padding: '0 16px' }}>
               <form onSubmit={handleSearch} className={`search-container ${isSearchFocused ? 'focused' : ''}`}>
-                <Search size={20} className="search-icon" strokeWidth={2.5} />
+                <Search size={24} className="search-icon" strokeWidth={3} />
                 <input
                   ref={inputRef}
                   type="text"
@@ -303,22 +296,21 @@ export default function LandingPage() {
                   autoComplete="off"
                 />
                 <button type="submit" className="search-btn" aria-label="Find tournament">
-                  Search
+                  Find
                 </button>
               </form>
 
               {/* RECENT INVITES */}
               {mounted && recentInvites.length > 0 && (
-                <div style={{ marginTop: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                <div style={{ marginTop: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: '12px' }}>
                   {recentInvites.map((invite) => (
                     <Link key={invite.id} href={`/competitions/${invite.id}`} className="btn-pressable" style={{
-                      display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 12px',
-                      borderRadius: '8px', background: '#FFFFFF',
-                      border: '1px solid var(--neutral-200)', color: 'var(--neutral-700)', fontSize: '13px',
-                      fontWeight: 500, textDecoration: 'none', boxShadow: '0 1px 4px rgba(0,0,0,0.02)'
+                      display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px',
+                      background: '#FFFFFF', border: '2px solid var(--kuro)', color: 'var(--kuro)', fontSize: '14px',
+                      fontWeight: 700, textDecoration: 'none', boxShadow: '3px 3px 0px var(--neutral-300)'
                     }}
-                      onMouseEnter={e => { e.currentTarget.style.color = 'var(--kuro)'; e.currentTarget.style.borderColor = 'var(--neutral-300)'; }}
-                      onMouseLeave={e => { e.currentTarget.style.color = 'var(--neutral-700)'; e.currentTarget.style.borderColor = 'var(--neutral-200)'; }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--aka)'; e.currentTarget.style.color = 'var(--aka)'; e.currentTarget.style.boxShadow = '4px 4px 0px var(--aka)'; e.currentTarget.style.transform = 'translate(-1px, -1px)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--kuro)'; e.currentTarget.style.color = 'var(--kuro)'; e.currentTarget.style.boxShadow = '3px 3px 0px var(--neutral-300)'; e.currentTarget.style.transform = 'none'; }}
                     >
                       {invite.name}
                       <span onClick={(e) => removeInvite(invite.id, e)} style={{ 
@@ -327,7 +319,7 @@ export default function LandingPage() {
                         onMouseEnter={e => e.currentTarget.style.color = 'var(--aka)'}
                         onMouseLeave={e => e.currentTarget.style.color = 'var(--neutral-400)'}
                       >
-                        <X size={14} strokeWidth={2} />
+                        <X size={16} strokeWidth={3} />
                       </span>
                     </Link>
                   ))}
@@ -336,16 +328,16 @@ export default function LandingPage() {
             </div>
 
             {/* MINIMAL FEATURES GRID */}
-            <div className="features-grid stagger-4" style={{ animationDelay: '0.4s' }}>
+            <div className="features-grid stagger-4" style={{ animationDelay: '0.2s' }}>
               {features.map((feature, idx) => (
                 <div key={idx} className="premium-card" style={{ '--card-accent': feature.accent } as React.CSSProperties}>
                   <div className="card-icon-wrap">
                     {feature.icon}
                   </div>
-                  <h3 style={{ fontFamily: 'var(--font-body)', fontSize: '20px', fontWeight: 600, color: 'var(--kuro)', marginBottom: '8px', textAlign: 'left', letterSpacing: '-0.01em' }}>
+                  <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 800, color: 'var(--kuro)', marginBottom: '8px', textAlign: 'left', letterSpacing: '-0.02em', textTransform: 'uppercase' }}>
                     {feature.title}
                   </h3>
-                  <p style={{ fontFamily: 'var(--font-body)', fontSize: '15px', color: 'var(--neutral-600)', lineHeight: 1.6, textAlign: 'left' }}>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: '15px', color: 'var(--neutral-600)', lineHeight: 1.6, textAlign: 'left', fontWeight: 500 }}>
                     {feature.desc}
                   </p>
                 </div>
