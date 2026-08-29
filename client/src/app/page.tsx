@@ -120,7 +120,7 @@ export default function LandingPage() {
           background: #FFFFFF;
           border: 3px solid var(--kuro);
           box-shadow: 6px 6px 0px var(--aka);
-          transition: all 200ms var(--ease-out);
+          transition: transform 200ms var(--ease-out), box-shadow 200ms var(--ease-out);
           display: flex;
         }
         .search-container.focused {
@@ -183,7 +183,7 @@ export default function LandingPage() {
           border: 3px solid var(--kuro);
           padding: 32px;
           box-shadow: 6px 6px 0px var(--neutral-200);
-          transition: all 200ms var(--ease-out);
+          transition: transform 200ms var(--ease-out), box-shadow 200ms var(--ease-out);
           position: relative;
         }
         .premium-card:hover {
@@ -201,7 +201,7 @@ export default function LandingPage() {
           justify-content: center;
           margin-bottom: 24px;
           color: var(--kuro);
-          transition: all 200ms var(--ease-out);
+          transition: background 200ms var(--ease-out), color 200ms var(--ease-out), border-color 200ms var(--ease-out);
         }
         .premium-card:hover .card-icon-wrap {
           background: var(--card-accent);

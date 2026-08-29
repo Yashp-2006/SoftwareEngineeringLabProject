@@ -341,13 +341,15 @@ export default function ScoreboardPage({ params }: { params: Promise<{ matchId: 
   return (
     <div style={{ backgroundColor: 'var(--kuro)', color: 'var(--shiro)', height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <style dangerouslySetInnerHTML={{ __html: `
-        .controls-overlay { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); padding: var(--space-4) var(--space-6); border-radius: 100px; display: flex; gap: var(--space-6); border: 1px solid var(--neutral-700); opacity: 0; pointer-events: none; transition: all 0.3s ease; z-index: 100; }
+        .controls-overlay { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--neutral-900); padding: var(--space-4) var(--space-6); border-radius: 100px; display: flex; gap: var(--space-6); border: 2px solid var(--neutral-700); opacity: 0; pointer-events: none; transition: opacity 200ms var(--ease-out); z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
         body:hover .controls-overlay { opacity: 1; pointer-events: auto; }
         .control-group { display: flex; align-items: center; gap: var(--space-3); }
-        .control-btn { background: var(--neutral-900); border: 1px solid var(--neutral-700); color: var(--shiro); padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s ease; }
-        .control-btn:hover { background: var(--neutral-700); transform: translateY(-1px); }
+        .control-btn { background: var(--kuro); border: 1px solid var(--neutral-700); color: var(--shiro); padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: transform 160ms var(--ease-out), background 160ms var(--ease-out); }
+        .control-btn:hover { background: var(--neutral-700); transform: translateY(-2px); }
+        .control-btn:active { transform: scale(0.97); }
         .key-hint { font-size: 10px; background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; color: var(--neutral-300); }
-        .fullscreen-btn { position: fixed; top: 24px; right: 24px; z-index: 100; background: rgba(0,0,0,0.5); border: 1px solid var(--neutral-700); color: var(--shiro); padding: 8px; border-radius: 8px; cursor: pointer; }
+        .fullscreen-btn { position: fixed; top: 24px; right: 24px; z-index: 100; background: var(--kuro); border: 2px solid var(--neutral-700); color: var(--shiro); padding: 8px; border-radius: 8px; cursor: pointer; transition: transform 160ms linear; }
+        .fullscreen-btn:active { transform: scale(0.97); }
       `}} />
 
       {/* REST TIMER OVERLAY */}

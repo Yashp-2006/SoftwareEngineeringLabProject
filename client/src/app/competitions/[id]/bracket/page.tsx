@@ -347,7 +347,7 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
           background: var(--shiro);
           font-size: 14px;
           color: var(--neutral-900);
-          transition: all 0.2s;
+          transition: border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
         }
         .search-input:focus {
           outline: none;
@@ -402,7 +402,7 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
           border-radius: 16px;
           padding: var(--space-4);
           cursor: pointer;
-          transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+          transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1), border-color 200ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 200ms cubic-bezier(0.23, 1, 0.32, 1);
           box-shadow: 0 1px 3px rgba(0,0,0,0.04);
           display: flex;
           flex-direction: column;
@@ -421,7 +421,7 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
         .btn-view-tiesheet {
           flex: 1; height: 32px; display: flex; align-items: center; justify-content: center; gap: 6px;
           background: transparent; border: 1px solid var(--neutral-300); border-radius: 8px;
-          font-size: 12px; font-weight: 700; color: var(--neutral-700); cursor: pointer; transition: all 0.2s;
+          font-size: 12px; font-weight: 700; color: var(--neutral-700); cursor: pointer; transition: background 160ms var(--ease-out), color 160ms var(--ease-out), border-color 160ms var(--ease-out);
         }
         .btn-view-tiesheet:hover { background: var(--neutral-100); border-color: var(--neutral-500); color: var(--neutral-900); }
         .tiesheet-card.live-card .btn-view-tiesheet { background: var(--aka); border-color: var(--aka); color: white; }
@@ -433,7 +433,7 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
           display: flex; align-items: center; gap: 8px; padding: 8px 16px;
           background: linear-gradient(135deg, #f59e0b, #d97706);
           color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 700;
-          cursor: pointer; transition: all 0.2s; white-space: nowrap;
+          cursor: pointer; transition: transform 160ms var(--ease-out), box-shadow 160ms var(--ease-out); white-space: nowrap;
         }
         .btn-create-special:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(217,119,6,0.4); }
         .empty-state { padding: var(--space-12); text-align: center; color: var(--neutral-400); display: flex; flex-direction: column; align-items: center; gap: 12px; }

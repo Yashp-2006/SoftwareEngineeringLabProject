@@ -198,7 +198,7 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
           position: relative;
           text-decoration: none;
           color: inherit;
-          transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+          transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 200ms cubic-bezier(0.23, 1, 0.32, 1), border-color 200ms cubic-bezier(0.23, 1, 0.32, 1);
         }
         .mat-card:hover {
           transform: translateY(-4px);
@@ -337,7 +337,7 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
           font-size: 12px;
           font-weight: 600;
           cursor: pointer;
-          transition: all 0.2s;
+          transition: background 160ms var(--ease-out), color 160ms var(--ease-out);
           display: inline-flex;
           align-items: center;
           gap: 6px;
@@ -365,7 +365,7 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
           border: 1px dashed var(--neutral-300);
           border-radius: 8px;
           margin-bottom: var(--space-4);
-          transition: all 0.2s;
+          transition: border-color 160ms var(--ease-out), background 160ms var(--ease-out);
         }
         .mat-card:hover .standby-state {
           border-color: var(--neutral-400);
@@ -431,7 +431,7 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
           font-size: 13px;
           font-weight: 600;
           cursor: pointer;
-          transition: all 0.2s;
+          transition: background 160ms var(--ease-out), color 160ms var(--ease-out);
         }
         .filter-btn:hover {
           background: var(--neutral-50);

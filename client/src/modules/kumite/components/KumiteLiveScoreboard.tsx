@@ -69,7 +69,7 @@ export default function KumiteLiveScoreboard({
         .kls-title { font-size: 2cqw; font-weight: 800; color: var(--shiro); line-height: 1.2; }
         .kls-subtitle { font-size: 1cqw; font-weight: 700; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 0.5cqw; }
         .kls-header-actions { display: flex; gap: 1cqw; }
-        .kls-btn { display: inline-flex; align-items: center; gap: 0.5cqw; padding: 0.8cqw 1.2cqw; border-radius: 0.5cqw; font-size: 1cqw; font-weight: 600; cursor: pointer; border: 1px solid rgba(255,255,255,0.2); background: transparent; color: var(--shiro); transition: all 0.2s; }
+        .kls-btn { display: inline-flex; align-items: center; gap: 0.5cqw; padding: 0.8cqw 1.2cqw; border-radius: 0.5cqw; font-size: 1cqw; font-weight: 600; cursor: pointer; border: 1px solid rgba(255,255,255,0.2); background: transparent; color: var(--shiro); transition: background 160ms var(--ease-out); }
         .kls-btn:hover { background: rgba(255,255,255,0.1); }
         
         .kls-container { flex: 1; display: grid; grid-template-columns: 1fr minmax(15cqw, 20cqw) 1fr; position: relative; }
@@ -93,7 +93,7 @@ export default function KumiteLiveScoreboard({
         .kls-pen-grp { display: flex; flex-direction: column; gap: 1cqw; }
         .kls-pen-title { font-size: 0.9cqw; font-weight: 700; text-transform: uppercase; opacity: 0.6; text-align: center; }
         .kls-pen-dots { display: flex; justify-content: center; gap: 0.8cqw; }
-        .kls-dot { width: 1.2cqw; height: 1.2cqw; border-radius: 50%; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4); transition: all 0.3s ease; }
+        .kls-dot { width: 1.2cqw; height: 1.2cqw; border-radius: 50%; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4); transition: background 200ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 200ms cubic-bezier(0.23, 1, 0.32, 1); }
         .kls-dot.active { background: var(--shiro); box-shadow: 0 0 1cqw var(--shiro); border-color: var(--shiro); }
         
         .kls-senshu { position: absolute; top: 3cqw; font-family: var(--font-display); font-size: 2cqw; background: var(--shiro); color: var(--kuro); padding: 0.5cqw 1.5cqw; border-radius: 0.5cqw; opacity: 0; transition: opacity 0.3s ease; }

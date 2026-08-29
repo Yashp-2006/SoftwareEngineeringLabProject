@@ -199,8 +199,9 @@ export default function ArchiveDetail({ params }: { params: Promise<{ id: string
         .data-table { width: 100%; border-collapse: collapse; }
         .data-table th { text-align: left; padding: 12px 24px; border-bottom: 2px solid var(--neutral-100); background: var(--neutral-50); }
         .data-table td { padding: 16px 24px; border-bottom: 1px solid var(--neutral-100); }
-        .tiesheet-card { background: var(--shiro); border: 1px solid var(--neutral-300); border-radius: 8px; padding: var(--space-4); display: flex; justify-content: space-between; align-items: center; transition: all 0.2s; }
+        .tiesheet-card { background: var(--shiro); border: 1px solid var(--neutral-300); border-radius: 8px; padding: var(--space-4); display: flex; justify-content: space-between; align-items: center; transition: transform 160ms var(--ease-out), border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out); }
         .tiesheet-card:hover { border-color: var(--neutral-400); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .tiesheet-card:active { transform: scale(0.97); }
         .tiesheet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: var(--space-4); }
         .medal-icon { width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; margin-right: 8px; }
         .medal-gold { background: #FFD700; color: #B8860B; }

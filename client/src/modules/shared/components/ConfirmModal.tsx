@@ -55,24 +55,24 @@ export default function ConfirmModal({
         .confirm-overlay {
           position: fixed;
           inset: 0;
-          background: rgba(0,0,0,0.4);
-          backdrop-filter: blur(4px);
+          background: rgba(0,0,0,0.85);
           display: flex;
           align-items: center;
           justify-content: center;
           z-index: 9999;
           opacity: ${isOpen ? 1 : 0};
-          transition: opacity 0.2s ease;
+          transition: opacity 200ms cubic-bezier(0.23, 1, 0.32, 1);
         }
         .confirm-modal {
           background: var(--shiro);
-          border-radius: 16px;
+          border-radius: 12px;
+          border: 2px solid var(--kuro);
           padding: var(--space-5);
           width: 90%;
           max-width: 400px;
-          box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+          box-shadow: 4px 4px 0px var(--neutral-300);
           transform: ${isOpen ? 'scale(1) translateY(0)' : 'scale(0.95) translateY(10px)'};
-          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1);
         }
         .confirm-title {
           font-family: var(--font-display);

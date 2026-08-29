@@ -322,7 +322,7 @@ export default function CompetitionsPage() {
           width: 100%; height: 44px;
           border: 1.5px solid var(--neutral-300); border-radius: 8px;
           padding: 0 12px; font-size: 14px; font-family: var(--font-body); outline: none;
-          transition: all 160ms var(--ease-out);
+          transition: border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
         }
         .input-field:focus { border-color: var(--ao); box-shadow: 0 0 0 3px rgba(26, 77, 181, 0.12); }
         

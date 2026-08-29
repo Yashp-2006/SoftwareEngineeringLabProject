@@ -238,7 +238,7 @@ export default function BracketViewer({ matches, categoryName, isKata: propIsKat
           border-radius: 20px;
           overflow: hidden;
           box-shadow: 0 2px 4px rgba(0,0,0,0.02), 0 12px 32px -8px rgba(0,0,0,0.05);
-          transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+          transition: transform 300ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 300ms cubic-bezier(0.23, 1, 0.32, 1), border-color 300ms cubic-bezier(0.23, 1, 0.32, 1);
           position: relative;
         }
         .bracket-node:hover {

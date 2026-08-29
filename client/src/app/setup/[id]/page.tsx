@@ -1106,7 +1106,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         .cat-table { width: 100%; border-collapse: collapse; margin-top: var(--space-4); }
         .cat-table th { text-align: left; padding: 12px; border-bottom: 2px solid var(--neutral-100); }
         .cat-table td { padding: 12px; border-bottom: 1px solid var(--neutral-100); }
-        .dropzone { border: 2px dashed var(--neutral-300); border-radius: 12px; padding: var(--space-8); text-align: center; background: var(--neutral-50); transition: all 160ms var(--ease-out); cursor: pointer; }
+        .dropzone { border: 2px dashed var(--neutral-300); border-radius: 12px; padding: var(--space-8); text-align: center; background: var(--neutral-50); transition: border-color 160ms var(--ease-out), background 160ms var(--ease-out); cursor: pointer; }
         .dropzone:hover { border-color: var(--ao); background: var(--ao-light); }
         .mat-setup-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: var(--space-4); }
         .mat-setup-card { background: var(--shiro); border: 1px solid var(--neutral-300); border-radius: 12px; padding: var(--space-4); }

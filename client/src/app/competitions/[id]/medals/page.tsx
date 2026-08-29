@@ -374,8 +374,9 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
           text-align: left;
           cursor: pointer;
           margin-bottom: var(--space-2);
-          transition: all 0.2s;
+          transition: border-color 160ms var(--ease-out), background 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
         }
+        .category-button:active { transform: scale(0.97); }
         .category-button:hover { border-color: var(--ao); }
         .category-button.active {
           border-color: var(--aka);

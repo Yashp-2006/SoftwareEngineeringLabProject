@@ -337,7 +337,7 @@ export default function PlayerRecordsPage({ params }: { params: Promise<{ id: st
         .edit-btn:hover { text-decoration: underline; }
         .modal-overlay {
           position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-          background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+          background: rgba(0,0,0,0.85);
           display: flex; align-items: center; justify-content: center; z-index: 1000;
         }
         .modal {
@@ -362,7 +362,7 @@ export default function PlayerRecordsPage({ params }: { params: Promise<{ id: st
           font-weight: 600;
           color: var(--neutral-700);
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: background 160ms var(--ease-out), border-color 160ms var(--ease-out);
         }
         .filter-btn:hover {
           background: var(--neutral-50);
@@ -450,8 +450,9 @@ export default function PlayerRecordsPage({ params }: { params: Promise<{ id: st
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          transition: all 0.15s ease;
+          transition: background 160ms var(--ease-out), border-color 160ms var(--ease-out);
         }
+        .page-btn:active:not(:disabled) { transform: scale(0.97); }
         .page-btn:hover:not(:disabled) {
           background: var(--neutral-100);
           border-color: var(--neutral-400);

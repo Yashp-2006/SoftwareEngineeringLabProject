@@ -999,7 +999,7 @@ export default function FullscreenBracketModal({
           font-weight: 700;
           color: var(--neutral-600);
           cursor: pointer;
-          transition: all 0.15s;
+          transition: background 150ms var(--ease-out), border-color 150ms var(--ease-out), color 150ms var(--ease-out);
           white-space: nowrap;
         }
         .fsb-filter-chip:hover { border-color: var(--neutral-400); }
@@ -1021,7 +1021,7 @@ export default function FullscreenBracketModal({
           border: 1px solid var(--neutral-200);
           border-radius: 12px;
           cursor: pointer;
-          transition: all 0.2s cubic-bezier(0.23, 1, 0.32, 1);
+          transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1), border-color 200ms var(--ease-out), box-shadow 200ms var(--ease-out);
           background: var(--shiro);
         }
         .fsb-cat-item:hover {
@@ -1105,8 +1105,7 @@ export default function FullscreenBracketModal({
           padding: var(--space-4) 0;
           border-bottom: 4px solid var(--aka);
           margin-bottom: var(--space-2);
-          background: rgba(255,255,255,0.9);
-          backdrop-filter: blur(12px);
+          background: var(--shiro);
           position: sticky;
           top: 0;
           z-index: 5;
@@ -1121,7 +1120,7 @@ export default function FullscreenBracketModal({
           border-radius: 20px;
           overflow: hidden;
           box-shadow: 0 2px 4px rgba(0,0,0,0.02), 0 12px 32px -8px rgba(0,0,0,0.05);
-          transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+          transition: transform 300ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 300ms cubic-bezier(0.23, 1, 0.32, 1), border-color 300ms cubic-bezier(0.23, 1, 0.32, 1);
           position: relative;
         }
         .bracket-node:hover { transform: translateY(-8px) scale(1.02); border-color: var(--neutral-300); box-shadow: 0 32px 64px -16px rgba(0,0,0,0.1), 0 16px 32px -8px rgba(0,0,0,0.06); }
@@ -1154,15 +1153,17 @@ export default function FullscreenBracketModal({
         /* Match footer */
         .match-footer { padding: 14px 24px; display: flex; align-items: center; gap: 16px; background: oklch(98% 0.002 250); border-top: 1px solid var(--neutral-100); height: 64px; }
         .mat-select-wrapper { flex: 1; position: relative; display: flex; align-items: center; }
-        .mat-select { width: 100%; height: 38px; appearance: none; background: var(--shiro); border: 1px solid var(--neutral-200); border-radius: 12px; padding: 0 32px 0 16px; font-family: var(--font-body); font-size: 12px; font-weight: 700; color: var(--neutral-700); cursor: pointer; transition: all 0.2s; }
+        .mat-select { width: 100%; height: 38px; appearance: none; background: var(--shiro); border: 1px solid var(--neutral-200); border-radius: 12px; padding: 0 32px 0 16px; font-family: var(--font-body); font-size: 12px; font-weight: 700; color: var(--neutral-700); cursor: pointer; transition: border-color 200ms var(--ease-out); }
         .mat-select:hover { border-color: var(--neutral-400); }
         .mat-select-icon { position: absolute; right: 14px; width: 12px; pointer-events: none; color: var(--neutral-400); }
-        .btn-promote { width: 38px; height: 38px; background: var(--aka); color: var(--shiro); border: none; border-radius: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 6px 12px rgba(217,38,44,0.2); transition: all 0.3s; flex-shrink: 0; }
-        .btn-promote:hover { background: var(--aka-hover); transform: scale(1.05); }
+        .btn-promote { width: 38px; height: 38px; background: var(--aka); color: var(--shiro); border: none; border-radius: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 6px 12px rgba(217,38,44,0.2); transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1), background 200ms var(--ease-out); flex-shrink: 0; }
+        .btn-promote:hover { background: var(--aka-hover); transform: translateY(-2px) scale(1.02); }
+        .btn-promote:active { transform: scale(0.97); }
 
         /* Close button */
-        .fsb-close { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: var(--neutral-100); border: none; border-radius: 999px; cursor: pointer; transition: all 0.2s; color: var(--neutral-600); }
+        .fsb-close { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: var(--neutral-100); border: none; border-radius: 999px; cursor: pointer; transition: background 150ms var(--ease-out), color 150ms var(--ease-out), transform 150ms linear; color: var(--neutral-600); }
         .fsb-close:hover { background: var(--neutral-200); color: var(--neutral-900); }
+        .fsb-close:active { transform: scale(0.97); }
 
         /* Responsive */
         @media (max-width: 768px) {

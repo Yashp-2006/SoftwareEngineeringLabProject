@@ -377,13 +377,13 @@ export default function DashboardPage() {
         .select-minimal {
           appearance: none; background: var(--neutral-50); border: 1px solid var(--neutral-200);
           border-radius: 8px; padding: 0 14px 0 12px; height: 44px; font-size: 13px; font-weight: 600;
-          color: var(--neutral-700); cursor: pointer; outline: none; transition: all 160ms var(--ease-out);
+          color: var(--neutral-700); cursor: pointer; outline: none; transition: background 160ms var(--ease-out), border-color 160ms var(--ease-out);
           touch-action: manipulation;
         }
         .select-minimal:hover, .select-minimal:focus { background: var(--shiro); border-color: var(--ao); }
 
         .bar-group { flex: 1; height: 100%; position: relative; display: flex; align-items: flex-end; margin: 0 4px; min-width: 0; }
-        .bar-inner { width: 100%; border-radius: 6px 6px 0 0; position: relative; cursor: pointer; transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+        .bar-inner { width: 100%; border-radius: 6px 6px 0 0; position: relative; cursor: pointer; transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1); }
         .bar-inner:hover { transform: scaleY(1.05); transform-origin: bottom; }
         .bar-inner:hover .bar-label { opacity: 1; }
         .bar-label { position: absolute; top: -24px; left: 50%; transform: translateX(-50%); text-align: center; font-size: 11px; font-weight: 700; color: var(--neutral-600); opacity: 0; transition: opacity 0.2s; }

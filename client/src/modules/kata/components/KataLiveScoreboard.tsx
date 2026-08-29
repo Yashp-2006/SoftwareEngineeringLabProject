@@ -357,9 +357,10 @@ const kataScoreboadStyles = `
     border: 1px solid var(--neutral-300);
     background: var(--shiro);
     color: var(--neutral-700);
-    transition: all 0.2s;
+    transition: background 160ms var(--ease-out), border-color 160ms var(--ease-out);
   }
   .kls-btn:hover { background: var(--neutral-50); border-color: var(--neutral-400); }
+  .kls-btn:active { transform: scale(0.97); }
   .kls-btn-dark { background: var(--neutral-900); color: var(--shiro); border-color: var(--neutral-900); }
   .kls-btn-dark:hover { background: var(--neutral-700); }
 
@@ -390,7 +391,7 @@ const kataScoreboadStyles = `
     align-items: center;
     justify-content: center;
     padding: 8px;
-    transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+    transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1), background 200ms var(--ease-out), border-color 200ms var(--ease-out), box-shadow 200ms var(--ease-out);
     box-shadow: 0 2px 8px rgba(0,0,0,0.02);
   }
   .kls-judge-card.kls-judge-active-aka {

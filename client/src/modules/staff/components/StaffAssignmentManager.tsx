@@ -404,8 +404,7 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
           display: flex;
           align-items: center;
           justify-content: center;
-          background: rgba(15, 23, 42, 0.45);
-          backdrop-filter: blur(8px);
+          background: rgba(0, 0, 0, 0.85);
           z-index: 2000;
           opacity: 0;
           pointer-events: none;

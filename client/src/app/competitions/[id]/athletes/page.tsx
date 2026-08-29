@@ -335,9 +335,10 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
           text-align: left;
           cursor: pointer;
           margin-bottom: var(--space-2);
-          transition: all 0.2s;
+          transition: border-color 160ms var(--ease-out), background 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
         }
         .category-button:hover { border-color: var(--ao); }
+        .category-button:active { transform: scale(0.97); }
         .category-button.active {
           border-color: var(--aka);
           background: var(--aka-light);
@@ -463,7 +464,7 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
         }
         .modal-overlay {
           position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-          background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+          background: rgba(0,0,0,0.85);
           display: flex; align-items: center; justify-content: center; z-index: 1000;
         }
         .modal {
