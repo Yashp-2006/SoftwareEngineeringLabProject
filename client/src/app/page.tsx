@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, X, ArrowRight, Trophy, Activity, Users } from 'lucide-react';
+import { Search, X, Trophy, Activity, Users } from 'lucide-react';
 import { useAuth } from '@/modules/auth/components/AuthProvider';
 
 export default function LandingPage() {
@@ -49,9 +49,9 @@ export default function LandingPage() {
   };
 
   const features = [
-    { icon: <Trophy size={32} strokeWidth={1.5} />, title: 'Live Brackets', desc: 'Real-time advancement and tie-breakers. Automatic syncing across all officials.', accent: 'var(--aka)' },
-    { icon: <Activity size={32} strokeWidth={1.5} />, title: 'Mat Queues', desc: 'Digital scoreboards and dynamic scheduling. Eliminate paper brackets entirely.', accent: 'var(--ao)' },
-    { icon: <Users size={32} strokeWidth={1.5} />, title: 'Athlete Portal', desc: 'Self-service check-in. Competitors track their exact match time live.', accent: 'var(--shiro)' },
+    { icon: <Trophy size={28} strokeWidth={1.5} />, title: 'Live Brackets', desc: 'Real-time advancement and tie-breakers. Automatic syncing across all officials.', accent: 'var(--aka)' },
+    { icon: <Activity size={28} strokeWidth={1.5} />, title: 'Mat Queues', desc: 'Digital scoreboards and dynamic scheduling. Eliminate paper brackets entirely.', accent: 'var(--ao)' },
+    { icon: <Users size={28} strokeWidth={1.5} />, title: 'Athlete Portal', desc: 'Self-service check-in. Competitors track their exact match time live.', accent: 'var(--kuro)' },
   ];
 
   return (
@@ -63,219 +63,247 @@ export default function LandingPage() {
           --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
         }
 
-        /* Combat Sports Grid Background */
-        .bg-grid {
+        /* Ambient Premium Background */
+        .ambient-bg {
           position: fixed;
           top: 0; left: 0; right: 0; bottom: 0;
-          background-color: var(--kuro);
-          background-image: 
-            linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
-          background-size: 64px 64px;
-          background-position: center center;
+          background-color: #FAFAFA;
+          overflow: hidden;
           z-index: -1;
         }
+        .ambient-orb {
+          position: absolute;
+          border-radius: 50%;
+          filter: blur(120px);
+          opacity: 0.15;
+          animation: orb-float 24s infinite alternate ease-in-out;
+        }
+        .orb-red {
+          background: var(--aka);
+          width: 50vw; height: 50vw;
+          top: -10%; right: -10%;
+        }
+        .orb-blue {
+          background: var(--ao);
+          width: 60vw; height: 60vw;
+          bottom: -20%; left: -20%;
+          animation-delay: -12s;
+        }
 
-        /* Radial Vignette */
-        .bg-vignette {
-          position: fixed;
-          top: 0; left: 0; right: 0; bottom: 0;
-          background: radial-gradient(circle at 50% 30%, transparent 20%, var(--kuro) 100%);
-          z-index: -1;
-          pointer-events: none;
+        @keyframes orb-float {
+          0% { transform: translate(0, 0) scale(1); }
+          100% { transform: translate(-5%, 5%) scale(1.1); }
+        }
+
+        /* Glassmorphism Utilities */
+        .glass-pill {
+          background: rgba(255, 255, 255, 0.75);
+          backdrop-filter: blur(24px);
+          -webkit-backdrop-filter: blur(24px);
+          border: 1px solid rgba(255, 255, 255, 0.9);
+          box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
         }
 
         /* Nav */
-        .combat-nav {
-          height: var(--nav-height);
-          border-bottom: 1px solid rgba(255,255,255,0.05);
+        .premium-nav {
+          position: sticky;
+          top: 24px;
+          margin: 0 auto;
+          width: calc(100% - 48px);
+          max-width: 1200px;
+          height: 64px;
+          border-radius: 32px;
           display: flex;
           align-items: center;
-          padding: 0 var(--space-6);
-          background: rgba(13,13,13,0.8);
-          backdrop-filter: blur(12px);
-          position: sticky;
-          top: 0;
+          padding: 0 24px;
           z-index: 100;
+          transition: transform 0.3s;
         }
 
         /* Hero Typography */
         .hero-title {
           font-family: var(--font-display);
-          font-size: clamp(64px, 12vw, 140px);
-          line-height: 0.9;
-          color: var(--shiro);
+          font-size: clamp(64px, 12vw, 130px);
+          line-height: 0.85;
+          color: var(--kuro);
           text-transform: uppercase;
-          letter-spacing: -0.01em;
-          text-shadow: 0 4px 24px rgba(0,0,0,0.8);
-          font-style: italic;
-          margin-bottom: 24px;
+          letter-spacing: 0.01em;
+          text-wrap: balance;
         }
-        
-        /* Scoreboard Search Center */
+        .hero-subtitle {
+          font-family: var(--font-body);
+          font-size: clamp(18px, 2vw, 22px);
+          color: var(--neutral-600);
+          max-width: 600px;
+          margin: 24px auto 48px auto;
+          line-height: 1.5;
+        }
+
+        /* Search Command Center */
         .search-container {
           position: relative;
           width: 100%;
           max-width: 680px;
           margin: 0 auto;
-          background: rgba(255,255,255,0.03);
-          border: 1px solid rgba(255,255,255,0.1);
-          border-radius: 8px;
-          transition: border-color 200ms var(--ease-out), box-shadow 200ms var(--ease-out);
+          border-radius: 20px;
+          background: rgba(255, 255, 255, 0.85);
+          backdrop-filter: blur(32px);
+          -webkit-backdrop-filter: blur(32px);
+          border: 1px solid rgba(255, 255, 255, 1);
+          box-shadow: 0 8px 32px rgba(0,0,0,0.06), inset 0 0 0 1px rgba(255,255,255,0.5);
+          transition: all 400ms var(--ease-out);
+          overflow: hidden;
         }
         .search-container.focused {
-          border-color: var(--aka);
-          box-shadow: 0 0 0 1px var(--aka), 0 8px 32px rgba(217,38,44,0.15);
-          background: rgba(255,255,255,0.05);
+          transform: scale(1.02) translateY(-4px);
+          box-shadow: 0 24px 64px rgba(0,0,0,0.08), inset 0 0 0 2px var(--ao);
+          background: rgba(255, 255, 255, 0.95);
         }
         
         .search-input {
           width: 100%;
-          height: 64px;
+          height: 72px;
           padding: 0 24px 0 64px;
           border: none;
           outline: none;
           background: transparent;
-          font-family: var(--font-mono);
-          font-size: 16px;
-          color: var(--shiro);
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
+          font-family: var(--font-body);
+          font-size: 18px;
+          color: var(--kuro);
         }
-        .search-input::placeholder { color: rgba(255,255,255,0.3); text-transform: none; font-family: var(--font-body); letter-spacing: normal; }
+        .search-input::placeholder { color: var(--neutral-400); }
         
         .search-icon {
           position: absolute;
           left: 24px;
           top: 50%;
           transform: translateY(-50%);
-          color: rgba(255,255,255,0.4);
+          color: var(--neutral-400);
           transition: color 200ms var(--ease-out);
         }
-        .search-container.focused .search-icon { color: var(--aka); }
+        .search-container.focused .search-icon { color: var(--ao); }
         
-        /* Pressable Button standard */
+        /* Pressable Buttons */
         .btn-pressable {
           transition: transform 160ms var(--ease-out), background 160ms var(--ease-out);
         }
-        .btn-pressable:active {
-          transform: scale(0.97);
-        }
+        .btn-pressable:active { transform: scale(0.97); }
 
         .search-btn {
           position: absolute;
           right: 8px;
           top: 8px;
           bottom: 8px;
-          padding: 0 24px;
-          background: var(--shiro);
-          color: var(--kuro);
+          padding: 0 28px;
+          background: var(--kuro);
+          color: var(--shiro);
           border: none;
-          border-radius: 4px;
-          font-family: var(--font-display);
-          font-size: 20px;
-          letter-spacing: 0.05em;
-          text-transform: uppercase;
+          border-radius: 12px;
+          font-family: var(--font-body);
+          font-size: 15px;
+          font-weight: 600;
           cursor: pointer;
+          transition: all 200ms var(--ease-out);
         }
-        .search-btn:hover { background: var(--neutral-300); }
+        .search-btn:hover { background: var(--neutral-900); }
+        .search-btn:active { transform: scale(0.95); }
 
-        /* Brutalist Sliced Cards */
+        /* Premium Rounded Cards */
         .features-grid {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-          gap: 24px;
+          gap: 32px;
           margin-top: 120px;
         }
-        .combat-card {
-          background: rgba(255,255,255,0.02);
-          border: 1px solid rgba(255,255,255,0.05);
-          /* Brutalist slice bottom right */
-          clip-path: polygon(0 0, 100% 0, 100% calc(100% - 24px), calc(100% - 24px) 100%, 0 100%);
-          padding: 40px 32px;
+        .premium-card {
+          background: rgba(255, 255, 255, 0.8);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          border: 1px solid rgba(255,255,255,0.9);
+          border-radius: 32px;
+          padding: 40px;
+          box-shadow: 0 4px 24px rgba(0,0,0,0.02);
+          transition: all 400ms var(--ease-out);
           position: relative;
-          transition: background 200ms var(--ease-out), transform 200ms var(--ease-out);
         }
-        .combat-card::before {
-          content: '';
-          position: absolute;
-          top: 0; left: 0; bottom: 0;
-          width: 4px;
-          background: rgba(255,255,255,0.1);
-          transition: background 200ms var(--ease-out);
+        .premium-card:hover {
+          background: rgba(255, 255, 255, 1);
+          transform: translateY(-8px);
+          box-shadow: 0 24px 48px rgba(0,0,0,0.06);
         }
         
-        .combat-card:hover {
-          background: rgba(255,255,255,0.05);
-          transform: translateY(-4px);
-        }
-        .combat-card:hover::before {
-          background: var(--card-accent);
-        }
-        
-        .card-icon {
-          color: rgba(255,255,255,0.5);
+        .card-icon-wrap {
+          width: 56px;
+          height: 56px;
+          border-radius: 16px;
+          background: var(--neutral-50);
+          display: flex;
+          align-items: center;
+          justify-content: center;
           margin-bottom: 24px;
-          transition: color 200ms var(--ease-out), transform 200ms var(--ease-out);
+          color: var(--kuro);
+          transition: all 300ms var(--ease-out);
         }
-        .combat-card:hover .card-icon {
-          color: var(--card-accent);
-          transform: scale(1.1) translateX(4px);
+        .premium-card:hover .card-icon-wrap {
+          background: var(--card-accent);
+          color: var(--shiro);
+          transform: scale(1.05);
         }
 
-        /* Emil Staggered Reveals (scale(0.95) -> 1) */
-        .stagger-1 { animation: slide-up 600ms var(--ease-out) 0.1s forwards; opacity: 0; transform: translateY(20px) scale(0.95); }
-        .stagger-2 { animation: slide-up 600ms var(--ease-out) 0.2s forwards; opacity: 0; transform: translateY(20px) scale(0.95); }
-        .stagger-3 { animation: slide-up 600ms var(--ease-out) 0.3s forwards; opacity: 0; transform: translateY(20px) scale(0.95); }
-        .stagger-4 { animation: slide-up 600ms var(--ease-out) 0.4s forwards; opacity: 0; transform: translateY(20px) scale(0.95); }
+        /* Emil Staggered Reveals */
+        .stagger-1 { animation: slide-up 800ms var(--ease-out) 0.1s forwards; opacity: 0; transform: translateY(30px) scale(0.95); }
+        .stagger-2 { animation: slide-up 800ms var(--ease-out) 0.2s forwards; opacity: 0; transform: translateY(30px) scale(0.95); }
+        .stagger-3 { animation: slide-up 800ms var(--ease-out) 0.3s forwards; opacity: 0; transform: translateY(30px) scale(0.95); }
+        .stagger-4 { animation: slide-up 800ms var(--ease-out) 0.4s forwards; opacity: 0; transform: translateY(30px) scale(0.95); }
         
         @keyframes slide-up {
           to { opacity: 1; transform: translateY(0) scale(1); }
         }
 
         @media (prefers-reduced-motion: reduce) {
+          .ambient-orb { animation: none; }
           .stagger-1, .stagger-2, .stagger-3, .stagger-4 { animation: none; opacity: 1; transform: none; }
-          .btn-pressable:active { transform: none; }
-          .combat-card:hover { transform: none; }
-          .combat-card:hover .card-icon { transform: none; }
+          .search-container.focused { transform: none; }
+          .btn-pressable:active, .search-btn:active { transform: none; }
+          .premium-card:hover { transform: none; }
+          .premium-card:hover .card-icon-wrap { transform: none; }
         }
       `}</style>
 
-      {/* BACKGROUND */}
-      <div className="bg-grid" />
-      <div className="bg-vignette" />
+      {/* AMBIENT BACKGROUND */}
+      <div className="ambient-bg">
+        <div className="ambient-orb orb-red" />
+        <div className="ambient-orb orb-blue" />
+      </div>
 
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         
-        {/* COMBAT NAV */}
-        <nav className="combat-nav stagger-1">
-          <span className="nav-logo" style={{ color: 'var(--shiro)' }} aria-label="TaikaiX home">TAIKAIX</span>
+        {/* GLASS NAV */}
+        <nav className="premium-nav glass-pill stagger-1">
+          <span className="nav-logo" style={{ color: 'var(--kuro)', margin: 0, fontSize: '20px' }}>TAIKAIX</span>
 
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
             {!authLoading && user && !user.isAnonymous ? (
               <Link href="/dashboard" className="btn-pressable" style={{ 
-                fontFamily: 'var(--font-display)', fontSize: '18px', color: 'var(--kuro)', 
-                background: 'var(--shiro)', padding: '6px 20px', borderRadius: '4px', textDecoration: 'none',
-                textTransform: 'uppercase', letterSpacing: '0.05em'
+                fontFamily: 'var(--font-body)', fontSize: '14px', fontWeight: 600, color: 'var(--shiro)', 
+                background: 'var(--kuro)', padding: '8px 20px', borderRadius: '20px', textDecoration: 'none'
               }}>
                 Dashboard
               </Link>
             ) : (
               <>
-                <Link href="/login" style={{ 
-                  fontFamily: 'var(--font-display)', color: 'rgba(255,255,255,0.6)', fontSize: '18px', 
-                  textDecoration: 'none', padding: '6px 12px', transition: 'color 200ms',
-                  textTransform: 'uppercase', letterSpacing: '0.05em'
+                <Link href="/login" className="btn-pressable" style={{ 
+                  fontFamily: 'var(--font-body)', color: 'var(--neutral-600)', fontSize: '14px', fontWeight: 600, 
+                  textDecoration: 'none', padding: '8px 16px', transition: 'color 0.2s' 
                 }}
-                  onMouseEnter={e => (e.currentTarget.style.color = 'var(--shiro)')}
-                  onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.6)')}
+                  onMouseEnter={e => (e.currentTarget.style.color = 'var(--kuro)')}
+                  onMouseLeave={e => (e.currentTarget.style.color = 'var(--neutral-600)')}
                 >
                   Sign In
                 </Link>
                 <Link href="/login" className="btn-pressable" style={{ 
-                  fontFamily: 'var(--font-display)', fontSize: '18px', color: 'var(--shiro)', 
-                  background: 'var(--aka)', padding: '6px 20px', borderRadius: '4px', textDecoration: 'none',
-                  textTransform: 'uppercase', letterSpacing: '0.05em'
+                  fontFamily: 'var(--font-body)', fontSize: '14px', fontWeight: 600, color: 'var(--shiro)', 
+                  background: 'var(--kuro)', padding: '8px 24px', borderRadius: '20px', textDecoration: 'none'
                 }}>
                   Get Started
                 </Link>
@@ -291,27 +319,22 @@ export default function LandingPage() {
             
             <h1 className="hero-title stagger-2">
               Run Tournaments<br />
-              <span style={{ color: 'var(--aka)' }}>
-                With Precision.
-              </span>
+              <span style={{ color: 'var(--aka)' }}>Beautifully.</span>
             </h1>
             
-            <p className="stagger-3" style={{
-              fontFamily: 'var(--font-mono)', fontSize: '14px', color: 'rgba(255,255,255,0.5)',
-              textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '48px'
-            }}>
-              // Live Brackets • Mat Queues • Real-Time Scoring //
+            <p className="hero-subtitle stagger-3">
+              The premier operations platform for martial arts. Live brackets, dynamic mat queues, and a stunning athlete experience.
             </p>
 
-            {/* COMMAND CENTER SCOREBOARD */}
+            {/* COMMAND CENTER */}
             <div className="stagger-4" style={{ width: '100%', padding: '0 16px' }}>
               <form onSubmit={handleSearch} className={`search-container ${isSearchFocused ? 'focused' : ''}`}>
-                <Search size={20} className="search-icon" strokeWidth={3} />
+                <Search size={22} className="search-icon" strokeWidth={2.5} />
                 <input
                   ref={inputRef}
                   type="text"
                   className="search-input"
-                  placeholder="Enter Tournament ID..."
+                  placeholder="Enter tournament ID or paste link..."
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   onFocus={() => setIsSearchFocused(true)}
@@ -319,30 +342,30 @@ export default function LandingPage() {
                   aria-label="Search for a tournament"
                   autoComplete="off"
                 />
-                <button type="submit" className="search-btn btn-pressable" aria-label="Find tournament">
-                  Find
+                <button type="submit" className="search-btn" aria-label="Find tournament">
+                  Find Event
                 </button>
               </form>
 
               {/* RECENT INVITES */}
               {mounted && recentInvites.length > 0 && (
-                <div style={{ marginTop: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                <div style={{ marginTop: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: '12px' }}>
                   {recentInvites.map((invite) => (
                     <Link key={invite.id} href={`/competitions/${invite.id}`} className="btn-pressable" style={{
-                      display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 16px',
-                      background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-                      color: 'var(--shiro)', fontFamily: 'var(--font-mono)', fontSize: '13px',
-                      textDecoration: 'none', textTransform: 'uppercase', letterSpacing: '0.05em'
+                      display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px',
+                      borderRadius: '32px', background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(12px)',
+                      border: '1px solid rgba(255,255,255,1)', color: 'var(--neutral-700)', fontSize: '13px',
+                      fontWeight: 600, textDecoration: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.03)'
                     }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--ao)'; }}
-                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
+                      onMouseEnter={e => { e.currentTarget.style.color = 'var(--kuro)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.06)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.color = 'var(--neutral-700)'; e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.03)'; }}
                     >
                       {invite.name}
                       <span onClick={(e) => removeInvite(invite.id, e)} style={{ 
-                        display: 'flex', alignItems: 'center', color: 'rgba(255,255,255,0.3)', transition: 'color 160ms'
+                        display: 'flex', alignItems: 'center', color: 'var(--neutral-400)', transition: 'color 160ms'
                       }}
                         onMouseEnter={e => e.currentTarget.style.color = 'var(--aka)'}
-                        onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}
+                        onMouseLeave={e => e.currentTarget.style.color = 'var(--neutral-400)'}
                       >
                         <X size={14} strokeWidth={3} />
                       </span>
@@ -352,17 +375,17 @@ export default function LandingPage() {
               )}
             </div>
 
-            {/* BRUTALIST SLICED FEATURES */}
+            {/* PREMIUM FEATURES GRID */}
             <div className="features-grid stagger-4" style={{ animationDelay: '0.5s' }}>
               {features.map((feature, idx) => (
-                <div key={idx} className="combat-card" style={{ '--card-accent': feature.accent } as React.CSSProperties}>
-                  <div className="card-icon">
+                <div key={idx} className="premium-card" style={{ '--card-accent': feature.accent } as React.CSSProperties}>
+                  <div className="card-icon-wrap">
                     {feature.icon}
                   </div>
-                  <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '32px', color: 'var(--shiro)', marginBottom: '8px', textAlign: 'left', letterSpacing: '0.02em' }}>
+                  <h3 style={{ fontFamily: 'var(--font-body)', fontSize: '24px', fontWeight: 600, color: 'var(--kuro)', marginBottom: '12px', textAlign: 'left' }}>
                     {feature.title}
                   </h3>
-                  <p style={{ fontFamily: 'var(--font-body)', fontSize: '16px', color: 'rgba(255,255,255,0.6)', lineHeight: 1.6, textAlign: 'left' }}>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: '16px', color: 'var(--neutral-600)', lineHeight: 1.6, textAlign: 'left' }}>
                     {feature.desc}
                   </p>
                 </div>
