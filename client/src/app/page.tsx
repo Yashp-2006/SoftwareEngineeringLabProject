@@ -24,6 +24,13 @@ export default function LandingPage() {
     } catch {}
   }, []);
 
+  // Signed-in users never need the landing page
+  useEffect(() => {
+    if (!authLoading && user && !user.isAnonymous) {
+      router.replace('/dashboard');
+    }
+  }, [user, authLoading, router]);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery.trim()) return;
