@@ -164,43 +164,87 @@ export default function UsersPage() {
           align-items: center;
         }
         .search-wrap { position: relative; }
-        .search-wrap i {
-          position: absolute; left: 12px; top: 11px; width: 16px; color: var(--neutral-500);
+        .search-wrap svg {
+          position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--neutral-500); pointer-events: none;
         }
-        .search-input, .filter-select, .role-select, .academy-select {
+        .search-input, .filter-select {
           height: 40px; border: 1.5px solid var(--neutral-300); border-radius: 8px;
           font-family: var(--font-body); font-size: 13px; color: var(--neutral-900);
-          background: var(--shiro); outline: none;
+          background: var(--shiro); outline: none; transition: border-color 160ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 160ms cubic-bezier(0.16, 1, 0.3, 1);
         }
         .search-input { width: 100%; padding: 0 12px 0 38px; }
-        .filter-select, .role-select, .academy-select { width: 100%; padding: 0 10px; }
-        .search-input:focus, .filter-select:focus, .role-select:focus, .academy-select:focus {
+        .filter-select { width: 100%; padding: 0 10px; cursor: pointer; }
+        .search-input:focus, .filter-select:focus {
           border-color: var(--ao); box-shadow: 0 0 0 3px rgba(26, 77, 181, 0.12);
         }
-        .users-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        .users-table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
         .users-table th {
-          text-align: left; padding: 12px 24px; background: var(--neutral-50);
+          text-align: left; padding: 14px 24px; background: var(--neutral-50);
           border-bottom: 1px solid var(--neutral-300); white-space: nowrap;
+          color: var(--neutral-600); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
         }
         .users-table td {
-          padding: 14px 24px; border-bottom: 1px solid var(--neutral-100); vertical-align: middle;
+          padding: 16px 24px; border-bottom: 1px solid var(--neutral-200); vertical-align: top;
+          background: var(--shiro); transition: background-color 160ms cubic-bezier(0.16, 1, 0.3, 1);
         }
-        .users-table tr:hover { background: var(--neutral-50); }
+        .users-table tr:last-child td { border-bottom: none; }
+        .users-table tr:hover td { background: var(--neutral-50); }
         .name-cell {
-          font-weight: 600; color: var(--neutral-900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+          font-weight: 600; color: var(--neutral-900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-top: 22px !important;
         }
         .email-cell {
-          font-weight: 500; color: var(--neutral-700); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-          font-family: var(--font-mono); font-size: 12px;
+          font-weight: 500; color: var(--neutral-600); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+          font-family: var(--font-mono); font-size: 12px; padding-top: 22px !important;
         }
-        .role-select, .academy-select { min-width: 0; }
-        .empty-state { padding: var(--space-6); text-align: center; color: var(--neutral-500); font-size: 14px; }
+        .inline-select-wrap { position: relative; width: fit-content; min-width: 160px; }
+        .inline-select {
+          width: 100%; appearance: none; padding: 8px 32px 8px 12px;
+          border: 1.5px solid transparent; border-radius: 8px;
+          font-family: var(--font-body); font-size: 13px; font-weight: 600; color: var(--neutral-900);
+          background: transparent; outline: none; cursor: pointer;
+          transition: all 160ms cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .inline-select:hover { background: var(--neutral-100); border-color: var(--neutral-200); }
+        .inline-select:focus { background: var(--shiro); border-color: var(--ao); box-shadow: 0 0 0 3px rgba(26, 77, 181, 0.12); }
+        .inline-select-wrap::after {
+          content: ''; position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+          width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid var(--neutral-500);
+          pointer-events: none; transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .inline-select:focus + .inline-select-wrap::after, .inline-select-wrap:focus-within::after { transform: translateY(-50%) rotate(180deg); }
+        .role-desc { font-size: 11px; color: var(--neutral-500); margin-top: 6px; padding-left: 12px; line-height: 1.4; font-weight: 500; }
+        
+        .empty-state { padding: 80px 24px; text-align: center; }
+        .empty-icon { margin: 0 auto 20px; width: 56px; height: 56px; color: var(--neutral-400); background: var(--neutral-100); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .empty-title { font-weight: 600; color: var(--neutral-900); font-size: 16px; margin-bottom: 6px; }
+        .empty-desc { color: var(--neutral-500); font-size: 14px; }
+        
+        .action-cell {
+           padding-top: 22px !important; display: flex; align-items: center; justify-content: flex-end; gap: 12px;
+        }
+        
         .saved-chip {
+          display: inline-flex; align-items: center;
           font-size: 11px; font-weight: 700; color: var(--status-live);
-          text-transform: uppercase; letter-spacing: 0.04em;
-          opacity: 0; transition: opacity 0.2s ease;
+          text-transform: uppercase; letter-spacing: 0.05em;
+          background: rgba(39, 174, 96, 0.1); padding: 4px 8px; border-radius: 6px;
+          opacity: 0; transform: translateY(4px); transition: opacity 200ms cubic-bezier(0.16, 1, 0.3, 1), transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
+          pointer-events: none; white-space: nowrap;
         }
-        .saved-chip.visible { opacity: 1; }
+        .saved-chip.visible { opacity: 1; transform: translateY(0); }
+        @starting-style {
+          .saved-chip.visible { opacity: 0; transform: translateY(4px); }
+        }
+        
+        .delete-btn {
+          background: transparent; border: none; color: var(--neutral-400); padding: 8px; border-radius: 8px;
+          cursor: pointer; display: flex; align-items: center; justify-content: center;
+          transition: all 160ms cubic-bezier(0.16, 1, 0.3, 1); margin-left: auto;
+        }
+        .delete-btn:hover:not(:disabled) { color: var(--aka); background: rgba(220, 38, 38, 0.08); }
+        .delete-btn:active:not(:disabled) { transform: scale(0.92); }
+        .delete-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
         @media (max-width: 1100px) {
           .users-header { grid-template-columns: 1fr; }
           .users-panel { overflow-x: auto; }
@@ -219,7 +263,7 @@ export default function UsersPage() {
         <section className="users-panel">
           <div className="users-header">
             <div className="search-wrap">
-              <Search size={16} style={{ position: 'absolute', left: '12px', top: '12px', color: 'var(--neutral-500)' }} />
+              <Search size={16} />
               <input 
                 className="search-input" 
                 type="text" 
@@ -239,70 +283,82 @@ export default function UsersPage() {
           <div className="table-responsive">
           <table className="users-table">
             <colgroup>
-              <col style={{ width: '20%' }} />
-              <col style={{ width: '27%' }} />
-              <col style={{ width: '22.5%' }} />
-              <col style={{ width: '22.5%' }} />
+              <col style={{ width: '22%' }} />
+              <col style={{ width: '25%' }} />
+              <col style={{ width: '23%' }} />
+              <col style={{ width: '22%' }} />
               <col style={{ width: '8%' }} />
             </colgroup>
             <thead>
               <tr>
-                <th className="text-micro">User Name</th>
-                <th className="text-micro">User Email / Gmail</th>
-                <th className="text-micro">Role</th>
-                <th className="text-micro">Academy</th>
-                <th className="text-micro">Status</th>
+                <th>User Name</th>
+                <th>User Email / Gmail</th>
+                <th>Role</th>
+                <th>Academy</th>
+                <th style={{ textAlign: 'right' }}>Status</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={4} className="empty-state">Loading users...</td></tr>
+                <tr>
+                  <td colSpan={5}>
+                    <div className="empty-state">
+                      <div className="empty-title">Loading users...</div>
+                      <div className="empty-desc">Fetching user data from the database.</div>
+                    </div>
+                  </td>
+                </tr>
               ) : filteredUsers.length === 0 ? (
-                <tr><td colSpan={4} className="empty-state">No users match the selected filters.</td></tr>
+                <tr>
+                  <td colSpan={5}>
+                    <div className="empty-state">
+                      <div className="empty-icon">
+                        <Search size={24} />
+                      </div>
+                      <div className="empty-title">No users found</div>
+                      <div className="empty-desc">Try adjusting your search or role filters.</div>
+                    </div>
+                  </td>
+                </tr>
               ) : (
                 filteredUsers.map(user => (
                   <tr key={user.id}>
-                    <td className="name-cell">{user.name}</td>
-                    <td className="email-cell">{user.email}</td>
+                    <td className="name-cell" title={user.name}>{user.name}</td>
+                    <td className="email-cell" title={user.email}>{user.email}</td>
                     <td>
-                      <select 
-                        className="role-select" 
-                        value={user.role} 
-                        onChange={e => updateUserField(user.id, 'role', e.target.value)}
-                      >
-                        {ROLES.map(role => <option key={role} value={role}>{ROLE_MAP[role]}</option>)}
-                      </select>
-                      <div style={{ fontSize: '11px', color: 'var(--neutral-500)', marginTop: '6px', lineHeight: 1.3 }}>
+                      <div className="inline-select-wrap">
+                        <select 
+                          className="inline-select" 
+                          value={user.role} 
+                          onChange={e => updateUserField(user.id, 'role', e.target.value)}
+                        >
+                          {ROLES.map(role => <option key={role} value={role}>{ROLE_MAP[role]}</option>)}
+                        </select>
+                      </div>
+                      <div className="role-desc">
                         {ROLE_DESCRIPTIONS[user.role]}
                       </div>
                     </td>
                     <td>
-                      <select 
-                        className="academy-select" 
-                        value={user.academy} 
-                        onChange={e => updateUserField(user.id, 'academy', e.target.value)}
-                      >
-                        {ACADEMIES.map(academy => <option key={academy} value={academy}>{academy}</option>)}
-                      </select>
+                      <div className="inline-select-wrap">
+                        <select 
+                          className="inline-select" 
+                          value={user.academy} 
+                          onChange={e => updateUserField(user.id, 'academy', e.target.value)}
+                        >
+                          {ACADEMIES.map(academy => <option key={academy} value={academy}>{academy}</option>)}
+                        </select>
+                      </div>
                     </td>
-                    <td style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '100%' }}>
+                    <td className="action-cell">
                       <span className={`saved-chip ${savedStatus[user.id] ? 'visible' : ''}`}>Saved</span>
                       <button 
+                        className="delete-btn"
                         onClick={() => handleDeleteUser(user.id)}
-                        style={{ 
-                          background: 'none', 
-                          border: 'none', 
-                          color: 'var(--aka)', 
-                          cursor: currentUser?.uid === user.id ? 'not-allowed' : 'pointer',
-                          opacity: currentUser?.uid === user.id ? 0.3 : 1,
-                          padding: '4px',
-                          display: 'flex',
-                          alignItems: 'center'
-                        }}
                         title={currentUser?.uid === user.id ? "Cannot delete yourself" : "Delete User"}
                         disabled={currentUser?.uid === user.id}
                       >
-                        <Trash2 size={16} />
+                        <Trash2 size={18} />
                       </button>
                     </td>
                   </tr>
