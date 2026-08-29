@@ -471,7 +471,7 @@ export default function CompetitionsPage() {
             <h1 style={{ fontFamily: 'var(--font-display)' }}>Competition Directory</h1>
           </div>
           <div className="page-header-actions">
-            <div style={{ position: 'relative', width: '100%', maxWidth: '300px' }}>
+            <div style={{ position: 'relative', flex: '1 1 auto', minWidth: '200px', maxWidth: '300px' }}>
                 <input type="text" placeholder="Search events..." id="comp-search" style={{ width: '100%', height: '44px', borderRadius: '8px', border: '1.5px solid var(--neutral-300)', padding: '0 var(--space-7) 0 var(--space-4)', fontFamily: 'var(--font-body)', fontSize: '14px', background: 'var(--shiro)', color: 'var(--neutral-900)', outline: 'none', transition: 'border-color 160ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 160ms cubic-bezier(0.23, 1, 0.32, 1)' }} onFocus={e => { e.currentTarget.style.borderColor = 'var(--ao)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(26, 77, 181, 0.12)'; }} onBlur={e => { e.currentTarget.style.borderColor = 'var(--neutral-300)'; e.currentTarget.style.boxShadow = 'none'; }} />
               <Search style={{ position: 'absolute', right: '12px', top: '13px', width: '18px', color: 'var(--neutral-500)' }} />
             </div>
