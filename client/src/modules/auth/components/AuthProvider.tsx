@@ -105,16 +105,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!loading) {
       if (!user) {
-        const isStrictAdminRoute = pathname === '/' || pathname.startsWith('/setup') || pathname.startsWith('/users') || pathname.startsWith('/profile');
+        const isStrictAdminRoute = pathname.startsWith('/setup') || pathname.startsWith('/users') || pathname.startsWith('/profile');
         // /operator is intentionally excluded — PasswordGateway handles its own auth for unauthenticated viewers
         const isProtectedCompetitionRoute = pathname.includes('/staff') || pathname.includes('/medals') || pathname.includes('/judge') || pathname.includes('/athletes') || pathname.includes('/records') || pathname.includes('/categories');
 
         if (isStrictAdminRoute || isProtectedCompetitionRoute) {
-          if (pathname === '/') {
-            router.push('/competitions');
-          } else {
-            router.push('/login');
-          }
+          router.push('/login');
         }
         return;
       }
@@ -128,7 +124,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         const isAdminOrGuest = role === 'admin' || role === 'guest_viewer';
-        const isAdminRoute = pathname === '/' || pathname.startsWith('/setup') || pathname.startsWith('/users');
+        const isAdminRoute = pathname.startsWith('/setup') || pathname.startsWith('/users');
 
         if (isAdminRoute && !isAdminOrGuest) {
           router.push('/competitions');
