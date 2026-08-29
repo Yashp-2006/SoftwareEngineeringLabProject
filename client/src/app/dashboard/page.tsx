@@ -289,7 +289,7 @@ export default function DashboardPage() {
           border-radius: 16px;
           padding: var(--space-4);
           box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
-          transition: transform 160ms var(--ease-out), box-shadow 160ms var(--ease-out), border-color 160ms var(--ease-out);
+          transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 160ms cubic-bezier(0.16, 1, 0.3, 1), border-color 160ms cubic-bezier(0.16, 1, 0.3, 1);
           display: flex;
           flex-direction: column;
           justify-content: space-between;
@@ -304,6 +304,24 @@ export default function DashboardPage() {
         .bento-card:active {
           transform: scale(0.98);
         }
+        
+        /* Themed Metric Cards */
+        .bento-card.theme-aka { border-top: 4px solid var(--aka); }
+        .bento-card.theme-aka .stat-icon-wrap { background: var(--aka-light); color: var(--aka); }
+        .bento-card.theme-aka .stat-value { color: var(--aka); }
+        
+        .bento-card.theme-ao { border-top: 4px solid var(--ao); }
+        .bento-card.theme-ao .stat-icon-wrap { background: var(--ao-light); color: var(--ao); }
+        .bento-card.theme-ao .stat-value { color: var(--ao); }
+
+        .bento-card.theme-dark { border-top: 4px solid var(--neutral-900); }
+        .bento-card.theme-dark .stat-icon-wrap { background: var(--neutral-100); color: var(--neutral-900); }
+        .bento-card.theme-dark .stat-value { color: var(--neutral-900); }
+        
+        .bento-card.theme-neutral { border-top: 4px solid var(--neutral-400); }
+        .bento-card.theme-neutral .stat-icon-wrap { background: var(--neutral-100); color: var(--neutral-600); }
+        .bento-card.theme-neutral .stat-value { color: var(--neutral-900); }
+
         .col-span-3 { grid-column: span 3; }
         .col-span-4 { grid-column: span 4; }
         .col-span-6 { grid-column: span 6; }
@@ -329,30 +347,35 @@ export default function DashboardPage() {
           display: flex;
           align-items: center;
           gap: var(--space-2);
-          color: var(--neutral-500);
+          color: var(--neutral-600);
           font-size: 13px;
-          font-weight: 600;
+          font-weight: 700;
           text-transform: uppercase;
           letter-spacing: 0.06em;
           margin-bottom: var(--space-3);
         }
+        .stat-icon-wrap {
+          width: 32px; height: 32px; border-radius: 8px;
+          display: flex; align-items: center; justify-content: center;
+        }
         .stat-value {
           font-family: var(--font-display);
-          font-size: 42px;
+          font-size: 48px;
           line-height: 1;
-          color: var(--neutral-900);
           margin-bottom: var(--space-1);
         }
         .stat-footer {
           font-size: 13px;
+          font-weight: 500;
           color: var(--neutral-500);
           display: flex;
           align-items: center;
-          gap: var(--space-1);
+          gap: 6px;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
         }
+        
         .table-container {
           background: var(--shiro);
           border: 1px solid var(--neutral-200);
@@ -360,33 +383,46 @@ export default function DashboardPage() {
           box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
           overflow: hidden;
         }
-        .modern-table { width: 100%; border-collapse: collapse; }
+        .modern-table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
         .modern-table th {
-          background: var(--neutral-50); color: var(--neutral-500); font-size: 12px;
+          background: var(--neutral-50); color: var(--neutral-600); font-size: 11px;
           font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
-          padding: var(--space-4) var(--space-5); text-align: left; border-bottom: 1px solid var(--neutral-200);
+          padding: 14px 24px; text-align: left; border-bottom: 1px solid var(--neutral-300);
+          white-space: nowrap;
         }
         .modern-table td {
-          padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--neutral-100); transition: background 0.2s;
+          padding: 16px 24px; border-bottom: 1px solid var(--neutral-200); transition: background-color 160ms cubic-bezier(0.16, 1, 0.3, 1);
+          vertical-align: middle; background: var(--shiro);
         }
-        .modern-table tr:hover td { background: var(--neutral-50); }
         .modern-table tr:last-child td { border-bottom: none; }
-        .event-title { font-weight: 700; color: var(--neutral-900); margin-bottom: 2px; transition: color 0.2s; }
-        .modern-table tr:hover .event-title { color: var(--aka); }
+        .modern-table tr:hover td { background: var(--neutral-50); }
+        .event-title { font-weight: 700; color: var(--neutral-900); margin-bottom: 2px; transition: color 160ms cubic-bezier(0.16, 1, 0.3, 1); }
+        .modern-table tr:hover .event-title { color: var(--ao); }
+        
         .chart-controls { display: flex; gap: var(--space-2); flex-wrap: wrap; }
         .select-minimal {
-          appearance: none; background: var(--neutral-50); border: 1px solid var(--neutral-200);
-          border-radius: 8px; padding: 0 14px 0 12px; height: 44px; font-size: 13px; font-weight: 600;
-          color: var(--neutral-700); cursor: pointer; outline: none; transition: background 160ms var(--ease-out), border-color 160ms var(--ease-out);
+          appearance: none; background: var(--neutral-50); border: 1.5px solid transparent;
+          border-radius: 8px; padding: 0 32px 0 16px; height: 36px; font-size: 12px; font-weight: 700;
+          color: var(--neutral-700); cursor: pointer; outline: none; transition: background 160ms cubic-bezier(0.16, 1, 0.3, 1), border-color 160ms cubic-bezier(0.16, 1, 0.3, 1);
           touch-action: manipulation;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 12px center;
         }
-        .select-minimal:hover, .select-minimal:focus { background: var(--shiro); border-color: var(--ao); }
+        .select-minimal:hover { background-color: var(--neutral-100); border-color: var(--neutral-200); }
+        .select-minimal:focus { background-color: var(--shiro); border-color: var(--ao); box-shadow: 0 0 0 3px rgba(26, 77, 181, 0.12); }
 
         .bar-group { flex: 1; height: 100%; position: relative; display: flex; align-items: flex-end; margin: 0 4px; min-width: 0; }
-        .bar-inner { width: 100%; border-radius: 6px 6px 0 0; position: relative; cursor: pointer; transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1); }
+        .bar-inner { width: 100%; border-radius: 6px 6px 0 0; position: relative; cursor: pointer; transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1); }
         .bar-inner:hover { transform: scaleY(1.05); transform-origin: bottom; }
-        .bar-inner:hover .bar-label { opacity: 1; }
-        .bar-label { position: absolute; top: -24px; left: 50%; transform: translateX(-50%); text-align: center; font-size: 11px; font-weight: 700; color: var(--neutral-600); opacity: 0; transition: opacity 0.2s; }
+        .bar-inner:hover .bar-label { opacity: 1; transform: translate(-50%, 0); }
+        .bar-label { position: absolute; top: -28px; left: 50%; transform: translate(-50%, 4px); text-align: center; font-size: 11px; font-weight: 700; color: var(--neutral-600); opacity: 0; transition: opacity 200ms cubic-bezier(0.16, 1, 0.3, 1), transform 200ms cubic-bezier(0.16, 1, 0.3, 1); }
+        
+        .action-btns { display: inline-flex; gap: 8px; }
+        .action-btns .btn-ghost, .action-btns .btn-primary, .action-btns .btn-secondary { padding: 8px; border-radius: 8px; transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1); }
+        .action-btns .btn-ghost { background: var(--neutral-50); border: 1px solid var(--neutral-200); }
+        .action-btns .btn-ghost:hover { background: var(--neutral-100); }
+        .action-btns a:active { transform: scale(0.92); }
       `}} />
 
       <main className="container">
@@ -406,24 +442,28 @@ export default function DashboardPage() {
         </header>
 
         <section className="dashboard-bento stagger-in">
-          <div className="bento-card col-span-3">
+          <div className="bento-card col-span-3 theme-aka">
             <div>
               <div className="stat-header">
-                <i data-lucide="activity" style={{ width: '16px', color: 'var(--aka)' }}></i>
+                <div className="stat-icon-wrap">
+                  <i data-lucide="activity" style={{ width: '18px' }}></i>
+                </div>
                 Active Now
               </div>
-              <div className="stat-value" style={{ color: 'var(--aka)' }}>{stats.active}</div>
+              <div className="stat-value">{stats.active}</div>
             </div>
             <div className="stat-footer">
-              <span style={{ display: 'inline-block', width: '6px', height: '6px', background: 'var(--aka)', borderRadius: '50%' }}></span>
+              <span style={{ display: 'inline-block', width: '8px', height: '8px', background: 'var(--aka)', borderRadius: '50%' }}></span>
               {stats.active > 0 ? `Running on ${stats.activeMats} mats` : 'No active events'}
             </div>
           </div>
 
-          <div className="bento-card col-span-3">
+          <div className="bento-card col-span-3 theme-ao">
             <div>
               <div className="stat-header">
-                <i data-lucide="calendar" style={{ width: '16px', color: 'var(--status-upcoming)' }}></i>
+                <div className="stat-icon-wrap">
+                  <i data-lucide="calendar" style={{ width: '18px' }}></i>
+                </div>
                 Upcoming
               </div>
               <div className="stat-value">{stats.upcoming}</div>
@@ -433,10 +473,12 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="bento-card col-span-3">
+          <div className="bento-card col-span-3 theme-dark">
             <div>
               <div className="stat-header">
-                <i data-lucide="users" style={{ width: '16px', color: 'var(--neutral-500)' }}></i>
+                <div className="stat-icon-wrap">
+                  <i data-lucide="users" style={{ width: '18px' }}></i>
+                </div>
                 Total Athletes
               </div>
               <div className="stat-value">{stats.athletes.toLocaleString()}</div>
@@ -447,10 +489,12 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="bento-card col-span-3">
+          <div className="bento-card col-span-3 theme-neutral">
             <div>
               <div className="stat-header">
-                <i data-lucide="trophy" style={{ width: '16px', color: 'var(--neutral-500)' }}></i>
+                <div className="stat-icon-wrap">
+                  <i data-lucide="trophy" style={{ width: '18px' }}></i>
+                </div>
                 Completed Events
               </div>
               <div className="stat-value">{stats.completed}</div>
@@ -461,11 +505,13 @@ export default function DashboardPage() {
           </div>
 
           {/* Participation Trends (Wide) */}
-          <div className="bento-card col-span-8" style={{ minHeight: '240px', height: '260px' }}>
+          <div className="bento-card col-span-8" style={{ minHeight: '260px' }}>
             <div className="flex-between mb-4">
               <div className="stat-header" style={{ margin: 0 }}>
-                <i data-lucide="trending-up" style={{ width: '16px', color: 'var(--ao)' }}></i>
-                Competition Participation Trends
+                <div className="stat-icon-wrap" style={{ width: '28px', height: '28px', background: 'var(--ao-light)', color: 'var(--ao)', marginRight: '4px' }}>
+                  <i data-lucide="trending-up" style={{ width: '16px' }}></i>
+                </div>
+                Participation Trends
               </div>
               <div className="chart-controls">
                 <select className="select-minimal" value={chartType} onChange={(e) => setChartType(e.target.value)}>
@@ -486,7 +532,7 @@ export default function DashboardPage() {
                 </div>
               ) : chartType === 'bar' ? chartData.map((d, i) => {
                 const heightPct = (d.val / maxVal) * 85;
-                const barColor = d.peak ? 'var(--aka)' : 'var(--neutral-300)';
+                const barColor = d.peak ? 'var(--aka)' : 'var(--ao)';
                 return (
                   <div key={i} className="bar-group">
                     <div 
@@ -520,8 +566,8 @@ export default function DashboardPage() {
                     const y = 95 - (d.val / maxVal) * 85;
                     return (
                       <g key={`point-${i}`} className="graph-point">
-                        <circle cx={`${x}%`} cy={`${y}%`} r="5" fill={d.peak ? 'var(--aka)' : 'var(--ao)'} stroke="var(--shiro)" strokeWidth="2" />
-                        <text x={`${x}%`} y={`${y - 5}%`} textAnchor="middle" fontSize="11px" fontWeight="700" fill="var(--neutral-600)">{d.val}</text>
+                        <circle cx={`${x}%`} cy={`${y}%`} r="6" fill={d.peak ? 'var(--aka)' : 'var(--ao)'} stroke="var(--shiro)" strokeWidth="2.5" />
+                        <text x={`${x}%`} y={`${y - 12}%`} textAnchor="middle" fontSize="11px" fontWeight="700" fill="var(--neutral-700)">{d.val}</text>
                       </g>
                     );
                   })}
@@ -529,29 +575,31 @@ export default function DashboardPage() {
               )}
             </div>
 
-            <div className="flex-between" style={{ fontSize: '10px', fontWeight: 600, color: 'var(--neutral-400)', paddingTop: 'var(--space-3)', marginTop: 'auto' }}>
+            <div className="flex-between" style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-500)', paddingTop: 'var(--space-3)', marginTop: 'auto' }}>
               {chartData.map((d, i) => <span key={i} style={{ flex: 1, textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '0 4px' }} title={d.label}>{d.label}</span>)}
             </div>
           </div>
 
           {/* Category Distribution Pie Chart */}
-          <div className="bento-card col-span-4" style={{ minHeight: '220px', height: '260px' }}>
-            <div className="stat-header" style={{ margin: 0, marginBottom: 'var(--space-3)' }}>
-              <i data-lucide="pie-chart" style={{ width: '16px', color: 'var(--neutral-500)' }}></i>
+          <div className="bento-card col-span-4" style={{ minHeight: '260px' }}>
+            <div className="stat-header" style={{ margin: 0, marginBottom: 'var(--space-2)' }}>
+              <div className="stat-icon-wrap" style={{ width: '28px', height: '28px', background: 'var(--neutral-100)', color: 'var(--neutral-900)', marginRight: '4px' }}>
+                <i data-lucide="pie-chart" style={{ width: '16px' }}></i>
+              </div>
               Category Distribution
             </div>
-            <p className="text-small" style={{ color: 'var(--neutral-500)', marginBottom: 'var(--space-3)' }}>Athletes per category in recent event</p>
+            <p className="text-small" style={{ color: 'var(--neutral-500)', marginBottom: 'var(--space-4)', fontWeight: 500 }}>Athletes per category in recent event</p>
             
             <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'center', height: '100%' }}>
               <div style={{ flexShrink: 0 }}>
                 {renderPieChart()}
               </div>
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px', overflowY: 'auto', maxHeight: '140px', paddingRight: '8px' }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', maxHeight: '160px', paddingRight: '8px' }}>
                 {pieData.map((d, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
-                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: d.color, flexShrink: 0 }}></span>
-                    <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--neutral-700)' }} title={d.label}>{d.label}</span>
-                    <span style={{ fontWeight: 700 }}>{d.val}</span>
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12px' }}>
+                    <span style={{ width: '12px', height: '12px', borderRadius: '4px', background: d.color, flexShrink: 0 }}></span>
+                    <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--neutral-700)', fontWeight: 500 }} title={d.label}>{d.label}</span>
+                    <span style={{ fontWeight: 700, color: 'var(--neutral-900)' }}>{d.val}</span>
                   </div>
                 ))}
               </div>
@@ -560,18 +608,24 @@ export default function DashboardPage() {
         </section>
         
 
-
-        <section className="stagger-in">
+        <section className="stagger-in" style={{ marginTop: 'var(--space-6)' }}>
           <div className="flex-between mb-4">
-            <h2>Live Competition Stream</h2>
-            <Link href="/competitions" className="btn btn-ghost" style={{ fontSize: '13px', fontWeight: 600, padding: '6px 12px', color: 'var(--ao)', textDecoration: 'none' }}>
-              View Directory <i data-lucide="arrow-right" style={{ width: '14px' }}></i>
+            <h2 style={{ fontSize: '20px', letterSpacing: '-0.02em' }}>Live Competition Stream</h2>
+            <Link href="/competitions" className="btn btn-ghost" style={{ fontSize: '13px', fontWeight: 700, padding: '8px 16px', color: 'var(--ao)', textDecoration: 'none', background: 'var(--ao-light)', borderRadius: '8px' }}>
+              View Directory <i data-lucide="arrow-right" style={{ width: '16px' }}></i>
             </Link>
           </div>
           
           <div className="table-container">
             <div className="table-responsive">
             <table className="modern-table">
+              <colgroup>
+                <col style={{ width: '30%' }} />
+                <col style={{ width: '25%' }} />
+                <col style={{ width: '15%' }} />
+                <col style={{ width: '15%' }} />
+                <col style={{ width: '15%' }} />
+              </colgroup>
               <thead>
                 <tr>
                   <th>Competition</th>
@@ -592,7 +646,7 @@ export default function DashboardPage() {
                     </td>
                     <td>
                       {comp.status === 'live' ? (
-                        <span style={{ fontWeight: 500 }}>Live Categories Active</span>
+                        <span style={{ fontWeight: 600, color: 'var(--neutral-900)' }}>Live Categories Active</span>
                       ) : (
                         <span style={{ fontWeight: 500, color: 'var(--neutral-500)' }}>Awaiting Categories...</span>
                       )}
@@ -613,23 +667,25 @@ export default function DashboardPage() {
                       )}
                     </td>
                     <td style={{ textAlign: 'right' }}>
-                      {comp.status === 'live' ? (
-                        <div style={{ display: 'inline-flex', gap: '8px' }}>
-                          <Link href={`/competitions/${comp.id}/mats`} className="btn btn-ghost" style={{ padding: '8px', borderRadius: '8px', background: 'var(--neutral-50)' }}><i data-lucide="layout-grid" style={{ width: '18px' }}></i></Link>
-                          <Link href={`/competitions/${comp.id}`} className="btn btn-primary" style={{ padding: '8px', borderRadius: '8px' }}><i data-lucide="monitor" style={{ width: '18px' }}></i></Link>
-                        </div>
-                      ) : (
-                        <Link href={`/competitions/${comp.id}`} className="btn btn-secondary" style={{ padding: '8px 16px', borderRadius: '8px', textDecoration: 'none' }}>
-                          <i data-lucide="settings" style={{ width: '16px' }}></i> Setup
-                        </Link>
-                      )}
+                      <div className="action-btns" style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                        {comp.status === 'live' ? (
+                          <>
+                            <Link href={`/competitions/${comp.id}/mats`} className="btn btn-ghost"><i data-lucide="layout-grid" style={{ width: '18px' }}></i></Link>
+                            <Link href={`/competitions/${comp.id}`} className="btn btn-primary"><i data-lucide="monitor" style={{ width: '18px' }}></i></Link>
+                          </>
+                        ) : (
+                          <Link href={`/competitions/${comp.id}`} className="btn btn-secondary" style={{ textDecoration: 'none' }}>
+                            <i data-lucide="settings" style={{ width: '16px' }}></i> Setup
+                          </Link>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
                 {liveCompetitions.length === 0 && !loading && (
                   <tr>
-                    <td colSpan={5} style={{ textAlign: 'center', padding: '32px', color: 'var(--neutral-500)' }}>
-                      No active or upcoming competitions.
+                    <td colSpan={5} style={{ textAlign: 'center', padding: '48px 24px', color: 'var(--neutral-500)' }}>
+                      No active or upcoming competitions right now.
                     </td>
                   </tr>
                 )}
