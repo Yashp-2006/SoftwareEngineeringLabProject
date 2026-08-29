@@ -252,15 +252,20 @@ export default function CompetitionsPage() {
         }
         .comp-card {
           position: relative;
-          border-left: 4px solid var(--neutral-300);
+          border-top: 3px solid var(--neutral-300);
           min-width: 0;
           display: flex;
           flex-direction: column;
+          transition: box-shadow 180ms var(--ease-out), transform 180ms var(--ease-out);
         }
+        .comp-card:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.08); transform: translateY(-2px); }
         .comp-card .mt-4 { margin-top: auto; padding-top: var(--space-3); }
-        .comp-card.live { border-left-color: var(--aka); }
-        .comp-card.upcoming { border-left-color: var(--status-upcoming); }
-        .comp-card.done { border-left-color: var(--status-done); }
+        .comp-card.live { border-top-color: var(--aka); }
+        .comp-card.upcoming { border-top-color: var(--status-upcoming); }
+        .comp-card.done { border-top-color: var(--status-done); }
+        @media (prefers-reduced-motion: reduce) {
+          .comp-card:hover { transform: none; }
+        }
 
         .comp-actions {
           display: flex;
@@ -455,10 +460,42 @@ export default function CompetitionsPage() {
       )}
 
       <main className="container">
+
+        {/* Guest sign-in banner — only shown to unauthenticated visitors */}
+        {!authLoading && (!user || user.isAnonymous) && (
+          <div style={{
+            background: 'var(--ao-light)',
+            border: '1px solid var(--ao)',
+            borderRadius: '10px',
+            padding: '14px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+            marginBottom: 'var(--space-5)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '18px' }} aria-hidden="true">🏆</span>
+              <div>
+                <div style={{ fontFamily: 'var(--font-body)', fontSize: '14px', fontWeight: 600, color: 'var(--ao)' }}>
+                  You&apos;re browsing as a guest
+                </div>
+                <div style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--ao)', opacity: 0.75 }}>
+                  Sign in to manage competitions, add athletes, and operate mats.
+                </div>
+              </div>
+            </div>
+            <a href="/login" className="btn btn-secondary" style={{ textDecoration: 'none', fontSize: '13px', height: '38px', padding: '0 16px', flexShrink: 0 }}>
+              Sign In
+            </a>
+          </div>
+        )}
+
         <header className="page-header">
           <div>
             <div className="breadcrumb">TaiKaiX / Competitions</div>
-            <h1>Competition Directory</h1>
+            <h1 style={{ fontFamily: 'var(--font-display)' }}>Competition Directory</h1>
           </div>
           <div className="page-header-actions">
             <div style={{ position: 'relative', width: '100%', maxWidth: '300px' }}>

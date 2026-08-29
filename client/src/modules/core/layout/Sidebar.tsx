@@ -29,7 +29,7 @@ export default function Sidebar() {
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, [mobileMenuOpen]);
 
-  if (pathname.startsWith('/login') || pathname.startsWith('/live')) {
+  if (pathname === '/' || pathname.startsWith('/login') || pathname.startsWith('/live')) {
     return null;
   }
 
