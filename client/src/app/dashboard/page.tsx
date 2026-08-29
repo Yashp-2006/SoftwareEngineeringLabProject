@@ -526,6 +526,22 @@ export default function DashboardPage() {
             </div>
             
             <div style={{ flex: 1, width: '100%', position: 'relative', display: 'flex', alignItems: chartType === 'bar' ? 'flex-end' : 'stretch', justifyContent: chartType === 'bar' ? 'space-between' : 'stretch' }}>
+              {/* Y-axis Background Grid */}
+              {chartData.length > 0 && (
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, pointerEvents: 'none', zIndex: 0 }}>
+                  {[
+                    { val: maxVal, top: '15%' },
+                    { val: Math.round(maxVal / 2), top: '57.5%' },
+                    { val: 0, top: '100%' }
+                  ].map((tick, i) => (
+                    <div key={i} style={{ position: 'absolute', top: tick.top, left: 0, right: 0, display: 'flex', alignItems: 'center', transform: 'translateY(-50%)' }}>
+                      <span style={{ fontSize: '10px', color: 'var(--neutral-400)', width: '28px', textAlign: 'right', paddingRight: '8px', fontWeight: 600 }}>{tick.val}</span>
+                      <div style={{ flex: 1, height: '1px', borderTop: '1px dashed var(--neutral-200)' }}></div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {chartData.length === 0 ? (
                 <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', color: 'var(--neutral-500)', fontSize: '13px' }}>
                   No participation data yet.
@@ -534,10 +550,10 @@ export default function DashboardPage() {
                 const heightPct = (d.val / maxVal) * 85;
                 const barColor = d.peak ? 'var(--aka)' : 'var(--ao)';
                 return (
-                  <div key={i} className="bar-group">
+                  <div key={i} className="bar-group" style={{ zIndex: 1, marginLeft: i === 0 ? '36px' : '4px' }}>
                     <div 
                       className="bar-inner" 
-                      style={{ height: `${Math.max(5, heightPct)}%`, background: barColor }}
+                      style={{ height: `${Math.max(2, heightPct)}%`, background: barColor }}
                       title={`${d.label}: ${d.val} Athletes`}
                     >
                       <div className="bar-label">{d.val}</div>
@@ -545,13 +561,13 @@ export default function DashboardPage() {
                   </div>
                 );
               }) : (
-                <svg width="100%" height="100%" style={{ overflow: 'visible', position: 'absolute', bottom: 0 }}>
+                <svg width="100%" height="100%" style={{ overflow: 'visible', position: 'absolute', bottom: 0, zIndex: 1, left: '16px' }}>
                   {chartData.slice(1).map((d, i) => {
                     const prev = chartData[i];
                     const x1 = ((i + 0.5) / chartData.length) * 100;
-                    const y1 = 95 - (prev.val / maxVal) * 85;
+                    const y1 = 100 - (prev.val / maxVal) * 85;
                     const x2 = ((i + 1.5) / chartData.length) * 100;
-                    const y2 = 95 - (d.val / maxVal) * 85;
+                    const y2 = 100 - (d.val / maxVal) * 85;
                     return (
                       <line 
                         key={`line-${i}`}
@@ -563,7 +579,7 @@ export default function DashboardPage() {
                   })}
                   {chartData.map((d, i) => {
                     const x = ((i + 0.5) / chartData.length) * 100;
-                    const y = 95 - (d.val / maxVal) * 85;
+                    const y = 100 - (d.val / maxVal) * 85;
                     return (
                       <g key={`point-${i}`} className="graph-point">
                         <circle cx={`${x}%`} cy={`${y}%`} r="6" fill={d.peak ? 'var(--aka)' : 'var(--ao)'} stroke="var(--shiro)" strokeWidth="2.5" />
@@ -575,7 +591,7 @@ export default function DashboardPage() {
               )}
             </div>
 
-            <div className="flex-between" style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-500)', paddingTop: 'var(--space-3)', marginTop: 'auto' }}>
+            <div className="flex-between" style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-500)', paddingTop: 'var(--space-3)', marginTop: 'auto', paddingLeft: '32px' }}>
               {chartData.map((d, i) => <span key={i} style={{ flex: 1, textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '0 4px' }} title={d.label}>{d.label}</span>)}
             </div>
           </div>

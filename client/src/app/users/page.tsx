@@ -220,7 +220,10 @@ export default function UsersPage() {
         .empty-desc { color: var(--neutral-500); font-size: 14px; }
         
         .action-cell {
-           padding-top: 22px !important; display: flex; align-items: center; justify-content: flex-end; gap: 12px;
+           padding-top: 22px !important; text-align: right;
+        }
+        .action-cell-inner {
+           display: flex; align-items: center; justify-content: flex-end; gap: 12px;
         }
         
         .saved-chip {
@@ -239,7 +242,7 @@ export default function UsersPage() {
         .delete-btn {
           background: transparent; border: none; color: var(--neutral-400); padding: 8px; border-radius: 8px;
           cursor: pointer; display: flex; align-items: center; justify-content: center;
-          transition: all 160ms cubic-bezier(0.16, 1, 0.3, 1); margin-left: auto;
+          transition: all 160ms cubic-bezier(0.16, 1, 0.3, 1);
         }
         .delete-btn:hover:not(:disabled) { color: var(--aka); background: rgba(220, 38, 38, 0.08); }
         .delete-btn:active:not(:disabled) { transform: scale(0.92); }
@@ -351,15 +354,17 @@ export default function UsersPage() {
                       </div>
                     </td>
                     <td className="action-cell">
-                      <span className={`saved-chip ${savedStatus[user.id] ? 'visible' : ''}`}>Saved</span>
-                      <button 
-                        className="delete-btn"
-                        onClick={() => handleDeleteUser(user.id)}
-                        title={currentUser?.uid === user.id ? "Cannot delete yourself" : "Delete User"}
-                        disabled={currentUser?.uid === user.id}
-                      >
-                        <Trash2 size={18} />
-                      </button>
+                      <div className="action-cell-inner">
+                        <span className={`saved-chip ${savedStatus[user.id] ? 'visible' : ''}`}>Saved</span>
+                        <button 
+                          className="delete-btn"
+                          onClick={() => handleDeleteUser(user.id)}
+                          title={currentUser?.uid === user.id ? "Cannot delete yourself" : "Delete User"}
+                          disabled={currentUser?.uid === user.id}
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
