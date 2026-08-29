@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { adminDb, verifySession } from '@taikaix/backend/lib/firebase-admin';
 import { matPasswordSchema } from '@taikaix/backend/types/schemas';
-import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { z } from 'zod';
 import { cookies } from 'next/headers';
 
@@ -36,14 +36,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (data.bulkPasswords && data.bulkPasswords.length > 0) {
       for (const item of data.bulkPasswords) {
         const matRef = adminDb.collection('competitions').doc(competitionId).collection('mats').doc(item.id);
-        const salt = bcrypt.genSaltSync(10);
-        const hash = bcrypt.hashSync(item.password, salt);
+        const hash = /^[a-f0-9]{64}$/i.test(item.password) ? item.password : crypto.createHash('sha256').update(item.password).digest('hex');
         addOp((b) => b.set(matRef, { password: hash }, { merge: true }));
       }
     } else if (data.matId && data.password !== undefined) {
       const matRef = adminDb.collection('competitions').doc(competitionId).collection('mats').doc(data.matId);
-      const salt = bcrypt.genSaltSync(10);
-      const hash = bcrypt.hashSync(data.password, salt);
+      const hash = /^[a-f0-9]{64}$/i.test(data.password) ? data.password : crypto.createHash('sha256').update(data.password).digest('hex');
       addOp((b) => b.set(matRef, { password: hash }, { merge: true }));
     }
 

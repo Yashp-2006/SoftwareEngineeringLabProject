@@ -8,6 +8,7 @@ import { Lock, Unlock, Users, Calendar, Layout, Award, Edit3, Share2, Eye, EyeOf
 import { toast } from 'react-hot-toast';
 import OnSpotEntryModal from '@/modules/competitions/components/athlete/OnSpotEntryModal';
 import { sortCategories } from '@/lib/categoryUtils';
+import { verifyPassword } from '@/lib/hash';
 
 export default function CompetitionDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
@@ -46,7 +47,7 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
       const snap = await getDoc(doc(db, 'competitions', id));
       if (snap.exists()) {
         const actualPassword = snap.data().password;
-        if (actualPassword && actualPassword === passwordInput) {
+        if (actualPassword && await verifyPassword(passwordInput, actualPassword)) {
           localStorage.setItem(`joined_${id}`, 'true');
           setIsAuthenticated(true);
           setError('');

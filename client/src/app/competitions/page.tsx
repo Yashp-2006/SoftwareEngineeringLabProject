@@ -9,6 +9,7 @@ import { toast } from 'react-hot-toast';
 import ConfirmModal from '@/modules/shared/components/ConfirmModal';
 import DateRangePicker from '@/modules/shared/components/DateRangePicker';
 import PremiumCTA from '@/modules/shared/components/PremiumCTA';
+import { hashPassword } from '@/lib/hash';
 
 export default function CompetitionsPage() {
   const router = useRouter();
@@ -734,7 +735,7 @@ export default function CompetitionsPage() {
                   name, dates, venue, type,
                   rules: 'custom',
                   mats: parseInt(mats),
-                  password,
+                  password: await hashPassword(password),
                   startTime: startTime || '09:00',
                   endTime: endTime || '18:00',
                   estMinsPerPool: parseInt(estMinsPerPool) || 45,

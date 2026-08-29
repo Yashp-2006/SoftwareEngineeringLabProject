@@ -70,15 +70,25 @@ export default function CategoriesPhase({
         <p className="text-small mb-4">Set up days and global time estimates for scheduling pools.</p>
         
         <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
-          <div className="form-group" style={{ flex: 2, minWidth: '300px', position: 'relative' }}>
-            <label className="text-micro">Dates (Calendar UI)</label>
-            <DateRangePicker
-              value={compDate}
-              onChange={(rangeStr, daysCount) => {
-                setCompDate(rangeStr);
-                setTournamentDays(daysCount || 1);
-              }}
-            />
+          <div className="form-group" style={{ flex: 1, minWidth: '150px' }}>
+            <label className="text-micro">Start Date</label>
+            <input type="date" className="input-field" value={compDate.split(' to ')[0] || compDate} onChange={e => {
+              const start = e.target.value;
+              const end = compDate.split(' to ')[1] || start;
+              setCompDate(`${start} to ${end}`);
+              const days = Math.ceil((new Date(end).getTime() - new Date(start).getTime()) / (1000 * 3600 * 24)) + 1;
+              setTournamentDays(days > 0 ? days : 1);
+            }} />
+          </div>
+          <div className="form-group" style={{ flex: 1, minWidth: '150px' }}>
+            <label className="text-micro">End Date</label>
+            <input type="date" className="input-field" value={compDate.split(' to ')[1] || ''} onChange={e => {
+              const start = compDate.split(' to ')[0] || compDate;
+              const end = e.target.value;
+              setCompDate(`${start} to ${end}`);
+              const days = Math.ceil((new Date(end).getTime() - new Date(start).getTime()) / (1000 * 3600 * 24)) + 1;
+              setTournamentDays(days > 0 ? days : 1);
+            }} />
           </div>
           <div className="form-group" style={{ flex: 1, minWidth: '150px' }}>
             <label className="text-micro">Computed Days</label>
@@ -162,10 +172,7 @@ export default function CategoriesPhase({
             <option value="kata">Kata Only</option>
             <option value="kumite">Kumite Only</option>
           </select>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: 'var(--neutral-700)', marginLeft: '4px' }}>
-            <input type="checkbox" checked={hideEmpty} onChange={e => setHideEmpty(e.target.checked)} />
-            Hide 0 Entries
-          </label>
+
         </div>
 
         <div className="table-responsive" style={{ maxHeight: '400px', overflowY: 'auto' }}>

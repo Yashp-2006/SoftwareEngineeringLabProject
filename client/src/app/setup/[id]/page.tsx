@@ -1064,7 +1064,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
   };
 
   const filteredCategories = sortCategories(categories.filter(c => {
-    if (hideEmpty && (!c.entries || c.entries === 0)) return false;
+    if (!c.entries || c.entries === 0) return false;
     const lowerName = c.name.toLowerCase();
     if (searchQuery && !lowerName.includes(searchQuery.toLowerCase())) return false;
     if (filterGender === 'female' && !lowerName.includes('female')) return false;

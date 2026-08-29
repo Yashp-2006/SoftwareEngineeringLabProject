@@ -6,6 +6,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@lib/firebase';
 import { useSearchParams, useParams } from 'next/navigation';
 import { useAuth } from '@/modules/auth/components/AuthProvider';
+import { verifyPassword } from '@/lib/hash';
 
 export default function PasswordGateway({ children }: { children: React.ReactNode }) {
   const { id } = useParams() as { id: string };
@@ -21,12 +22,12 @@ export default function PasswordGateway({ children }: { children: React.ReactNod
   const [error, setError] = useState('');
   const [targetName, setTargetName] = useState('Loading...');
 
-  const { user } = useAuth();
+  const { user, role } = useAuth();
 
   useEffect(() => {
     // Check if session storage already has the password authorized
     const authed = sessionStorage.getItem(authKey);
-    if (authed === 'true') {
+    if (authed === 'true' || role === 'admin') {
       setIsAuthenticated(true);
     }
 
@@ -49,7 +50,7 @@ export default function PasswordGateway({ children }: { children: React.ReactNod
       }
     };
     fetchTarget();
-  }, [id, matId, authKey, user]);
+  }, [id, matId, authKey, user, role]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,7 +63,7 @@ export default function PasswordGateway({ children }: { children: React.ReactNod
           const actualPassword = matSnap.data().password;
           if (!actualPassword) {
             setError('No password has been set for this mat yet. Configure it in the Setup Wizard.');
-          } else if (actualPassword === inputPassword) {
+          } else if (await verifyPassword(inputPassword, actualPassword)) {
             
             // Assign name, global role and local staff record
             if (user && inputName.trim()) {
@@ -95,7 +96,7 @@ export default function PasswordGateway({ children }: { children: React.ReactNod
         const snap = await getDoc(doc(db, 'competitions', id));
         if (snap.exists()) {
           const actualPassword = snap.data().password;
-          if (actualPassword === inputPassword) {
+          if (actualPassword && await verifyPassword(inputPassword, actualPassword)) {
             
             if (user && inputName.trim()) {
               const { setDoc } = await import('firebase/firestore');
