@@ -26,7 +26,7 @@ export default function RootLayout({
         />
         <Script
           src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"
-          strategy="beforeInteractive"
+          strategy="afterInteractive"
         />
       </head>
       <body suppressHydrationWarning>
