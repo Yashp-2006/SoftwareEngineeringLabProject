@@ -15,39 +15,45 @@ const CRITICAL_ENV_VARS = [
   'UPSTASH_REDIS_REST_TOKEN',
 ];
 
-// Initialize Redis directly for Edge Middleware
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL || '',
-  token: process.env.UPSTASH_REDIS_REST_TOKEN || '',
-});
+// Initialize Redis lazily only when credentials are provided
+const redis = (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)
+  ? new Redis({
+      url: process.env.UPSTASH_REDIS_REST_URL,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN,
+    })
+  : null;
 
-// Create a new ratelimiter that allows 30 requests per 10 seconds
-const ratelimit = new Ratelimit({
-  redis: redis,
-  limiter: Ratelimit.slidingWindow(30, '10 s'),
-  analytics: true,
-});
+// Create a new ratelimiter if Redis is configured
+const ratelimit = redis
+  ? new Ratelimit({
+      redis: redis,
+      limiter: Ratelimit.slidingWindow(30, '10 s'),
+      analytics: true,
+    })
+  : null;
 
 export default async function middleware(request: NextRequest) {
   try {
-    // 1. Validate Environment Variables
-    const missingVars = CRITICAL_ENV_VARS.filter(v => !process.env[v]);
-    if (missingVars.length > 0) {
-      console.error(`[Configuration Error] Missing critical env vars: ${missingVars.join(', ')}`);
-      return new NextResponse(
-        JSON.stringify({
-          error: 'Configuration Error',
-          message: 'Application misconfigured. Critical environment variables are missing.',
-          correlationId: crypto.randomUUID(),
-        }),
-        {
-          status: 500,
-          headers: {
-            'content-type': 'application/json',
-            'x-content-type-options': 'nosniff',
-          },
-        }
-      );
+    // 1. Validate Environment Variables (production only)
+    if (process.env.NODE_ENV === 'production') {
+      const missingVars = CRITICAL_ENV_VARS.filter(v => !process.env[v]);
+      if (missingVars.length > 0) {
+        console.error(`[Configuration Error] Missing critical env vars: ${missingVars.join(', ')}`);
+        return new NextResponse(
+          JSON.stringify({
+            error: 'Configuration Error',
+            message: 'Application misconfigured. Critical environment variables are missing.',
+            correlationId: crypto.randomUUID(),
+          }),
+          {
+            status: 500,
+            headers: {
+              'content-type': 'application/json',
+              'x-content-type-options': 'nosniff',
+            },
+          }
+        );
+      }
     }
 
     // Define protected routes that require Firebase Session Cookie or valid headers
@@ -61,8 +67,8 @@ export default async function middleware(request: NextRequest) {
 
     let response = NextResponse.next();
 
-    // 2. Rate Limiting for API Routes
-    if (request.nextUrl.pathname.startsWith('/api/')) {
+    // 2. Rate Limiting for API Routes (only when ratelimit is initialized)
+    if (ratelimit && request.nextUrl.pathname.startsWith('/api/')) {
       try {
         // Determine user IP or a fallback identifier
         const ip = (request as any).ip || request.headers.get('x-forwarded-for') || '127.0.0.1';
