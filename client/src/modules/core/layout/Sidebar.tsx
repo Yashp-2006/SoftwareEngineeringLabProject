@@ -47,7 +47,7 @@ export default function Sidebar() {
     setProfileOpen(false);
     const { auth } = await import('@lib/firebase');
     await auth.signOut();
-    window.location.href = '/';
+    window.location.href = '/login';
   };
 
   if (pathname === '/' || pathname.startsWith('/login') || pathname.startsWith('/live')) {
@@ -60,7 +60,7 @@ export default function Sidebar() {
         {user && !user.isAnonymous ? (
           <Link href="/dashboard" className="nav-logo" style={{ textDecoration: 'none' }}>TAIKAIX</Link>
         ) : (
-          <Link href="/" className="nav-logo" style={{ textDecoration: 'none' }}>TAIKAIX</Link>
+          <Link href="/login" className="nav-logo" style={{ textDecoration: 'none' }}>TAIKAIX</Link>
         )}
 
         <div className="nav-links hide-on-mobile">
