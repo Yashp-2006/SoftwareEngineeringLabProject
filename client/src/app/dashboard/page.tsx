@@ -96,8 +96,7 @@ export default function DashboardPage() {
           }
         });
         
-        if (athletes === 0) athletes = 1482; // Fallback to mock if no real data
-        const totalClubs = 42; 
+        const totalClubs = 0; 
         
         setStats({ active, upcoming, athletes, completed, activeMats, nextUpcomingName, eventsThisYear, totalClubs });
 
@@ -105,18 +104,13 @@ export default function DashboardPage() {
         compsForTrend.sort((a, b) => a.date - b.date); // Oldest to newest
         let finalTrends = compsForTrend.map(c => ({ label: c.label, val: c.val, peak: false }));
         if (finalTrends.length === 0) {
-          // Fallback if no comps have athletes
-          finalTrends = [
-            { label: 'Winter Cup', val: 320, peak: false },
-            { label: 'Spring Open', val: 480, peak: false },
-            { label: 'Summer Clash', val: 640, peak: false },
-            { label: 'Nationals', val: 850, peak: true }
-          ];
+          // No competitions with athlete data yet — chart stays empty
+          setTrendData([]);
         } else {
           const maxVal = Math.max(...finalTrends.map(t => t.val));
           finalTrends.forEach(t => t.peak = t.val === maxVal);
+          setTrendData(finalTrends);
         }
-        setTrendData(finalTrends);
 
         // Process pie chart data (fetch categories for the latest competition with athletes)
         if (compsForTrend.length > 0) {
