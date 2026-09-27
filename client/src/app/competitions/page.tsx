@@ -467,7 +467,7 @@ export default function CompetitionsPage() {
 
         <header className="page-header">
           <div>
-            <div className="breadcrumb">TaiKaiX / Competitions</div>
+            <div className="breadcrumb">Khel Karate / Competitions</div>
             <h1 style={{ fontFamily: 'var(--font-display)' }}>Competition Directory</h1>
           </div>
           <div className="page-header-actions">
@@ -492,7 +492,7 @@ export default function CompetitionsPage() {
                 <>
                   <PremiumCTA 
                     title="Design the Ultimate Tournament"
-                    description="Use TaikaiX's premium feature suite to plan, bracket, and deploy your next event globally in minutes."
+                    description="Use Khel Karate's premium feature suite to plan, bracket, and deploy your next event globally in minutes."
                     buttonText="Create the first competition"
                     onClick={() => setIsModalOpen(true)}
                   />

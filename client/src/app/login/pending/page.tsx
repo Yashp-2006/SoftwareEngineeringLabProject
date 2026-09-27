@@ -78,7 +78,7 @@ export default function PendingApprovalPage() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--neutral-50)', padding: '24px' }}>
       <div style={{ background: 'var(--shiro)', padding: '40px', borderRadius: '16px', border: '1px solid var(--neutral-200)', boxShadow: '0 12px 40px rgba(0,0,0,0.06)', width: '100%', maxWidth: '480px', textAlign: 'center' }}>
-        <div className="nav-logo" style={{ color: 'var(--ao)', fontSize: '28px', marginBottom: '24px', letterSpacing: '0.1em', fontWeight: 800 }}>TAIKAIX</div>
+        <div className="nav-logo" style={{ color: 'var(--ao)', fontSize: '28px', marginBottom: '24px', letterSpacing: '0.1em', fontWeight: 800 }}>KHEL KARATE</div>
 
         {error ? (
           <div>

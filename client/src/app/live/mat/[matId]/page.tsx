@@ -259,13 +259,13 @@ export default function LiveMatPage({ params }: { params: Promise<{ matId: strin
 
       {/* Scoreboard-specific minimal nav strip */}
       <div style={{ height: '48px', background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', padding: '0 var(--space-6)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-        <div className="nav-logo" style={{ color: 'var(--shiro)', fontSize: '18px', letterSpacing: '0.1em', marginRight: 'auto' }}>TAIKAIX LIVE</div>
+        <div className="nav-logo" style={{ color: 'var(--shiro)', fontSize: '18px', letterSpacing: '0.1em', marginRight: 'auto' }}>KHEL KARATE LIVE</div>
         <Link href="/competitions" style={{ color: 'var(--neutral-400)', fontSize: '13px', textDecoration: 'none', transition: 'color 0.2s' }}>← Back to Operations</Link>
       </div>
 
       <div className="mat-container">
         <div className="mat-header">
-          <div className="nav-logo" style={{ color: 'var(--shiro)' }}>TAIKAIX <span style={{ color: 'var(--neutral-500)' }}>| MAT {matId.padStart(2, '0')}</span></div>
+          <div className="nav-logo" style={{ color: 'var(--shiro)' }}>KHEL KARATE <span style={{ color: 'var(--neutral-500)' }}>| MAT {matId.padStart(2, '0')}</span></div>
           <div className="category-label" style={{ textTransform: 'uppercase' }}>{matchData?.currentCategory || 'UNKNOWN CATEGORY'}</div>
           <div className="data-mono" style={{ color: 'var(--neutral-500)' }}>KYOTO 2026 FINALS</div>
         </div>
@@ -299,7 +299,7 @@ export default function LiveMatPage({ params }: { params: Promise<{ matId: strin
                 revealCountdown={matchData.revealCountdown || 0}
                 timeRemaining={formatTime(time)}
                 matchStatus={matchData.status === 'live' ? 'LIVE' : matchData.status?.toUpperCase() || 'STANDBY'}
-                title={`TAIKAIX LIVE — MAT ${matId.padStart(2, '0')}`}
+                title={`KHEL KARATE LIVE — MAT ${matId.padStart(2, '0')}`}
                 subtitle={matchData.currentCategory || 'KATA'}
                 kataWinner={matchData.kataWinner}
                 winnerName={matchData.kataWinner === 'aka' ? matchData.aka?.name : matchData.kataWinner === 'ao' ? matchData.ao?.name : undefined}

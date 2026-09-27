@@ -357,7 +357,7 @@ export default function LoginPage() {
 
           {/* Logo */}
           <div style={{ fontFamily: 'var(--font-display)', fontSize: '28px', letterSpacing: '0.06em', color: 'var(--shiro)', zIndex: 1 }}>
-            TAIKAIX
+            KHEL KARATE
           </div>
 
           {/* Hero text */}
@@ -504,7 +504,7 @@ export default function LoginPage() {
                         <div className="field-1">
                           <label htmlFor="login-email" style={labelStyle}>Email address</label>
                           <input id="login-email" type="email" value={email} onChange={e => setEmail(e.target.value)}
-                            placeholder="admin@taikaix.com" style={inputStyle} onFocus={addFocusRing} onBlur={removeFocusRing}
+                            placeholder="admin@khelkarate.com" style={inputStyle} onFocus={addFocusRing} onBlur={removeFocusRing}
                             autoComplete="email" required />
                         </div>
                         <div className="field-2">

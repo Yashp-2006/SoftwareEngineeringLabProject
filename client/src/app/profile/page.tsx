@@ -134,7 +134,7 @@ export default function ProfilePage() {
       <main className="container">
         <header className="page-header">
           <div>
-            <div className="breadcrumb">TaiKaiX / User Profile</div>
+            <div className="breadcrumb">Khel Karate / User Profile</div>
             <h1>My Profile</h1>
           </div>
         </header>

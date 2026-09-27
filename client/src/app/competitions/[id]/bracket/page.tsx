@@ -246,7 +246,7 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
     try {
       const { exportTiesheetsPDF } = await import('@taikaix/backend/services/tiesheet/pdf-exporter');
       await exportTiesheetsPDF({
-        competitionName: compData?.name || 'TaikaiX Competition',
+        competitionName: compData?.name || 'Khel Karate Competition',
         categories: categories.map((c: any) => ({
           name: c.name,
           matches: c.matches ?? [],

@@ -328,7 +328,7 @@ export default function ScoreboardPage({ params }: { params: Promise<{ matchId: 
               : '00:00')
           }
           matchStatus={rtdbData.status === 'live' ? 'LIVE' : (rtdbData.status || 'STANDBY').toUpperCase()}
-          title={`TAIKAIX — SCOREBOARD`}
+          title={`KHEL KARATE — SCOREBOARD`}
           subtitle={rtdbData.currentCategory || 'KATA'}
           kataWinner={rtdbData.kataWinner}
           winnerName={rtdbData.kataWinner === 'aka' ? rtdbData.akaName : rtdbData.kataWinner === 'ao' ? rtdbData.aoName : undefined}
@@ -402,7 +402,7 @@ export default function ScoreboardPage({ params }: { params: Promise<{ matchId: 
             timerDisplay={formatTime(timer)}
             timerColor={timer <= 15 ? 'var(--aka)' : 'var(--status-live)'}
             matchStatus={timer === 0 ? 'TIME OVER' : running ? 'MATCH LIVE' : timer === 180 ? 'PRE-MATCH' : 'PAUSED'}
-            title="TAIKAIX"
+            title="KHEL KARATE"
             categoryName={rtdbData?.currentCategory || "KUMITE CATEGORY"}
             matchId={rtdbData?.displayId || `MAT ${new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('mat')?.replace('mat-', '').padStart(2, '0') || '01'}`}
             winnerName={winnerOverlay.active ? winnerOverlay.winner : undefined}

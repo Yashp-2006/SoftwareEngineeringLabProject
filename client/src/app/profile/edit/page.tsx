@@ -70,7 +70,7 @@ export default function EditProfilePage() {
       <main className="container">
         <header className="page-header">
           <div>
-            <div className="breadcrumb">TaiKaiX / User Profile / Edit</div>
+            <div className="breadcrumb">Khel Karate / User Profile / Edit</div>
             <h1>Edit Profile</h1>
           </div>
           <Link href="/profile" className="btn btn-ghost">

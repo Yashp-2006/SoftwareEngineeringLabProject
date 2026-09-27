@@ -6,7 +6,7 @@ import { AuthProvider } from "@/modules/auth/components/AuthProvider";
 import { Toaster } from "react-hot-toast";
 
 export const metadata: Metadata = {
-  title: "TaiKaiX — Operations Hub",
+  title: "Khel Karate — Competition Management",
   description: "Next-gen karate tournament management system.",
 };
 

@@ -49,7 +49,7 @@ export default function KumiteLiveScoreboard({
   akaName, aoName, akaAcademy, aoAcademy, akaCountry, aoCountry,
   akaScore, aoScore, akaIppon, aoIppon, akaWazaari, aoWazaari, akaYuko, aoYuko,
   akaC1, aoC1, akaC2, aoC2, akaSenshu, aoSenshu,
-  timerDisplay, timerColor, matchStatus, title = 'TAIKAIX', categoryName = '', matchId = '',
+  timerDisplay, timerColor, matchStatus, title = 'KHEL KARATE', categoryName = '', matchId = '',
   winnerName, winnerColor,
   isFullscreen, onToggleFullscreen, onBack,
   isKata, akaKataName, aoKataName

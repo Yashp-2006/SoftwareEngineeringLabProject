@@ -1058,7 +1058,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                 timerDisplay={`${Math.floor(timer / 60).toString().padStart(2, '0')}:${(timer % 60).toString().padStart(2, '0')}`}
                 timerColor={timer <= 15 ? 'var(--aka)' : 'var(--status-live)'}
                 matchStatus={timer === 0 ? 'TIME OVER' : running ? 'MATCH LIVE' : timer === matchDuration ? 'PRE-MATCH' : 'PAUSED'}
-                title={compData?.name || 'TAIKAIX'}
+                title={compData?.name || 'KHEL KARATE'}
                 categoryName={activeCategoryName || 'KUMITE'}
                 matchId={`MAT ${matNum} - ${queue.find(m => m.id === activeMatchId)?.displayId || '—'}`}
                 winnerName={winnerState ? winnerState.name : undefined}
@@ -1281,7 +1281,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                           timerDisplay={`${mins}:${secs}`}
                           timerColor={timer <= 15 ? 'var(--aka)' : 'var(--status-live)'}
                           matchStatus={timer === 0 ? 'TIME OVER' : running ? 'MATCH LIVE' : timer === matchDuration ? 'PRE-MATCH' : 'PAUSED'}
-                          title={compData?.name || 'TAIKAIX'}
+                          title={compData?.name || 'KHEL KARATE'}
                           categoryName={activeCategoryName || 'KUMITE'}
                           matchId={`MAT ${new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('mat')?.replace('mat-', '').padStart(2, '0') || '01'} - ${queue.find(m => m.id === activeMatchId)?.displayId || '—'}`}
                           winnerName={winnerState ? winnerState.name : undefined}
