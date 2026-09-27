@@ -280,47 +280,59 @@ export default function DashboardPage() {
         .dashboard-bento {
           display: grid;
           grid-template-columns: repeat(12, minmax(0, 1fr));
-          gap: var(--space-4);
+          gap: 16px;
           margin-bottom: var(--space-5);
         }
         .bento-card {
-          background: var(--shiro);
+          background: var(--surface-1);
           border: 1px solid var(--neutral-200);
-          border-radius: 16px;
-          padding: var(--space-4);
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
-          transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 160ms cubic-bezier(0.16, 1, 0.3, 1), border-color 160ms cubic-bezier(0.16, 1, 0.3, 1);
+          border-radius: 14px;
+          padding: 20px;
+          box-shadow: 0 4px 24px rgba(0, 0, 0, 0.30);
+          transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 200ms cubic-bezier(0.16, 1, 0.3, 1), border-color 200ms cubic-bezier(0.16, 1, 0.3, 1);
           display: flex;
           flex-direction: column;
           justify-content: space-between;
           min-width: 0;
           transform-origin: center;
+          position: relative;
+          overflow: hidden;
+        }
+        .bento-card::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: inherit;
+          pointer-events: none;
+          opacity: 0;
+          transition: opacity 200ms;
         }
         .bento-card:hover {
-          transform: translateY(-4px);
-          box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+          transform: translateY(-3px);
           border-color: var(--neutral-300);
+          box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
         }
+        .bento-card:hover::before { opacity: 1; }
         .bento-card:active {
           transform: scale(0.98);
         }
         
-        /* Themed Metric Cards */
-        .bento-card.theme-aka { border-top: 4px solid var(--aka); }
+        /* Themed Metric Cards — dark glass */
+        .bento-card.theme-aka { border-color: oklch(58% 0.22 25 / 0.25); }
+        .bento-card.theme-aka:hover { border-color: oklch(58% 0.22 25 / 0.55); box-shadow: 0 16px 40px rgba(0,0,0,0.45), 0 0 32px oklch(58% 0.22 25 / 0.12); }
         .bento-card.theme-aka .stat-icon-wrap { background: var(--aka-light); color: var(--aka); }
-        .bento-card.theme-aka .stat-value { color: var(--aka); }
+        .bento-card.theme-aka .stat-value { color: var(--aka); text-shadow: 0 0 32px oklch(58% 0.22 25 / 0.35); }
         
-        .bento-card.theme-ao { border-top: 4px solid var(--ao); }
+        .bento-card.theme-ao { border-color: oklch(55% 0.18 255 / 0.25); }
+        .bento-card.theme-ao:hover { border-color: oklch(55% 0.18 255 / 0.55); box-shadow: 0 16px 40px rgba(0,0,0,0.45), 0 0 32px oklch(55% 0.18 255 / 0.12); }
         .bento-card.theme-ao .stat-icon-wrap { background: var(--ao-light); color: var(--ao); }
-        .bento-card.theme-ao .stat-value { color: var(--ao); }
+        .bento-card.theme-ao .stat-value { color: oklch(65% 0.18 255); text-shadow: 0 0 32px oklch(55% 0.18 255 / 0.35); }
 
-        .bento-card.theme-dark { border-top: 4px solid var(--neutral-900); }
-        .bento-card.theme-dark .stat-icon-wrap { background: var(--neutral-100); color: var(--neutral-900); }
+        .bento-card.theme-dark .stat-icon-wrap { background: var(--surface-2); color: var(--neutral-700); }
         .bento-card.theme-dark .stat-value { color: var(--neutral-900); }
         
-        .bento-card.theme-neutral { border-top: 4px solid var(--neutral-400); }
-        .bento-card.theme-neutral .stat-icon-wrap { background: var(--neutral-100); color: var(--neutral-600); }
-        .bento-card.theme-neutral .stat-value { color: var(--neutral-900); }
+        .bento-card.theme-neutral .stat-icon-wrap { background: var(--surface-2); color: var(--neutral-600); }
+        .bento-card.theme-neutral .stat-value { color: var(--neutral-700); }
 
         .col-span-3 { grid-column: span 3; }
         .col-span-4 { grid-column: span 4; }
@@ -328,7 +340,6 @@ export default function DashboardPage() {
         .col-span-8 { grid-column: span 8; }
         .col-span-12 { grid-column: span 12; }
 
-        /* Tablet: stat cards 2-per-row, charts full-width */
         @media (max-width: 1024px) {
           .col-span-3 { grid-column: span 6; }
           .col-span-4 { grid-column: span 6; }
@@ -336,7 +347,6 @@ export default function DashboardPage() {
           .dashboard-bento { gap: var(--space-3); }
         }
 
-        /* Mobile: everything single column */
         @media (max-width: 768px) {
           .col-span-3, .col-span-4, .col-span-6, .col-span-8, .col-span-12 { grid-column: span 12; }
           .dashboard-bento { gap: var(--space-3); }
@@ -347,25 +357,27 @@ export default function DashboardPage() {
           display: flex;
           align-items: center;
           gap: var(--space-2);
-          color: var(--neutral-600);
-          font-size: 13px;
+          color: var(--neutral-500);
+          font-size: 11px;
           font-weight: 700;
           text-transform: uppercase;
-          letter-spacing: 0.06em;
+          letter-spacing: 0.10em;
           margin-bottom: var(--space-3);
         }
         .stat-icon-wrap {
-          width: 32px; height: 32px; border-radius: 8px;
+          width: 28px; height: 28px; border-radius: 7px;
           display: flex; align-items: center; justify-content: center;
+          flex-shrink: 0;
         }
         .stat-value {
           font-family: var(--font-display);
-          font-size: 48px;
+          font-size: 54px;
           line-height: 1;
           margin-bottom: var(--space-1);
+          letter-spacing: 0.01em;
         }
         .stat-footer {
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 500;
           color: var(--neutral-500);
           display: flex;
@@ -377,66 +389,67 @@ export default function DashboardPage() {
         }
         
         .table-container {
-          background: var(--shiro);
+          background: var(--surface-1);
           border: 1px solid var(--neutral-200);
-          border-radius: 16px;
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+          border-radius: 14px;
+          box-shadow: 0 4px 24px rgba(0, 0, 0, 0.30);
           overflow: hidden;
         }
         .modern-table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
         .modern-table th {
-          background: var(--neutral-50); color: var(--neutral-600); font-size: 11px;
-          font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
-          padding: 14px 24px; text-align: left; border-bottom: 1px solid var(--neutral-300);
+          background: var(--surface-2); color: var(--neutral-500); font-size: 10px;
+          font-weight: 700; text-transform: uppercase; letter-spacing: 0.10em;
+          padding: 14px 24px; text-align: left; border-bottom: 1px solid var(--neutral-200);
           white-space: nowrap;
         }
         .modern-table td {
           padding: 16px 24px; border-bottom: 1px solid var(--neutral-200); transition: background-color 160ms cubic-bezier(0.16, 1, 0.3, 1);
-          vertical-align: middle; background: var(--shiro);
+          vertical-align: middle; background: var(--surface-1);
         }
         .modern-table tr:last-child td { border-bottom: none; }
-        .modern-table tr:hover td { background: var(--neutral-50); }
+        .modern-table tr:hover td { background: var(--surface-2); }
         .event-title { font-weight: 700; color: var(--neutral-900); margin-bottom: 2px; transition: color 160ms cubic-bezier(0.16, 1, 0.3, 1); }
-        .modern-table tr:hover .event-title { color: var(--ao); }
+        .modern-table tr:hover .event-title { color: oklch(65% 0.18 255); }
         
         .chart-controls { display: flex; gap: var(--space-2); flex-wrap: wrap; }
         .select-minimal {
-          appearance: none; background: var(--neutral-50); border: 1.5px solid transparent;
-          border-radius: 8px; padding: 0 32px 0 16px; height: 36px; font-size: 12px; font-weight: 700;
-          color: var(--neutral-700); cursor: pointer; outline: none; transition: background 160ms cubic-bezier(0.16, 1, 0.3, 1), border-color 160ms cubic-bezier(0.16, 1, 0.3, 1);
+          appearance: none; background: var(--surface-2); border: 1px solid var(--neutral-200);
+          border-radius: 8px; padding: 0 32px 0 12px; height: 34px; font-size: 12px; font-weight: 700;
+          color: var(--neutral-700); cursor: pointer; outline: none; transition: background 160ms, border-color 160ms;
           touch-action: manipulation;
           background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
           background-repeat: no-repeat;
-          background-position: right 12px center;
+          background-position: right 10px center;
         }
-        .select-minimal:hover { background-color: var(--neutral-100); border-color: var(--neutral-200); }
-        .select-minimal:focus { background-color: var(--shiro); border-color: var(--ao); box-shadow: 0 0 0 3px rgba(26, 77, 181, 0.12); }
+        .select-minimal:hover { background-color: var(--surface-3); border-color: var(--neutral-300); }
+        .select-minimal:focus { border-color: var(--ao); box-shadow: 0 0 0 3px oklch(55% 0.18 255 / 0.15); }
 
         .bar-group { flex: 1; height: 100%; position: relative; display: flex; align-items: flex-end; margin: 0 4px; min-width: 0; }
-        .bar-inner { width: 100%; border-radius: 6px 6px 0 0; position: relative; cursor: pointer; transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1); }
-        .bar-inner:hover { transform: scaleY(1.05); transform-origin: bottom; }
+        .bar-inner { width: 100%; border-radius: 5px 5px 0 0; position: relative; cursor: pointer; transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1), filter 200ms; }
+        .bar-inner:hover { transform: scaleY(1.04); transform-origin: bottom; filter: brightness(1.2); }
         .bar-inner:hover .bar-label { opacity: 1; transform: translate(-50%, 0); }
-        .bar-label { position: absolute; top: -28px; left: 50%; transform: translate(-50%, 4px); text-align: center; font-size: 11px; font-weight: 700; color: var(--neutral-600); opacity: 0; transition: opacity 200ms cubic-bezier(0.16, 1, 0.3, 1), transform 200ms cubic-bezier(0.16, 1, 0.3, 1); }
+        .bar-label { position: absolute; top: -26px; left: 50%; transform: translate(-50%, 4px); text-align: center; font-size: 11px; font-weight: 700; color: var(--neutral-600); opacity: 0; transition: opacity 200ms, transform 200ms; }
         
         .action-btns { display: inline-flex; gap: 8px; }
         .action-btns .btn-ghost, .action-btns .btn-primary, .action-btns .btn-secondary { padding: 8px; border-radius: 8px; transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1); }
-        .action-btns .btn-ghost { background: var(--neutral-50); border: 1px solid var(--neutral-200); }
-        .action-btns .btn-ghost:hover { background: var(--neutral-100); }
         .action-btns a:active { transform: scale(0.92); }
       `}} />
 
       <main className="container">
         <header className="page-header stagger-in">
           <div>
-            <div className="breadcrumb">Admin / Dashboard</div>
-            <h1>Operations Hub</h1>
+            <div className="breadcrumb" style={{ color: 'var(--neutral-500)', fontSize: '12px', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>Admin / Dashboard</div>
+            <h1 style={{ fontSize: '32px', letterSpacing: '0.04em', lineHeight: 1 }}>Operations Hub</h1>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--neutral-400)', letterSpacing: '0.12em', marginTop: '6px', textTransform: 'uppercase' }}>
+              Command Center &mdash; Competition Management
+            </div>
           </div>
           <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
             <button className="btn btn-secondary">
-              <i data-lucide="download" style={{ width: '18px' }}></i> Export Report
+              <i data-lucide="download" style={{ width: '16px' }}></i> Export Report
             </button>
             <Link href="/competitions" className="btn btn-primary" style={{ textDecoration: 'none' }}>
-              <i data-lucide="plus" style={{ width: '18px' }}></i> New Competition
+              <i data-lucide="plus" style={{ width: '16px' }}></i> New Competition
             </Link>
           </div>
         </header>
@@ -446,14 +459,14 @@ export default function DashboardPage() {
             <div>
               <div className="stat-header">
                 <div className="stat-icon-wrap">
-                  <i data-lucide="activity" style={{ width: '18px' }}></i>
+                  <i data-lucide="activity" style={{ width: '15px' }}></i>
                 </div>
                 Active Now
               </div>
               <div className="stat-value">{stats.active}</div>
             </div>
             <div className="stat-footer">
-              <span style={{ display: 'inline-block', width: '8px', height: '8px', background: 'var(--aka)', borderRadius: '50%' }}></span>
+              <span style={{ display: 'inline-block', width: '7px', height: '7px', background: 'var(--aka)', borderRadius: '50%', boxShadow: '0 0 6px var(--aka)', flexShrink: 0 }}></span>
               {stats.active > 0 ? `Running on ${stats.activeMats} mats` : 'No active events'}
             </div>
           </div>
@@ -462,7 +475,7 @@ export default function DashboardPage() {
             <div>
               <div className="stat-header">
                 <div className="stat-icon-wrap">
-                  <i data-lucide="calendar" style={{ width: '18px' }}></i>
+                  <i data-lucide="calendar" style={{ width: '15px' }}></i>
                 </div>
                 Upcoming
               </div>
@@ -477,14 +490,14 @@ export default function DashboardPage() {
             <div>
               <div className="stat-header">
                 <div className="stat-icon-wrap">
-                  <i data-lucide="users" style={{ width: '18px' }}></i>
+                  <i data-lucide="users" style={{ width: '15px' }}></i>
                 </div>
                 Total Athletes
               </div>
               <div className="stat-value">{stats.athletes.toLocaleString()}</div>
             </div>
             <div className="stat-footer">
-              <i data-lucide="map-pin" style={{ width: '14px' }}></i>
+              <i data-lucide="map-pin" style={{ width: '13px' }}></i>
               Across {stats.totalClubs} clubs globally
             </div>
           </div>
@@ -493,14 +506,14 @@ export default function DashboardPage() {
             <div>
               <div className="stat-header">
                 <div className="stat-icon-wrap">
-                  <i data-lucide="trophy" style={{ width: '18px' }}></i>
+                  <i data-lucide="trophy" style={{ width: '15px' }}></i>
                 </div>
-                Completed Events
+                Completed
               </div>
               <div className="stat-value">{stats.completed}</div>
             </div>
             <div className="stat-footer">
-              <span style={{ color: 'var(--status-live)', fontWeight: 700 }}>{stats.eventsThisYear}</span> this year
+              <span style={{ color: 'var(--status-live)', fontWeight: 700 }}>{stats.eventsThisYear}</span>&nbsp;events this year
             </div>
           </div>
 
@@ -508,8 +521,8 @@ export default function DashboardPage() {
           <div className="bento-card col-span-8" style={{ minHeight: '260px' }}>
             <div className="flex-between mb-4">
               <div className="stat-header" style={{ margin: 0 }}>
-                <div className="stat-icon-wrap" style={{ width: '28px', height: '28px', background: 'var(--ao-light)', color: 'var(--ao)', marginRight: '4px' }}>
-                  <i data-lucide="trending-up" style={{ width: '16px' }}></i>
+                <div className="stat-icon-wrap" style={{ width: '26px', height: '26px', background: 'var(--ao-light)', color: 'var(--ao)' }}>
+                  <i data-lucide="trending-up" style={{ width: '14px' }}></i>
                 </div>
                 Participation Trends
               </div>
@@ -535,7 +548,7 @@ export default function DashboardPage() {
                     { val: 0, top: '100%' }
                   ].map((tick, i) => (
                     <div key={i} style={{ position: 'absolute', top: tick.top, left: 0, right: 0, display: 'flex', alignItems: 'center', transform: 'translateY(-50%)' }}>
-                      <span style={{ fontSize: '10px', color: 'var(--neutral-400)', width: '28px', textAlign: 'right', paddingRight: '8px', fontWeight: 600 }}>{tick.val}</span>
+                      <span style={{ fontSize: '10px', color: 'var(--neutral-500)', width: '28px', textAlign: 'right', paddingRight: '8px', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>{tick.val}</span>
                       <div style={{ flex: 1, height: '1px', borderTop: '1px dashed var(--neutral-200)' }}></div>
                     </div>
                   ))}
@@ -599,8 +612,8 @@ export default function DashboardPage() {
           {/* Category Distribution Pie Chart */}
           <div className="bento-card col-span-4" style={{ minHeight: '260px' }}>
             <div className="stat-header" style={{ margin: 0, marginBottom: 'var(--space-2)' }}>
-              <div className="stat-icon-wrap" style={{ width: '28px', height: '28px', background: 'var(--neutral-100)', color: 'var(--neutral-900)', marginRight: '4px' }}>
-                <i data-lucide="pie-chart" style={{ width: '16px' }}></i>
+              <div className="stat-icon-wrap" style={{ width: '26px', height: '26px', background: 'var(--surface-2)', color: 'var(--neutral-600)' }}>
+                <i data-lucide="pie-chart" style={{ width: '14px' }}></i>
               </div>
               Category Distribution
             </div>
@@ -626,9 +639,9 @@ export default function DashboardPage() {
 
         <section className="stagger-in" style={{ marginTop: 'var(--space-6)' }}>
           <div className="flex-between mb-4">
-            <h2 style={{ fontSize: '20px', letterSpacing: '-0.02em' }}>Live Competition Stream</h2>
-            <Link href="/competitions" className="btn btn-ghost" style={{ fontSize: '13px', fontWeight: 700, padding: '8px 16px', color: 'var(--ao)', textDecoration: 'none', background: 'var(--ao-light)', borderRadius: '8px' }}>
-              View Directory <i data-lucide="arrow-right" style={{ width: '16px' }}></i>
+            <h2 style={{ fontSize: '18px', letterSpacing: '-0.01em', color: 'var(--neutral-900)' }}>Live Competition Stream</h2>
+            <Link href="/competitions" className="btn btn-ghost" style={{ fontSize: '12px', fontWeight: 700, padding: '8px 14px', color: 'oklch(65% 0.18 255)', textDecoration: 'none', background: 'var(--ao-light)', border: '1px solid oklch(55% 0.18 255 / 0.25)', borderRadius: '8px' }}>
+              View Directory <i data-lucide="arrow-right" style={{ width: '14px' }}></i>
             </Link>
           </div>
           
