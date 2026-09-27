@@ -128,11 +128,11 @@ export default function Sidebar() {
               {profileOpen && (
                 <div style={{
                   position: 'absolute', top: 'calc(100% + 8px)', right: 0,
-                  minWidth: '200px',
-                  background: 'var(--surface-3)',
+                  minWidth: '180px',
+                  background: 'var(--shiro)',
                   border: '1px solid var(--neutral-200)',
-                  borderRadius: '12px',
-                  boxShadow: '0 16px 48px rgba(0,0,0,0.6)',
+                  borderRadius: '10px',
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.10)',
                   overflow: 'hidden',
                   zIndex: 200,
                   animation: 'profileDropIn 160ms var(--ease-out) both',
@@ -140,12 +140,12 @@ export default function Sidebar() {
                   {/* User info header */}
                   <div style={{
                     padding: '12px 16px',
-                    borderBottom: '1px solid var(--neutral-200)',
+                    borderBottom: '1px solid var(--neutral-100)',
                   }}>
                     <div style={{ fontFamily: 'var(--font-body)', fontSize: '13px', fontWeight: 700, color: 'var(--neutral-900)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {user.displayName || 'User'}
                     </div>
-                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--neutral-500)', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div style={{ fontFamily: 'var(--font-body)', fontSize: '11px', color: 'var(--neutral-400)', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {user.email}
                     </div>
                   </div>
