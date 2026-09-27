@@ -135,6 +135,7 @@ export default function Sidebar() {
                   boxShadow: '0 8px 24px rgba(0,0,0,0.10)',
                   overflow: 'hidden',
                   zIndex: 200,
+                  transformOrigin: 'top right',
                   animation: 'profileDropIn 160ms var(--ease-out) both',
                 }}>
                   {/* User info header */}
