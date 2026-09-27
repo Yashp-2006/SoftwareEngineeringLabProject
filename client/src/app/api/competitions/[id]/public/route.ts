@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { PublicService } from '@/modules/competitions/services/public.server';
+import { errorResponse } from '@/lib/api-response';
 
 export async function GET(
   req: NextRequest,
@@ -15,14 +16,8 @@ export async function GET(
     }
 
     return NextResponse.json({ success: true, ...data });
-  } catch (err: any) {
-    console.error('Failed to fetch public competition data', err);
-    const msg = err?.message || 'Internal Server Error';
-
-    if (msg.startsWith('NOT_FOUND:')) {
-      return NextResponse.json({ success: false, error: { code: 'NOT_FOUND', message: msg.replace('NOT_FOUND: ', '') } }, { status: 404 });
-    }
-
-    return NextResponse.json({ success: false, error: { code: 'INTERNAL_ERROR', message: msg } }, { status: 500 });
+  } catch (err: unknown) {
+    console.error('[public/GET] error:', err);
+    return errorResponse(err, 'Failed to fetch public competition data');
   }
 }

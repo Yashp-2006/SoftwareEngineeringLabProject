@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { adminDb, verifySession } from '@taikaix/backend/lib/firebase-admin';
 import { cookies } from 'next/headers';
 import { updateBracketSchema } from '@taikaix/backend/types/schemas';
-import { z } from 'zod';
+import { errorResponse, unauthorizedResponse } from '@/lib/api-response';
 
 /**
  * PATCH /api/competitions/{id}/brackets/{catId}
@@ -21,7 +21,7 @@ export async function PATCH(
     const sessionToken = (await cookies()).get('session')?.value;
     const { role } = await verifySession(sessionToken);
     if (role !== 'admin' && role !== 'guest_viewer' && role !== 'mat_operator') {
-      return NextResponse.json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } }, { status: 403 });
+      return unauthorizedResponse();
     }
     const { id, catId } = await params;
     const body = await req.json();
@@ -30,7 +30,7 @@ export async function PATCH(
     // byeFor = 'aka' | 'ao' — means that side won by BYE (opponent disqualified/absent)
 
     if (!matchId) {
-      return NextResponse.json({ success: false, error: 'matchId is required' }, { status: 400 });
+      return NextResponse.json({ success: false, error: { code: 'BAD_REQUEST', message: 'matchId is required' } }, { status: 400 });
     }
 
     if (action !== 'revert' && !winnerId && !selectedKata) {
@@ -244,12 +244,9 @@ export async function PATCH(
     });
 
     return NextResponse.json({ success: true, nextMatchId: nextMatchId || null });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[brackets/PATCH]', error);
-    if (error instanceof z.ZodError || error?.name === 'ZodError') {
-      return NextResponse.json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Validation Error', details: error.issues || error.errors } }, { status: 400 });
-    }
-    return NextResponse.json({ success: false, error: { code: 'INTERNAL_ERROR', message: 'Failed to update bracket' } }, { status: 500 });
+    return errorResponse(error, 'Failed to update bracket');
   }
 }
 
@@ -273,8 +270,8 @@ export async function GET(
     }
 
     return NextResponse.json({ success: true, data: { id: snap.id, ...data } });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[brackets/GET]', error);
-    return NextResponse.json({ success: false, error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch category' } }, { status: 500 });
+    return errorResponse(error, 'Failed to fetch category');
   }
 }

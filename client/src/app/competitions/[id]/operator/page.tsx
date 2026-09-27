@@ -29,6 +29,11 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
       setVerified(true);
       return;
     }
+
+    if (!user) {
+      window.location.href = `/login?compId=${id}`;
+      return;
+    }
     
     const checkStaff = async () => {
       try {

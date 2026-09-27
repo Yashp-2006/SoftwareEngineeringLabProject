@@ -73,23 +73,11 @@ const PARSE_PAGE_SIZE = 500;
  * Athletes are returned sorted A-Z by name.
  */
 export function parseExcel(buffer: ArrayBuffer | string): AthleteRow[] {
-  let workbook;
-  if (typeof buffer === 'string') {
-    workbook = xlsx.read(buffer, { type: 'string' });
-  } else {
-    const dataArray = new Uint8Array(buffer);
-    workbook = xlsx.read(dataArray, { type: 'array' });
-  }
-  let allRows: any[] = [];
-
-  // Read all sheets (some tournaments export one sheet per category)
-  for (const sheetName of workbook.SheetNames) {
-    const worksheet = workbook.Sheets[sheetName];
-    // Read all rows for this sheet at once (xlsx.read is fast; sharding is at the JS array level)
-    const rows = xlsx.utils.sheet_to_json(worksheet, { defval: '' }) as any[];
-    allRows = allRows.concat(rows);
-  }
-
+  const isStr = typeof buffer === 'string';
+  const workbook = xlsx.read(isStr ? buffer : new Uint8Array(buffer), { type: isStr ? 'string' : 'array' });
+  const allRows: any[] = workbook.SheetNames.flatMap(name =>
+    xlsx.utils.sheet_to_json(workbook.Sheets[name], { defval: '' })
+  );
   return normalizeAthleteRows(allRows);
 }
 

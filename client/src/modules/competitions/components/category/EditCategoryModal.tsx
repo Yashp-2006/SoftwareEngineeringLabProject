@@ -5,17 +5,7 @@ import { X, Save, Edit2, Trash2, AlertTriangle, CheckCircle, XCircle } from 'luc
 import { doc, getDoc, updateDoc, arrayRemove, arrayUnion } from 'firebase/firestore';
 import { db } from '@lib/firebase';
 import { toast } from 'react-hot-toast';
-
-interface Athlete {
-  playerId: string;
-  name: string;
-  gender?: string;
-  weight?: number;
-  age?: number;
-  academy?: string;
-  state?: string;
-  country?: string;
-}
+import type { Athlete } from '@taikaix/backend/types';
 
 interface EditCategoryModalProps {
   competitionId: string;
@@ -77,7 +67,8 @@ export default function EditCategoryModal({ competitionId, categoryId, categoryN
         athletes: arrayRemove(athlete),
         entries: athletes.length - 1
       });
-      const newAthletes = athletes.filter(a => a.playerId !== athlete.playerId);
+      const athleteId = athlete.playerId || athlete.id;
+      const newAthletes = athletes.filter(a => (a.playerId || a.id) !== athleteId);
       setAthletes(newAthletes);
       onCategoryUpdated({ id: categoryId, name: nameInput, entries: newAthletes.length });
       toast.success('Athlete removed');
@@ -88,7 +79,7 @@ export default function EditCategoryModal({ competitionId, categoryId, categoryN
   };
 
   const startEdit = (athlete: Athlete) => {
-    setEditingAthleteId(athlete.playerId);
+    setEditingAthleteId(athlete.playerId || athlete.id || null);
     setEditForm({ ...athlete });
   };
 
@@ -105,8 +96,9 @@ export default function EditCategoryModal({ competitionId, categoryId, categoryN
       // Firestore doesn't support updating a specific object in an array by property,
       // so we must arrayRemove the old and arrayUnion the new, or just fetch and replace the whole array.
       // Since we already have the full array, rewriting it is safest.
+      const athleteId = oldAthlete.playerId || oldAthlete.id;
       const newAthletes = athletes.map(a => 
-        a.playerId === oldAthlete.playerId ? { ...a, ...editForm } as Athlete : a
+        (a.playerId || a.id) === athleteId ? { ...a, ...editForm } as Athlete : a
       );
 
       await updateDoc(ref, {
@@ -188,9 +180,11 @@ export default function EditCategoryModal({ competitionId, categoryId, categoryN
                     </tr>
                   </thead>
                   <tbody>
-                    {athletes.map((athlete) => (
-                      <tr key={athlete.playerId}>
-                        {editingAthleteId === athlete.playerId ? (
+                    {athletes.map((athlete) => {
+                      const athleteKey = athlete.playerId || athlete.id || athlete.name;
+                      return (
+                      <tr key={athleteKey}>
+                        {editingAthleteId === athleteKey ? (
                           <>
                             <td>
                               <input 
@@ -246,7 +240,8 @@ export default function EditCategoryModal({ competitionId, categoryId, categoryN
                           </>
                         )}
                       </tr>
-                    ))}
+                    );
+                    })}
                   </tbody>
                 </table>
               </div>

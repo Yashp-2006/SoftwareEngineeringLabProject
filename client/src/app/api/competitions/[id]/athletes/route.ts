@@ -4,6 +4,7 @@ import { doc, setDoc } from 'firebase/firestore';
 import { verifySession } from '@taikaix/backend/lib/firebase-admin';
 import { cookies } from 'next/headers';
 import { z } from 'zod';
+import { errorResponse, unauthorizedResponse } from '@/lib/api-response';
 
 export async function POST(
   request: Request,
@@ -13,7 +14,7 @@ export async function POST(
     const sessionToken = (await cookies()).get('session')?.value;
     const { role } = await verifySession(sessionToken);
     if (role !== 'admin' && role !== 'guest_viewer' && role !== 'attendance_volunteer') {
-      return NextResponse.json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } }, { status: 403 });
+      return unauthorizedResponse();
     }
     const { id: competitionId } = await params;
     const body = await request.json();
@@ -57,14 +58,8 @@ export async function POST(
       data: newAthlete
     });
 
-  } catch (error: any) {
-    console.error('Athlete Add Error:', error);
-    if (error instanceof z.ZodError || error?.name === 'ZodError') {
-      return NextResponse.json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Validation Error', details: error.issues || error.errors } }, { status: 400 });
-    }
-    return NextResponse.json(
-      { success: false, error: { code: 'INTERNAL_ERROR', message: 'Failed to add late athlete' } },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    console.error('[athletes/POST] error:', error);
+    return errorResponse(error, 'Failed to add late athlete');
   }
 }

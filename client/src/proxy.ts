@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { Ratelimit } from '@upstash/ratelimit';
-import { Redis } from '@upstash/redis';
+import { rateLimiter } from '@/lib/rate-limiter';
 
 // Critical environment variables required for production
 const CRITICAL_ENV_VARS = [
@@ -14,23 +13,6 @@ const CRITICAL_ENV_VARS = [
   'UPSTASH_REDIS_REST_URL',
   'UPSTASH_REDIS_REST_TOKEN',
 ];
-
-// Initialize Redis lazily only when credentials are provided
-const redis = (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)
-  ? new Redis({
-      url: process.env.UPSTASH_REDIS_REST_URL,
-      token: process.env.UPSTASH_REDIS_REST_TOKEN,
-    })
-  : null;
-
-// Create a new ratelimiter if Redis is configured
-const ratelimit = redis
-  ? new Ratelimit({
-      redis: redis,
-      limiter: Ratelimit.slidingWindow(30, '10 s'),
-      analytics: true,
-    })
-  : null;
 
 export default async function middleware(request: NextRequest) {
   try {
@@ -67,12 +49,12 @@ export default async function middleware(request: NextRequest) {
 
     let response = NextResponse.next();
 
-    // 2. Rate Limiting for API Routes (only when ratelimit is initialized)
-    if (ratelimit && request.nextUrl.pathname.startsWith('/api/')) {
+    // 2. Rate Limiting for API Routes
+    if (request.nextUrl.pathname.startsWith('/api/')) {
       try {
         // Determine user IP or a fallback identifier
         const ip = (request as any).ip || request.headers.get('x-forwarded-for') || '127.0.0.1';
-        const { success, limit, reset, remaining } = await ratelimit.limit(`ratelimit_${ip}`);
+        const { success, limit, reset, remaining } = await rateLimiter.limit(`ratelimit_${ip}`);
 
         if (!success) {
           return new NextResponse(

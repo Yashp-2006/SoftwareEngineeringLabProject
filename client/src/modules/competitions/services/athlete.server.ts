@@ -1,8 +1,9 @@
 import { adminDb } from '@taikaix/backend/lib/firebase-admin';
 import { generateBracket, PoolSize } from '@taikaix/backend/services/tiesheet/generator';
+import type { Athlete, Match } from '@taikaix/backend/types';
 
 export class AthleteService {
-  static async addAthlete(competitionId: string, categoryId: string, athleteData: any) {
+  static async addAthlete(competitionId: string, categoryId: string, athleteData: Partial<Athlete>) {
     const catRef = adminDb.collection('competitions').doc(competitionId).collection('categories').doc(categoryId);
     
     return await adminDb.runTransaction(async (t) => {
@@ -12,8 +13,8 @@ export class AthleteService {
       }
 
       const category = catSnap.data()!;
-      const matches: any[] = category.matches || [];
-      const athletes: any[] = category.athletes || [];
+      const matches: Match[] = category.matches || [];
+      const athletes: Athlete[] = category.athletes || [];
 
       let finalInterestSpecial = athleteData.interestSpecial || '';
       const sp = finalInterestSpecial.toLowerCase().trim();
@@ -21,8 +22,9 @@ export class AthleteService {
         finalInterestSpecial = '';
       }
 
-      const newAthlete = {
+      const newAthlete: Athlete = {
         ...athleteData,
+        name: athleteData.name || 'Unnamed Athlete',
         interestSpecial: finalInterestSpecial,
         playerId: athleteData.playerId || `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         gender: athleteData.gender || 'Unknown',
@@ -93,7 +95,7 @@ export class AthleteService {
         else if (round1Matches.length === 8) poolSize = 16;
         else if (round1Matches.length === 16) poolSize = 32;
 
-        const regeneratedMatches = generateBracket(newAthletesList, 'international', poolSize, { useRoundRobin: category.useRoundRobin });
+        const regeneratedMatches = generateBracket(newAthletesList as any[], 'international', poolSize, { useRoundRobin: category.useRoundRobin });
         
         updatedMatches = regeneratedMatches.map(m => ({
           id: m.id,

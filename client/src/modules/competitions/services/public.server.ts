@@ -1,5 +1,6 @@
 import { adminDb } from '@taikaix/backend/lib/firebase-admin';
 import { fetchWithCache } from '@taikaix/backend/lib/redis';
+import type { Category, Athlete, Competition } from '@taikaix/backend/types';
 
 export class PublicService {
   /**
@@ -15,15 +16,21 @@ export class PublicService {
         throw new Error('NOT_FOUND: Competition not found');
       }
       
-      const compData = compSnap.data() || {};
+      const compData = (compSnap.data() || {}) as Partial<Competition>;
       
       const catSnap = await adminDb.collection('competitions').doc(id).collection('categories').get();
-      const categories = catSnap.docs.map((d: any) => {
-        const catData = d.data() || {};
-        if (catData.athletes) {
-          catData.athletes = catData.athletes.map(({ phone: _p, email: _e, ...safe }: any) => safe);
-        }
-        return { id: d.id, ...catData };
+      const categories: Category[] = catSnap.docs.map(d => {
+        const catData = (d.data() || {}) as Partial<Category>;
+        const sanitizedAthletes = catData.athletes
+          ? catData.athletes.map(({ phone: _p, email: _e, ...safe }: Athlete) => safe as Athlete)
+          : undefined;
+
+        return {
+          id: d.id,
+          ...catData,
+          name: catData.name || '',
+          athletes: sanitizedAthletes,
+        };
       });
 
       return {
@@ -42,9 +49,9 @@ export class PublicService {
 
     return await fetchWithCache(cacheKey, 60, async () => {
       const catSnap = await adminDb.collection('competitions').doc(id).collection('categories').orderBy('scheduledStartTime').get();
-      const categories = catSnap.docs.map((d: any) => {
-        const { athletes, ...safeData } = d.data() || {};
-        return { id: d.id, ...safeData };
+      const categories = catSnap.docs.map(d => {
+        const { athletes: _a, ...safeData } = (d.data() || {}) as Partial<Category>;
+        return { id: d.id, ...safeData, name: safeData.name || '' };
       });
 
       return {

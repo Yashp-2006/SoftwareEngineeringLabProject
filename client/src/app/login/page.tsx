@@ -177,22 +177,77 @@ export default function LoginPage() {
       const staffMember = staffList.find(s => s.id === selectedStaffId);
       if (!staffMember) throw new Error('Please select your profile.');
       if (staffMember.pin !== pin) throw new Error('Invalid PIN code.');
-      const { signInAnonymously } = await import('firebase/auth');
-      let user = auth.currentUser;
-      if (!user || !user.isAnonymous) { const cred = await signInAnonymously(auth); user = cred.user; }
+
+      // Deterministic, named staff credentials for Firebase Auth
+      // Firebase Auth console will show real staff name and email instead of "Anonymous"
+      const cleanStaffId = staffMember.id.replace(/[^a-zA-Z0-9]/g, '');
+      const staffEmail = `staff.${cleanStaffId}@taikaix.app`;
+      const staffPassword = `TaikaiX#Staff#${cleanStaffId}`;
+
+      const { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } = await import('firebase/auth');
+      let userCredential;
+      try {
+        userCredential = await signInWithEmailAndPassword(auth, staffEmail, staffPassword);
+      } catch (authErr: any) {
+        if (authErr?.code === 'auth/user-not-found' || authErr?.code === 'auth/invalid-credential') {
+          // Account doesn't exist yet in Firebase Auth — create it with real staff details!
+          userCredential = await createUserWithEmailAndPassword(auth, staffEmail, staffPassword);
+          await updateProfile(userCredential.user, { displayName: staffMember.name });
+        } else {
+          throw authErr;
+        }
+      }
+
+      const user = userCredential.user;
+      if (user.displayName !== staffMember.name) {
+        await updateProfile(user, { displayName: staffMember.name });
+      }
+
+      // Sync Firestore user profile with actual staff name & role so Users page shows accurate details
+      let mappedRole: 'mat_operator' | 'attendance_volunteer' | 'medal_distributor' | 'judge' | 'guest_viewer' = 'guest_viewer';
+      if (staffMember.role === 'score') mappedRole = 'mat_operator';
+      else if (staffMember.role === 'attendance') mappedRole = 'attendance_volunteer';
+      else if (staffMember.role === 'medal') mappedRole = 'medal_distributor';
+      else if (staffMember.role === 'judge') mappedRole = 'judge';
+
       const { db } = await import('@lib/firebase');
-      const { doc, updateDoc } = await import('firebase/firestore');
-      const staffDocRef = doc(db, 'competitions', selectedCompId, 'staff', selectedStaffId);
+      const { doc, updateDoc, setDoc } = await import('firebase/firestore');
+
+      await setDoc(doc(db, 'users', user.uid), {
+        displayName: staffMember.name,
+        email: staffEmail,
+        role: mappedRole,
+        isAnonymous: false,
+        staffId: staffMember.id,
+        competitionId: selectedCompId,
+        lastLoginAt: new Date().toISOString()
+      }, { merge: true });
+
+      // Build redirect URL up front
+      let redirectUrl = `/competitions/${selectedCompId}`;
+      if (staffMember.role === 'score' && staffMember.assignedMats?.length > 0) redirectUrl = `/competitions/${selectedCompId}/operator?mat=${staffMember.assignedMats[0]}`;
+      else if (staffMember.role === 'attendance') redirectUrl = `/competitions/${selectedCompId}/athletes`;
+      else if (staffMember.role === 'medal') redirectUrl = `/competitions/${selectedCompId}/medals`;
+
       if (staffMember.approvalStatus === 'approved') {
-        await updateDoc(staffDocRef, { userId: user!.uid, requestUserId: user!.uid, lastActiveAt: new Date().toISOString() });
-        let redirectUrl = `/competitions/${selectedCompId}`;
-        if (staffMember.role === 'score' && staffMember.assignedMats?.length > 0) redirectUrl = `/competitions/${selectedCompId}/operator?mat=${staffMember.assignedMats[0]}`;
-        else if (staffMember.role === 'attendance') redirectUrl = `/competitions/${selectedCompId}/athletes`;
-        else if (staffMember.role === 'medal') redirectUrl = `/competitions/${selectedCompId}/medals`;
+        // Idempotency: skip Firestore write if this user is already linked to this staff record
+        if (staffMember.userId !== user.uid) {
+          await updateDoc(doc(db, 'competitions', selectedCompId, 'staff', selectedStaffId), {
+            userId: user.uid,
+            requestUserId: user.uid,
+            lastActiveAt: new Date().toISOString()
+          });
+        }
         window.location.href = redirectUrl;
         return;
       }
-      await updateDoc(staffDocRef, { approvalStatus: 'pending', requestUserId: user!.uid, requestTimestamp: new Date().toISOString() });
+
+      // Not yet approved — mark pending
+      await updateDoc(doc(db, 'competitions', selectedCompId, 'staff', selectedStaffId), {
+        approvalStatus: 'pending',
+        requestUserId: user.uid,
+        requestTimestamp: new Date().toISOString()
+      });
       window.location.href = `/login/pending?compId=${selectedCompId}&staffId=${selectedStaffId}`;
     } catch (err: any) {
       setError(err.message || 'PIN Authentication failed.');

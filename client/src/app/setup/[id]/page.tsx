@@ -1310,7 +1310,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                 </div>
               )}
               <ImportPhase
-                poolSize={poolSize} setPoolSize={setPoolSize}
+                poolSize={poolSize} setPoolSize={(val: number) => setPoolSize(val as 4 | 8 | 16 | 32)}
                 wkfKataJudgeCount={wkfKataJudgeCount as number} setWkfKataJudgeCount={setWkfKataJudgeCount}
                 setCategories={setCategories} importResult={importResult}
                 uploading={uploading} handleDrop={handleDrop} handleDragOver={handleDragOver}

@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import { adminDb, verifySession } from '@taikaix/backend/lib/firebase-admin';
 import { matPasswordSchema } from '@taikaix/backend/types/schemas';
 import crypto from 'crypto';
-import { z } from 'zod';
 import { cookies } from 'next/headers';
+import { errorResponse, unauthorizedResponse } from '@/lib/api-response';
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -11,7 +11,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const { role } = await verifySession(sessionToken);
 
     if (role !== 'admin' && role !== 'guest_viewer') {
-      return NextResponse.json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } }, { status: 403 });
+      return unauthorizedResponse();
     }
 
     const { id: competitionId } = await params;
@@ -54,11 +54,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     }
 
     return NextResponse.json({ success: true, message: 'Password(s) saved securely' });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[mats/PATCH] error:', error);
-    if (error instanceof z.ZodError || error?.name === 'ZodError') {
-      return NextResponse.json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Validation Error', details: error.issues || error.errors } }, { status: 400 });
-    }
-    return NextResponse.json({ success: false, error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } }, { status: 500 });
+    return errorResponse(error, 'Internal server error');
   }
 }

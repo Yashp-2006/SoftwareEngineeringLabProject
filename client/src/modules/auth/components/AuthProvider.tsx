@@ -1,12 +1,12 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { User, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
+import { User, onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '@lib/firebase';
 import { useRouter, usePathname } from 'next/navigation';
-
-export type UserRole = 'admin' | 'guest_viewer' | 'attendance_volunteer' | 'mat_operator' | 'medal_distributor' | 'judge' | 'audience' | null;
+import type { UserRole } from '@taikaix/backend/types';
+export type { UserRole };
 
 interface AuthContextType {
   user: User | null;
@@ -34,6 +34,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       clearTimeout(timeout);
       try {
+        if (currentUser?.isAnonymous) {
+          // Immediately purge legacy anonymous session so it never persists or shows in console
+          try {
+            await currentUser.delete();
+          } catch {
+            await signOut(auth);
+          }
+          setUser(null);
+          setRole(null);
+          setLoading(false);
+          return;
+        }
+
         setUser(currentUser);
 
         if (currentUser) {
@@ -53,29 +66,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               const currentRole = (userDoc.data().role as UserRole) || 'audience';
               setRole(currentRole);
 
-              if (!currentUser.isAnonymous) {
-                await setDoc(userDocRef, {
-                  email: currentUser.email,
-                  displayName: currentUser.displayName || null,
-                  photoURL: currentUser.photoURL || null,
-                  // Note: 'role' is intentionally NOT written here.
-                  // Role is server-authoritative — we read it above but never write it
-                  // from the client to prevent privilege escalation.
-                  lastLoginAt: new Date().toISOString()
-                }, { merge: true });
-              }
+              await setDoc(userDocRef, {
+                email: currentUser.email,
+                displayName: currentUser.displayName || null,
+                photoURL: currentUser.photoURL || null,
+                // Note: 'role' is intentionally NOT written here.
+                // Role is server-authoritative — we read it above but never write it
+                // from the client to prevent privilege escalation.
+                lastLoginAt: new Date().toISOString()
+              }, { merge: true });
             } else {
-              // New user — only write doc if NOT anonymous
-              if (!currentUser.isAnonymous) {
-                await setDoc(userDocRef, {
-                  email: currentUser.email || null,
-                  displayName: currentUser.displayName || null,
-                  photoURL: currentUser.photoURL || null,
-                  isAnonymous: false,
-                  createdAt: new Date().toISOString(),
-                  lastLoginAt: new Date().toISOString()
-                });
-              }
+              // New user
+              await setDoc(userDocRef, {
+                email: currentUser.email || null,
+                displayName: currentUser.displayName || null,
+                photoURL: currentUser.photoURL || null,
+                isAnonymous: false,
+                createdAt: new Date().toISOString(),
+                lastLoginAt: new Date().toISOString()
+              });
               setRole('audience');
             }
           } catch (error) {
@@ -86,9 +95,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setRole(null);
           // Clear session cookie
           document.cookie = `session=; path=/; max-age=0; SameSite=Lax; Secure`;
-          
-          // Auto sign-in anonymously so viewers can read Firestore collections
-          signInAnonymously(auth).catch((err) => console.error("Anonymous auth failed:", err));
         }
       } finally {
         // ALWAYS unblock the app — even if Firebase throws
@@ -117,9 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (user && role) {
         if (pathname === '/login') {
-          if (!user.isAnonymous) {
-            router.push('/dashboard');
-          }
+          router.push('/dashboard');
           return;
         }
 

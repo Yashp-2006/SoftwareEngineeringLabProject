@@ -75,7 +75,7 @@ export default function PasswordGateway({ children }: { children: React.ReactNod
               await setDoc(doc(db, 'competitions', id, 'staff', user.uid), {
                 userId: user.uid,
                 name: inputName.trim(),
-                email: user.isAnonymous ? 'pin-login@anonymous.local' : (user.email || 'pin-login@anonymous.local'),
+                email: user.email || `${inputName.trim().toLowerCase().replace(/\s+/g, '.')}@taikaix.local`,
                 role: 'score',
                 approvalStatus: 'approved',
                 assignedCategories: [],
@@ -107,7 +107,7 @@ export default function PasswordGateway({ children }: { children: React.ReactNod
               await setDoc(doc(db, 'competitions', id, 'staff', user.uid), {
                 userId: user.uid,
                 name: inputName.trim(),
-                email: user.isAnonymous ? 'pin-login@anonymous.local' : (user.email || 'pin-login@anonymous.local'),
+                email: user.email || `${inputName.trim().toLowerCase().replace(/\s+/g, '.')}@taikaix.local`,
                 role: 'guest_viewer',
                 approvalStatus: 'approved'
               }, { merge: true });

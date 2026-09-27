@@ -6,34 +6,14 @@ import { Search, Trophy, Zap } from 'lucide-react';
 import PageSkeleton from '@/modules/core/layout/PageSkeleton';
 import SpecialCategoryModal from '@/modules/competitions/components/category/SpecialCategoryModal';
 import { useAuth } from '@/modules/auth/components/AuthProvider';
-
-interface Athlete {
-  id: string;
-  playerId?: string;
-  name: string;
-  academy: string;
-  medal?: 'gold' | 'silver' | 'bronze' | 'received' | 'not-received' | null;
-  medalReceived?: 'received' | 'not-received';
-  sourceCategory?: string;
-}
-
-interface Category {
-  id: string;
-  name: string;
-  mat: string;
-  status: string;
-  order: number;
-  // athletes is the flat array on the category doc (written by operator on close)
-  athletes: Athlete[];
-  matches: any[];
-}
+import type { Athlete, Category } from '@taikaix/backend/types';
 
 export default function MedalsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
   const { user, role, loading: authLoading } = useAuth();
   const [verified, setVerified] = useState(false);
   const [staffRole, setStaffRole] = useState<string | null>(null);
-  const canWrite = role === 'admin' || role === 'medal' || role === 'medal_distributor' || staffRole === 'medal' || staffRole === 'medal_distributor';
+  const canWrite = role === 'admin' || (role as string) === 'medal' || role === 'medal_distributor' || staffRole === 'medal' || staffRole === 'medal_distributor';
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
@@ -46,6 +26,11 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
     // Admins bypass staff check
     if (role === 'admin') {
       setVerified(true);
+      return;
+    }
+
+    if (!user) {
+      window.location.href = `/login?compId=${id}`;
       return;
     }
     
@@ -168,8 +153,8 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
     const isDone = activeCategory.status === 'done' || activeCategory.status === 'completed';
 
     // --- Strategy A: Done category — athletes array has medals already assigned ---
-    if (isDone && activeCategory.athletes.length > 0) {
-      const withMedals = activeCategory.athletes.filter(a => a.medal === 'gold' || a.medal === 'silver' || a.medal === 'bronze');
+    if (isDone && (activeCategory.athletes || []).length > 0) {
+      const withMedals = (activeCategory.athletes || []).filter(a => a.medal === 'gold' || a.medal === 'silver' || a.medal === 'bronze');
       if (withMedals.length > 0) {
         const medalOrder = { gold: 0, silver: 1, bronze: 2 };
         const sorted = [...withMedals].sort((a, b) =>
@@ -190,7 +175,7 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
           const q = searchQuery.toLowerCase();
           for (const key of Object.keys(groups)) {
             groups[key] = groups[key].filter(a =>
-              a.name.toLowerCase().includes(q) || a.academy.toLowerCase().includes(q)
+              a.name.toLowerCase().includes(q) || (a.academy || '').toLowerCase().includes(q)
             );
             if (groups[key].length === 0) delete groups[key];
           }
@@ -233,7 +218,7 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
 
           if (goldAthRaw?.playerId || goldAthRaw?.name) {
             // Also try to cross-reference against the doc athletes array for medalReceived
-            const docAth = activeCategory.athletes.find(a => a.playerId === (goldAthRaw.playerId || goldWinnerId));
+            const docAth = (activeCategory.athletes || []).find(a => a.playerId === (goldAthRaw.playerId || goldWinnerId));
             poolWinners.push({
               id: goldAthRaw.playerId || goldAthRaw.name || goldWinnerId,
               playerId: goldAthRaw.playerId,
@@ -245,7 +230,7 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
             });
           } else {
             // Last resort: look up in the doc athletes array
-            const docAth = activeCategory.athletes.find(a => a.playerId === goldWinnerId || a.id === goldWinnerId);
+            const docAth = (activeCategory.athletes || []).find(a => a.playerId === goldWinnerId || a.id === goldWinnerId);
             if (docAth) {
               poolWinners.push({ ...docAth, medal: 'gold', medalName: 'Gold' });
             }
@@ -253,7 +238,7 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
 
           // Silver
           if (silverAthRaw?.playerId || silverAthRaw?.name) {
-            const docAth = activeCategory.athletes.find(a => a.playerId === silverAthRaw.playerId);
+            const docAth = (activeCategory.athletes || []).find(a => a.playerId === silverAthRaw.playerId);
             poolWinners.push({
               id: silverAthRaw.playerId || silverAthRaw.name || 'silver',
               playerId: silverAthRaw.playerId,
@@ -272,7 +257,7 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
             for (const semi of semiMatches) {
               const loserRaw = semi.winnerId === semi.aka?.playerId ? semi.ao : semi.aka;
               if (loserRaw?.playerId || loserRaw?.name) {
-                const docAth = activeCategory.athletes.find(a => a.playerId === loserRaw.playerId);
+                const docAth = (activeCategory.athletes || []).find(a => a.playerId === loserRaw.playerId);
                 poolWinners.push({
                   id: loserRaw.playerId || loserRaw.name || 'bronze',
                   playerId: loserRaw.playerId,
@@ -290,7 +275,7 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
 
       const poolKey = poolMap.size === 1 && pool === '1' ? 'General' : `Pool ${pool}`;
       const filtered = searchQuery
-        ? poolWinners.filter(a => a.name.toLowerCase().includes(searchQuery.toLowerCase()) || a.academy.toLowerCase().includes(searchQuery.toLowerCase()))
+        ? poolWinners.filter(a => a.name.toLowerCase().includes(searchQuery.toLowerCase()) || (a.academy || '').toLowerCase().includes(searchQuery.toLowerCase()))
         : poolWinners;
 
       if (filtered.length > 0) groups[poolKey] = filtered;
@@ -313,7 +298,7 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
       if (cat.id !== activeCategoryId) return cat;
       return {
         ...cat,
-        athletes: cat.athletes.map(a =>
+        athletes: (cat.athletes || []).map(a =>
           (a.playerId === athletePlayerId || a.id === athletePlayerId) ? { ...a, medalReceived: status } : a
         )
       };
@@ -337,7 +322,7 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
     }
   };
 
-  if (!verified && !canWrite && role !== 'admin') {
+  if (!verified && !canWrite) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--neutral-50)' }}>
         <p style={{ color: 'var(--neutral-500)', fontSize: '14px', fontWeight: 600 }}>Verifying credentials and assignments...</p>
@@ -668,13 +653,13 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
                                   <div className="medal-control">
                                     <button
                                       className={`medal-btn received ${athlete.medalReceived === 'received' ? 'active' : ''}`}
-                                      onClick={() => updateAthleteMedalReceived(athlete.playerId || athlete.id, 'received')}
+                                      onClick={() => updateAthleteMedalReceived(athlete.playerId || athlete.id || '', 'received')}
                                     >
                                       Received
                                     </button>
                                     <button
                                       className={`medal-btn not-received ${athlete.medalReceived === 'not-received' ? 'active' : ''}`}
-                                      onClick={() => updateAthleteMedalReceived(athlete.playerId || athlete.id, 'not-received')}
+                                      onClick={() => updateAthleteMedalReceived(athlete.playerId || athlete.id || '', 'not-received')}
                                     >
                                       Not Received
                                     </button>

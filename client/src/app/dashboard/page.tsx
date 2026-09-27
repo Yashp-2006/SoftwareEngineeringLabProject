@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { gsap } from 'gsap';
 import { useAuth } from '@/modules/auth/components/AuthProvider';
 
 export default function DashboardPage() {
@@ -176,53 +177,44 @@ export default function DashboardPage() {
       (window as any).lucide.createIcons();
     }
 
-    const gsap = (window as any).gsap;
-    let ctx: any;
-    
-    if (gsap) {
-      ctx = gsap.context(() => {
-        gsap.from('.stagger-in', {
-          y: 20,
-          opacity: 0,
-          duration: 0.8,
-          stagger: 0.15,
-          ease: 'expo.out'
-        });
+    const ctx = gsap.context(() => {
+      gsap.from('.stagger-in', {
+        y: 20,
+        opacity: 0,
+        duration: 0.8,
+        stagger: 0.15,
+        ease: 'expo.out'
       });
-    }
+    });
 
     setLoading(false);
 
     return () => {
-      if (ctx) ctx.revert(); // Fixes React Strict Mode double-firing bug
+      ctx.revert();
     };
   }, []);
 
   useEffect(() => {
-    const gsap = (window as any).gsap;
-    let ctx: any;
-    if (gsap) {
-      ctx = gsap.context(() => {
-        if (chartType === 'bar') {
-          gsap.fromTo('.bar-inner', 
-            { scaleY: 0 },
-            { scaleY: 1, duration: 0.8, stagger: 0.05, ease: 'expo.out', transformOrigin: 'bottom' }
-          );
-        } else {
-          // Line drawing effect
-          gsap.fromTo('.graph-line',
-            { strokeDasharray: 1000, strokeDashoffset: 1000 },
-            { strokeDashoffset: 0, duration: 1.2, ease: 'expo.inOut' }
-          );
-          // Point fade/pop effect
-          gsap.fromTo('.graph-point',
-            { scale: 0, opacity: 0, transformOrigin: 'center' },
-            { scale: 1, opacity: 1, duration: 0.6, stagger: 0.05, ease: 'back.out(1.5)', delay: 0.4 }
-          );
-        }
-      });
-    }
-    return () => { if (ctx) ctx.revert(); };
+    const ctx = gsap.context(() => {
+      if (chartType === 'bar') {
+        gsap.fromTo('.bar-inner', 
+          { scaleY: 0 },
+          { scaleY: 1, duration: 0.8, stagger: 0.05, ease: 'expo.out', transformOrigin: 'bottom' }
+        );
+      } else {
+        // Line drawing effect
+        gsap.fromTo('.graph-line',
+          { strokeDasharray: 1000, strokeDashoffset: 1000 },
+          { strokeDashoffset: 0, duration: 1.2, ease: 'expo.inOut' }
+        );
+        // Point fade/pop effect
+        gsap.fromTo('.graph-point',
+          { scale: 0, opacity: 0, transformOrigin: 'center' },
+          { scale: 1, opacity: 1, duration: 0.6, stagger: 0.05, ease: 'back.out(1.5)', delay: 0.4 }
+        );
+      }
+    });
+    return () => { ctx.revert(); };
   }, [chartType, timeFilter]);
 
   const chartData = timeFilter === '12M' ? trendData : trendData.slice(-6);

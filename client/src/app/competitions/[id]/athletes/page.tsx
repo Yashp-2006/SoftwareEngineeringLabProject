@@ -7,27 +7,7 @@ import { toast } from 'react-hot-toast';
 import { useAuth } from '@/modules/auth/components/AuthProvider';
 import PageSkeleton from '@/modules/core/layout/PageSkeleton';
 import { sortCategories } from '@/lib/categoryUtils';
-
-interface Athlete {
-  id: string;
-  name: string;
-  academy: string;
-  attendance: 'present' | 'absent';
-  readiness: 'ready' | 'not-ready';
-  disqualified: boolean;
-  pool: string;
-  coachName?: string;
-  phone?: string;
-  state?: string;
-}
-
-interface Category {
-  id: string;
-  name: string;
-  mat: string;
-  status: string;
-  athletes: Athlete[];
-}
+import type { Athlete, Category } from '@taikaix/backend/types';
 
 export default function AthletesPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
@@ -40,7 +20,7 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
   const [poolFilter, setPoolFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [staffRole, setStaffRole] = useState<string | null>(null);
-  const canWrite = role === 'admin' || role === 'attendance' || role === 'attendance_volunteer' || staffRole === 'attendance' || staffRole === 'attendance_volunteer';
+  const canWrite = role === 'admin' || (role as string) === 'attendance' || role === 'attendance_volunteer' || staffRole === 'attendance' || staffRole === 'attendance_volunteer';
 
   useEffect(() => {
     if (authLoading) return;
@@ -48,6 +28,11 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
     // Admins bypass staff check
     if (role === 'admin') {
       setVerified(true);
+      return;
+    }
+
+    if (!user) {
+      window.location.href = `/login?compId=${id}`;
       return;
     }
     
@@ -178,12 +163,12 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
 
   const activeCategory = categories.find(c => c.id === activeCategoryId);
 
-  const filteredAthletes = activeCategory?.athletes.filter(a => {
+  const filteredAthletes = (activeCategory?.athletes || []).filter(a => {
     if (poolFilter && a.pool !== poolFilter) return false;
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
-    return a.name.toLowerCase().includes(q) || a.academy.toLowerCase().includes(q);
-  }) || [];
+    return a.name.toLowerCase().includes(q) || (a.academy || '').toLowerCase().includes(q);
+  });
 
   const handleUpdate = async (
     athleteId: string,
@@ -198,7 +183,7 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
         if (cat.id !== activeCategoryId) return cat;
         return {
           ...cat,
-          athletes: cat.athletes.map(a => a.id === athleteId ? { ...a, [field]: value } : a),
+          athletes: (cat.athletes || []).map(a => (a.id === athleteId || a.playerId === athleteId) ? { ...a, [field]: value } : a),
         };
       })
     );
@@ -541,7 +526,7 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
                   <div className="category-name">{cat.name}</div>
                   <div className="category-meta">
                     <span>{cat.mat}</span>
-                    <span>{cat.status.toUpperCase()}</span>
+                    <span>{(cat.status || 'upcoming').toUpperCase()}</span>
                   </div>
                 </button>
               ))}
@@ -552,7 +537,7 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
                 <div>
                   <h2>{activeCategory?.name}</h2>
                   <div className="text-small">
-                    {activeCategory?.mat} • {activeCategory?.status.toUpperCase()} • {filteredAthletes.length} athletes
+                    {activeCategory?.mat} • {(activeCategory?.status || 'upcoming').toUpperCase()} • {filteredAthletes.length} athletes
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
@@ -562,7 +547,7 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
                     style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--neutral-300)', fontSize: '13px', background: 'white' }}
                   >
                     <option value="">All Pools</option>
-                    {Array.from(new Set(activeCategory?.athletes.map(a => a.pool).filter(Boolean)))
+                    {Array.from(new Set((activeCategory?.athletes || []).map(a => a.pool).filter(Boolean)))
                       .sort((a, b) => parseInt(String(a)) - parseInt(String(b)))
                       .map(p => (
                       <option key={String(p)} value={String(p)}>Pool {String(p)}</option>
@@ -597,14 +582,16 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
                   {filteredAthletes.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="empty-state">
-                        {activeCategory?.athletes.length === 0
+                        {(activeCategory?.athletes || []).length === 0
                           ? 'No athletes registered for this category yet.'
                           : 'No athletes match your search.'}
                       </td>
                     </tr>
                   ) : (
-                    filteredAthletes.map(athlete => (
-                      <tr key={athlete.id}>
+                    filteredAthletes.map(athlete => {
+                      const athleteKey = athlete.id || athlete.playerId || athlete.name;
+                      return (
+                      <tr key={athleteKey}>
                         <td>{athlete.name}</td>
                         <td className="academy-name">{athlete.academy}</td>
                         <td className="academy-name" style={{ fontSize: '13px', color: 'var(--neutral-600)' }}>{athlete.coachName || <span style={{color:'var(--neutral-400)',fontStyle:'italic'}}>—</span>}</td>
@@ -616,12 +603,12 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
                           <div className="attendance-control" style={{ opacity: role === 'guest_viewer' ? 0.6 : 1, pointerEvents: role === 'guest_viewer' ? 'none' : 'auto' }}>
                             <button
                               className={`attendance-btn present ${athlete.attendance === 'present' ? 'active' : ''}`}
-                              onClick={() => handleUpdate(athlete.id, 'attendance', 'present')}
+                              onClick={() => handleUpdate(athleteKey, 'attendance', 'present')}
                               disabled={role === 'guest_viewer'}
                             >Present</button>
                             <button
                               className={`attendance-btn absent ${athlete.attendance === 'absent' ? 'active' : ''}`}
-                              onClick={() => handleUpdate(athlete.id, 'attendance', 'absent')}
+                              onClick={() => handleUpdate(athleteKey, 'attendance', 'absent')}
                               disabled={role === 'guest_viewer'}
                             >Absent</button>
                           </div>
@@ -630,18 +617,19 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
                           <div className="attendance-control" style={{ opacity: role === 'guest_viewer' ? 0.6 : 1, pointerEvents: role === 'guest_viewer' ? 'none' : 'auto' }}>
                             <button
                               className={`attendance-btn present ${athlete.readiness === 'ready' ? 'active' : ''}`}
-                              onClick={() => handleUpdate(athlete.id, 'readiness', 'ready')}
+                              onClick={() => handleUpdate(athleteKey, 'readiness', 'ready')}
                               disabled={role === 'guest_viewer'}
                             >Ready</button>
                             <button
                               className={`attendance-btn neutral ${athlete.readiness === 'not-ready' ? 'active' : ''}`}
-                              onClick={() => handleUpdate(athlete.id, 'readiness', 'not-ready')}
+                              onClick={() => handleUpdate(athleteKey, 'readiness', 'not-ready')}
                               disabled={role === 'guest_viewer'}
                             >Not Ready</button>
                           </div>
                         </td>
                       </tr>
-                    ))
+                    );
+                    })
                   )}
                 </tbody>
               </table>
@@ -698,7 +686,7 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
                   <label>Category</label>
                   <select required className="form-input" value={addForm.categoryId} onChange={e => setAddForm(p => ({...p, categoryId: e.target.value}))}>
                     <option value="" disabled>Select Category</option>
-                    {categories.map(c => <option key={c.id} value={c.id}>{c.name} ({c.athletes.length} athletes)</option>)}
+                    {categories.map(c => <option key={c.id} value={c.id}>{c.name} ({(c.athletes || []).length} athletes)</option>)}
                   </select>
                 </div>
                 {specialCategories.length > 0 && (

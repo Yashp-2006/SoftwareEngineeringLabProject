@@ -9,6 +9,7 @@ import { toast } from 'react-hot-toast';
 import OnSpotEntryModal from '@/modules/competitions/components/athlete/OnSpotEntryModal';
 import { sortCategories } from '@/lib/categoryUtils';
 import { verifyPassword } from '@/lib/hash';
+import { gsap } from 'gsap';
 
 export default function CompetitionDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
@@ -180,20 +181,16 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
   }, [id, user]);
 
   useEffect(() => {
-    const gsap = (window as any).gsap;
-    let ctx: any;
-    if (gsap) {
-      ctx = gsap.context(() => {
-        gsap.from('.stagger-in', {
-          y: 20,
-          opacity: 0,
-          duration: 0.8,
-          stagger: 0.15,
-          ease: 'expo.out'
-        });
+    const ctx = gsap.context(() => {
+      gsap.from('.stagger-in', {
+        y: 20,
+        opacity: 0,
+        duration: 0.8,
+        stagger: 0.15,
+        ease: 'expo.out'
       });
-    }
-    return () => { if (ctx) ctx.revert(); };
+    });
+    return () => { ctx.revert(); };
   }, [compData]); // Re-run when data loads
 
   const handleShareLink = () => {
