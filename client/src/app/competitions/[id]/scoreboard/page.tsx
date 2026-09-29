@@ -233,9 +233,16 @@ function ScoreboardContent({ id }: { id: string }) {
   }, [id, matId, applyStatePayload]);
 
   // Fullscreen management
+  const containerRef = useRef<HTMLDivElement>(null);
+
   const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {});
+      const el = containerRef.current || document.documentElement;
+      if (el.requestFullscreen) {
+        el.requestFullscreen().catch(() => {
+          document.documentElement.requestFullscreen().catch(() => {});
+        });
+      }
     } else {
       if (document.exitFullscreen) {
         document.exitFullscreen().catch(() => {});
@@ -266,9 +273,10 @@ function ScoreboardContent({ id }: { id: string }) {
   useEffect(() => {
     if (autoFullscreen) {
       const timer = setTimeout(() => {
-        document.documentElement.requestFullscreen().catch(() => {
-          // Browsers require a user gesture if window.open was not directly user-initiated
-        });
+        const el = containerRef.current || document.documentElement;
+        if (el.requestFullscreen) {
+          el.requestFullscreen().catch(() => {});
+        }
       }, 300);
       return () => clearTimeout(timer);
     }
@@ -285,6 +293,7 @@ function ScoreboardContent({ id }: { id: string }) {
 
   return (
     <div
+      ref={containerRef}
       onMouseMove={handleMouseMove}
       onDoubleClick={toggleFullscreen}
       style={{

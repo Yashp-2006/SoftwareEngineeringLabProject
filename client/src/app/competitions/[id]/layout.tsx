@@ -107,6 +107,10 @@ export default function CompetitionLayout({
 
   const joinParam = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('join') === 'true' ? '?join=true' : '';
 
+  if (pathname.includes('/scoreboard')) {
+    return <>{children}</>;
+  }
+
   return (
     <>
       <div className="sub-nav">
@@ -140,7 +144,7 @@ export default function CompetitionLayout({
         </Link>
         <Link
           href={`/competitions/${id}/mats${joinParam}`}
-          className={`sub-nav-link ${isActive('/mats') ? 'active' : ''}`}
+          className={`sub-nav-link ${isActive('/mats') || isActive('/operator') ? 'active' : ''}`}
         >
           Mats
         </Link>
@@ -187,15 +191,6 @@ export default function CompetitionLayout({
         >
           Schedule
         </Link>
-
-        {showOperator && (
-          <Link
-            href={`/competitions/${id}/operator${joinParam}`}
-            className={`sub-nav-link ${isActive('/operator') ? 'active' : ''}`}
-          >
-            Mat Operations
-          </Link>
-        )}
       </div>
 
       {children}

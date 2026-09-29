@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import Link from 'next/link';
 import { Maximize, ArrowLeft, Play, Pause, Flag, RotateCw, Coffee, Tv, ShieldAlert, ShieldCheck } from 'lucide-react';
 import Header from '@/modules/core/layout/Header';
 import PasswordGateway from '@/modules/auth/components/PasswordGateway';
@@ -1460,6 +1461,60 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
       `}} />
 
       <main className="container">
+        {isAdmin && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', background: 'var(--neutral-900)', color: '#fff', borderRadius: '10px', marginBottom: '20px', flexWrap: 'wrap', border: '1px solid var(--neutral-700)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginRight: '8px' }}>
+              <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: 'var(--status-live)' }} />
+              <span style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--neutral-400)' }}>
+                Admin Mat Monitor:
+              </span>
+            </div>
+            <Link
+              href={`/competitions/${id}/mats`}
+              style={{
+                color: '#fff',
+                textDecoration: 'none',
+                fontSize: '12px',
+                fontWeight: 700,
+                padding: '4px 10px',
+                borderRadius: '6px',
+                background: 'rgba(255,255,255,0.15)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                marginRight: '8px'
+              }}
+            >
+              ← All Mats
+            </Link>
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+              {Array.from({ length: compData?.mats || 6 }, (_, i) => {
+                const mNum = (i + 1).toString().padStart(2, '0');
+                const mId = `mat-${i + 1}`;
+                const isCurrent = matIdParam === mId || matIdParam === `mat-${mNum}`;
+                return (
+                  <Link
+                    key={mId}
+                    href={`/competitions/${id}/operator?mat=${mId}`}
+                    style={{
+                      color: isCurrent ? '#000' : '#fff',
+                      background: isCurrent ? 'var(--status-live)' : 'rgba(255,255,255,0.1)',
+                      padding: '4px 12px',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: 800,
+                      textDecoration: 'none',
+                      boxShadow: isCurrent ? '0 0 10px rgba(34, 197, 94, 0.4)' : 'none',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    MAT {mNum}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
         <header className="page-header" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
           <div style={{ flex: '1 1 min-content' }}>
             <div className="breadcrumb" style={{ fontSize: '13px', fontWeight: 800, color: 'var(--neutral-500)', letterSpacing: '0.1em', marginBottom: '8px' }}>

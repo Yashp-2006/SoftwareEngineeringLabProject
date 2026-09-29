@@ -50,7 +50,7 @@ export default function Sidebar() {
     window.location.href = '/login';
   };
 
-  if (pathname === '/' || pathname.startsWith('/login') || pathname.startsWith('/live')) {
+  if (pathname === '/' || pathname.startsWith('/login') || pathname.startsWith('/live') || pathname.includes('/scoreboard')) {
     return null;
   }
 

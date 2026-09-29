@@ -750,27 +750,29 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
       )}
 
       {/* Custom Confirm Modal */}
-      <div className={`confirm-modal-overlay ${deleteConfirmOpen ? 'active' : ''}`} onClick={(e) => {
-        if (e.target === e.currentTarget) setDeleteConfirmOpen(false);
-      }}>
-        <div className="confirm-modal-card">
-          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px', borderRadius: '50%', background: 'rgba(217,38,44,0.1)', color: 'var(--aka)', marginBottom: '16px' }}>
-            <ShieldAlert size={24} />
-          </div>
-          <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--neutral-900)', marginBottom: '8px' }}>Remove Staff Member</h3>
-          <p style={{ fontSize: '14px', color: 'var(--neutral-500)', lineHeight: '1.5', marginBottom: '24px', textAlign: 'center' }}>
-            Are you sure you want to remove this staff member? This action will clear their current assignments and credentials.
-          </p>
-          <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-            <button onClick={() => setDeleteConfirmOpen(false)} className="confirm-btn-cancel" type="button">
-              Cancel
-            </button>
-            <button onClick={confirmDeleteRosterMember} className="confirm-btn-danger" type="button">
-              Remove
-            </button>
+      {deleteConfirmOpen && (
+        <div className="confirm-modal-overlay active" onClick={(e) => {
+          if (e.target === e.currentTarget) setDeleteConfirmOpen(false);
+        }}>
+          <div className="confirm-modal-card">
+            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px', borderRadius: '50%', background: 'rgba(217,38,44,0.1)', color: 'var(--aka)', marginBottom: '16px' }}>
+              <ShieldAlert size={24} />
+            </div>
+            <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--neutral-900)', marginBottom: '8px' }}>Remove Staff Member</h3>
+            <p style={{ fontSize: '14px', color: 'var(--neutral-500)', lineHeight: '1.5', marginBottom: '24px', textAlign: 'center' }}>
+              Are you sure you want to remove this staff member? This action will clear their current assignments and credentials.
+            </p>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button onClick={() => setDeleteConfirmOpen(false)} className="confirm-btn-cancel" type="button">
+                Cancel
+              </button>
+              <button onClick={confirmDeleteRosterMember} className="confirm-btn-danger" type="button">
+                Remove
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </>
   );
 }

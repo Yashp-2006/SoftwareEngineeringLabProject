@@ -1,12 +1,32 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useAuth } from '@/modules/auth/components/AuthProvider';
-import { LayoutGrid, Plus, Timer, Activity, Coffee, CalendarPlus, Key, Eye, EyeOff, Trash2, Image as ImageIcon, X, Trophy, Medal, CheckCircle2 } from 'lucide-react';
+import { 
+  Plus, 
+  Timer, 
+  Coffee, 
+  Eye, 
+  EyeOff, 
+  Image as ImageIcon, 
+  X, 
+  Trophy, 
+  Medal, 
+  CheckCircle2, 
+  Tv, 
+  ArrowLeft, 
+  User, 
+  ListOrdered, 
+  Activity,
+  CalendarPlus,
+  Play
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { sortCategories } from '@/lib/categoryUtils';
+import KumiteLiveScoreboard from '@/modules/kumite/components/KumiteLiveScoreboard';
+import KataLiveScoreboard, { deriveJudgeVotes } from '@/modules/kata/components/KataLiveScoreboard';
+import ScaleWrapper from '@/modules/shared/components/ScaleWrapper';
 
 interface MatData {
   id: string; // e.g. 'mat-1'
@@ -17,40 +37,120 @@ interface MatData {
 
 interface RTDBMatState {
   status: 'live' | 'standby' | 'paused' | 'upcoming';
+  category?: string;
   currentCategory?: string;
-  currentMatch?: string; // e.g. "Semi-Final"
+  isKata?: boolean;
+  currentMatch?: string;
+  matchDisplayId?: string;
   scores?: {
     aka: number;
     ao: number;
     akaPen: number;
     aoPen: number;
   };
-  timeRemaining?: string; // e.g. "01:42"
+  aka?: {
+    name?: string;
+    country?: string;
+    academy?: string;
+    score?: number;
+    ippon?: number;
+    waza?: number;
+    yuko?: number;
+    c1?: number;
+    c2?: number;
+    senshu?: boolean;
+  };
+  ao?: {
+    name?: string;
+    country?: string;
+    academy?: string;
+    score?: number;
+    ippon?: number;
+    waza?: number;
+    yuko?: number;
+    c1?: number;
+    c2?: number;
+    senshu?: boolean;
+  };
+  winner?: {
+    name?: string;
+    color?: 'aka' | 'ao';
+  };
+  timeRemaining?: string;
+  timerRunning?: boolean;
+}
+
+interface StaffMember {
+  id: string;
+  name?: string;
+  displayName?: string;
+  email?: string;
+  userId?: string;
+  role?: string;
+  assignedMats?: string[];
+  assignedCategories?: string[];
 }
 
 export default function MatsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
-  const { role } = useAuth();
+  const { user, role, loading: authLoading } = useAuth();
 
-  // Viewers: anyone who is not admin/guest_viewer or mat_operator
-  const isViewer = role !== 'admin' && role !== 'guest_viewer' && role !== 'mat_operator';
-  // Config/write ops: only admin or guest_viewer (not mat_operator)
+  const isAdmin = role === 'admin';
   const isAdminOrGuest = role === 'admin' || role === 'guest_viewer';
 
   const [mats, setMats] = useState<MatData[]>([]);
   const [liveStates, setLiveStates] = useState<Record<string, RTDBMatState>>({});
   const [categoryByMat, setCategoryByMat] = useState<Record<string, { name: string; status: string; entries: number; athletes: any[] }[]>>({});
+  const [allCategories, setAllCategories] = useState<any[]>([]);
+  const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSeeding, setIsSeeding] = useState(false);
   const [compMatsCount, setCompMatsCount] = useState<number>(6);
+  const [compName, setCompName] = useState<string>('Tournament');
   const [showConfig, setShowConfig] = useState(false);
   const [scoreboardLogo, setScoreboardLogo] = useState<string | null>(null);
   const [showPasswordMap, setShowPasswordMap] = useState<Record<string, boolean>>({});
   const [tempPasswords, setTempPasswords] = useState<Record<string, string>>({});
 
+  // Spectator View State: selected mat for spectating
+  const [selectedMat, setSelectedMat] = useState<string | null>(null);
+  const [spectateTab, setSpectateTab] = useState<'scoreboard' | 'upcoming' | 'leaderboard'>('scoreboard');
+
+  // Check URL on load for pre-selected mat (?spectate=mat-1 or ?mat=mat-1)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const sp = new URLSearchParams(window.location.search);
+      const spectateParam = sp.get('spectate') || sp.get('mat');
+      if (spectateParam) {
+        setSelectedMat(spectateParam);
+      }
+    }
+  }, []);
+
+  // Sync selectedMat back to URL without full refresh
+  const handleSelectMat = (matId: string) => {
+    setSelectedMat(matId);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('spectate', matId);
+      window.history.pushState({}, '', url.toString());
+    }
+  };
+
+  const handleBackToAllMats = () => {
+    setSelectedMat(null);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('spectate');
+      url.searchParams.delete('mat');
+      window.history.pushState({}, '', url.toString());
+    }
+  };
+
   useEffect(() => {
     let unsubFirestore: () => void;
     let unsubCats: () => void;
+    let unsubStaff: () => void;
     let rtdbUnsubs: Record<string, () => void> = {};
 
     const setup = async () => {
@@ -60,30 +160,49 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
         import('firebase/database'),
       ]);
 
-      // Start all listeners in parallel
-      const [compSnap] = await Promise.all([
-        getDoc(doc(db, 'competitions', id)),
-      ]);
+      // Competition metadata
+      const compSnap = await getDoc(doc(db, 'competitions', id));
       if (compSnap.exists()) {
         const cData = compSnap.data();
+        if (cData.name) setCompName(cData.name);
         if (cData.mats) setCompMatsCount(cData.mats);
         if (cData.scoreboardLogo) setScoreboardLogo(cData.scoreboardLogo);
       }
+
+      // Staff listener
+      const staffQ = collection(db, 'competitions', id, 'staff');
+      unsubStaff = onSnapshot(staffQ, (snap) => {
+        const staff = snap.docs.map(d => ({
+          id: d.id,
+          ...d.data()
+        })) as StaffMember[];
+        setStaffList(staff);
+      });
 
       // Categories listener
       const catsQ = query(collection(db, 'competitions', id, 'categories'), orderBy('order'));
       unsubCats = onSnapshot(catsQ, (snap) => {
         const byMat: Record<string, { name: string; status: string; entries: number; athletes: any[] }[]> = {};
+        const rawCats: any[] = [];
+
         snap.docs.forEach(d => {
           const data = d.data();
+          rawCats.push({ id: d.id, ...data });
           const matName = (data.mat || '').toUpperCase();
           if (!byMat[matName]) byMat[matName] = [];
-          byMat[matName].push({ name: data.name, status: data.status || 'upcoming', entries: data.entries || 0, athletes: data.athletes || [] });
+          byMat[matName].push({ 
+            name: data.name, 
+            status: data.status || 'upcoming', 
+            entries: data.entries || 0, 
+            athletes: data.athletes || [] 
+          });
         });
+
         Object.keys(byMat).forEach(matName => {
           byMat[matName] = sortCategories(byMat[matName]);
         });
         setCategoryByMat(byMat);
+        setAllCategories(rawCats);
       });
 
       // Mats listener
@@ -93,7 +212,7 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
         setMats(matsList);
         setLoading(false);
 
-        // Subscribe to RTDB for each mat (skip already-subscribed)
+        // Subscribe to RTDB for each mat
         matsList.forEach(mat => {
           if (!rtdbUnsubs[mat.id]) {
             const matRef = ref(rtdb, `live_scores/${id}/mats/${mat.id}`);
@@ -112,12 +231,24 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
     return () => {
       if (unsubFirestore) unsubFirestore();
       if (unsubCats) unsubCats();
+      if (unsubStaff) unsubStaff();
       Object.values(rtdbUnsubs).forEach(unsub => unsub());
     };
   }, [id]);
 
-  // Removed GSAP stagger animation per user request (no fades)
+  // Determine current user's operator status
+  const currentStaff = useMemo(() => {
+    if (!user) return null;
+    return staffList.find(s => s.userId === user.uid || (user.email && s.email?.toLowerCase() === user.email.toLowerCase()));
+  }, [staffList, user]);
 
+  const staffRole = currentStaff?.role;
+  const isMatOperator = role === 'mat_operator' || staffRole === 'score';
+  const assignedMats = useMemo(() => {
+    return currentStaff?.assignedMats || [];
+  }, [currentStaff]);
+
+  // Handle seeding mats
   const handleSeedMats = async () => {
     setIsSeeding(true);
     try {
@@ -134,8 +265,10 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
       }
       
       await batch.commit();
+      toast.success(`Generated ${compMatsCount} mats successfully!`);
     } catch (err) {
       console.error('Failed to seed mats', err);
+      toast.error('Failed to generate mats');
     } finally {
       setIsSeeding(false);
     }
@@ -175,8 +308,58 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
     setShowPasswordMap(prev => ({ ...prev, [matId]: !prev[matId] }));
   };
 
-  const activeCount = Object.values(liveStates).filter(s => s.status === 'live').length;
-  const standbyCount = mats.length - activeCount;
+  // Spectator View Calculations for selectedMat
+  const selectedMatData = useMemo(() => {
+    if (!selectedMat) return null;
+    return mats.find(m => m.id === selectedMat) || {
+      id: selectedMat,
+      name: `MAT ${selectedMat.replace('mat-', '').padStart(2, '0')}`,
+      order: 1
+    };
+  }, [mats, selectedMat]);
+
+  const selectedMatName = selectedMatData?.name || 'MAT 01';
+  const selectedLiveState = selectedMat ? (liveStates[selectedMat] || { status: 'standby' }) : null;
+
+  // Categories and matches for selected mat
+  const categoriesOnSelectedMat = useMemo(() => {
+    return allCategories.filter(c => (c.mat || '').toUpperCase() === selectedMatName.toUpperCase());
+  }, [allCategories, selectedMatName]);
+
+  const upcomingMatchesOnMat = useMemo(() => {
+    const list: any[] = [];
+    categoriesOnSelectedMat.forEach(cat => {
+      (cat.matches || []).forEach((m: any, idx: number) => {
+        if (m.status !== 'completed') {
+          list.push({
+            ...m,
+            categoryName: cat.name,
+            categoryId: cat.id,
+            isKata: Boolean(cat.isKata),
+            orderNum: idx + 1
+          });
+        }
+      });
+    });
+    return list;
+  }, [categoriesOnSelectedMat]);
+
+  const completedMatchesOnMat = useMemo(() => {
+    const list: any[] = [];
+    categoriesOnSelectedMat.forEach(cat => {
+      (cat.matches || []).forEach((m: any) => {
+        if (m.status === 'completed' && m.winnerId) {
+          list.push({
+            ...m,
+            categoryName: cat.name,
+            categoryId: cat.id,
+            isKata: Boolean(cat.isKata)
+          });
+        }
+      });
+    });
+    return list;
+  }, [categoriesOnSelectedMat]);
 
   return (
     <>
@@ -198,12 +381,13 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
           position: relative;
           text-decoration: none;
           color: inherit;
+          cursor: pointer;
           transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 200ms cubic-bezier(0.23, 1, 0.32, 1), border-color 200ms cubic-bezier(0.23, 1, 0.32, 1);
         }
         .mat-card:hover {
           transform: translateY(-4px);
           box-shadow: 0 12px 24px rgba(0,0,0,0.08);
-          border-color: var(--neutral-300);
+          border-color: var(--neutral-400);
         }
         .mat-card.live {
           background-color: #dcfce7;
@@ -211,8 +395,12 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
           box-shadow: 0 8px 24px rgba(34, 197, 94, 0.15);
         }
         .mat-card.standby {
-          background-color: var(--neutral-100);
+          background-color: var(--shiro);
           border-color: var(--neutral-300);
+        }
+        .mat-card.assigned-station {
+          border: 2px solid var(--status-live);
+          box-shadow: 0 0 16px rgba(34, 197, 94, 0.25);
         }
         .mat-number {
           font-family: var(--font-display);
@@ -287,25 +475,6 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
         .score-value.aka { color: var(--aka); }
         .score-value.ao { color: var(--ao); }
         
-        .score-pen {
-          font-size: 10px;
-          font-weight: 700;
-          color: var(--neutral-500);
-          margin-top: var(--space-1);
-          background: var(--shiro);
-          padding: 2px 6px;
-          border-radius: 4px;
-          border: 1px solid var(--neutral-200);
-        }
-        
-        .score-divider {
-          font-size: 11px;
-          font-weight: 800;
-          color: var(--neutral-400);
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-        }
-        
         .mat-footer {
           display: flex;
           justify-content: space-between;
@@ -323,11 +492,6 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
           font-weight: 600;
           color: var(--neutral-700);
         }
-        .time-remaining i {
-          width: 14px;
-          height: 14px;
-          color: var(--status-live);
-        }
         .btn-action {
           background: var(--neutral-100);
           color: var(--neutral-700);
@@ -335,12 +499,12 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
           padding: 8px 16px;
           border-radius: 6px;
           font-size: 12px;
-          font-weight: 600;
+          font-weight: 700;
           cursor: pointer;
-          transition: background 160ms var(--ease-out), color 160ms var(--ease-out);
           display: inline-flex;
           align-items: center;
           gap: 6px;
+          transition: background 160ms ease, color 160ms ease;
         }
         .btn-action:hover {
           background: var(--neutral-200);
@@ -351,436 +515,623 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
           color: var(--shiro);
         }
         .btn-action.primary:hover {
-          background: var(--neutral-700);
+          background: var(--neutral-900);
         }
-        
-        /* Standby State */
-        .standby-state {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          height: 154px;
-          background: var(--neutral-50);
-          border: 1px dashed var(--neutral-300);
+        .spectate-tab-btn {
+          padding: 8px 16px;
           border-radius: 8px;
-          margin-bottom: var(--space-4);
-          transition: border-color 160ms var(--ease-out), background 160ms var(--ease-out);
-        }
-        .mat-card:hover .standby-state {
-          border-color: var(--neutral-400);
-          background: var(--neutral-100);
-        }
-        .standby-state i {
-          color: var(--neutral-400);
-          margin-bottom: var(--space-2);
-          width: 28px;
-          height: 28px;
-        }
-        .standby-state span {
-          font-size: 14px;
-          font-weight: 600;
-          color: var(--neutral-500);
-        }
-        
-        .status-chip {
-          padding: 4px 10px;
-          border-radius: 6px;
-          font-size: 11px;
-          font-weight: 800;
-          letter-spacing: 0.05em;
-          text-transform: uppercase;
+          font-size: 13px;
+          font-weight: 700;
+          border: 1px solid transparent;
+          cursor: pointer;
           display: inline-flex;
           align-items: center;
-          gap: 4px;
+          gap: 8px;
+          transition: all 160ms ease;
+          background: var(--neutral-100);
+          color: var(--neutral-700);
         }
-        .status-chip.status-live { background: var(--status-live-bg); color: var(--status-live); }
-        .status-chip.status-live::before {
-          content: '';
-          display: block;
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          background: var(--status-live);
-          box-shadow: 0 0 0 2px var(--status-live-bg);
-          animation: pulse 2s infinite;
-        }
-        .status-chip.status-done { background: var(--neutral-100); color: var(--neutral-500); }
-        
-        @keyframes pulse {
-          0% { box-shadow: 0 0 0 0 rgba(98, 224, 145, 0.4); }
-          70% { box-shadow: 0 0 0 6px rgba(98, 224, 145, 0); }
-          100% { box-shadow: 0 0 0 0 rgba(98, 224, 145, 0); }
-        }
-        @keyframes shimmer {
-          0% { opacity: 1; }
-          50% { opacity: 0.4; }
-          100% { opacity: 1; }
-        }
-        
-        .filters {
-          display: flex;
-          gap: var(--space-2);
-        }
-        .filter-btn {
-          background: transparent;
-          border: 1px solid var(--neutral-200);
-          color: var(--neutral-600);
-          padding: 6px 16px;
-          border-radius: 999px;
-          font-size: 13px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: background 160ms var(--ease-out), color 160ms var(--ease-out);
-        }
-        .filter-btn:hover {
-          background: var(--neutral-50);
-          color: var(--neutral-900);
-        }
-        .filter-btn.active {
+        .spectate-tab-btn.active {
           background: var(--kuro);
-          color: var(--shiro);
+          color: #fff;
           border-color: var(--kuro);
         }
-        
-
-        .controls-row {
+        .operator-hero-card {
+          background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+          color: #ffffff;
+          border-radius: 16px;
+          padding: 24px;
+          margin-bottom: 24px;
           display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 20px;
           flex-wrap: wrap;
-          gap: var(--space-3);
-        }
-        
-        .empty-state {
-          padding: var(--space-10);
-          text-align: center;
-          background: var(--shiro);
-          border: 1px solid var(--neutral-300);
-          border-radius: 12px;
-          box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-          margin-top: var(--space-5);
+          box-shadow: 0 10px 30px rgba(15, 23, 42, 0.15);
         }
       `}} />
 
-      <main className="container">
-        <header className="page-header">
+      <main className="container" style={{ paddingBottom: '60px' }}>
+        {/* ========================================================
+            VIEW A: SPECTATOR DEDICATED MAT VIEW (When selectedMat is set)
+            ======================================================== */}
+        {selectedMat ? (
           <div>
-            <div className="breadcrumb">
-              <Link href="/competitions" style={{ color: 'inherit', textDecoration: 'none' }}>Competitions</Link> / {id} / Mats
-            </div>
-            <h1>{isViewer ? 'Live Mats' : 'Mats'}</h1>
-          </div>
-          {isAdminOrGuest && (
-            <div className="page-header-actions">
-              <div className="controls-row">
-                <button className="btn btn-secondary" onClick={() => setShowConfig(!showConfig)}>
-                  <Activity style={{ width: '16px', marginRight: '6px' }} /> {showConfig ? 'Hide Settings' : 'Mat Settings'}
+            {/* Top Navigation Bar */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap', marginBottom: '24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={handleBackToAllMats}
+                  className="btn btn-secondary"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}
+                >
+                  <ArrowLeft size={16} /> All Mats
                 </button>
-                <button className="btn btn-primary" onClick={handleSeedMats} disabled={isSeeding || mats.length > 0}>
-                  <Plus style={{ width: '16px', marginRight: '6px' }} /> 
-                  {isSeeding ? 'Adding...' : 'Add Mats'}
-                </button>
-              </div>
-            </div>
-          )}
-        </header>
-
-        {isAdminOrGuest && showConfig && (
-          <div style={{ background: 'var(--shiro)', padding: 'var(--space-5)', borderRadius: '12px', border: '1px solid var(--neutral-200)', marginBottom: 'var(--space-5)', display: 'flex', gap: 'var(--space-6)', flexWrap: 'wrap' }}>
-            <div style={{ flex: '1 1 300px' }}>
-              <div className="flex-between mb-4">
                 <div>
-                  <h4 style={{ margin: 0, fontSize: '14px' }}>Scoreboard Logo (Optional)</h4>
-                  <p className="text-small" style={{ marginTop: '4px', color: 'var(--neutral-500)' }}>Upload a 1:1 ratio logo to display on all scoreboards.</p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <h1 style={{ fontSize: '32px', margin: 0 }}>{selectedMatName} Live Spectate</h1>
+                    {selectedLiveState?.status === 'live' ? (
+                      <span className="status-chip status-live">Live</span>
+                    ) : (
+                      <span className="status-chip status-done">Standby</span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '13px', color: 'var(--neutral-500)', fontWeight: 600 }}>
+                    {compName} • {selectedLiveState?.category || selectedLiveState?.currentCategory || 'Kumite'}
+                  </div>
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                {scoreboardLogo && (
-                  <div style={{ position: 'relative', width: '48px', height: '48px', borderRadius: '8px', overflow: 'hidden', background: '#fff', border: '1px solid var(--neutral-200)', flexShrink: 0 }}>
-                    <Image src={scoreboardLogo} alt="Logo" fill style={{ objectFit: 'contain' }} />
+
+              {/* View Mode Switcher */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className={`spectate-tab-btn ${spectateTab === 'scoreboard' ? 'active' : ''}`}
+                  onClick={() => setSpectateTab('scoreboard')}
+                >
+                  <Tv size={16} /> Live Scoreboard
+                </button>
+                <button
+                  type="button"
+                  className={`spectate-tab-btn ${spectateTab === 'upcoming' ? 'active' : ''}`}
+                  onClick={() => setSpectateTab('upcoming')}
+                >
+                  <ListOrdered size={16} /> Upcoming Matches ({upcomingMatchesOnMat.length})
+                </button>
+                <button
+                  type="button"
+                  className={`spectate-tab-btn ${spectateTab === 'leaderboard' ? 'active' : ''}`}
+                  onClick={() => setSpectateTab('leaderboard')}
+                >
+                  <Trophy size={16} /> Mat Leaderboard
+                </button>
+
+                {isAdmin && (
+                  <Link
+                    href={`/competitions/${id}/operator?mat=${selectedMat}`}
+                    className="btn btn-primary"
+                    style={{ marginLeft: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    Open Operator Controls →
+                  </Link>
+                )}
+              </div>
+            </div>
+
+            {/* TAB 1: LIVE SCOREBOARD */}
+            {spectateTab === 'scoreboard' && (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
+                  <Link
+                    href={`/competitions/${id}/scoreboard?mat=${selectedMat}&auto=1`}
+                    target="_blank"
+                    className="btn btn-secondary"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}
+                  >
+                    <Tv size={16} /> Open Dedicated Fullscreen Display
+                  </Link>
+                </div>
+
+                <div style={{ width: '100%', minHeight: '600px', background: '#000', borderRadius: '16px', overflow: 'hidden', position: 'relative' }}>
+                  <ScaleWrapper>
+                    {selectedLiveState?.isKata ? (
+                      <KataLiveScoreboard
+                        akaName={selectedLiveState?.aka?.name || 'AKA'}
+                        aoName={selectedLiveState?.ao?.name || 'AO'}
+                        akaAcademy={selectedLiveState?.aka?.academy || ''}
+                        aoAcademy={selectedLiveState?.ao?.academy || ''}
+                        akaCountry={selectedLiveState?.aka?.country || ''}
+                        aoCountry={selectedLiveState?.ao?.country || ''}
+                        numberOfJudges={3}
+                        judgeVotes={[null, null, null]}
+                        akaFlags={0}
+                        aoFlags={0}
+                        revealVotes={false}
+                        revealCountdown={0}
+                        timeRemaining={selectedLiveState?.timeRemaining || '03:00'}
+                        matchStatus={selectedLiveState?.status === 'live' ? 'LIVE' : (selectedLiveState?.status?.toUpperCase() || 'STANDBY')}
+                        title={`${selectedMatName}: Kata Scoreboard`}
+                        subtitle={`${compName} • ${selectedLiveState?.category || 'Kata'}`}
+                        isFullscreen={false}
+                        winnerName={selectedLiveState?.winner?.name}
+                      />
+                    ) : (
+                      <KumiteLiveScoreboard
+                        akaName={selectedLiveState?.aka?.name || 'AKA'}
+                        aoName={selectedLiveState?.ao?.name || 'AO'}
+                        akaAcademy={selectedLiveState?.aka?.academy || ''}
+                        aoAcademy={selectedLiveState?.ao?.academy || ''}
+                        akaCountry={selectedLiveState?.aka?.country || ''}
+                        aoCountry={selectedLiveState?.ao?.country || ''}
+                        akaScore={selectedLiveState?.scores?.aka || 0}
+                        aoScore={selectedLiveState?.scores?.ao || 0}
+                        akaIppon={selectedLiveState?.aka?.ippon || 0}
+                        aoIppon={selectedLiveState?.ao?.ippon || 0}
+                        akaWazaari={selectedLiveState?.aka?.waza || 0}
+                        aoWazaari={selectedLiveState?.ao?.waza || 0}
+                        akaYuko={selectedLiveState?.aka?.yuko || 0}
+                        aoYuko={selectedLiveState?.ao?.yuko || 0}
+                        akaC1={selectedLiveState?.scores?.akaPen || 0}
+                        aoC1={selectedLiveState?.scores?.aoPen || 0}
+                        akaC2={selectedLiveState?.aka?.c2 || 0}
+                        aoC2={selectedLiveState?.ao?.c2 || 0}
+                        akaSenshu={selectedLiveState?.aka?.senshu || false}
+                        aoSenshu={selectedLiveState?.ao?.senshu || false}
+                        timerDisplay={selectedLiveState?.timeRemaining || '03:00'}
+                        timerColor={selectedLiveState?.timerRunning ? 'var(--status-live)' : 'var(--neutral-400)'}
+                        matchStatus={selectedLiveState?.status === 'live' ? 'MATCH LIVE' : (selectedLiveState?.status?.toUpperCase() || 'STANDBY')}
+                        title={compName}
+                        categoryName={selectedLiveState?.category || selectedLiveState?.currentCategory || 'KUMITE'}
+                        matchId={`${selectedMatName} - ${selectedLiveState?.currentMatch || selectedLiveState?.matchDisplayId || 'MATCH'}`}
+                        winnerName={selectedLiveState?.winner?.name}
+                        winnerColor={selectedLiveState?.winner?.color}
+                        isFullscreen={false}
+                      />
+                    )}
+                  </ScaleWrapper>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 2: UPCOMING MATCHES */}
+            {spectateTab === 'upcoming' && (
+              <div style={{ background: 'var(--shiro)', borderRadius: '16px', border: '1px solid var(--neutral-300)', padding: '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                  <div>
+                    <h2 style={{ fontSize: '20px', fontWeight: 800, margin: 0 }}>Upcoming Matches on {selectedMatName}</h2>
+                    <p style={{ fontSize: '13px', color: 'var(--neutral-500)', margin: '4px 0 0' }}>Scheduled bouts queued for this mat station.</p>
+                  </div>
+                  <span className="status-chip" style={{ background: 'var(--neutral-100)', color: 'var(--neutral-700)' }}>
+                    {upcomingMatchesOnMat.length} in queue
+                  </span>
+                </div>
+
+                {upcomingMatchesOnMat.length === 0 ? (
+                  <div style={{ padding: '48px 24px', textAlign: 'center', color: 'var(--neutral-500)' }}>
+                    <CheckCircle2 size={36} style={{ color: 'var(--status-live)', margin: '0 auto 12px' }} />
+                    <p style={{ fontWeight: 700, fontSize: '16px', margin: 0 }}>No Pending Matches in Queue</p>
+                    <p style={{ fontSize: '13px', margin: '4px 0 0' }}>All categories on this mat are either completed or awaiting generation.</p>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {upcomingMatchesOnMat.map((m, idx) => (
+                      <div
+                        key={m.id || idx}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '16px',
+                          padding: '16px 20px',
+                          borderRadius: '12px',
+                          border: '1px solid var(--neutral-200)',
+                          background: idx === 0 ? 'rgba(34, 197, 94, 0.05)' : 'var(--neutral-50)',
+                          flexWrap: 'wrap'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 800, fontSize: '16px', color: 'var(--neutral-400)' }}>
+                            #{idx + 1}
+                          </span>
+                          <div>
+                            <span style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--neutral-500)', display: 'block' }}>
+                              {m.categoryName} {m.pool ? `• Pool ${m.pool}` : ''}
+                            </span>
+                            <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--neutral-900)', marginTop: '2px' }}>
+                              <span style={{ color: 'var(--aka)' }}>{m.aka?.name || m.aka || 'AKA'}</span>
+                              <span style={{ color: 'var(--neutral-400)', margin: '0 8px' }}>vs</span>
+                              <span style={{ color: 'var(--ao)' }}>{m.ao?.name || m.ao || 'AO'}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div>
+                          {idx === 0 ? (
+                            <span className="status-chip status-live" style={{ fontSize: '11px' }}>NEXT BOUT</span>
+                          ) : (
+                            <span className="status-chip" style={{ background: 'var(--neutral-200)', color: 'var(--neutral-700)', fontSize: '11px' }}>QUEUED</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
-                <div style={{ flex: 1 }}>
-                  <input type="file" accept="image/*" onChange={handleLogoUpload} className="input-field" style={{ padding: '8px', height: 'auto', background: '#fff', width: '100%' }} />
+              </div>
+            )}
+
+            {/* TAB 3: MAT LEADERBOARD & RESULTS */}
+            {spectateTab === 'leaderboard' && (
+              <div style={{ background: 'var(--shiro)', borderRadius: '16px', border: '1px solid var(--neutral-300)', padding: '24px' }}>
+                <div style={{ marginBottom: '20px' }}>
+                  <h2 style={{ fontSize: '20px', fontWeight: 800, margin: 0 }}>{selectedMatName} Leaderboard & Completed Matches</h2>
+                  <p style={{ fontSize: '13px', color: 'var(--neutral-500)', margin: '4px 0 0' }}>Finished bouts and podium results recorded on this mat.</p>
                 </div>
-                {scoreboardLogo && (
-                  <button className="btn btn-ghost" onClick={async () => {
-                    setScoreboardLogo(null);
-                    const { db } = await import('@lib/firebase');
-                    const { doc, updateDoc } = await import('firebase/firestore');
-                    await updateDoc(doc(db, 'competitions', id), { scoreboardLogo: null });
-                  }} style={{ color: 'var(--aka)' }}>
-                    <Trash2 size={16} />
-                  </button>
+
+                {completedMatchesOnMat.length === 0 ? (
+                  <div style={{ padding: '48px 24px', textAlign: 'center', color: 'var(--neutral-500)' }}>
+                    <Coffee size={36} style={{ color: 'var(--neutral-400)', margin: '0 auto 12px' }} />
+                    <p style={{ fontWeight: 700, fontSize: '16px', margin: 0 }}>No Matches Completed Yet</p>
+                    <p style={{ fontSize: '13px', margin: '4px 0 0' }}>Results will appear here as soon as the mat operator completes matches.</p>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {completedMatchesOnMat.map((m, idx) => (
+                      <div
+                        key={m.id || idx}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '16px 20px',
+                          borderRadius: '12px',
+                          border: '1px solid var(--neutral-200)',
+                          background: 'var(--neutral-50)',
+                          flexWrap: 'wrap',
+                          gap: '12px'
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--neutral-500)' }}>
+                            {m.categoryName} {m.pool ? `• Pool ${m.pool}` : ''}
+                          </div>
+                          <div style={{ fontSize: '16px', fontWeight: 700, marginTop: '2px' }}>
+                            <span style={{ color: m.winner === 'aka' ? 'var(--aka)' : 'var(--neutral-700)', fontWeight: m.winner === 'aka' ? 800 : 500 }}>
+                              {m.aka?.name || m.aka || 'AKA'} ({m.scores?.aka ?? m.akaScore ?? 0})
+                            </span>
+                            <span style={{ color: 'var(--neutral-400)', margin: '0 8px' }}>vs</span>
+                            <span style={{ color: m.winner === 'ao' ? 'var(--ao)' : 'var(--neutral-700)', fontWeight: m.winner === 'ao' ? 800 : 500 }}>
+                              {m.ao?.name || m.ao || 'AO'} ({m.scores?.ao ?? m.aoScore ?? 0})
+                            </span>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--neutral-700)', background: 'var(--neutral-200)', padding: '4px 10px', borderRadius: '6px' }}>
+                            Winner: {m.winnerName || (m.winner === 'aka' ? m.aka?.name : m.ao?.name) || 'Winner Declared'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
-            </div>
-            <div style={{ flex: '1 1 300px' }}>
-              <div className="flex-between mb-4">
-                <div>
-                  <h4 style={{ margin: 0, fontSize: '14px' }}>Bulk Mat Passwords</h4>
-                  <p className="text-small" style={{ marginTop: '4px', color: 'var(--neutral-500)' }}>Set a generic password for all mats.</p>
-                </div>
-              </div>
-              <button className="btn btn-secondary" onClick={() => {
-                const pwd = prompt("Enter generic password for all mats:");
-                if (pwd) {
-                  mats.forEach(m => saveMatPassword(m.id, pwd));
-                  toast.success('Bulk password applied to all mats');
-                }
-              }} style={{ width: '100%', justifyContent: 'center' }}>
-                <Key size={16} style={{ marginRight: '8px' }}/> Set Bulk Passwords
-              </button>
-            </div>
-          </div>
-        )}
-
-        {loading ? (
-          <div className="mat-grid">
-            {Array.from({ length: compMatsCount || 6 }).map((_, i) => (
-              <div key={i} className="mat-card standby" style={{ minHeight: 220 }}>
-                <div className="mat-header">
-                  <div style={{ width: 80, height: 32, borderRadius: 6, background: 'var(--neutral-200)', animation: 'shimmer 1.4s infinite' }} />
-                  <div style={{ width: 60, height: 22, borderRadius: 6, background: 'var(--neutral-200)', animation: 'shimmer 1.4s infinite' }} />
-                </div>
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {[80, 60, 60].map((w, j) => (
-                    <div key={j} style={{ height: 12, width: `${w}%`, borderRadius: 4, background: 'var(--neutral-200)', animation: 'shimmer 1.4s infinite' }} />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : mats.length === 0 ? (
-          <div className="empty-state">
-            <h3 style={{ marginBottom: '8px' }}>No Mats Configured</h3>
-            <p style={{ color: 'var(--neutral-500)', marginBottom: '24px' }}>{isAdminOrGuest ? `Click 'Add Mats' to generate the ${compMatsCount} mats for this tournament.` : 'Mats have not been configured yet.'}</p>
-            {isAdminOrGuest && (
-              <button className="btn btn-primary" onClick={handleSeedMats} disabled={isSeeding}>
-                <Plus size={16} style={{ marginRight: '6px' }} />
-                {isSeeding ? 'Seeding...' : 'Add Mats'}
-              </button>
             )}
           </div>
         ) : (
-          <div className="mat-grid">
-            {mats.map(mat => {
-              const liveState = liveStates[mat.id] || { status: 'standby' };
-              const isLive = liveState.status === 'live' || liveState.status === 'paused';
-              const assignedCats = categoryByMat[mat.name] || [];
-              const liveCat = assignedCats.find(c => c.status === 'live');
-              const upcomingCats = assignedCats.filter(c => c.status === 'upcoming');
-              const doneCats = assignedCats.filter(c => c.status === 'done');
+          /* ========================================================
+             VIEW B: TOURNAMENT MATS OVERVIEW (When no mat is selected)
+             ======================================================== */
+          <div>
+            {/* MAT OPERATOR HERO: When current user is assigned to a mat */}
+            {isMatOperator && assignedMats.length > 0 && (
+              <div className="operator-hero-card">
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                    <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: 'var(--status-live)' }} />
+                    <span style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#94a3b8' }}>
+                      Official Staff Assignment
+                    </span>
+                  </div>
+                  <h2 style={{ fontSize: '26px', fontWeight: 800, margin: 0 }}>
+                    Assigned Station: {assignedMats.join(', ')}
+                  </h2>
+                  <p style={{ fontSize: '14px', color: '#cbd5e1', margin: '6px 0 0' }}>
+                    You are registered as the active Mat Operator. Click below to launch your operator control station.
+                  </p>
+                </div>
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                  {assignedMats.map(matName => {
+                    const matNum = matName.replace(/[^0-9]/g, '');
+                    const mId = `mat-${parseInt(matNum, 10) || 1}`;
+                    return (
+                      <Link
+                        key={matName}
+                        href={`/competitions/${id}/operator?mat=${mId}`}
+                        className="btn btn-primary"
+                        style={{
+                          background: 'var(--status-live)',
+                          color: '#000',
+                          fontWeight: 800,
+                          fontSize: '14px',
+                          padding: '12px 20px',
+                          borderRadius: '10px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          boxShadow: '0 4px 14px rgba(34, 197, 94, 0.4)'
+                        }}
+                      >
+                        <Play size={16} /> Operate {matName} Control Panel →
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
-              // Viewer-friendly card: no links to operator
-              if (isViewer) {
-                return (
-                  <div
-                    key={mat.id}
-                    className={`mat-card ${isLive || liveCat || upcomingCats.length > 0 ? 'live' : 'standby'}`}
+            {/* Standard Header */}
+            <header className="page-header" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+              <div>
+                <div className="breadcrumb" style={{ fontSize: '13px', fontWeight: 800, color: 'var(--neutral-500)', letterSpacing: '0.1em', marginBottom: '8px' }}>
+                  {compName ? compName.toUpperCase() : 'TOURNAMENT'} • MAT COVERAGE
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  <h1 style={{ fontSize: '36px', margin: 0 }}>Tournament Mats</h1>
+                  <span className="status-chip status-live">
+                    {Object.values(liveStates).filter(s => s.status === 'live').length} Active
+                  </span>
+                </div>
+                <p style={{ fontSize: '14px', color: 'var(--neutral-500)', margin: '4px 0 0' }}>
+                  Select any mat below to spectate the live scoreboard, monitor upcoming fights, or operate.
+                </p>
+              </div>
+
+              {/* Admin Actions */}
+              {isAdminOrGuest && (
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => setShowConfig(!showConfig)}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                   >
-                    <div className="mat-header">
-                      <span className="mat-number">{mat.name}</span>
-                      {isLive || liveCat ? (
-                        <span className="status-chip status-live">Live</span>
-                      ) : upcomingCats.length > 0 ? (
-                        <span className="status-chip" style={{ background: '#bbf7d0', color: '#166534' }}>
-                          {upcomingCats.length} Scheduled
-                        </span>
+                    <ImageIcon size={16} /> Scoreboard Logo
+                  </button>
+
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleSeedMats}
+                    disabled={isSeeding}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <Plus size={16} /> {isSeeding ? 'Configuring...' : `Generate ${compMatsCount} Mats`}
+                  </button>
+                </div>
+              )}
+            </header>
+
+            {/* Scoreboard Logo Config Panel */}
+            {showConfig && isAdminOrGuest && (
+              <div style={{ background: 'var(--shiro)', border: '1px solid var(--neutral-300)', borderRadius: '12px', padding: '20px', marginBottom: '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>Scoreboard Branding Logo</h3>
+                  <button onClick={() => setShowConfig(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                    <X size={18} />
+                  </button>
+                </div>
+                <p style={{ fontSize: '13px', color: 'var(--neutral-500)', marginBottom: '16px' }}>
+                  Upload a competition or sponsor logo to display on all mat scoreboards.
+                </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <input type="file" accept="image/*" onChange={handleLogoUpload} style={{ fontSize: '13px' }} />
+                  {scoreboardLogo && (
+                    <img src={scoreboardLogo} alt="Scoreboard logo" style={{ height: '36px', objectFit: 'contain' }} />
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Mats Grid */}
+            {loading ? (
+              <div className="mat-grid">
+                {[1, 2, 3, 4].map(i => (
+                  <div key={i} className="mat-card standby" style={{ minHeight: 220, opacity: 0.6 }}>
+                    <div style={{ height: '24px', background: 'var(--neutral-200)', borderRadius: '4px', width: '40%', marginBottom: '16px' }} />
+                    <div style={{ height: '40px', background: 'var(--neutral-100)', borderRadius: '8px', marginBottom: '16px' }} />
+                    <div style={{ height: '60px', background: 'var(--neutral-100)', borderRadius: '8px' }} />
+                  </div>
+                ))}
+              </div>
+            ) : mats.length === 0 ? (
+              <div style={{ padding: '60px 24px', textAlign: 'center', background: 'var(--shiro)', borderRadius: '16px', border: '1px solid var(--neutral-300)', marginTop: '24px' }}>
+                <Coffee size={40} style={{ color: 'var(--neutral-400)', margin: '0 auto 16px' }} />
+                <h3 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '8px' }}>No Mats Configured</h3>
+                <p style={{ color: 'var(--neutral-500)', marginBottom: '20px' }}>
+                  {isAdminOrGuest ? `Click 'Generate ${compMatsCount} Mats' to set up the tatami stations.` : 'Mats have not been set up for this tournament yet.'}
+                </p>
+                {isAdminOrGuest && (
+                  <button className="btn btn-primary" onClick={handleSeedMats} disabled={isSeeding}>
+                    <Plus size={16} style={{ marginRight: '6px' }} />
+                    {isSeeding ? 'Generating...' : `Generate ${compMatsCount} Mats`}
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="mat-grid">
+                {mats.map(mat => {
+                  const liveState = liveStates[mat.id] || { status: 'standby' };
+                  const isLive = liveState.status === 'live' || liveState.status === 'paused';
+                  const assignedCats = categoryByMat[mat.name] || [];
+                  const liveCat = assignedCats.find(c => c.status === 'live');
+                  const upcomingCats = assignedCats.filter(c => c.status === 'upcoming');
+                  const doneCats = assignedCats.filter(c => c.status === 'done');
+
+                  // Find operator assigned to this mat
+                  const assignedOperator = staffList.find(s => 
+                    s.role === 'score' && (s.assignedMats || []).some(m => m.toUpperCase() === mat.name.toUpperCase() || m.toLowerCase() === mat.id.toLowerCase())
+                  );
+
+                  const isCurrentUserStation = (assignedMats || []).some(m => m.toUpperCase() === mat.name.toUpperCase() || m.toLowerCase() === mat.id.toLowerCase());
+
+                  return (
+                    <div
+                      key={mat.id}
+                      className={`mat-card ${isLive ? 'live' : 'standby'} ${isCurrentUserStation ? 'assigned-station' : ''}`}
+                      onClick={() => handleSelectMat(mat.id)}
+                    >
+                      {/* Card Header */}
+                      <div className="mat-header">
+                        <div>
+                          <span className="mat-number">{mat.name}</span>
+                          {isCurrentUserStation && (
+                            <span style={{ display: 'block', fontSize: '10px', fontWeight: 800, color: 'var(--status-live)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                              ★ YOUR STATION
+                            </span>
+                          )}
+                        </div>
+                        {isLive ? (
+                          <span className="status-chip status-live">Live</span>
+                        ) : upcomingCats.length > 0 ? (
+                          <span className="status-chip" style={{ background: '#bbf7d0', color: '#166534' }}>
+                            {upcomingCats.length} Scheduled
+                          </span>
+                        ) : (
+                          <span className="status-chip status-done">Standby</span>
+                        )}
+                      </div>
+
+                      {/* Card Body */}
+                      {isLive ? (
+                        <>
+                          <div className="category-label">Current Match</div>
+                          <div className="category-title">
+                            {liveState.category || liveState.currentCategory || liveCat?.name || 'Kumite'}
+                            <br />
+                            <span style={{ color: 'var(--neutral-500)', fontWeight: 600, fontSize: '13px' }}>
+                              {liveState.currentMatch || liveState.matchDisplayId || 'Active Match'}
+                            </span>
+                          </div>
+
+                          <div className="score-board">
+                            <div className="score-side aka">
+                              <div className="score-label aka">AKA</div>
+                              <div className="score-value aka">{liveState.scores?.aka || 0}</div>
+                              <div style={{ fontSize: '11px', color: 'var(--aka)', fontWeight: 700, marginTop: '2px', textAlign: 'center', maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {liveState.aka?.name || 'AKA'}
+                              </div>
+                            </div>
+                            <div style={{ textAlign: 'center' }}>
+                              <div className="score-divider">PTS</div>
+                              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 700, color: 'var(--neutral-600)', marginTop: '4px' }}>
+                                {liveState.timeRemaining || '03:00'}
+                              </div>
+                            </div>
+                            <div className="score-side ao">
+                              <div className="score-label ao">AO</div>
+                              <div className="score-value ao">{liveState.scores?.ao || 0}</div>
+                              <div style={{ fontSize: '11px', color: 'var(--ao)', fontWeight: 700, marginTop: '2px', textAlign: 'center', maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {liveState.ao?.name || 'AO'}
+                              </div>
+                            </div>
+                          </div>
+                        </>
                       ) : (
-                        <span className="status-chip status-done">Inactive</span>
+                        <div style={{ flex: 1, minHeight: '140px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                          {assignedCats.length > 0 ? (
+                            <div>
+                              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--neutral-500)', textTransform: 'uppercase', marginBottom: '8px' }}>
+                                Assigned Categories ({assignedCats.length})
+                              </div>
+                              {assignedCats.slice(0, 3).map((c, i) => (
+                                <div key={i} style={{ padding: '6px 10px', background: 'var(--neutral-50)', borderRadius: '6px', marginBottom: '4px', fontSize: '12px', fontWeight: 600, color: 'var(--neutral-700)', display: 'flex', justifyContent: 'space-between' }}>
+                                  <span>{c.name}</span>
+                                  <span style={{ color: 'var(--neutral-400)', fontSize: '11px' }}>{c.entries} ATH</span>
+                                </div>
+                              ))}
+                              {assignedCats.length > 3 && (
+                                <div style={{ fontSize: '11px', color: 'var(--neutral-400)', textAlign: 'center', marginTop: '4px' }}>
+                                  +{assignedCats.length - 3} more
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div style={{ textAlign: 'center', color: 'var(--neutral-400)', padding: '20px 0' }}>
+                              <Coffee size={28} style={{ margin: '0 auto 8px' }} />
+                              <div style={{ fontSize: '13px', fontWeight: 600 }}>No Categories Active</div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Operator Info */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--neutral-600)', marginBottom: '12px', paddingTop: '8px', borderTop: '1px solid var(--neutral-100)' }}>
+                        <User size={13} style={{ color: assignedOperator ? 'var(--status-live)' : 'var(--neutral-400)' }} />
+                        <span>
+                          {assignedOperator ? (
+                            <strong>Operator: {assignedOperator.displayName || assignedOperator.name || assignedOperator.email}</strong>
+                          ) : (
+                            <span style={{ color: 'var(--neutral-400)' }}>No Operator Assigned</span>
+                          )}
+                        </span>
+                      </div>
+
+                      {/* Card Footer Actions */}
+                      <div className="mat-footer" onClick={e => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          className="btn-action"
+                          onClick={() => handleSelectMat(mat.id)}
+                          style={{ flex: 1, justifyContent: 'center' }}
+                        >
+                          Spectate Live →
+                        </button>
+
+                        {(isAdmin || isCurrentUserStation) && (
+                          <Link
+                            href={`/competitions/${id}/operator?mat=${mat.id}`}
+                            className="btn-action primary"
+                            style={{ marginLeft: '8px' }}
+                          >
+                            Operate
+                          </Link>
+                        )}
+                      </div>
+
+                      {/* Admin-only Mat Password */}
+                      {isAdmin && (
+                        <div style={{ marginTop: '12px', borderTop: '1px solid var(--neutral-100)', paddingTop: '10px' }} onClick={e => e.stopPropagation()}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                            <label style={{ fontSize: '10px', textTransform: 'uppercase', fontWeight: 700, color: 'var(--neutral-500)' }}>
+                              Mat Password
+                            </label>
+                          </div>
+                          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                            <input 
+                              type={showPasswordMap[mat.id] ? "text" : "password"} 
+                              value={tempPasswords[mat.id] !== undefined ? tempPasswords[mat.id] : (mat.password || '')}
+                              onChange={e => setTempPasswords(prev => ({...prev, [mat.id]: e.target.value}))}
+                              onBlur={() => {
+                                if (tempPasswords[mat.id] !== undefined && tempPasswords[mat.id] !== mat.password) {
+                                  saveMatPassword(mat.id, tempPasswords[mat.id]);
+                                }
+                              }}
+                              placeholder="Set pin..."
+                              style={{ width: '100%', padding: '4px 28px 4px 8px', fontSize: '12px', borderRadius: '6px', border: '1px solid var(--neutral-300)', background: 'var(--shiro)' }}
+                            />
+                            <button 
+                              type="button" 
+                              onClick={() => togglePassword(mat.id)}
+                              style={{ position: 'absolute', right: '6px', background: 'none', border: 'none', color: 'var(--neutral-500)', cursor: 'pointer', padding: 0 }}
+                            >
+                              {showPasswordMap[mat.id] ? <EyeOff size={14} /> : <Eye size={14} />}
+                            </button>
+                          </div>
+                        </div>
                       )}
                     </div>
-
-                    {isLive ? (
-                      <>
-                        <div className="category-label">Current Category</div>
-                        <div className="category-title">
-                          {liveState.currentCategory || liveCat?.name || 'Unknown Category'}
-                          <br />
-                          <span style={{ color: 'var(--neutral-500)', fontWeight: 500, fontSize: '14px' }}>
-                            {liveState.currentMatch || 'Match'}
-                          </span>
-                        </div>
-                        <div className="score-board">
-                          <div className="score-side aka">
-                            <div className="score-label aka">AKA</div>
-                            <div className="score-value aka">{liveState.scores?.aka || 0}</div>
-                            <div className="score-pen">PEN {liveState.scores?.akaPen || 0}</div>
-                          </div>
-                          <div className="score-divider">PTS</div>
-                          <div className="score-side ao">
-                            <div className="score-label ao">AO</div>
-                            <div className="score-value ao">{liveState.scores?.ao || 0}</div>
-                            <div className="score-pen">PEN {liveState.scores?.aoPen || 0}</div>
-                          </div>
-                        </div>
-                        <div className="mat-footer">
-                          <div className="time-remaining">
-                            <Timer size={14} style={{ color: 'var(--status-live)' }} />
-                            {liveState.timeRemaining || '00:00'}
-                          </div>
-                        </div>
-                      </>
-                    ) : assignedCats.length > 0 ? (
-                      <>
-                        <div style={{ flex: 1, overflowY: 'auto', marginBottom: 'var(--space-3)' }}>
-                          {liveCat && (
-                            <div style={{ padding: '8px 10px', background: 'var(--status-live-bg)', borderRadius: '6px', marginBottom: '6px', fontSize: '12px', fontWeight: 700, color: 'var(--status-live)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span className="live-dot-sm" />
-                              <span>{liveCat.name}</span>
-                            </div>
-                          )}
-                          {upcomingCats.slice(0, 4).map((c, i) => (
-                            <div key={i} style={{ padding: '6px 10px', background: 'var(--neutral-50)', borderRadius: '6px', marginBottom: '4px', fontSize: '11px', fontWeight: 600, color: 'var(--neutral-700)', display: 'flex', justifyContent: 'space-between' }}>
-                              <span>{c.name}</span>
-                              <span style={{ color: 'var(--neutral-400)', fontSize: '10px' }}>{c.entries} ATH</span>
-                            </div>
-                          ))}
-                          {upcomingCats.length > 4 && (
-                            <div style={{ fontSize: '10px', color: 'var(--neutral-400)', textAlign: 'center', padding: '4px' }}>+{upcomingCats.length - 4} more</div>
-                          )}
-                          {upcomingCats.length === 0 && doneCats.length > 0 && (
-                            <div style={{ padding: '8px 10px', background: 'var(--neutral-50)', borderRadius: '6px', fontSize: '12px', color: 'var(--neutral-500)', textAlign: 'center' }}>✅ All categories completed</div>
-                          )}
-                        </div>
-                        <div className="mat-footer" style={{ justifyContent: 'flex-start' }}>
-                          <span style={{ fontSize: '11px', color: 'var(--neutral-500)' }}>{doneCats.length}/{assignedCats.length} done</span>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="standby-state">
-                        <Coffee size={28} style={{ color: 'var(--neutral-400)', marginBottom: 'var(--space-2)' }} />
-                        <span>No Categories Assigned</span>
-                      </div>
-                    )}
-                  </div>
-                );
-              }
-
-              // Admin/operator card (unchanged — includes password + action buttons)
-              return (
-                <a key={mat.id} href={`/competitions/${id}/operator?mat=${mat.id}`} className={`mat-card ${isLive || liveCat || upcomingCats.length > 0 ? 'live' : 'standby'}`}>
-                  <div className="mat-header">
-                    <span className="mat-number">{mat.name}</span>
-                    {isLive || liveCat ? (
-                      <span className="status-chip status-live">Live</span>
-                    ) : upcomingCats.length > 0 ? (
-                      <span className="status-chip" style={{ background: '#bbf7d0', color: '#166534' }}>
-                        {upcomingCats.length} Scheduled
-                      </span>
-                    ) : (
-                      <span className="status-chip status-done">Inactive</span>
-                    )}
-                  </div>
-
-                  {isLive ? (
-                    <>
-                      <div className="category-label">Current Category</div>
-                      <div className="category-title">
-                        {liveState.currentCategory || liveCat?.name || 'Unknown Category'}
-                        <br />
-                        <span style={{ color: 'var(--neutral-500)', fontWeight: 500, fontSize: '14px' }}>
-                          {liveState.currentMatch || 'Match'}
-                        </span>
-                      </div>
-                      
-                      <div className="score-board">
-                        <div className="score-side aka">
-                          <div className="score-label aka">AKA</div>
-                          <div className="score-value aka">{liveState.scores?.aka || 0}</div>
-                          <div className="score-pen">PEN {liveState.scores?.akaPen || 0}</div>
-                        </div>
-                        <div className="score-divider">PTS</div>
-                        <div className="score-side ao">
-                          <div className="score-label ao">AO</div>
-                          <div className="score-value ao">{liveState.scores?.ao || 0}</div>
-                          <div className="score-pen">PEN {liveState.scores?.aoPen || 0}</div>
-                        </div>
-                      </div>
-                      
-                      <div className="mat-footer">
-                        <div className="time-remaining">
-                          <Timer size={14} style={{ color: 'var(--status-live)' }} /> 
-                          {liveState.timeRemaining || '00:00'}
-                        </div>
-                        <button className="btn-action">Open Mat</button>
-                      </div>
-                    </>
-                  ) : assignedCats.length > 0 ? (
-                    <>
-                      <div style={{ flex: 1, overflowY: 'auto', marginBottom: 'var(--space-3)' }}>
-                        {liveCat && (
-                          <div style={{ padding: '8px 10px', background: 'var(--status-live-bg)', borderRadius: '6px', marginBottom: '6px', fontSize: '12px', fontWeight: 700, color: 'var(--status-live)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span className="live-dot-sm" />
-                            <span>{liveCat.name}</span>
-                          </div>
-                        )}
-                        {upcomingCats.slice(0, 4).map((c, i) => (
-                          <div key={i} style={{ padding: '6px 10px', background: 'var(--neutral-50)', borderRadius: '6px', marginBottom: '4px', fontSize: '11px', fontWeight: 600, color: 'var(--neutral-700)', display: 'flex', justifyContent: 'space-between' }}>
-                            <span>{c.name}</span>
-                            <span style={{ color: 'var(--neutral-400)', fontSize: '10px' }}>{c.entries} ATH</span>
-                          </div>
-                        ))}
-                        {upcomingCats.length > 4 && (
-                          <div style={{ fontSize: '10px', color: 'var(--neutral-400)', textAlign: 'center', padding: '4px' }}>+{upcomingCats.length - 4} more categories</div>
-                        )}
-                        {upcomingCats.length === 0 && doneCats.length > 0 && (
-                          <div style={{ padding: '8px 10px', background: 'var(--neutral-50)', borderRadius: '6px', fontSize: '12px', color: 'var(--neutral-600)', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                            <CheckCircle2 size={13} style={{ color: '#10b981' }} /> All categories completed
-                          </div>
-                        )}
-                      </div>
-                      <div className="mat-footer" style={{ justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: '11px', color: 'var(--neutral-500)' }}>{doneCats.length}/{assignedCats.length} done</span>
-                        <button className="btn-action primary">
-                          <CalendarPlus size={16} style={{ marginRight: '6px' }} /> Open Mat
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="standby-state">
-                        <Coffee size={28} style={{ color: 'var(--neutral-400)', marginBottom: 'var(--space-2)' }} />
-                        <span>No Categories Assigned</span>
-                      </div>
-                      
-                      <div className="mat-footer" style={{ justifyContent: 'center' }}>
-                        <button className="btn-action primary" style={{ width: '100%', justifyContent: 'center' }}>
-                          <CalendarPlus size={16} style={{ marginRight: '6px' }} /> Assign Event
-                        </button>
-                      </div>
-                    </>
-                  )}
-                  
-                  {/* Mat Password Field — admin/operator only */}
-                  <div style={{ marginTop: 'var(--space-3)', borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: 'var(--space-3)' }}>
-                    <label style={{ fontSize: '10px', textTransform: 'uppercase', fontWeight: 700, color: 'var(--neutral-500)', display: 'block', marginBottom: '4px' }}>Mat Password</label>
-                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                      <input 
-                        type={showPasswordMap[mat.id] ? "text" : "password"} 
-                        value={tempPasswords[mat.id] !== undefined ? tempPasswords[mat.id] : (mat.password || '')}
-                        onChange={e => setTempPasswords(prev => ({...prev, [mat.id]: e.target.value}))}
-                        onBlur={() => {
-                          if (tempPasswords[mat.id] !== undefined && tempPasswords[mat.id] !== mat.password) {
-                            saveMatPassword(mat.id, tempPasswords[mat.id]);
-                          }
-                        }}
-                        onClick={e => e.preventDefault()}
-                        placeholder="Set password..."
-                        style={{ width: '100%', padding: '6px 30px 6px 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid var(--neutral-300)', background: 'var(--shiro)' }}
-                      />
-                      <button 
-                        type="button" 
-                        onClick={(e) => { e.preventDefault(); togglePassword(mat.id); }}
-                        style={{ position: 'absolute', right: '8px', background: 'none', border: 'none', color: 'var(--neutral-500)', cursor: 'pointer', padding: 0, display: 'flex' }}
-                      >
-                        {showPasswordMap[mat.id] ? <EyeOff size={14} /> : <Eye size={14} />}
-                      </button>
-                    </div>
-                  </div>
-                </a>
-              );
-            })}
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </main>
