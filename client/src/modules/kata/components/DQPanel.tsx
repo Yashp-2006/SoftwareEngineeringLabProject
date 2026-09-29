@@ -12,7 +12,7 @@ const DQ_REASONS = [
   'Persistent theatrics',
   'Corrective step or fall from balance loss',
   'Belt fell off',
-  'Time limit exceeded (5 min — teams only)',
+  'Time limit exceeded (5 min, teams only)',
   'Jodan Kani Basami in Bunkai',
   'SHIKKAKU / misconduct',
 ];
@@ -123,7 +123,7 @@ export default function DQPanel({ isDQ, akaName, aoName, onDQ, disabled }: DQPan
                     marginBottom: '2px',
                   }}
                 >
-                  Disqualification — Article 5.8
+                  Disqualification (Article 5.8)
                 </div>
                 <div style={{ fontSize: '18px', fontWeight: 800 }}>
                   Disqualify {showModal === 'aka' ? akaName : aoName}

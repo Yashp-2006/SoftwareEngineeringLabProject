@@ -66,7 +66,7 @@ export default function KataSelectionRow({
             flexShrink: 0,
           }}
         >
-          {label} — Kata Selection
+          {label}: Select Kata
         </div>
         {playerName && (
           <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-600)', textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginLeft: '12px' }}>
@@ -96,7 +96,7 @@ export default function KataSelectionRow({
           alignItems: 'center',
         }}
       >
-        <span>{selectedKata ? `#${selectedKata.number} — ${selectedKata.name}` : 'Select Kata…'}</span>
+        <span>{selectedKata ? `#${selectedKata.number}: ${selectedKata.name}` : 'Select Kata...'}</span>
         <span style={{ fontSize: '10px', opacity: 0.6 }}>▼</span>
       </button>
 
@@ -110,7 +110,7 @@ export default function KataSelectionRow({
             paddingLeft: '2px',
           }}
         >
-          Using kata #{selectedKata.number} — {selectedKata.name}
+          Using kata #{selectedKata.number}: {selectedKata.name}
         </div>
       )}
 
@@ -180,7 +180,7 @@ export default function KataSelectionRow({
               onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--neutral-50)')}
               onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
             >
-              — None
+              None
             </div>
 
             {filtered.map((kata) => {

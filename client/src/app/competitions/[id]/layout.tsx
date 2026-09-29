@@ -55,12 +55,29 @@ export default function CompetitionLayout({
       try {
         const { db } = await import('@lib/firebase');
         const { collection, query, where, getDocs } = await import('firebase/firestore');
-        const q = query(
+        // Check by userId first (set by PIN auth and approved email login)
+        let snap = await getDocs(query(
           collection(db, 'competitions', id, 'staff'),
-          where('requestUserId', '==', user.uid),
+          where('userId', '==', user.uid),
           where('approvalStatus', '==', 'approved')
-        );
-        const snap = await getDocs(q);
+        ));
+        // Fallback to requestUserId (set during enrollment requests)
+        if (snap.empty) {
+          snap = await getDocs(query(
+            collection(db, 'competitions', id, 'staff'),
+            where('requestUserId', '==', user.uid),
+            where('approvalStatus', '==', 'approved')
+          ));
+        }
+        // Fallback to direct email match if user logged in via email
+        if (snap.empty && user.email) {
+          snap = await getDocs(query(
+            collection(db, 'competitions', id, 'staff'),
+            where('email', '==', user.email),
+            where('approvalStatus', '==', 'approved')
+          ));
+        }
+
         if (!snap.empty) {
           setStaffRole(snap.docs[0].data().role);
         } else {
@@ -80,10 +97,11 @@ export default function CompetitionLayout({
   const showStaff = isAdminOrGuest;
   const showAthletes = isAdminOrGuest || role === 'attendance_volunteer' || staffRole === 'attendance';
   const showRecords = isAdminOrGuest;
+  // Medals: only visible to admin, guest_viewer, or medal_distributor staff
   const showMedals = isAdminOrGuest || role === 'medal_distributor' || staffRole === 'medal';
   const showOperator = isAdminOrGuest || role === 'mat_operator' || staffRole === 'score';
-  // Judge tab only visible for signed-in users with judge or admin/guest_viewer role (removed per request)
-  const showJudge = false;
+  // Judge tab: visible to judges (by global role or staff assignment) and admins/guest_viewers
+  const showJudge = isAdminOrGuest || role === 'judge' || staffRole === 'judge';
 
   const linkStyle = { background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' };
 
@@ -174,9 +192,8 @@ export default function CompetitionLayout({
           <Link
             href={`/competitions/${id}/operator${joinParam}`}
             className={`sub-nav-link ${isActive('/operator') ? 'active' : ''}`}
-            style={{ marginLeft: 'auto', color: isActive('/operator') ? 'var(--aka)' : 'var(--neutral-500)', fontWeight: 600 }}
           >
-            ● Mat Operations
+            Mat Operations
           </Link>
         )}
       </div>

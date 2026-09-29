@@ -210,7 +210,7 @@ export default function CompetitionsPage() {
           setPresetCategories(cleaned);
           toast.success(`Preset loaded: ${cleaned.length} categories ready`);
         } else {
-          toast.error('Invalid preset format — expected a JSON array');
+          toast.error('Invalid preset format: expected a JSON array');
           setPresetCategories(null);
           setPresetFileName('');
         }
@@ -502,26 +502,20 @@ export default function CompetitionsPage() {
                       onClick={() => {
                         setConfirmState({
                           isOpen: true,
-                          title: 'Add Dummy Competitions',
-                          message: 'Add 3 dummy competitions to the database for testing?',
+                          title: 'Generate Live Demo Tournament',
+                          message: 'Create a full mock tournament (Khel Karate Championship 2026) with 4 mats, 4 categories (Kumite & Kata), 30+ seeded athletes, real tiesheet matches, and a live scoreboard on Mat 01?',
                           isDestructive: false,
                           onConfirm: async () => {
                             closeConfirm();
+                            const toastId = toast.loading('Generating tournament & computing brackets...');
                             try {
-                              const { collection, addDoc } = await import('firebase/firestore');
-                              const { db } = await import('@lib/firebase');
-                              
-                              const dummies = [
-                                { name: "Tokyo Open 2026", type: "international", rules: "wkf", status: "upcoming", mats: 4, createdAt: new Date().toISOString() },
-                                { name: "Kyoto Nationals", type: "national", rules: "wkf", status: "upcoming", mats: 6, createdAt: new Date().toISOString() },
-                                { name: "Osaka Regional Qualifier", type: "regional", rules: "wkf", status: "upcoming", mats: 2, createdAt: new Date().toISOString() }
-                              ];
-                              
-                              await Promise.all(dummies.map(d => addDoc(collection(db, 'competitions'), d)));
-                              toast.success('Added dummy competitions');
+                              const { createFullDummyTournament } = await import('@/lib/seed-tournament');
+                              const compId = await createFullDummyTournament(user?.uid, user?.email || undefined);
+                              toast.success('Generated live demo tournament with 4 mats & brackets!', { id: toastId });
+                              router.push(`/competitions/${compId}`);
                             } catch (err) {
                               console.error(err);
-                              toast.error("Failed to add dummy competitions.");
+                              toast.error("Failed to generate demo tournament.", { id: toastId });
                             }
                           }
                         });

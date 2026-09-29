@@ -112,8 +112,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!loading) {
       if (!user) {
         const isStrictAdminRoute = pathname.startsWith('/setup') || pathname.startsWith('/users') || pathname.startsWith('/profile');
-        // /operator is intentionally excluded — PasswordGateway handles its own auth for unauthenticated viewers
-        const isProtectedCompetitionRoute = pathname.includes('/staff') || pathname.includes('/medals') || pathname.includes('/judge') || pathname.includes('/athletes') || pathname.includes('/records') || pathname.includes('/categories');
+        // /operator and /medals excluded — they have their own password/role gates
+        // /judge is protected — audience cannot vote
+        const isProtectedCompetitionRoute = pathname.includes('/staff') || pathname.includes('/judge') || pathname.includes('/athletes') || pathname.includes('/records') || pathname.includes('/categories');
 
         if (isStrictAdminRoute || isProtectedCompetitionRoute) {
           router.push('/login');
@@ -123,7 +124,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (user && role) {
         if (pathname === '/login') {
-          router.push('/dashboard');
+          // audience users have no dashboard — send them to competitions directory
+          const destination = (role === 'admin' || role === 'guest_viewer') ? '/dashboard' : '/competitions';
+          router.push(destination);
           return;
         }
 
@@ -135,11 +138,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
+        // Block audience/null from judge page (they can't vote)
+        if (pathname.includes('/judge') && role === 'audience') {
+          router.push(`/competitions/${pathname.split('/')[2]}`);
+          return;
+        }
+
         // Removed global portal restrictions because competition pages (like /athletes, /medals) 
         // check their own competition-specific staff subcollections.
       }
     }
   }, [user, role, loading, pathname, router]);
+
 
   const ctxValue = useMemo(
     () => ({ user, role, loading }),

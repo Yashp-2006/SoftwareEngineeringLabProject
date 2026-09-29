@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/modules/auth/components/AuthProvider';
-import { Lock, Unlock, Users, Calendar, Layout, Award, Edit3, Share2, Eye, EyeOff, Download } from 'lucide-react';
+import { Lock, Unlock, Users, Calendar, Layout, Award, Edit3, Share2, Eye, EyeOff, Download, Search, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import OnSpotEntryModal from '@/modules/competitions/components/athlete/OnSpotEntryModal';
 import { sortCategories } from '@/lib/categoryUtils';
@@ -356,7 +356,7 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
           <div className="bento-tile bento-reveal">
             <div className="text-micro">Active Mats</div>
             <div className="display-large" style={{ color: 'var(--aka)' }}>{compData ? (compData.mats || 1) : '-'}</div>
-            <div className="text-small">Configured capacity</div>
+            <div className="text-small">Total mats running</div>
           </div>
           <div className="bento-tile bento-reveal">
             <div className="text-micro">Matches Completed</div>
@@ -366,18 +366,58 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
           <div className="bento-tile bento-reveal">
             <div className="text-micro">Est. Finish Time</div>
             <div className="display-large">N/A</div>
-            <div className="text-small">Not calculated yet</div>
+            <div className="text-small">Estimated end time</div>
           </div>
 
-          <div style={{ gridColumn: '1 / -1', marginBottom: '8px' }}>
-            <input 
-              type="text" 
-              placeholder="Search categories..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="input-base"
-              style={{ width: '100%', maxWidth: '400px' }}
-            />
+          {/* CATEGORIES SECTION TOOLBAR */}
+          <div className="category-toolbar">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <h2 style={{ fontSize: '16px', fontWeight: 700, margin: 0, letterSpacing: '-0.01em', color: 'var(--neutral-900)' }}>
+                Categories & Live Mats
+              </h2>
+              <span style={{ 
+                fontSize: '11px', 
+                fontWeight: 600, 
+                color: 'var(--neutral-600)', 
+                background: 'var(--neutral-100)', 
+                border: '1px solid var(--neutral-200)',
+                padding: '2px 8px', 
+                borderRadius: '6px' 
+              }}>
+                {liveCategories.length + upcomingCategories.length} Total
+              </span>
+            </div>
+
+            <div className="category-search-wrap">
+              <Search 
+                size={15} 
+                style={{ 
+                  position: 'absolute', 
+                  left: '12px', 
+                  top: '50%', 
+                  transform: 'translateY(-50%)', 
+                  color: 'var(--neutral-400)', 
+                  pointerEvents: 'none' 
+                }} 
+              />
+              <input 
+                type="text" 
+                placeholder="Search categories..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="category-search-input"
+              />
+              {searchQuery && (
+                <button 
+                  type="button" 
+                  onClick={() => setSearchQuery('')}
+                  aria-label="Clear category search"
+                  className="category-search-clear"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* ROW 2: LIVE & UPCOMING */}
@@ -385,7 +425,7 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
             <div className="flex-between mb-4">
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span className="status-chip status-live">Live</span>
-                <span className="text-micro" style={{ color: 'var(--neutral-900)' }}>Live Now — {liveCategories.length} categor{liveCategories.length === 1 ? 'y' : 'ies'}</span>
+                <span className="text-micro" style={{ color: 'var(--neutral-900)' }}>Live Now ({liveCategories.length})</span>
               </div>
             </div>
             
@@ -430,7 +470,7 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
             ) : (
               <div style={{ padding: '32px', textAlign: 'center', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                 <Layout size={24} style={{ color: 'var(--neutral-400)', marginBottom: '12px' }} />
-                <div className="text-small">No Live Categories</div>
+                <div className="text-small">{searchQuery ? `No live categories matching "${searchQuery}"` : 'No Live Categories'}</div>
               </div>
             )}
           </div>
@@ -447,7 +487,7 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
                 ))}
               </div>
             ) : (
-              <div style={{ padding: '24px', textAlign: 'center', color: 'var(--neutral-500)', fontSize: '13px' }}>No upcoming categories.</div>
+              <div style={{ padding: '24px', textAlign: 'center', color: 'var(--neutral-500)', fontSize: '13px' }}>{searchQuery ? `No upcoming categories matching "${searchQuery}"` : 'No upcoming categories.'}</div>
             )}
           </div>
 

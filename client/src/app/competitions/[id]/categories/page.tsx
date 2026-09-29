@@ -455,9 +455,9 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
         <header className="page-header">
           <div>
             <div className="breadcrumb">
-              <Link href="/competitions" style={{ color: 'inherit', textDecoration: 'none' }}>Competitions</Link> / {id} / Management
+              <Link href="/competitions" style={{ color: 'inherit', textDecoration: 'none' }}>Competitions</Link> / {id} / Categories
             </div>
-            <h1>Category Management</h1>
+            <h1>Categories</h1>
           </div>
           <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
             {lastSaved && (
@@ -466,7 +466,7 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
               </span>
             )}
             <button className="btn btn-primary" onClick={handleSaveAll}>
-              <Save style={{ width: '18px', marginRight: '6px' }} /> Save Category Schedule
+              <Save style={{ width: '18px', marginRight: '6px' }} /> Save Schedule
             </button>
           </div>
         </header>
@@ -582,7 +582,7 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
                     <option value="7">7</option>
                   </select>
                 ) : (
-                  <span className="text-micro" style={{ color: 'var(--neutral-400)' }}>—</span>
+                  <span className="text-micro" style={{ color: 'var(--neutral-400)' }}>-</span>
                 )}
               </div>
               <div className="time-wrap">

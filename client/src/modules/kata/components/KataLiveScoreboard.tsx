@@ -248,7 +248,7 @@ export default function KataLiveScoreboard({
               </div>
             </div>
             {kataWinner === 'tie_pending' && (
-              <div className="kls-tie-badge">TIE — RESOLUTION PENDING</div>
+              <div className="kls-tie-badge">TIE: DECISION NEEDED</div>
             )}
           </div>
 

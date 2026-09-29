@@ -61,9 +61,9 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
               scheduleRows.push({
                 id: `${doc.id}_pool_${p.pool}`,
                 category: `${data.name} - ${label}`,
-                mat: p.mat || data.mat || '—',
-                start: p.startTime || '—',
-                end: p.endTime || '—',
+                mat: p.mat || data.mat || '-',
+                start: p.startTime || '-',
+                end: p.endTime || '-',
                 status: p.status || data.status || 'upcoming',
                 actualEndTime: p.actualEndTime || undefined,
                 day: p.day || data.day || 1,
@@ -73,9 +73,9 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
             scheduleRows.push({
               id: doc.id,
               category: data.name,
-              mat: data.mat || '—',
-              start: data.scheduledStartTime || '—',
-              end: data.scheduledEndTime || '—',
+              mat: data.mat || '-',
+              start: data.scheduledStartTime || '-',
+              end: data.scheduledEndTime || '-',
               status: data.status || 'upcoming',
               actualEndTime: data.actualEndTime || undefined,
               day: data.day || 1,
@@ -98,7 +98,7 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
   const scheduledCount = scheduleData.filter(isScheduled).length;
   const unscheduledCount = totalCategories - scheduledCount;
 
-  const mats = Array.from(new Set(scheduleData.map(item => item.mat).filter(mat => mat && mat !== "—"))).sort();
+  const mats = Array.from(new Set(scheduleData.map(item => item.mat).filter(mat => mat && mat !== '-' && mat !== '—'))).sort();
   const daysList = Array.from(new Set(scheduleData.map(item => item.day).filter(Boolean))).sort((a, b) => Number(a) - Number(b));
 
   // BUG FIX: Do NOT re-sort by time here. The schedule is ordered by the `order` field
@@ -312,7 +312,7 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
         <header className="page-header">
           <div>
             <div className="breadcrumb">
-              <Link href="/competitions" style={{ color: 'inherit', textDecoration: 'none' }}>Competitions</Link> / {id} / Operations
+              <Link href="/competitions" style={{ color: 'inherit', textDecoration: 'none' }}>Competitions</Link> / {compData?.name || id} / Schedule
             </div>
             <h1>Category Schedule</h1>
             {compData && (
@@ -351,8 +351,8 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
         <section className="schedule-panel">
           <div className="schedule-header">
             <div>
-              <h2 style={{ margin: 0 }}>Chronological Category Schedule</h2>
-              <div className="text-small">Read-only view of the competition timeline.</div>
+              <h2 style={{ margin: 0 }}>Match Schedule</h2>
+              <div className="text-small">Find your category, mat number, and match time.</div>
             </div>
             <div className="schedule-tools">
               <div className="search-wrap">
@@ -421,7 +421,7 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
                         {row.status === 'live' && <div style={{ fontSize: '11px', color: 'var(--aka)', fontWeight: 700, marginTop: '2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>In Progress</div>}
                       </td>
                       <td><span style={{ fontWeight: 700, color: 'var(--neutral-700)', fontSize: '13px' }}>Day {row.day || 1}</span></td>
-                      <td><span className="mat-pill">{row.mat || '\u2014'}</span></td>
+                      <td><span className="mat-pill">{row.mat || '-'}</span></td>
                       <td>
                         {row.start && row.end ? (
                           <div className="timeframe-chip">

@@ -397,7 +397,7 @@ export default function BracketViewer({ matches, categoryName, isKata: propIsKat
                           <div className="competitor-row aka">
                             <div className="comp-info">
                               <div className="comp-name" style={{ color: m.aka ? 'inherit' : 'var(--neutral-400)' }}>{m.aka ? m.aka.name : 'No player assigned'}</div>
-                              <div className="comp-team">{m.aka ? `${m.aka.state} • ${m.aka.academy}` : '—'}</div>
+                              <div className="comp-team">{m.aka ? `${m.aka.state} • ${m.aka.academy}` : '-'}</div>
                               {!isKata && m.aka && (
                                 <div className="comp-stats">
                                   {(m.akaIppon > 0 || m.akaWazaari > 0 || m.akaYuko > 0) && (
@@ -434,7 +434,7 @@ export default function BracketViewer({ matches, categoryName, isKata: propIsKat
                           <div className="competitor-row ao">
                             <div className="comp-info">
                               <div className="comp-name" style={{ color: m.ao ? 'inherit' : 'var(--neutral-400)' }}>{m.ao ? m.ao.name : 'No player assigned'}</div>
-                              <div className="comp-team">{m.ao ? `${m.ao.state} • ${m.ao.academy}` : '—'}</div>
+                              <div className="comp-team">{m.ao ? `${m.ao.state} • ${m.ao.academy}` : '-'}</div>
                               {!isKata && m.ao && (
                                 <div className="comp-stats">
                                   {(m.aoIppon > 0 || m.aoWazaari > 0 || m.aoYuko > 0) && (

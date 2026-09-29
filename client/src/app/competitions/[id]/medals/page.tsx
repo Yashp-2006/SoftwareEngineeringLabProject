@@ -529,9 +529,9 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
         <header className="page-header">
           <div>
             <div className="breadcrumb">
-              <Link href="/competitions" style={{ color: 'inherit', textDecoration: 'none' }}>Competitions</Link> / {id} / Operations
+              <Link href="/competitions" style={{ color: 'inherit', textDecoration: 'none' }}>Competitions</Link> / {id} / Medals
             </div>
-            <h1>Pool Winners &amp; Finals</h1>
+            <h1>Medals &amp; Winners</h1>
           </div>
         </header>
 
@@ -666,7 +666,7 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
                                   </div>
                                 ) : (
                                   <span style={{ fontSize: '12px', fontWeight: 700, color: athlete.medalReceived === 'received' ? '#16a34a' : athlete.medalReceived === 'not-received' ? 'var(--aka)' : 'var(--neutral-400)' }}>
-                                    {athlete.medalReceived === 'received' ? 'Received' : athlete.medalReceived === 'not-received' ? 'Not Received' : '—'}
+                                    {athlete.medalReceived === 'received' ? 'Received' : athlete.medalReceived === 'not-received' ? 'Not Received' : '-'}
                                   </span>
                                 )}
                               </td>

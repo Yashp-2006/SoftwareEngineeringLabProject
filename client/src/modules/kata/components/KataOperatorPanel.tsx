@@ -374,7 +374,7 @@ export default function KataOperatorPanel({
     });
 
     if (winner === 'tie_pending') {
-      toast('Tie detected — requesting revote.', { icon: <Scale size={16} /> });
+      toast('Tie detected: requesting revote.', { icon: <Scale size={16} /> });
     } else {
       onMatchFinished(winner, { aka: akaFlags, ao: aoFlags }, selectedKata);
     }

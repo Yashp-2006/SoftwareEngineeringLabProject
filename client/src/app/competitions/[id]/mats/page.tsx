@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '@/modules/auth/components/AuthProvider';
-import { LayoutGrid, Plus, Timer, Activity, Coffee, CalendarPlus, Key, Eye, EyeOff, Trash2, Image as ImageIcon, X, Trophy, Medal } from 'lucide-react';
+import { LayoutGrid, Plus, Timer, Activity, Coffee, CalendarPlus, Key, Eye, EyeOff, Trash2, Image as ImageIcon, X, Trophy, Medal, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { sortCategories } from '@/lib/categoryUtils';
 
@@ -465,9 +465,9 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
         <header className="page-header">
           <div>
             <div className="breadcrumb">
-              <Link href="/competitions" style={{ color: 'inherit', textDecoration: 'none' }}>Competitions</Link> / {id} / Operations
+              <Link href="/competitions" style={{ color: 'inherit', textDecoration: 'none' }}>Competitions</Link> / {id} / Mats
             </div>
-            <h1>{isViewer ? 'Live Mats' : 'Mat Management'}</h1>
+            <h1>{isViewer ? 'Live Mats' : 'Mats'}</h1>
           </div>
           {isAdminOrGuest && (
             <div className="page-header-actions">
@@ -625,8 +625,9 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
                       <>
                         <div style={{ flex: 1, overflowY: 'auto', marginBottom: 'var(--space-3)' }}>
                           {liveCat && (
-                            <div style={{ padding: '8px 10px', background: 'var(--status-live-bg)', borderRadius: '6px', marginBottom: '6px', fontSize: '12px', fontWeight: 700, color: 'var(--status-live)' }}>
-                              🔴 {liveCat.name}
+                            <div style={{ padding: '8px 10px', background: 'var(--status-live-bg)', borderRadius: '6px', marginBottom: '6px', fontSize: '12px', fontWeight: 700, color: 'var(--status-live)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span className="live-dot-sm" />
+                              <span>{liveCat.name}</span>
                             </div>
                           )}
                           {upcomingCats.slice(0, 4).map((c, i) => (
@@ -702,15 +703,16 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
                           <Timer size={14} style={{ color: 'var(--status-live)' }} /> 
                           {liveState.timeRemaining || '00:00'}
                         </div>
-                        <button className="btn-action">Manage</button>
+                        <button className="btn-action">Open Mat</button>
                       </div>
                     </>
                   ) : assignedCats.length > 0 ? (
                     <>
                       <div style={{ flex: 1, overflowY: 'auto', marginBottom: 'var(--space-3)' }}>
                         {liveCat && (
-                          <div style={{ padding: '8px 10px', background: 'var(--status-live-bg)', borderRadius: '6px', marginBottom: '6px', fontSize: '12px', fontWeight: 700, color: 'var(--status-live)' }}>
-                            🔴 {liveCat.name}
+                          <div style={{ padding: '8px 10px', background: 'var(--status-live-bg)', borderRadius: '6px', marginBottom: '6px', fontSize: '12px', fontWeight: 700, color: 'var(--status-live)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span className="live-dot-sm" />
+                            <span>{liveCat.name}</span>
                           </div>
                         )}
                         {upcomingCats.slice(0, 4).map((c, i) => (
@@ -723,8 +725,8 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
                           <div style={{ fontSize: '10px', color: 'var(--neutral-400)', textAlign: 'center', padding: '4px' }}>+{upcomingCats.length - 4} more categories</div>
                         )}
                         {upcomingCats.length === 0 && doneCats.length > 0 && (
-                          <div style={{ padding: '8px 10px', background: 'var(--neutral-50)', borderRadius: '6px', fontSize: '12px', color: 'var(--neutral-500)', textAlign: 'center' }}>
-                            ✅ All categories completed
+                          <div style={{ padding: '8px 10px', background: 'var(--neutral-50)', borderRadius: '6px', fontSize: '12px', color: 'var(--neutral-600)', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                            <CheckCircle2 size={13} style={{ color: '#10b981' }} /> All categories completed
                           </div>
                         )}
                       </div>

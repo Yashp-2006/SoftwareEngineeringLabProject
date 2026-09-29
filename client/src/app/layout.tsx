@@ -5,8 +5,8 @@ import { AuthProvider } from "@/modules/auth/components/AuthProvider";
 import { Toaster } from "react-hot-toast";
 
 export const metadata: Metadata = {
-  title: "Khel Karate — Competition Management",
-  description: "Next-gen karate tournament management system.",
+  title: "Khel Karate: Tournament Management",
+  description: "Karate tournament scoring and bracket management system.",
 };
 
 export default function RootLayout({

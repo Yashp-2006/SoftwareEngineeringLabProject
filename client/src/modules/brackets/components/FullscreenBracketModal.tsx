@@ -272,7 +272,7 @@ const BracketNode = ({
                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                       >
                         <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--aka)', display: 'inline-block', flexShrink: 0 }} />
-                        AKA — {match.aka?.name}
+                        AKA: {match.aka?.name}
                       </button>
                     )}
                     {hasAo && (
@@ -283,7 +283,7 @@ const BracketNode = ({
                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                       >
                         <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--ao)', display: 'inline-block', flexShrink: 0 }} />
-                        AO — {match.ao?.name}
+                        AO: {match.ao?.name}
                       </button>
                     )}
                     {(hasAka || hasAo) && <div style={{ height: '1px', background: 'var(--neutral-100)' }} />}
@@ -1221,7 +1221,7 @@ export default function FullscreenBracketModal({
             <button type="button" className="fsb-mobile-toggle" style={{ display: 'none' }} onClick={() => setShowMobileSidebar(!showMobileSidebar)}>
               {showMobileSidebar ? <X size={20} /> : <Target size={20} />}
             </button>
-            Tiesheet — {activeCategory?.name || 'Select Category'}
+            Tiesheet: {activeCategory?.name || 'Select Category'}
             {isAdmin && activeCategory && onAssignMat && (
               <select 
                 className="fsb-mat-select"

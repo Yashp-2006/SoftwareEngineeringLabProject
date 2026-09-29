@@ -25,15 +25,53 @@ function matLabelToId(label: string): string {
 
 export default function JudgePanel({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
-  const { user, loading: authLoading } = useAuth();
+  const { user, role, loading: authLoading } = useAuth();
+
+  // Auto-detect mat+seat from staff assignment (judge role only)
+  const [assignedMatId, setAssignedMatId] = useState<string | null>(null);
+  const [assignedJudgeIndex, setAssignedJudgeIndex] = useState<number | null>(null);
+  const [assignmentLoading, setAssignmentLoading] = useState(false);
 
   // Display labels for mat selection
   const [matLabel, setMatLabel] = useState<string | null>(null);
-  // Actual RTDB mat ID derived from label
   const matId = matLabel ? matLabelToId(matLabel) : null;
-
   const [judgeIndex, setJudgeIndex] = useState<number | null>(null);
-  
+
+  useEffect(() => {
+    if (!user || role !== 'judge') return;
+    setAssignmentLoading(true);
+    const load = async () => {
+      try {
+        const { db } = await import('@lib/firebase');
+        const { collection, query, where, getDocs } = await import('firebase/firestore');
+        const q = query(
+          collection(db, 'competitions', id, 'staff'),
+          where('userId', '==', user.uid),
+          where('approvalStatus', '==', 'approved')
+        );
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const data = snap.docs[0].data();
+          if (data.matId) {
+            // matId in DB is like 'mat-2', display label is 'MAT 02'
+            const num = parseInt(data.matId.replace('mat-', ''), 10);
+            const label = `MAT ${String(num).padStart(2, '0')}`;
+            setAssignedMatId(data.matId);
+            setAssignedJudgeIndex(typeof data.judgeIndex === 'number' ? data.judgeIndex : null);
+            setMatLabel(label);
+            if (typeof data.judgeIndex === 'number') setJudgeIndex(data.judgeIndex);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load judge assignment', err);
+      } finally {
+        setAssignmentLoading(false);
+      }
+    };
+    load();
+  }, [user, role, id]);
+
+
   const [liveData, setLiveData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   // Track whether we've received at least one RTDB snapshot after mat selection
@@ -195,6 +233,27 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
   // - If no RTDB data yet (mat selected but no live match), default to 7
   const judgeCount = configuredJudgeCount || 7;
   const judges = Array.from({ length: judgeCount }, (_, i) => i);
+
+  // For judge role: show a loading state while we fetch the assignment
+  // For admin/guest_viewer: fall through to the manual picker below
+  if (role === 'judge' && assignmentLoading) {
+    return <PageSkeleton />;
+  }
+
+  if (role === 'judge' && !assignedMatId) {
+    return (
+      <main style={{ minHeight: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', padding: '32px' }}>
+        <ShieldAlert size={48} color="var(--aka)" />
+        <h2 style={{ margin: 0, fontSize: '22px' }}>No Mat Assignment Found</h2>
+        <p style={{ fontSize: '14px', color: 'var(--neutral-500)', textAlign: 'center', maxWidth: '360px', margin: 0 }}>
+          Your account has not been assigned to a mat for this competition. Contact the tournament director.
+        </p>
+        <Link href={`/competitions/${id}`} className="btn btn-secondary">
+          <ArrowLeft size={16} /> Back to Competition
+        </Link>
+      </main>
+    );
+  }
 
   if (!matLabel || judgeIndex === null) {
     return (
@@ -442,13 +501,13 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
 
       {voteSubmitted && (
         <div style={{ background: '#10b981', color: '#fff', padding: '16px', textAlign: 'center', fontWeight: 800, fontSize: '18px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-          Vote Recorded — {pendingVote?.toUpperCase()}
+          Vote Recorded: {pendingVote?.toUpperCase()}
         </div>
       )}
 
       {liveData?.boutFinished && !voteSubmitted && voteCountdown === 0 && (
         <div style={{ background: '#f59e0b', color: '#fff', padding: '16px', textAlign: 'center', fontWeight: 800, fontSize: '18px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-          Match Finished — Time Expired
+          Match Finished: Time Expired
         </div>
       )}
     </main>

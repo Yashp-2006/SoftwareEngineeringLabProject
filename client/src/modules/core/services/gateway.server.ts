@@ -199,8 +199,8 @@ export class GatewayService {
         day: p.day,
         order: p.order,
         duration: p.duration,
-        startTime: p.startTime || '—',
-        endTime: p.endTime || '—'
+        startTime: p.startTime || '-',
+        endTime: p.endTime || '-'
       }));
 
       const firstPool = catPools[0] || {};

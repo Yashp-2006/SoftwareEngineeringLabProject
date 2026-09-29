@@ -1,0 +1,226 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "TaikaiX System Architecture",
+    "output": "taikaix-architecture.html",
+    "quality_profile": "showcase",
+    "viewBox": [980, 560],
+    "views": [
+      {
+        "id": "match-flow",
+        "label": "Live Match & Scoreboard Sync",
+        "focus": ["tv_display", "mat_manager", "rtdb_sync", "client_web"],
+        "note": "Sub-millisecond score sync and TV scaling via RTDB and BroadcastChannel."
+      },
+      {
+        "id": "auth-rbac",
+        "label": "Authentication & RBAC Gateway",
+        "focus": ["client_web", "auth_engine", "fb_auth"],
+        "note": "Zero-anonymous authentication supporting Quick PIN and standard OAuth."
+      },
+      {
+        "id": "tiesheet-engine",
+        "label": "Tournament Ingestion & Brackets",
+        "focus": ["client_web", "comp_engine", "tiesheet_svc", "firestore", "storage"],
+        "note": "Strict boundary categorization and single-elimination bracket generation."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "client_web",
+      "type": "frontend",
+      "label": "Web Application",
+      "sublabel": "Next.js 15 / React 19",
+      "pos": [40, 160],
+      "size": [140, 64],
+      "tag": "Responsive PWA"
+    },
+    {
+      "id": "tv_display",
+      "type": "frontend",
+      "label": "TV Scoreboard",
+      "sublabel": "ScaleWrapper 1080p/4K",
+      "pos": [40, 360],
+      "size": [140, 64],
+      "tag": "Fullscreen Canvas"
+    },
+    {
+      "id": "auth_engine",
+      "type": "security",
+      "label": "RBAC & PIN Gateway",
+      "sublabel": "Role Gatekeeper",
+      "pos": [280, 80],
+      "size": [150, 64],
+      "tag": "Zero Anonymous"
+    },
+    {
+      "id": "comp_engine",
+      "type": "backend",
+      "label": "Competition Core",
+      "sublabel": "WKF Rules & Scoring",
+      "pos": [280, 210],
+      "size": [150, 64]
+    },
+    {
+      "id": "mat_manager",
+      "type": "backend",
+      "label": "Mat Coordinator",
+      "sublabel": "Admin Takeover & Flow",
+      "pos": [280, 360],
+      "size": [150, 64],
+      "tag": "Interruption Lock"
+    },
+    {
+      "id": "fb_auth",
+      "type": "security",
+      "label": "Firebase Auth",
+      "sublabel": "OAuth & TaikaiX PIN",
+      "pos": [520, 80],
+      "size": [150, 64]
+    },
+    {
+      "id": "tiesheet_svc",
+      "type": "backend",
+      "label": "Tiesheet Engine",
+      "sublabel": "Bracket Generator",
+      "pos": [520, 210],
+      "size": [150, 64]
+    },
+    {
+      "id": "rtdb_sync",
+      "type": "database",
+      "label": "Realtime Database",
+      "sublabel": "Match Clock & Points",
+      "pos": [520, 360],
+      "size": [150, 64],
+      "tag": "Low Latency"
+    },
+    {
+      "id": "firestore",
+      "type": "database",
+      "label": "Cloud Firestore",
+      "sublabel": "Rosters & Tiesheets",
+      "pos": [760, 210],
+      "size": [150, 64]
+    },
+    {
+      "id": "storage",
+      "type": "cloud",
+      "label": "Cloud Storage",
+      "sublabel": "Tie-Sheet Exports",
+      "pos": [760, 360],
+      "size": [150, 64]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Client Displays & Workstations",
+      "wraps": ["client_web", "tv_display"]
+    },
+    {
+      "kind": "region",
+      "label": "Application Logic & Rules Engine",
+      "wraps": ["auth_engine", "comp_engine", "mat_manager", "tiesheet_svc"]
+    },
+    {
+      "kind": "region",
+      "label": "Firebase Cloud Infrastructure",
+      "wraps": ["fb_auth", "rtdb_sync", "firestore", "storage"]
+    }
+  ],
+  "connections": [
+    {
+      "id": "web-to-auth",
+      "from": "client_web",
+      "to": "auth_engine",
+      "label": "credentials",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "left"
+    },
+    {
+      "id": "auth-to-fb",
+      "from": "auth_engine",
+      "to": "fb_auth",
+      "label": "verify & sync",
+      "variant": "security"
+    },
+    {
+      "id": "web-to-core",
+      "from": "client_web",
+      "to": "comp_engine",
+      "label": "app dispatch",
+      "variant": "emphasis"
+    },
+    {
+      "id": "core-to-tiesheet",
+      "from": "comp_engine",
+      "to": "tiesheet_svc",
+      "label": "generate pool"
+    },
+    {
+      "id": "tiesheet-to-firestore",
+      "from": "tiesheet_svc",
+      "to": "firestore",
+      "label": "save brackets"
+    },
+    {
+      "id": "tiesheet-to-storage",
+      "from": "tiesheet_svc",
+      "to": "storage",
+      "label": "archive PDF",
+      "fromSide": "bottom",
+      "toSide": "left"
+    },
+    {
+      "id": "web-to-mat",
+      "from": "client_web",
+      "to": "mat_manager",
+      "label": "operator actions",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "mat-to-tv",
+      "from": "mat_manager",
+      "to": "tv_display",
+      "label": "broadcast",
+      "variant": "dashed"
+    },
+    {
+      "id": "mat-to-rtdb",
+      "from": "mat_manager",
+      "to": "rtdb_sync",
+      "label": "sync tick"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Client & Displays",
+      "items": [
+        "PWA frontend for operators, judges, volunteers, and audience",
+        "Dual-channel TV scoreboard auto-scaled for 1080p and 4K displays"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Rules & Engine",
+      "items": [
+        "WKF Kumite/Kata rule verification with Senshu and Hansoku DQs",
+        "Deterministic single-elimination and round-robin tiesheet generation"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Identity & Realtime",
+      "items": [
+        "Zero-anonymous RBAC with Quick PIN auto-provisioning",
+        "Firebase RTDB sub-millisecond clock and score synchronization"
+      ]
+    }
+  ]
+}

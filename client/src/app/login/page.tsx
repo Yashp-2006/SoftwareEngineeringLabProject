@@ -86,6 +86,30 @@ export default function LoginPage() {
             window.location.href = `/login/pending?compId=${targetCompId}&staffId=${staffId}`;
             return true;
           } else {
+            const staffDocRef = doc(db, 'competitions', targetCompId, 'staff', staffId);
+            await updateDoc(staffDocRef, {
+              userId: currentUser.uid,
+              requestUserId: currentUser.uid,
+              lastActiveAt: new Date().toISOString()
+            });
+
+            let mappedRole: 'mat_operator' | 'attendance_volunteer' | 'medal_distributor' | 'judge' | 'guest_viewer' = 'guest_viewer';
+            if (staffData.role === 'score') mappedRole = 'mat_operator';
+            else if (staffData.role === 'attendance') mappedRole = 'attendance_volunteer';
+            else if (staffData.role === 'medal') mappedRole = 'medal_distributor';
+            else if (staffData.role === 'judge') mappedRole = 'judge';
+
+            const { setDoc } = await import('firebase/firestore');
+            await setDoc(doc(db, 'users', currentUser.uid), {
+              displayName: staffData.name || currentUser.displayName || currentUser.email,
+              email: currentUser.email,
+              role: mappedRole,
+              isAnonymous: false,
+              staffId,
+              competitionId: targetCompId,
+              lastLoginAt: new Date().toISOString()
+            }, { merge: true });
+
             let redirectUrl = `/competitions/${targetCompId}`;
             if (staffData.role === 'score' && staffData.assignedMats?.length > 0) redirectUrl = `/competitions/${targetCompId}/operator?mat=${staffData.assignedMats[0]}`;
             else if (staffData.role === 'attendance') redirectUrl = `/competitions/${targetCompId}/athletes`;
@@ -438,7 +462,7 @@ export default function LoginPage() {
               lineHeight: 1.7,
               maxWidth: '300px',
             }}>
-              Real-time brackets, mat displays, and athlete management — built for officials under pressure.
+              Live brackets, mat scoring, and athlete management for karate tournaments.
             </p>
           </div>
 

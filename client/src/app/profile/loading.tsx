@@ -61,7 +61,9 @@ export default function ProfileLoading() {
 
         {/* Competition history list */}
         <section>
-          <SkText w={220} h={24} style={{ marginBottom: 20 }} />
+          <div style={{ marginBottom: 20 }}>
+            <SkText w={220} h={24} />
+          </div>
           <div style={{ display: 'grid', gap: 16 }}>
             {Array.from({ length: 4 }).map((_, i) => (
               <div

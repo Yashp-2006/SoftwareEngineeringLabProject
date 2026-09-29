@@ -594,9 +594,9 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
                       <tr key={athleteKey}>
                         <td>{athlete.name}</td>
                         <td className="academy-name">{athlete.academy}</td>
-                        <td className="academy-name" style={{ fontSize: '13px', color: 'var(--neutral-600)' }}>{athlete.coachName || <span style={{color:'var(--neutral-400)',fontStyle:'italic'}}>—</span>}</td>
+                        <td className="academy-name" style={{ fontSize: '13px', color: 'var(--neutral-600)' }}>{athlete.coachName || <span style={{color:'var(--neutral-400)',fontStyle:'italic'}}>-</span>}</td>
                         <td style={{ fontSize: '12px' }}>
-                          <div>{athlete.phone || <span style={{color:'var(--neutral-400)',fontStyle:'italic'}}>—</span>}</div>
+                          <div>{athlete.phone || <span style={{color:'var(--neutral-400)',fontStyle:'italic'}}>-</span>}</div>
                           {athlete.state && <div style={{color:'var(--neutral-500)',fontSize:'11px'}}>{athlete.state}</div>}
                         </td>
                         <td>

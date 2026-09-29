@@ -164,7 +164,7 @@ export default function KumiteLiveScoreboard({
           {isKata ? (
             <div style={{ marginTop: '2cqw', padding: '1cqw 2cqw', background: 'rgba(255,255,255,0.1)', borderRadius: '1cqw', textAlign: 'center' }}>
               <div style={{ fontSize: '1cqw', fontWeight: 700, opacity: 0.7, textTransform: 'uppercase', marginBottom: '0.5cqw' }}>Kata</div>
-              <div style={{ fontSize: '2.5cqw', fontWeight: 800, fontFamily: 'var(--font-display)', minHeight: '3cqw' }}>{akaKataName || '—'}</div>
+              <div style={{ fontSize: '2.5cqw', fontWeight: 800, fontFamily: 'var(--font-display)', minHeight: '3cqw' }}>{akaKataName || '-'}</div>
             </div>
           ) : (
             <>
@@ -215,7 +215,7 @@ export default function KumiteLiveScoreboard({
           {isKata ? (
             <div style={{ marginTop: '2cqw', padding: '1cqw 2cqw', background: 'rgba(255,255,255,0.1)', borderRadius: '1cqw', textAlign: 'center' }}>
               <div style={{ fontSize: '1cqw', fontWeight: 700, opacity: 0.7, textTransform: 'uppercase', marginBottom: '0.5cqw' }}>Kata</div>
-              <div style={{ fontSize: '2.5cqw', fontWeight: 800, fontFamily: 'var(--font-display)', minHeight: '3cqw' }}>{aoKataName || '—'}</div>
+              <div style={{ fontSize: '2.5cqw', fontWeight: 800, fontFamily: 'var(--font-display)', minHeight: '3cqw' }}>{aoKataName || '-'}</div>
             </div>
           ) : (
             <>

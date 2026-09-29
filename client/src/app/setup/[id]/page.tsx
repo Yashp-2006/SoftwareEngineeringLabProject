@@ -1267,7 +1267,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
               {!isReviewMode && (
                 <div className="phase-header">
                   <div>
-                    <h3 style={{ margin: 0 }}>Phase 1 — Define Categories</h3>
+                    <h3 style={{ margin: 0 }}>Phase 1: Define Categories</h3>
                     <p className="text-small" style={{ marginTop: '4px' }}>Define divisions for the tournament.</p>
                   </div>
                 </div>
@@ -1304,7 +1304,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
               {!isReviewMode && (
                 <div className="phase-header">
                   <div>
-                    <h3 style={{ margin: 0 }}>Phase 2 — Roster/CSV Import</h3>
+                    <h3 style={{ margin: 0 }}>Phase 2: Import Roster</h3>
                     <p className="text-small" style={{ marginTop: '4px' }}>Choose a pool size and import athletes to generate tiesheets.</p>
                   </div>
                 </div>
@@ -1326,7 +1326,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
               {!isReviewMode && (
                 <div className="phase-header">
                   <div>
-                    <h3 style={{ margin: 0 }}>Phase 3 — Category, Mat & Schedule Management</h3>
+                    <h3 style={{ margin: 0 }}>Phase 3: Categories & Mats</h3>
                     <p className="text-small" style={{ marginTop: '4px' }}>Set how many mats will be active for the tournament.</p>
                   </div>
                 </div>
@@ -1364,7 +1364,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
               {!isReviewMode && (
                 <div className="phase-header">
                   <div>
-                    <h3 style={{ margin: 0 }}>Phase 4 — Tiesheet Generation Preview</h3>
+                    <h3 style={{ margin: 0 }}>Phase 4: Brackets & Tiesheets</h3>
                     <p className="text-small" style={{ marginTop: '4px' }}>Tiesheets are generated on import. Preview verifies first-round matchups.</p>
                   </div>
                 </div>
@@ -1387,7 +1387,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
               {!isReviewMode && (
                 <div className="phase-header">
                   <div>
-                    <h3 style={{ margin: 0 }}>Phase 5 — Staff Management</h3>
+                    <h3 style={{ margin: 0 }}>Phase 5: Staff Management</h3>
                     <p className="text-small" style={{ marginTop: '4px' }}>Lock in attendance coverage.</p>
                   </div>
                 </div>
@@ -1731,7 +1731,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                           style={{ marginBottom: 0 }}
                         />
                       </div>
-                      <span style={{ color: 'var(--neutral-400)', marginTop: '16px' }}>—</span>
+                      <span style={{ color: 'var(--neutral-400)', marginTop: '16px' }}>to</span>
                       <div style={{ flex: 1 }}>
                         <label style={{ fontSize: '11px', color: 'var(--neutral-500)', display: 'block', marginBottom: '4px' }}>Max Age</label>
                         <input
@@ -1747,7 +1747,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                     </div>
                   </div>
 
-                  {/* Weight Range — only for Kumite */}
+                  {/* Weight Range: only for Kumite */}
                   {(editCatData.discipline !== 'Kata' && !(editCatData.isKata)) && (
                     <div className="form-group" style={{ marginBottom: 0 }}>
                       <label className="text-micro" style={{ display: 'block', marginBottom: '6px' }}>Weight Range (kg)</label>
@@ -1763,7 +1763,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                             style={{ marginBottom: 0 }}
                           />
                         </div>
-                        <span style={{ color: 'var(--neutral-400)', marginTop: '16px' }}>—</span>
+                        <span style={{ color: 'var(--neutral-400)', marginTop: '16px' }}>to</span>
                         <div style={{ flex: 1 }}>
                           <label style={{ fontSize: '11px', color: 'var(--neutral-500)', display: 'block', marginBottom: '4px' }}>Max Weight</label>
                           <input

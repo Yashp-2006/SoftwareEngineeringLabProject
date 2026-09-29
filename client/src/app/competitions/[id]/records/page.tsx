@@ -623,7 +623,7 @@ export default function PlayerRecordsPage({ params }: { params: Promise<{ id: st
                           {record.age} yrs • {record.weight} kg • <span style={{textTransform:'capitalize'}}>{record.gender}</span>
                         </td>
                         <td style={{ fontSize: '12px', color: 'var(--neutral-500)' }}>
-                          <div>{record.phone || '—'}</div>
+                          <div>{record.phone || '-'}</div>
                           <div>{record.email || ''}</div>
                         </td>
                         <td>

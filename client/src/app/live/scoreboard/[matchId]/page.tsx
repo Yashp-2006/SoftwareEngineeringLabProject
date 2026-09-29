@@ -328,7 +328,7 @@ export default function ScoreboardPage({ params }: { params: Promise<{ matchId: 
               : '00:00')
           }
           matchStatus={rtdbData.status === 'live' ? 'LIVE' : (rtdbData.status || 'STANDBY').toUpperCase()}
-          title={`KHEL KARATE — SCOREBOARD`}
+          title={`KHEL KARATE: SCOREBOARD`}
           subtitle={rtdbData.currentCategory || 'KATA'}
           kataWinner={rtdbData.kataWinner}
           winnerName={rtdbData.kataWinner === 'aka' ? rtdbData.akaName : rtdbData.kataWinner === 'ao' ? rtdbData.aoName : undefined}

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Maximize, ArrowLeft, Play, Pause, Flag, RotateCw, Coffee } from 'lucide-react';
+import { Maximize, ArrowLeft, Play, Pause, Flag, RotateCw, Coffee, Tv, ShieldAlert, ShieldCheck } from 'lucide-react';
 import Header from '@/modules/core/layout/Header';
 import PasswordGateway from '@/modules/auth/components/PasswordGateway';
 import { toast } from 'react-hot-toast';
@@ -20,6 +20,18 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
   const [verified, setVerified] = useState(false);
   const [staffRole, setStaffRole] = useState<string | null>(null);
   const isViewer = role === 'guest_viewer' || (!staffRole && role !== 'admin');
+  const isAdmin = role === 'admin';
+
+  // Admin Override & TV Scoreboard states
+  const [adminOverride, setAdminOverride] = useState<{
+    active: boolean;
+    adminName?: string;
+    adminUid?: string | null;
+    timestamp?: number;
+  } | null>(null);
+  const isOverriddenByAdmin = Boolean(adminOverride?.active && !isAdmin);
+  const [isTvConnected, setIsTvConnected] = useState(false);
+  const bcRef = useRef<BroadcastChannel | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -160,7 +172,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
 
   // RTDB sync — debounced to max 1 write per 500ms to avoid write storms during timer ticks
   const syncRTDB = useCallback(async (payload: any) => {
-    if (isViewer) return;
+    if (isViewer || isOverriddenByAdmin) return;
     try {
       if (!rtdbRefCache.current || !rtdbSetCache.current) {
         const { rtdb } = await import('@lib/firebase');
@@ -173,20 +185,91 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
     } catch (err) {
       console.error('Failed to sync RTDB', err);
     }
-  }, [id]);
+  }, [id, isViewer, isOverriddenByAdmin]);
 
   const isKata = activeCategoryData?.isKata || activeCategoryName?.toLowerCase().includes('kata');
 
+  // Broadcast current state to TV Scoreboard (via BroadcastChannel)
+  const broadcastCurrentState = useCallback(() => {
+    if (!bcRef.current) return;
+    try {
+      const mm = Math.floor(timer / 60).toString().padStart(2, '0');
+      const ss = (timer % 60).toString().padStart(2, '0');
+      const isKataMatch = activeCategoryName?.toLowerCase().includes('kata') || false;
+      bcRef.current.postMessage({
+        type: 'STATE_UPDATE',
+        payload: {
+          status: status === 'finished' ? 'standby' : (status === 'upcoming' ? 'upcoming' : (running ? 'live' : 'paused')),
+          matchStatus: status === 'finished' ? 'COMPLETED' : (running ? 'LIVE' : (status === 'upcoming' ? 'UPCOMING' : 'PAUSED')),
+          currentCategory: activeCategoryName || 'No Active Category',
+          isKata: isKataMatch,
+          numberOfJudges: activeCategoryData?.numberOfJudges || 3,
+          currentMatch: queue[0]?.displayId || 'Standby',
+          matchDisplayId: queue[0]?.displayId || 'Standby',
+          matchId: activeMatchId || queue[0]?.id || null,
+          akaName: aka.name, akaCountry: aka.country, akaAcademy: aka.academy,
+          aoName: ao.name, aoCountry: ao.country, aoAcademy: ao.academy,
+          scores: { aka: aka.score, ao: ao.score },
+          akaStats: { yuko: aka.yuko, waza: aka.waza, ippon: aka.ippon, senshu: aka.senshu },
+          aoStats: { yuko: ao.yuko, waza: ao.waza, ippon: ao.ippon, senshu: ao.senshu },
+          akaPenalties: { c1: aka.c1, c2: aka.c2, c3: aka.c3, hc: aka.hc, h: aka.h },
+          aoPenalties:  { c1: ao.c1,  c2: ao.c2,  c3: ao.c3,  hc: ao.hc,  h: ao.h  },
+          restTimerSeconds: restTimer, restTimerRunning: restRunning,
+          timeRemaining: `${mm}:${ss}`,
+          timerSeconds: timer,
+          timerRunning: running,
+          selectedKata,
+          kataVotes,
+          kataWinner,
+          kataScores,
+          revealVotes,
+          revealCountdown,
+          adminOverride,
+        }
+      });
+    } catch (e) {
+      console.warn('Broadcast error:', e);
+    }
+  }, [timer, activeCategoryName, status, running, activeCategoryData, queue, activeMatchId, aka, ao, restTimer, restRunning, selectedKata, kataVotes, kataWinner, kataScores, revealVotes, revealCountdown, adminOverride]);
+
+  // Native BroadcastChannel: 0 ms latency local cross-tab / cross-window sync
+  useEffect(() => {
+    let bc: BroadcastChannel | null = null;
+    try {
+      const matId = new URLSearchParams(window.location.search).get('mat') || 'mat-1';
+      const channelName = `taikaix_scoreboard_${id}_${matId}`;
+      bc = new BroadcastChannel(channelName);
+      bcRef.current = bc;
+
+      bc.onmessage = (event) => {
+        if (event.data?.type === 'SCOREBOARD_MOUNTED') {
+          setIsTvConnected(true);
+          broadcastCurrentState();
+        }
+      };
+    } catch (err) {
+      console.warn('BroadcastChannel error in operator:', err);
+    }
+
+    return () => {
+      if (bc) bc.close();
+      bcRef.current = null;
+    };
+  }, [id, broadcastCurrentState]);
+
+  // State sync effect: broadcasts immediately to local TV scoreboard (<1ms) and debounces RTDB
   useEffect(() => {
     const mm = Math.floor(timer / 60).toString().padStart(2, '0');
     const ss = (timer % 60).toString().padStart(2, '0');
     const isKataMatch = activeCategoryName?.toLowerCase().includes('kata') || false;
     const payload: any = {
       status: status === 'finished' ? 'standby' : (status === 'upcoming' ? 'upcoming' : (running ? 'live' : 'paused')),
+      matchStatus: status === 'finished' ? 'COMPLETED' : (running ? 'LIVE' : (status === 'upcoming' ? 'UPCOMING' : 'PAUSED')),
       currentCategory: activeCategoryName || 'No Active Category',
       isKata: isKataMatch,
       numberOfJudges: activeCategoryData?.numberOfJudges || 3,
       currentMatch: queue[0]?.displayId || 'Standby',
+      matchDisplayId: queue[0]?.displayId || 'Standby',
       matchId: activeMatchId || queue[0]?.id || null,
       akaName: aka.name, akaCountry: aka.country, akaAcademy: aka.academy,
       aoName: ao.name, aoCountry: ao.country, aoAcademy: ao.academy,
@@ -196,6 +279,16 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
       akaPenalties: { c1: aka.c1, c2: aka.c2, c3: aka.c3, hc: aka.hc, h: aka.h },
       aoPenalties:  { c1: ao.c1,  c2: ao.c2,  c3: ao.c3,  hc: ao.hc,  h: ao.h  },
       restTimerSeconds: restTimer, restTimerRunning: restRunning,
+      timeRemaining: `${mm}:${ss}`,
+      timerSeconds: timer,
+      timerRunning: running,
+      selectedKata,
+      kataVotes,
+      kataWinner,
+      kataScores,
+      revealVotes,
+      revealCountdown,
+      adminOverride,
     };
 
     if (!isKataMatch) {
@@ -204,9 +297,20 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
       payload.timeRemaining = `${mm}:${ss}`;
     }
 
-    // Immediate sync for non-timer events (score/status/penalty changes)
-    // Debounced to 500ms for timer ticks to avoid 1 write/sec write storms
-    if (!isViewer) {
+    // 1. Instant local broadcast to Scoreboard (< 1 ms latency)
+    if (bcRef.current) {
+      try {
+        bcRef.current.postMessage({
+          type: 'STATE_UPDATE',
+          payload
+        });
+      } catch (err) {
+        console.warn('BroadcastChannel post error:', err);
+      }
+    }
+
+    // 2. Cloud RTDB sync (skip if viewer or overridden by admin)
+    if (!isViewer && !isOverriddenByAdmin) {
       if (rtdbDebounceTimer.current) clearTimeout(rtdbDebounceTimer.current);
       rtdbDebounceTimer.current = setTimeout(() => syncRTDB(payload), 500);
     }
@@ -214,11 +318,10 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
     return () => {
       if (rtdbDebounceTimer.current) clearTimeout(rtdbDebounceTimer.current);
     };
-  }, [id, aka, ao, timer, status, running, activeCategoryName, queue, syncRTDB, isViewer, activeMatchId]);
+  }, [id, aka, ao, timer, status, running, activeCategoryName, queue, syncRTDB, isViewer, isOverriddenByAdmin, activeMatchId, activeCategoryData, restTimer, restRunning, selectedKata, kataVotes, kataWinner, kataScores, revealVotes, revealCountdown, adminOverride]);
 
-  // Viewer RTDB listener
+  // Unified RTDB Listener: Syncs Admin Override, Viewer/Overridden mirror mode, and Kata events
   useEffect(() => {
-    if (!isViewer) return;
     let unsubscribe = () => {};
     const setupListener = async () => {
       const { rtdb } = await import('@lib/firebase');
@@ -228,11 +331,51 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
       
       onValue(liveRef, (snapshot) => {
         const val = snapshot.val();
-        if (val) {
-          setAka(prev => ({ ...prev, name: val.akaName || prev.name, country: val.akaCountry || prev.country, academy: val.akaAcademy || prev.academy, score: val.scores?.aka || 0, yuko: val.akaStats?.yuko || 0, waza: val.akaStats?.waza || 0, ippon: val.akaStats?.ippon || 0, senshu: val.akaStats?.senshu || false, c1: val.akaPenalties?.c1 || 0, c2: val.akaPenalties?.c2 || 0, c3: val.akaPenalties?.c3 || 0, hc: val.akaPenalties?.hc || 0, h: val.akaPenalties?.h || 0 }));
-          setAo(prev => ({ ...prev, name: val.aoName || prev.name, country: val.aoCountry || prev.country, academy: val.aoAcademy || prev.academy, score: val.scores?.ao || 0, yuko: val.aoStats?.yuko || 0, waza: val.aoStats?.waza || 0, ippon: val.aoStats?.ippon || 0, senshu: val.aoStats?.senshu || false, c1: val.aoPenalties?.c1 || 0, c2: val.aoPenalties?.c2 || 0, c3: val.aoPenalties?.c3 || 0, hc: val.aoPenalties?.hc || 0, h: val.aoPenalties?.h || 0 }));
+        if (!val) return;
+
+        // 1. Always sync admin override status
+        setAdminOverride(val.adminOverride || null);
+
+        const currentIsAdmin = role === 'admin';
+        const isOverridden = Boolean(val.adminOverride?.active && !currentIsAdmin);
+
+        // 2. If viewer OR overridden by admin, mirror the entire live score from RTDB
+        if (isViewer || isOverridden) {
+          setAka(prev => ({
+            ...prev,
+            name: val.akaName || prev.name,
+            country: val.akaCountry || prev.country,
+            academy: val.akaAcademy || prev.academy,
+            score: val.scores?.aka ?? prev.score,
+            yuko: val.akaStats?.yuko ?? prev.yuko,
+            waza: val.akaStats?.waza ?? prev.waza,
+            ippon: val.akaStats?.ippon ?? prev.ippon,
+            senshu: val.akaStats?.senshu ?? prev.senshu,
+            c1: val.akaPenalties?.c1 ?? prev.c1,
+            c2: val.akaPenalties?.c2 ?? prev.c2,
+            c3: val.akaPenalties?.c3 ?? prev.c3,
+            hc: val.akaPenalties?.hc ?? prev.hc,
+            h: val.akaPenalties?.h ?? prev.h,
+          }));
+          setAo(prev => ({
+            ...prev,
+            name: val.aoName || prev.name,
+            country: val.aoCountry || prev.country,
+            academy: val.aoAcademy || prev.academy,
+            score: val.scores?.ao ?? prev.score,
+            yuko: val.aoStats?.yuko ?? prev.yuko,
+            waza: val.aoStats?.waza ?? prev.waza,
+            ippon: val.aoStats?.ippon ?? prev.ippon,
+            senshu: val.aoStats?.senshu ?? prev.senshu,
+            c1: val.aoPenalties?.c1 ?? prev.c1,
+            c2: val.aoPenalties?.c2 ?? prev.c2,
+            c3: val.aoPenalties?.c3 ?? prev.c3,
+            hc: val.aoPenalties?.hc ?? prev.hc,
+            h: val.aoPenalties?.h ?? prev.h,
+          }));
           setStatus(val.status || 'ongoing');
           if (val.currentCategory) setActiveCategoryName(val.currentCategory);
+          if (val.matchId) setActiveMatchId(val.matchId);
           setKataVotes(val.kataVotes || null);
           setKataWinner(val.kataWinner || null);
           setKataScores(val.kataScores || null);
@@ -244,40 +387,129 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
             if (!isNaN(mm) && !isNaN(ss)) setTimer(mm * 60 + ss);
           }
           setRunning(val.timerRunning || false);
+        } else {
+          // 3. Normal active operator or active admin — sync Kata updates from remote judges / panel
+          if (val.kataVotes !== undefined) setKataVotes(val.kataVotes || null);
+          if (val.kataWinner !== undefined) setKataWinner(val.kataWinner || null);
+          if (val.kataScores !== undefined) setKataScores(val.kataScores || null);
+          if (val.selectedKata !== undefined) setSelectedKata(val.selectedKata || null);
+          if (val.revealVotes !== undefined) setRevealVotes(val.revealVotes || false);
+          if (val.revealCountdown !== undefined) setRevealCountdown(val.revealCountdown || 0);
         }
       });
       unsubscribe = () => off(liveRef);
     };
     setupListener();
     return () => unsubscribe();
-  }, [id, isViewer]);
+  }, [id, isViewer, role]);
 
-  // Kata RTDB listener for Operator (syncs state from KataOperatorPanel)
-  useEffect(() => {
-    if (isViewer) return;
-    let unsubscribe = () => {};
-    const setupListener = async () => {
+  // Admin Override Toggle Handler (Exclusive to Admin)
+  const handleToggleAdminOverride = useCallback(async () => {
+    if (role !== 'admin') {
+      toast.error('Only administrators can take direct control of mat scoreboards.');
+      return;
+    }
+
+    try {
       const { rtdb } = await import('@lib/firebase');
-      const { ref, onValue, off } = await import('firebase/database');
+      const { ref, update, get } = await import('firebase/database');
       const matId = new URLSearchParams(window.location.search).get('mat') || 'mat-1';
       const liveRef = ref(rtdb, `live_scores/${id}/mats/${matId}`);
-      
-      onValue(liveRef, (snapshot) => {
-        const val = snapshot.val();
-        if (val) {
-          setKataVotes(val.kataVotes || null);
-          setKataWinner(val.kataWinner || null);
-          setKataScores(val.kataScores || null);
-          setSelectedKata(val.selectedKata || null);
-          setRevealVotes(val.revealVotes || false);
-          setRevealCountdown(val.revealCountdown || 0);
+
+      const currentlyActive = Boolean(adminOverride?.active);
+      const newActive = !currentlyActive;
+
+      const overrideData = {
+        adminOverride: {
+          active: newActive,
+          adminName: user?.displayName || user?.email?.split('@')[0] || 'Tournament Director',
+          adminUid: newActive ? (user?.uid || 'admin') : null,
+          timestamp: Date.now(),
         }
-      });
-      unsubscribe = () => off(liveRef);
-    };
-    setupListener();
-    return () => unsubscribe();
-  }, [id, isViewer]);
+      };
+
+      await update(liveRef, overrideData);
+      setAdminOverride(overrideData.adminOverride);
+
+      if (newActive) {
+        // Hydrate from existing RTDB so admin starts seamlessly with current match state
+        const snap = await get(liveRef);
+        const val = snap.val();
+        if (val) {
+          if (val.akaName) setAka(prev => ({ ...prev, name: val.akaName, country: val.akaCountry || '', academy: val.akaAcademy || '', score: val.scores?.aka ?? prev.score }));
+          if (val.aoName) setAo(prev => ({ ...prev, name: val.aoName, country: val.aoCountry || '', academy: val.aoAcademy || '', score: val.scores?.ao ?? prev.score }));
+          if (val.currentCategory) setActiveCategoryName(val.currentCategory);
+          if (val.matchId) setActiveMatchId(val.matchId);
+          if (val.timeRemaining) {
+            const [mm, ss] = val.timeRemaining.split(':').map(Number);
+            if (!isNaN(mm) && !isNaN(ss)) setTimer(mm * 60 + ss);
+          }
+        }
+        toast.success(`You have taken direct control of Mat ${matId.replace('mat-', '')}. Operator controls are locked.`, {
+          icon: '🛡️',
+          duration: 4000,
+        });
+      } else {
+        toast.success('Mat control released. Operator controls restored.', {
+          icon: '✅',
+          duration: 3000,
+        });
+      }
+    } catch (err) {
+      console.error('Failed to update admin override:', err);
+      toast.error('Failed to change mat control state.');
+    }
+  }, [id, role, user, adminOverride]);
+
+  // Launch Dedicated TV Scoreboard on Secondary Monitor
+  const handleLaunchTVScoreboard = useCallback(async () => {
+    const matParam = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('mat') || 'mat-1';
+    const targetUrl = `/competitions/${id}/scoreboard?mat=${matParam}&auto=1`;
+
+    // 1. Modern Chromium Multi-Screen Window Management API
+    if (typeof window !== 'undefined' && 'getScreenDetails' in window) {
+      try {
+        const screenDetails = await (window as any).getScreenDetails();
+        const secondaryScreen = screenDetails.screens.find((s: any) => !s.isPrimary) || (screenDetails.screens.length > 1 ? screenDetails.screens[1] : null);
+
+        if (secondaryScreen) {
+          const windowFeatures = [
+            `left=${secondaryScreen.availLeft}`,
+            `top=${secondaryScreen.availTop}`,
+            `width=${secondaryScreen.availWidth}`,
+            `height=${secondaryScreen.availHeight}`,
+            'menubar=no',
+            'toolbar=no',
+            'location=no',
+            'status=no',
+            'resizable=yes',
+            'scrollbars=no',
+            'popup=yes'
+          ].join(',');
+
+          const tvWin = window.open(targetUrl, `taikaix_scoreboard_${matParam}`, windowFeatures);
+          if (tvWin) {
+            toast.success(`Scoreboard opened on secondary display (${secondaryScreen.label || 'Screen 2'})!`, { icon: '📺' });
+            return;
+          }
+        }
+      } catch (err) {
+        console.log('Window Management API not permitted or skipped:', err);
+      }
+    }
+
+    // 2. Fallback popup window positioned on secondary display or new tab
+    const screenLeftOffset = typeof window !== 'undefined' ? (window.screen.availWidth || 1920) : 1920;
+    const fallbackFeatures = `left=${screenLeftOffset},top=0,width=1920,height=1080,popup=yes,resizable=yes`;
+    const popup = window.open(targetUrl, `taikaix_scoreboard_${matParam}`, fallbackFeatures);
+
+    if (popup) {
+      toast.success('Scoreboard window opened! Press F on the scoreboard to enter fullscreen.', { icon: '📺' });
+    } else {
+      window.open(targetUrl, '_blank');
+      toast.success('Scoreboard opened in a new tab. Press F to enter fullscreen.', { icon: '📺' });
+    }
+  }, [id]);
 
   useEffect(() => {
     let unsubscribe = () => {};
@@ -393,6 +625,10 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
     return () => unsubscribe();
   }, [id]);
   const loadMatch = (m: any, isHydrating = false) => {
+    if (!isHydrating && isOverriddenByAdmin) {
+      toast.error('Cannot change match while Admin override is active.');
+      return;
+    }
     setActiveMatchId(m.id);
     setAka({ name: m.aka, country: m.akaCountry, academy: m.akaAcademy, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: m.akaId });
     setAo({ name: m.ao, country: m.aoCountry, academy: m.aoAcademy, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: m.aoId });
@@ -649,6 +885,10 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
   };
 
   const handleStartCategory = async () => {
+    if (isOverriddenByAdmin) {
+      toast.error('Controls are locked while Admin override is active.');
+      return;
+    }
     if (!activeCategoryId) return;
     try {
       const { db } = await import('@lib/firebase');
@@ -663,6 +903,10 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
   };
 
   const handleNextCategory = async () => {
+    if (isOverriddenByAdmin) {
+      toast.error('Controls are locked while Admin override is active.');
+      return;
+    }
     if (!activeCategoryId) return;
     try {
       const { db } = await import('@lib/firebase');
@@ -677,6 +921,10 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
   };
 
   const handleFinishMatch = async () => {
+    if (isOverriddenByAdmin) {
+      toast.error('Controls are locked while Admin override is active.');
+      return;
+    }
     const currentMatch = queue.find(m => m.id === activeMatchId);
     if (!currentMatch || !activeCategoryId) {
       toast.error('No active match to finish');
@@ -849,6 +1097,10 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
   };
 
   const handleFinishCategory = async () => {
+    if (isOverriddenByAdmin) {
+      toast.error('Controls are locked while Admin override is active.');
+      return;
+    }
     try {
       const { db } = await import('@lib/firebase');
       const { collection, getDocs, query, where, updateDoc, doc } = await import('firebase/firestore');
@@ -1017,7 +1269,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                 timeRemaining={`${Math.floor(timer / 60).toString().padStart(2, '0')}:${(timer % 60).toString().padStart(2, '0')}`}
                 matchStatus={status === 'finished' ? 'COMPLETED' : (running ? 'LIVE' : status.toUpperCase())}
                 logoUrl={compData?.scoreboardLogo}
-                title={`Mat ${matNum} — Kata Scoreboard`}
+                title={`Mat ${matNum}: Kata Scoreboard`}
                 subtitle={`${compData?.name || 'Tournament'} • ${activeCategoryName || 'Kata'}`}
                 onToggleFullscreen={() => {
                   if (document.fullscreenElement) {
@@ -1065,7 +1317,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                 matchStatus={timer === 0 ? 'TIME OVER' : running ? 'MATCH LIVE' : timer === matchDuration ? 'PRE-MATCH' : 'PAUSED'}
                 title={compData?.name || 'KHEL KARATE'}
                 categoryName={activeCategoryName || 'KUMITE'}
-                matchId={`MAT ${matNum} - ${queue.find(m => m.id === activeMatchId)?.displayId || '—'}`}
+                matchId={`MAT ${matNum} - ${queue.find(m => m.id === activeMatchId)?.displayId || '-'}`}
                 winnerName={winnerState ? winnerState.name : undefined}
                 winnerColor={winnerState ? winnerState.color : undefined}
                 isFullscreen={isFullscreen}
@@ -1224,22 +1476,188 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
             </div>
           </div>
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'flex-end', flex: '0 1 auto' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={handleLaunchTVScoreboard}
+              title="Launch dedicated TV Scoreboard on secondary display / TV"
+              style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+            >
+              <Tv size={16} />
+              <span>Send to TV</span>
+              {isTvConnected && (
+                <span
+                  style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    background: '#22c55e',
+                    boxShadow: '0 0 8px #22c55e',
+                    display: 'inline-block'
+                  }}
+                  title="TV Scoreboard Connected"
+                />
+              )}
+            </button>
+
+            {isAdmin && (
+              <button
+                type="button"
+                className={`btn ${adminOverride?.active ? 'btn-danger' : 'btn-secondary'}`}
+                onClick={handleToggleAdminOverride}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  background: adminOverride?.active ? 'var(--aka)' : undefined,
+                  color: adminOverride?.active ? '#ffffff' : undefined,
+                  borderColor: adminOverride?.active ? 'var(--aka)' : undefined
+                }}
+              >
+                {adminOverride?.active ? (
+                  <>
+                    <ShieldAlert size={16} />
+                    <span>Release Mat Control</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck size={16} />
+                    <span>Take Mat Control</span>
+                  </>
+                )}
+              </button>
+            )}
+
             {!isViewer && (
               <>
-                <button type="button" className="btn btn-primary" onClick={handleStartCategory}><Play size={16} /> Start Category</button>
-                <button type="button" className="btn btn-secondary" onClick={handleFinishCategory}><Flag size={16} /> Finish Category</button>
-                <button type="button" className="btn btn-secondary" onClick={handleNextCategory}>Next Category</button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={handleStartCategory}
+                  disabled={isOverriddenByAdmin}
+                >
+                  <Play size={16} /> Start Category
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={handleFinishCategory}
+                  disabled={isOverriddenByAdmin}
+                >
+                  <Flag size={16} /> Finish Category
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={handleNextCategory}
+                  disabled={isOverriddenByAdmin}
+                >
+                  Next Category
+                </button>
               </>
             )}
-            <button type="button" className="btn btn-primary" onClick={() => {
-              document.documentElement.requestFullscreen().catch(()=>{});
-            }}>
-              <Maximize size={16} /> View Scoreboard Fullscreen
+
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => {
+                document.documentElement.requestFullscreen().catch(()=>{});
+              }}
+            >
+              <Maximize size={16} /> Fullscreen
             </button>
           </div>
         </header>
-        
-        <div className="mat-detail-grid">
+
+        {/* Admin Mat Override Banner (for Operators) */}
+        {isOverriddenByAdmin && (
+          <div style={{
+            background: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)',
+            color: '#ffffff',
+            padding: '16px 20px',
+            borderRadius: '12px',
+            marginBottom: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            boxShadow: '0 8px 24px rgba(239, 68, 68, 0.25)',
+            border: '1px solid rgba(255, 255, 255, 0.2)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <div style={{ background: 'rgba(255,255,255,0.2)', padding: '8px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <ShieldAlert size={28} color="#ffffff" />
+              </div>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: '16px', letterSpacing: '0.02em', textTransform: 'uppercase' }}>
+                  Admin Mat Override Active
+                </div>
+                <div style={{ fontSize: '13px', opacity: 0.95, marginTop: '2px' }}>
+                  Administrator <strong>{adminOverride?.adminName || 'Tournament Director'}</strong> has taken live control of this mat. Your local controls are locked and mirroring the administrator in real time.
+                </div>
+              </div>
+            </div>
+            <span style={{
+              fontSize: '11px',
+              fontWeight: 800,
+              background: 'rgba(0, 0, 0, 0.3)',
+              padding: '6px 14px',
+              borderRadius: '999px',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              whiteSpace: 'nowrap'
+            }}>
+              Controls Locked
+            </span>
+          </div>
+        )}
+
+        {/* Admin Direct Control Banner (for Admin) */}
+        {isAdmin && adminOverride?.active && (
+          <div style={{
+            background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+            color: '#ffffff',
+            padding: '16px 20px',
+            borderRadius: '12px',
+            marginBottom: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            boxShadow: '0 8px 24px rgba(15, 23, 42, 0.25)',
+            border: '1px solid var(--neutral-700)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <div style={{ background: 'rgba(34, 197, 94, 0.2)', padding: '8px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <ShieldCheck size={28} color="#22c55e" />
+              </div>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: '16px', letterSpacing: '0.02em', textTransform: 'uppercase', color: '#f8fafc' }}>
+                  You are Controlling this Mat Directly
+                </div>
+                <div style={{ fontSize: '13px', color: '#94a3b8', marginTop: '2px' }}>
+                  Mat operator controls are locked. All points, penalties, timers, and match selections you make here stream directly to the TV Scoreboard and the operator screen.
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={handleToggleAdminOverride}
+              style={{ background: '#ffffff', color: '#0f172a', fontWeight: 700, border: 'none' }}
+            >
+              Release Control
+            </button>
+          </div>
+        )}
+
+        <div
+          className="mat-detail-grid"
+          style={{
+            pointerEvents: isOverriddenByAdmin ? 'none' : 'auto',
+            opacity: isOverriddenByAdmin ? 0.7 : 1,
+            position: 'relative',
+            userSelect: isOverriddenByAdmin ? 'none' : 'auto'
+          }}
+        >
           
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <section className="ops-scoreboard">
@@ -1251,7 +1669,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                 <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
                 <div style={{ textAlign: 'right' }}>
                     <div style={{ color: 'var(--neutral-500)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Match ID</div>
-                    <div style={{ fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{queue.find(m => m.id === activeMatchId)?.displayId || '—'}</div>
+                    <div style={{ fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{queue.find(m => m.id === activeMatchId)?.displayId || '-'}</div>
                   </div>
                 </div>
               </div>
@@ -1288,7 +1706,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                           matchStatus={timer === 0 ? 'TIME OVER' : running ? 'MATCH LIVE' : timer === matchDuration ? 'PRE-MATCH' : 'PAUSED'}
                           title={compData?.name || 'KHEL KARATE'}
                           categoryName={activeCategoryName || 'KUMITE'}
-                          matchId={`MAT ${new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('mat')?.replace('mat-', '').padStart(2, '0') || '01'} - ${queue.find(m => m.id === activeMatchId)?.displayId || '—'}`}
+                          matchId={`MAT ${new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('mat')?.replace('mat-', '').padStart(2, '0') || '01'} - ${queue.find(m => m.id === activeMatchId)?.displayId || '-'}`}
                           winnerName={winnerState ? winnerState.name : undefined}
                           winnerColor={winnerState ? winnerState.color : undefined}
                           isKata={!!isKata}
@@ -1377,7 +1795,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
 
                 <div className="ops-side ops-center">
                   <div style={{ border: '1px solid var(--neutral-300)', padding: '4px 16px', borderRadius: '999px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '24px' }}>
-                    Match {queue.find(m => m.id === activeMatchId)?.displayId || '—'}
+                    Match {queue.find(m => m.id === activeMatchId)?.displayId || '-'}
                   </div>
 
                   <div style={{ color: 'var(--neutral-500)', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px' }}>Remaining</div>
@@ -1597,7 +2015,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                       if (b === 'finals') return -1;
                       return parseInt(a) - parseInt(b);
                     }).map(p => (
-                      <option key={p} value={p}>{p === 'finals' ? 'Finals' : `Pool ${p}`} {poolStatuses[p] ? '✅' : '🔴'}</option>
+                      <option key={p} value={p}>{p === 'finals' ? 'Finals' : `Pool ${p}`} {poolStatuses[p] ? '(Done)' : '(Live)'}</option>
                     ))}
                   </select>
                   {!isViewer && (
