@@ -532,8 +532,130 @@ export default function CompetitionsPage() {
                   </div>
                 </>
               ) : (
-                <div style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--neutral-500)', fontFamily: 'var(--font-body)', fontSize: '14px' }}>
-                  No competitions available right now.
+                <div className="no-comp-empty">
+                  <style dangerouslySetInnerHTML={{ __html: `
+                    .no-comp-empty {
+                      grid-column: 1 / -1;
+                      display: flex;
+                      flex-direction: column;
+                      align-items: center;
+                      padding: 80px 24px 72px;
+                      text-align: center;
+                      animation: nc-fade-in 400ms cubic-bezier(0.23, 1, 0.32, 1) both;
+                    }
+                    @keyframes nc-fade-in {
+                      from { opacity: 0; transform: translateY(16px); }
+                      to   { opacity: 1; transform: translateY(0); }
+                    }
+
+                    .no-comp-icon {
+                      width: 64px;
+                      height: 64px;
+                      border-radius: 16px;
+                      background: var(--neutral-100);
+                      border: 1.5px solid var(--neutral-200);
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      margin-bottom: 20px;
+                    }
+
+                    .no-comp-icon svg {
+                      width: 28px;
+                      height: 28px;
+                      color: var(--neutral-400);
+                    }
+
+                    .no-comp-heading {
+                      font-family: var(--font-display);
+                      font-size: 28px;
+                      letter-spacing: 0.04em;
+                      text-transform: uppercase;
+                      color: var(--neutral-900);
+                      margin-bottom: 8px;
+                    }
+
+                    .no-comp-sub {
+                      font-family: var(--font-body);
+                      font-size: 14px;
+                      color: var(--neutral-500);
+                      max-width: 320px;
+                      line-height: 1.6;
+                      margin-bottom: 36px;
+                    }
+
+                    .no-comp-hints {
+                      display: flex;
+                      gap: 12px;
+                      flex-wrap: wrap;
+                      justify-content: center;
+                    }
+
+                    .no-comp-hint {
+                      display: flex;
+                      align-items: center;
+                      gap: 8px;
+                      padding: 8px 14px;
+                      background: var(--shiro);
+                      border: 1.5px solid var(--neutral-200);
+                      border-radius: 8px;
+                      font-family: var(--font-body);
+                      font-size: 13px;
+                      color: var(--neutral-600);
+                      opacity: 0;
+                      transform: translateY(8px);
+                      animation: nc-hint-in 360ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
+                    }
+
+                    .no-comp-hint:nth-child(1) { animation-delay: 120ms; }
+                    .no-comp-hint:nth-child(2) { animation-delay: 180ms; }
+                    .no-comp-hint:nth-child(3) { animation-delay: 240ms; }
+
+                    @keyframes nc-hint-in {
+                      to { opacity: 1; transform: translateY(0); }
+                    }
+
+                    .no-comp-hint-dot {
+                      width: 6px;
+                      height: 6px;
+                      border-radius: 50%;
+                      background: var(--neutral-300);
+                      flex-shrink: 0;
+                    }
+
+                    @media (prefers-reduced-motion: reduce) {
+                      .no-comp-empty,
+                      .no-comp-hint { animation: none; opacity: 1; transform: none; }
+                    }
+                  `}} />
+
+                  <div className="no-comp-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="4" width="18" height="18" rx="2"/>
+                      <path d="M16 2v4M8 2v4M3 10h18"/>
+                      <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/>
+                    </svg>
+                  </div>
+
+                  <h2 className="no-comp-heading">No Events Scheduled</h2>
+                  <p className="no-comp-sub">
+                    Check back closer to the event date. Your admin will publish competitions here once they go live.
+                  </p>
+
+                  <div className="no-comp-hints">
+                    <div className="no-comp-hint">
+                      <div className="no-comp-hint-dot" />
+                      Live events appear automatically
+                    </div>
+                    <div className="no-comp-hint">
+                      <div className="no-comp-hint-dot" />
+                      No action required on your end
+                    </div>
+                    <div className="no-comp-hint">
+                      <div className="no-comp-hint-dot" />
+                      Refresh to check for updates
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

@@ -17,12 +17,12 @@ const ROLE_MAP: Record<string, string> = {
 const ROLES = Object.keys(ROLE_MAP);
 
 const ROLE_DESCRIPTIONS: Record<string, string> = {
-  "admin": "Full control (Read/Write)",
-  "mat_operator": "Score mat, manage tiesheet, points",
-  "attendance_volunteer": "Athlete page, ready status, disqualify",
-  "medal_distributor": "Filter state/country, distribute",
-  "guest_viewer": "Read-only access",
-  "judge": "Provide inputs for judging matches"
+  "admin": "Full access — manage users, settings, and all data",
+  "mat_operator": "Run mat scoring, manage tiesheet and points",
+  "attendance_volunteer": "Mark attendance, set ready status, disqualify athletes",
+  "medal_distributor": "Filter by state or country, distribute medals",
+  "guest_viewer": "View only — no edits",
+  "judge": "Score and submit judgments for matches"
 };
 
 const ROLE_ALIASES: Record<string, string> = {
