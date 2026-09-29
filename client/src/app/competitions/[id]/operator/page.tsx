@@ -1555,34 +1555,6 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
               )}
             </button>
 
-            {isAdmin && (
-              <button
-                type="button"
-                className={`btn ${adminOverride?.active ? 'btn-danger' : 'btn-secondary'}`}
-                onClick={handleToggleAdminOverride}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  background: adminOverride?.active ? 'var(--aka)' : undefined,
-                  color: adminOverride?.active ? '#ffffff' : undefined,
-                  borderColor: adminOverride?.active ? 'var(--aka)' : undefined
-                }}
-              >
-                {adminOverride?.active ? (
-                  <>
-                    <ShieldAlert size={16} />
-                    <span>Release Mat Control</span>
-                  </>
-                ) : (
-                  <>
-                    <ShieldCheck size={16} />
-                    <span>Take Mat Control</span>
-                  </>
-                )}
-              </button>
-            )}
-
             {!isViewer && (
               <>
                 <button
@@ -1663,44 +1635,6 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
             }}>
               Controls Locked
             </span>
-          </div>
-        )}
-
-        {/* Admin Direct Control Banner (for Admin) */}
-        {isAdmin && adminOverride?.active && (
-          <div style={{
-            background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
-            color: '#ffffff',
-            padding: '16px 20px',
-            borderRadius: '12px',
-            marginBottom: '20px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            boxShadow: '0 8px 24px rgba(15, 23, 42, 0.25)',
-            border: '1px solid var(--neutral-700)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-              <div style={{ background: 'rgba(34, 197, 94, 0.2)', padding: '8px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <ShieldCheck size={28} color="#22c55e" />
-              </div>
-              <div>
-                <div style={{ fontWeight: 800, fontSize: '16px', letterSpacing: '0.02em', textTransform: 'uppercase', color: '#f8fafc' }}>
-                  You are Controlling this Mat Directly
-                </div>
-                <div style={{ fontSize: '13px', color: '#94a3b8', marginTop: '2px' }}>
-                  Mat operator controls are locked. All points, penalties, timers, and match selections you make here stream directly to the TV Scoreboard and the operator screen.
-                </div>
-              </div>
-            </div>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={handleToggleAdminOverride}
-              style={{ background: '#ffffff', color: '#0f172a', fontWeight: 700, border: 'none' }}
-            >
-              Release Control
-            </button>
           </div>
         )}
 
