@@ -35,6 +35,9 @@ export interface MatchNode {
   nextMatchId: string | null;
   status: 'upcoming' | 'live' | 'completed';
   mat?: string | null;
+  akaKata?: string | null;
+  aoKata?: string | null;
+  selectedKata?: any;
 }
 
 export interface SpecialCategoryRule {

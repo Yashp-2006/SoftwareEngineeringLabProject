@@ -7,6 +7,7 @@ import { db } from '@lib/firebase';
 import { collection, doc, setDoc, deleteDoc, updateDoc, query, getDoc, getDocs, onSnapshot } from 'firebase/firestore';
 import { toast } from 'react-hot-toast';
 import { gsap } from 'gsap';
+import StaffAssignmentDropdown from './StaffAssignmentDropdown';
 
 export interface StaffAssignment {
   id: string;
@@ -272,6 +273,104 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
     } catch (err) {
       console.error(err);
       toast.error('Failed to update assignment.');
+    }
+  };
+
+  const handleAssignMemberMat = async (staffId: string, matId: string) => {
+    try {
+      const matNum = parseInt(matId.replace(/\D/g, '') || '1', 10);
+      const matParam = `mat-${matNum}`;
+      const matDisplay = `MAT ${String(matNum).padStart(2, '0')}`;
+      
+      const member = staffData.find(s => s.id === staffId);
+      if (!member) return;
+
+      const docRef = doc(db, 'competitions', competitionId, 'staff', staffId);
+      
+      await updateDoc(docRef, {
+        assignedMats: [matParam],
+        lastReassignedAt: new Date().toISOString(),
+        reassignedToMat: matParam,
+        reassignedToMatName: matDisplay,
+        reassignedBy: 'Administrator',
+      });
+
+      // Broadcast to RTDB for immediate real-time cross-client notification
+      try {
+        const { rtdb } = await import('@lib/firebase');
+        const { ref, set } = await import('firebase/database');
+        await set(ref(rtdb, `live_scores/${competitionId}/staff_reassignments/${staffId}`), {
+          targetMatId: matParam,
+          targetMatName: matDisplay,
+          targetMatNum: matNum,
+          timestamp: Date.now(),
+          staffName: member.name
+        });
+      } catch (err) {
+        console.warn('RTDB sync notice:', err);
+      }
+
+      toast.success(`Assigned ${member.name} to ${matDisplay}. Live reassignment dispatched!`);
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to assign mat.');
+    }
+  };
+
+  const handleUnassignMemberMat = async (staffId: string, matId: string) => {
+    try {
+      const member = staffData.find(s => s.id === staffId);
+      if (!member) return;
+      const matNum = parseInt(matId.replace(/\D/g, '') || '1', 10);
+      const filtered = (member.assignedMats || []).filter(m => parseInt(m.replace(/\D/g, ''), 10) !== matNum);
+      const docRef = doc(db, 'competitions', competitionId, 'staff', staffId);
+      await updateDoc(docRef, { assignedMats: filtered });
+      toast.success(`Removed mat assignment.`);
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to remove mat assignment.');
+    }
+  };
+
+  const handleAssignMemberCategoryPool = async (staffId: string, roleType: 'attendance' | 'medal', item: string) => {
+    try {
+      const member = staffData.find(s => s.id === staffId);
+      if (!member) return;
+      const docRef = doc(db, 'competitions', competitionId, 'staff', staffId);
+      if (roleType === 'medal') {
+        const prev = member.assignedPools || [];
+        if (!prev.includes(item)) {
+          await updateDoc(docRef, { assignedPools: [...prev, item] });
+        }
+      } else {
+        const prev = member.assignedCategories || [];
+        if (!prev.includes(item)) {
+          await updateDoc(docRef, { assignedCategories: [...prev, item] });
+        }
+      }
+      toast.success(`Assigned to ${item}`);
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to assign category / pool.');
+    }
+  };
+
+  const handleUnassignMemberCategoryPool = async (staffId: string, roleType: 'attendance' | 'medal', item: string) => {
+    try {
+      const member = staffData.find(s => s.id === staffId);
+      if (!member) return;
+      const docRef = doc(db, 'competitions', competitionId, 'staff', staffId);
+      if (roleType === 'medal') {
+        const filtered = (member.assignedPools || []).filter(p => p !== item);
+        await updateDoc(docRef, { assignedPools: filtered });
+      } else {
+        const filtered = (member.assignedCategories || []).filter(c => c !== item);
+        await updateDoc(docRef, { assignedCategories: filtered });
+      }
+      toast.success(`Removed assignment.`);
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to remove assignment.');
     }
   };
 
@@ -609,22 +708,18 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
                           )}
                         </td>
                         <td>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                            {(member.role === 'score' || member.role === 'judge') && (member.assignedMats || []).map(mat => (
-                              <span key={mat} style={{ fontSize: '11px', fontWeight: 700, padding: '2px 6px', background: 'var(--neutral-100)', borderRadius: '4px' }}>{mat}</span>
-                            ))}
-                            {member.role === 'attendance' && (member.assignedCategories || []).map(cat => (
-                              <span key={cat} style={{ fontSize: '11px', fontWeight: 700, padding: '2px 6px', background: 'var(--neutral-100)', borderRadius: '4px' }}>{cat}</span>
-                            ))}
-                            {member.role === 'medal' && (member.assignedPools || []).map(pool => (
-                              <span key={pool} style={{ fontSize: '11px', fontWeight: 700, padding: '2px 6px', background: 'var(--neutral-100)', borderRadius: '4px' }}>{pool}</span>
-                            ))}
-                            {(((member.role === 'score' || member.role === 'judge') && (!member.assignedMats || member.assignedMats.length === 0)) ||
-                              (member.role === 'attendance' && (!member.assignedCategories || member.assignedCategories.length === 0)) ||
-                              (member.role === 'medal' && (!member.assignedPools || member.assignedPools.length === 0))) && (
-                              <span style={{ fontSize: '12px', fontStyle: 'italic', color: 'var(--neutral-400)' }}>Unassigned</span>
-                            )}
-                          </div>
+                          <StaffAssignmentDropdown
+                            member={member}
+                            competitionId={competitionId}
+                            matsList={matsList}
+                            categories={categories}
+                            allStaff={staffData}
+                            onAssignMat={handleAssignMemberMat}
+                            onUnassignMat={handleUnassignMemberMat}
+                            onAssignCategoryPool={handleAssignMemberCategoryPool}
+                            onUnassignCategoryPool={handleUnassignMemberCategoryPool}
+                            isAdmin={isAdmin}
+                          />
                         </td>
                         {isAdmin && (
                           <td style={{ textAlign: 'right' }}>

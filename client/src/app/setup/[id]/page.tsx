@@ -508,6 +508,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         }
       } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls') || fileName.endsWith('.csv')) {
         const buffer = fileName.endsWith('.csv') ? await file.text() : await file.arrayBuffer();
+        // @ts-ignore
         const xlsx = await import('xlsx');
         const isStr = typeof buffer === 'string';
         const workbook = xlsx.read(isStr ? buffer : new Uint8Array(buffer), { type: isStr ? 'string' : 'array' });

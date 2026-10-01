@@ -40,24 +40,54 @@ function OperatorPortalInner({ id }: { id: string }) {
   const [isTvConnected, setIsTvConnected] = useState(false);
   const bcRef = useRef<BroadcastChannel | null>(null);
 
+  // Live Staff Reassignment state
+  const [reassignmentNotice, setReassignmentNotice] = useState<{
+    active: boolean;
+    toMatId: string;
+    toMatName: string;
+    fromMatName: string;
+    countdown: number;
+  } | null>(null);
+
+  const playTransferChime = useCallback(() => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.25);
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.5);
+    } catch {
+      // AudioContext may be restricted by browser autoplay policy
+    }
+  }, []);
+
   useEffect(() => {
     if (authLoading) return;
     
-    // Admins bypass staff check
-    if (role === 'admin') {
-      setVerified(true);
+    if (!user) {
+      if (role !== 'admin') {
+        window.location.href = `/login?compId=${id}`;
+      } else {
+        setVerified(true);
+      }
       return;
     }
 
-    if (!user) {
-      window.location.href = `/login?compId=${id}`;
-      return;
-    }
+    let unsubscribe: (() => void) | null = null;
     
     const checkStaff = async () => {
       try {
         const { db } = await import('@lib/firebase');
-        const { collection, query, where, getDocs } = await import('firebase/firestore');
+        const { collection, query, where, getDocs, doc, onSnapshot } = await import('firebase/firestore');
         
         // 1. Check if matched by UID
         let q = query(collection(db, 'competitions', id, 'staff'), where('userId', '==', user.uid));
@@ -70,27 +100,57 @@ function OperatorPortalInner({ id }: { id: string }) {
         }
 
         if (snap.empty) {
+          if (role === 'admin') {
+            setVerified(true);
+            return;
+          }
           // Not registered in roster
           window.location.href = `/login?compId=${id}`;
           return;
         }
         
         const staffDoc = snap.docs[0];
-        const staffData = staffDoc.data();
-        
-        if (staffData.approvalStatus === 'approved') {
-          setStaffRole(staffData.role);
-          // If no mat is specified in URL, redirect to their first assigned mat!
-          const urlParams = new URLSearchParams(window.location.search);
-          if (!urlParams.get('mat') && staffData.assignedMats && staffData.assignedMats.length > 0) {
-            window.location.href = `/competitions/${id}/operator?mat=${staffData.assignedMats[0]}`;
-            return;
+        const staffDocId = staffDoc.id;
+
+        // Set up real-time listener for this staff member doc
+        unsubscribe = onSnapshot(doc(db, 'competitions', id, 'staff', staffDocId), (docSnap) => {
+          if (!docSnap.exists()) return;
+          const staffData = docSnap.data();
+          
+          if (staffData.approvalStatus === 'approved') {
+            setStaffRole(staffData.role);
+            setVerified(true);
+
+            // Check live mat assignment
+            const currentMatNum = parseInt(matIdParam.replace(/\D/g, '') || '1', 10);
+            const targetMat = staffData.reassignedToMat || (staffData.assignedMats && staffData.assignedMats.length > 0 ? staffData.assignedMats[0] : null);
+            
+            if (targetMat) {
+              const targetMatNum = parseInt(targetMat.replace(/\D/g, '') || '1', 10);
+              const targetMatId = `mat-${targetMatNum}`;
+              const targetMatName = staffData.reassignedToMatName || `MAT ${String(targetMatNum).padStart(2, '0')}`;
+              
+              if (currentMatNum !== targetMatNum) {
+                // Trigger 5-second countdown transfer modal
+                setReassignmentNotice(prev => {
+                  if (prev?.active && prev.toMatId === targetMatId) return prev;
+                  toast.success(`You are assigned to ${targetMatName}! Transferring...`, { duration: 5000, icon: '🔄' });
+                  playTransferChime();
+                  return {
+                    active: true,
+                    toMatId: targetMatId,
+                    toMatName: targetMatName,
+                    fromMatName: matName,
+                    countdown: 5,
+                  };
+                });
+              }
+            }
+          } else if (role !== 'admin') {
+            // Go to pending approval
+            window.location.href = `/login/pending?compId=${id}&staffId=${staffDocId}`;
           }
-          setVerified(true);
-        } else {
-          // Go to pending approval
-          window.location.href = `/login/pending?compId=${id}&staffId=${staffDoc.id}`;
-        }
+        });
       } catch (err) {
         console.error('Error verifying staff assignment:', err);
         setVerified(true); // Fallback to not lock operator out in case of errors
@@ -98,7 +158,37 @@ function OperatorPortalInner({ id }: { id: string }) {
     };
     
     checkStaff();
-  }, [user, role, authLoading, id]);
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [user, role, authLoading, id, matIdParam, matName, playTransferChime]);
+
+  // Countdown timer for live reassignment transfer
+  useEffect(() => {
+    if (!reassignmentNotice?.active) return;
+    
+    // Stop any active match running on current mat
+    setRunning(false);
+
+    if (reassignmentNotice.countdown <= 0) {
+      window.location.href = `/competitions/${id}/operator?mat=${reassignmentNotice.toMatId}`;
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setReassignmentNotice(prev => {
+        if (!prev) return null;
+        if (prev.countdown <= 1) {
+          window.location.href = `/competitions/${id}/operator?mat=${prev.toMatId}`;
+          return { ...prev, countdown: 0 };
+        }
+        return { ...prev, countdown: prev.countdown - 1 };
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [reassignmentNotice, id]);
 
   useEffect(() => {
     const handleFS = () => {
@@ -2479,6 +2569,162 @@ function OperatorPortalInner({ id }: { id: string }) {
               <button type="button" className="btn btn-secondary" onClick={() => setShowEditModal(false)} style={{ fontSize: '13px', fontWeight: 600 }}>Cancel</button>
               <button type="button" className="btn btn-primary" onClick={async () => { setQueue(tempQueue); setShowEditModal(false); await saveQueueToFirestore(tempQueue); }} style={{ fontSize: '13px', fontWeight: 600 }}>Save Changes</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Live Staff Station Reassignment - 5-Second Transfer Modal */}
+      {reassignmentNotice?.active && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 999999,
+          background: 'rgba(8, 12, 22, 0.94)',
+          backdropFilter: 'blur(16px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '24px',
+          animation: 'fadeIn 0.25s ease-out'
+        }}>
+          <div style={{
+            maxWidth: '520px',
+            width: '100%',
+            background: 'linear-gradient(160deg, #1e293b 0%, #0f172a 100%)',
+            border: '2px solid rgba(239, 68, 68, 0.5)',
+            boxShadow: '0 25px 60px -10px rgba(0, 0, 0, 0.9), 0 0 50px rgba(239, 68, 68, 0.25)',
+            borderRadius: '24px',
+            padding: '40px 32px',
+            textAlign: 'center',
+            color: '#ffffff',
+            position: 'relative'
+          }}>
+            {/* Animated Pulsing Ring */}
+            <div style={{
+              width: '80px',
+              height: '80px',
+              borderRadius: '50%',
+              background: 'rgba(239, 68, 68, 0.15)',
+              border: '2px solid #ef4444',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 24px',
+              position: 'relative'
+            }}>
+              <span style={{ fontSize: '32px' }}>🔄</span>
+              <div style={{
+                position: 'absolute',
+                inset: '-6px',
+                borderRadius: '50%',
+                border: '2px solid rgba(239, 68, 68, 0.4)',
+                animation: 'pulse 1.5s cubic-bezier(0, 0, 0.2, 1) infinite'
+              }} />
+            </div>
+
+            <div style={{
+              fontSize: '12px',
+              fontWeight: 800,
+              textTransform: 'uppercase',
+              letterSpacing: '0.12em',
+              color: '#ef4444',
+              marginBottom: '8px'
+            }}>
+              Station Reassigned by Admin
+            </div>
+
+            <h2 style={{
+              fontSize: '26px',
+              fontWeight: 900,
+              letterSpacing: '-0.02em',
+              marginBottom: '16px',
+              lineHeight: 1.2
+            }}>
+              You are assigned to {reassignmentNotice.toMatName}
+            </h2>
+
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '12px',
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              padding: '10px 20px',
+              borderRadius: '12px',
+              marginBottom: '20px'
+            }}>
+              <span style={{ color: 'var(--neutral-400)', fontWeight: 600 }}>{reassignmentNotice.fromMatName}</span>
+              <span style={{ color: '#ef4444', fontWeight: 900 }}>➔</span>
+              <span style={{ color: '#ffffff', fontWeight: 800, fontSize: '16px' }}>{reassignmentNotice.toMatName}</span>
+            </div>
+
+            <p style={{
+              color: 'var(--neutral-300)',
+              fontSize: '14px',
+              lineHeight: 1.6,
+              marginBottom: '28px'
+            }}>
+              Your station has been updated live. Logging you out from <strong>{reassignmentNotice.fromMatName}</strong> and transferring you to <strong>{reassignmentNotice.toMatName}</strong> in <strong>{reassignmentNotice.countdown}s</strong>.
+            </p>
+
+            {/* Countdown Badge */}
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '8px',
+              marginBottom: '28px'
+            }}>
+              <div style={{
+                width: '64px',
+                height: '64px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #ef4444, #b91c1c)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '28px',
+                fontWeight: 900,
+                color: '#ffffff',
+                boxShadow: '0 0 20px rgba(239, 68, 68, 0.5)'
+              }}>
+                {reassignmentNotice.countdown}s
+              </div>
+              <span style={{ fontSize: '12px', color: 'var(--neutral-400)', fontWeight: 500 }}>
+                Transferring automatically...
+              </span>
+            </div>
+
+            {/* Quick Action Button */}
+            <button
+              type="button"
+              onClick={() => {
+                window.location.href = `/competitions/${id}/operator?mat=${reassignmentNotice.toMatId}`;
+              }}
+              style={{
+                width: '100%',
+                padding: '14px 24px',
+                borderRadius: '12px',
+                background: '#ef4444',
+                color: '#ffffff',
+                fontWeight: 800,
+                fontSize: '15px',
+                letterSpacing: '0.02em',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                transition: 'all 0.2s',
+                boxShadow: '0 4px 14px rgba(239, 68, 68, 0.4)'
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
+              onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
+            >
+              <span>Go to {reassignmentNotice.toMatName} Now</span>
+              <span>➔</span>
+            </button>
           </div>
         </div>
       )}
