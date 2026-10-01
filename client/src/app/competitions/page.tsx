@@ -9,6 +9,7 @@ import { toast } from 'react-hot-toast';
 import ConfirmModal from '@/modules/shared/components/ConfirmModal';
 import DateRangePicker from '@/modules/shared/components/DateRangePicker';
 import PremiumCTA from '@/modules/shared/components/PremiumCTA';
+import { hashPassword } from '@/lib/hash';
 function getCompetitionDatesString(dates: any): string {
   if (!dates) return '';
   if (typeof dates === 'string') return dates;
@@ -882,6 +883,7 @@ export default function CompetitionsPage() {
               </label>
               <div style={{ position: 'relative' }}>
                 <input
+                  id="new-comp-password"
                   type={showPassword ? 'text' : 'password'}
                   className="input-field"
                   placeholder="Set a strong password..."
@@ -905,16 +907,21 @@ export default function CompetitionsPage() {
             <button className="btn btn-primary" onClick={async () => {
               const { name, dates, venue, type, mats, password, startTime, endTime, estMinsPerPool, tournamentDays } = formData;
               if (!name.trim()) { toast.error('Competition name is required'); return; }
-              if (!password.trim()) { toast.error('A password is required to protect this competition'); return; }
+              if (!password.trim()) { 
+                toast.error('A password is required to protect this competition'); 
+                const pwdInput = document.getElementById('new-comp-password');
+                if (pwdInput) { pwdInput.focus(); pwdInput.scrollIntoView({ behavior: 'smooth' }); }
+                return; 
+              }
               
               try {
-                const { collection, addDoc } = await import('firebase/firestore');
+                const { collection, addDoc, writeBatch, doc } = await import('firebase/firestore');
                 const { db } = await import('@lib/firebase');
                 
                 const compData = {
                   name, dates, venue, type,
                   rules: 'custom',
-                  mats: parseInt(mats),
+                  mats: parseInt(mats) || 6,
                   password: await hashPassword(password),
                   startTime: startTime || '09:00',
                   endTime: endTime || '18:00',
@@ -929,14 +936,40 @@ export default function CompetitionsPage() {
                 };
                 
                 const newDocRef = await addDoc(collection(db, 'competitions'), compData);
+
+                if (presetCategories && presetCategories.length > 0) {
+                  const now = new Date().toISOString();
+                  const catsBatch = writeBatch(db);
+                  for (const cat of presetCategories) {
+                    const catDocRef = doc(collection(db, 'competitions', newDocRef.id, 'categories'));
+                    catsBatch.set(catDocRef, {
+                      name: cat.name,
+                      isKata: Boolean(cat.isKata || (cat.name && cat.name.toLowerCase().includes('kata'))),
+                      gender: cat.gender || 'Any',
+                      discipline: cat.discipline || (cat.isKata ? 'Kata' : 'Kumite'),
+                      minAge: cat.minAge,
+                      maxAge: cat.maxAge,
+                      minWeight: cat.minWeight,
+                      maxWeight: cat.maxWeight,
+                      entries: 0,
+                      athletes: [],
+                      status: 'upcoming',
+                      createdAt: now,
+                      updatedAt: now
+                    });
+                  }
+                  await catsBatch.commit().catch(e => console.warn('Could not save preset categories:', e));
+                }
  
                 toast.success('Competition created successfully!');
                 setIsModalOpen(false);
+                setPresetCategories(null);
+                setPresetFileName('');
                 setFormData({ name: '', dates: '', venue: '', type: 'national', rules: 'custom', mats: '6', password: '', startTime: '09:00', endTime: '18:00', estMinsPerPool: '45', tournamentDays: 1, globalMatchTime: '3', globalRestTime: '1', globalMedicalTime: '0', globalBunkaiTime: '0' });
                 router.push(`/setup/${newDocRef.id}`);
-              } catch (err) {
+              } catch (err: any) {
                 console.error(err);
-                toast.error('Failed to create competition');
+                toast.error(err?.message || 'Failed to create competition');
               }
             }}>Create Competition</button>
           </div>
