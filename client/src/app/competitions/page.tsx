@@ -709,7 +709,15 @@ export default function CompetitionsPage() {
                   <span className="text-micro" style={{ color: 'var(--neutral-500)' }}>ID: {comp.id}</span>
                 </div>
                 <h3 style={{ fontSize: '22px', marginBottom: 'var(--space-1)' }}>{comp.name}</h3>
-                <div className="text-small mb-2">{comp.dates} • {comp.venue}</div>
+                <div className="text-small mb-2">
+                  {typeof comp.dates === 'string' 
+                    ? comp.dates 
+                    : (comp.dates && typeof comp.dates === 'object' && comp.dates.start)
+                      ? (comp.dates.end && comp.dates.end !== comp.dates.start ? `${comp.dates.start} – ${comp.dates.end}` : comp.dates.start)
+                      : ''}
+                  {((comp.dates) && (comp.venue || comp.location)) ? ' • ' : ''}
+                  {comp.venue || comp.location || ''}
+                </div>
                  {(comp.startTime || comp.estMinsPerPool || comp.estMinsPerCategory) && (
                   <div style={{ display: 'flex', gap: '16px', marginBottom: '8px', fontSize: '12px', color: 'var(--neutral-500)' }}>
                     {comp.startTime && <span>🕘 {comp.startTime} – {comp.endTime || '?'}</span>}

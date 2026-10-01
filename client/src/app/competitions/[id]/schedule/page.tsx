@@ -19,7 +19,7 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
   const { id } = React.use(params);
   
   const [scheduleData, setScheduleData] = useState<CategorySchedule[]>([]);
-  const [compData, setCompData] = useState<{ name: string; dates: string; deployedAt?: string } | null>(null);
+  const [compData, setCompData] = useState<{ name: string; dates: any; deployedAt?: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [matFilter, setMatFilter] = useState("all");
   const [filterType, setFilterType] = useState("all");
@@ -320,7 +320,7 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
                 <span style={{ fontSize: '14px', color: 'var(--neutral-700)', fontWeight: 600 }}>{compData.name}</span>
                 {compData.dates && (
                   <span style={{ fontSize: '13px', color: 'var(--neutral-500)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Calendar size={13} /> {compData.dates}
+                    <Calendar size={13} /> {typeof compData.dates === 'string' ? compData.dates : (compData.dates.start ? (compData.dates.end && compData.dates.end !== compData.dates.start ? `${compData.dates.start} – ${compData.dates.end}` : compData.dates.start) : '')}
                   </span>
                 )}
                 {compData.deployedAt && (

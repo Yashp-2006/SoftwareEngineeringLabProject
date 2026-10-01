@@ -256,8 +256,8 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
           isKata: c.isKata === true || (typeof c.name === 'string' && c.name.toLowerCase().includes('kata')),
         })),
         isArchived: false,
-        venue: compData?.venue || '',
-        date: compData?.dates || '',
+        venue: compData?.venue || compData?.location || '',
+        date: typeof compData?.dates === 'string' ? compData.dates : (compData?.dates?.start ? `${compData.dates.start} – ${compData.dates.end || ''}` : ''),
       });
       toast.success('Tiesheets PDF downloaded!');
     } catch (e: any) {

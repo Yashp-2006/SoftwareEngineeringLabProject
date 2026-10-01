@@ -263,11 +263,18 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         const mainData = snap.data();
         setCompName(mainData.name || 'Untitled Tournament');
         if (mainData.venue) setCompVenue(mainData.venue);
+        else if (mainData.location) setCompVenue(mainData.location);
         if (mainData.scoreboardLogo) setScoreboardLogo(mainData.scoreboardLogo);
         if (mainData.startDate) {
           const startDate = new Date(mainData.startDate).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
           const endDate = mainData.endDate ? new Date(mainData.endDate).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
           setCompDate(endDate && startDate !== endDate ? `${startDate} - ${endDate}` : startDate);
+        } else if (mainData.dates) {
+          if (typeof mainData.dates === 'string') {
+            setCompDate(mainData.dates);
+          } else if (typeof mainData.dates === 'object' && mainData.dates.start) {
+            setCompDate(mainData.dates.end && mainData.dates.end !== mainData.dates.start ? `${mainData.dates.start} - ${mainData.dates.end}` : mainData.dates.start);
+          }
         }
         if (mainData.startTime) setCompStartTime(mainData.startTime);
         if (mainData.endTime) setCompEndTime(mainData.endTime);

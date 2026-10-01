@@ -160,7 +160,10 @@ async function seedSetupTournament(currentUserId?: string, userEmail?: string): 
     poolSize: 8,
     wkfKataJudgeCount: 5,
     location: 'Balewadi Sports Complex, Pune',
-    dates: { start: '2026-11-15', end: '2026-11-17' },
+    venue: 'Balewadi Sports Complex, Pune',
+    dates: 'Nov 15, 2026 – Nov 17, 2026',
+    startDate: '2026-11-15',
+    endDate: '2026-11-17',
     createdAt: new Date().toISOString(),
     description: 'Setup Mode Demo: Bracket generation, mat assignments, staff onboarding, and unplayed tournament brackets.',
   });
@@ -269,7 +272,10 @@ async function seedLiveTournament(currentUserId?: string, userEmail?: string): P
     poolSize: 8,
     wkfKataJudgeCount: 5,
     location: 'Balewadi Sports Complex, Pune',
-    dates: { start: '2026-10-01', end: '2026-10-03' },
+    venue: 'Balewadi Sports Complex, Pune',
+    dates: 'Oct 01, 2026 – Oct 03, 2026',
+    startDate: '2026-10-01',
+    endDate: '2026-10-03',
     createdAt: new Date().toISOString(),
     description: 'Live Mode Demo: Live Kumite scoreboard on Mat 01, Live Kata on Mat 03, real-time judge voting, and attendance DQ tracking.',
   });
@@ -421,9 +427,16 @@ async function seedLiveTournament(currentUserId?: string, userEmail?: string): P
   });
 
   // Seed RTDB Live Kumite Scoreboard on Mat 01
+  const rtdbSetWithTimeout = (refObj: any, val: any, timeoutMs = 4000) => {
+    return Promise.race([
+      set(refObj, val),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('RTDB write timed out')), timeoutMs))
+    ]);
+  };
+
   try {
     const liveMat1Ref = ref(rtdb, `live_scores/${compId}/mats/mat-1`);
-    await set(liveMat1Ref, {
+    await rtdbSetWithTimeout(liveMat1Ref, {
       status: 'live',
       matchStatus: 'LIVE',
       currentCategory: 'Male Cadet Kumite -57kg',
@@ -455,7 +468,7 @@ async function seedLiveTournament(currentUserId?: string, userEmail?: string): P
   // Seed RTDB Live Kata Scoreboard on Mat 03
   try {
     const liveMat3Ref = ref(rtdb, `live_scores/${compId}/mats/mat-3`);
-    await set(liveMat3Ref, {
+    await rtdbSetWithTimeout(liveMat3Ref, {
       status: 'live',
       matchStatus: 'LIVE',
       currentCategory: 'Male Senior Individual Kata',
@@ -516,7 +529,10 @@ async function seedArchivedTournament(currentUserId?: string, userEmail?: string
     poolSize: 8,
     wkfKataJudgeCount: 5,
     location: 'Balewadi Sports Complex, Pune',
-    dates: { start: '2026-08-10', end: '2026-08-12' },
+    venue: 'Balewadi Sports Complex, Pune',
+    dates: 'Aug 10, 2026 – Aug 12, 2026',
+    startDate: '2026-08-10',
+    endDate: '2026-08-12',
     createdAt: new Date().toISOString(),
     description: 'Archived Mode Demo: Completed tournament with full bracket histories, medal podiums, and academy rankings.',
   });
