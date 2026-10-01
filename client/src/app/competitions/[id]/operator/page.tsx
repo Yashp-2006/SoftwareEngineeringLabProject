@@ -604,6 +604,45 @@ function OperatorPortalInner({ id }: { id: string }) {
             aoReady: m.ao?.readiness === 'ready',
           })).filter((m: any) => !m.aka.startsWith('Winner M') && !m.ao.startsWith('Winner M'));
           setQueue(mappedQueue);
+
+          // Automatically select best match if none is active or active is not in mappedQueue
+          if (mappedQueue.length > 0) {
+            setActiveMatchId(prevActiveId => {
+              if (prevActiveId && mappedQueue.some((m: any) => m.id === prevActiveId)) {
+                return prevActiveId;
+              }
+              const stored = typeof window !== 'undefined' ? sessionStorage.getItem(`activeMatch_${matIdParam}`) : null;
+              if (stored && mappedQueue.some((m: any) => m.id === stored)) {
+                const matched = mappedQueue.find((m: any) => m.id === stored);
+                if (matched) {
+                  setAka({ name: matched.aka, country: matched.akaCountry, academy: matched.akaAcademy, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: matched.akaId });
+                  setAo({ name: matched.ao, country: matched.aoCountry, academy: matched.aoAcademy, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: matched.aoId });
+                  const isKata = activeCat.isKata || activeCat.name?.toLowerCase().includes('kata') || false;
+                  setTimer(isKata ? 0 : matchDuration);
+                  setStatus('upcoming');
+                  setWinnerState(null);
+                  return matched.id;
+                }
+              }
+              const candidate = mappedQueue.find((m: any) => m.akaReady && m.aoReady)
+                || mappedQueue.find((m: any) => m.akaReady || m.aoReady)
+                || mappedQueue[0];
+
+              if (candidate) {
+                setAka({ name: candidate.aka, country: candidate.akaCountry, academy: candidate.akaAcademy, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: candidate.akaId });
+                setAo({ name: candidate.ao, country: candidate.aoCountry, academy: candidate.aoAcademy, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: candidate.aoId });
+                const isKata = activeCat.isKata || activeCat.name?.toLowerCase().includes('kata') || false;
+                setTimer(isKata ? 0 : matchDuration);
+                setStatus('upcoming');
+                setWinnerState(null);
+                if (typeof window !== 'undefined') {
+                  sessionStorage.setItem(`activeMatch_${matIdParam}`, candidate.id);
+                }
+                return candidate.id;
+              }
+              return null;
+            });
+          }
           
           const poolStats: Record<string, { total: number, completed: number }> = {};
           matches.forEach((m: any) => {
@@ -1226,13 +1265,6 @@ function OperatorPortalInner({ id }: { id: string }) {
     }
   };
 
-  const prevCategoryRef = React.useRef(activeCategoryId);
-  React.useEffect(() => {
-    if (activeCategoryId !== prevCategoryRef.current) {
-      setActiveMatchId(null);
-      prevCategoryRef.current = activeCategoryId;
-    }
-  }, [activeCategoryId]);
 
   const isKataCategory = activeCategoryData?.isKata || activeCategoryName?.toLowerCase().includes('kata') || false;
   const kataJudgeCount = activeCategoryData?.numberOfJudges || 3;
@@ -1733,8 +1765,65 @@ function OperatorPortalInner({ id }: { id: string }) {
                     onMatchFinished={handleKataMatchFinished}
                   />
                 ) : (
-                  <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--neutral-400)', fontWeight: 600 }}>
-                    Select a match from the queue below to begin kata scoring.
+                  <div style={{ padding: '32px 24px', background: 'linear-gradient(135deg, rgba(248,250,252,0.9) 0%, rgba(241,245,249,0.9) 100%)', borderRadius: '16px', border: '1.5px dashed var(--neutral-300)', textAlign: 'center' }}>
+                    {queue.length > 0 ? (
+                      <>
+                        <div style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--neutral-500)', marginBottom: '8px' }}>
+                          Next Bout Ready to Stage
+                        </div>
+                        <h3 style={{ fontSize: '22px', fontWeight: 800, margin: '0 0 16px 0', color: 'var(--neutral-900)' }}>
+                          {queue[0].displayId}: {queue[0].aka} vs {queue[0].ao}
+                        </h3>
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginBottom: '24px', flexWrap: 'wrap' }}>
+                          <div style={{ padding: '12px 20px', background: 'rgba(239,68,68,0.06)', borderRadius: '12px', border: '1.5px solid rgba(239,68,68,0.2)', minWidth: '180px', textAlign: 'left' }}>
+                            <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--aka)', marginBottom: '2px' }}>AKA (RED)</div>
+                            <div style={{ fontWeight: 800, fontSize: '16px', color: 'var(--neutral-900)' }}>{queue[0].aka}</div>
+                            <div style={{ fontSize: '12px', color: 'var(--neutral-500)', marginTop: '2px' }}>{queue[0].akaAcademy || 'Unattached'}</div>
+                            <div style={{ marginTop: '8px', display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '11px', fontWeight: 800, color: queue[0].akaReady ? '#059669' : '#dc2626' }}>
+                              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: queue[0].akaReady ? '#10b981' : '#ef4444' }} />
+                              {queue[0].akaReady ? 'READY' : 'NOT READY'}
+                            </div>
+                          </div>
+                          <div style={{ alignSelf: 'center', fontWeight: 800, color: 'var(--neutral-400)', fontSize: '14px' }}>VS</div>
+                          <div style={{ padding: '12px 20px', background: 'rgba(37,99,235,0.06)', borderRadius: '12px', border: '1.5px solid rgba(37,99,235,0.2)', minWidth: '180px', textAlign: 'left' }}>
+                            <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--ao)', marginBottom: '2px' }}>AO (BLUE)</div>
+                            <div style={{ fontWeight: 800, fontSize: '16px', color: 'var(--neutral-900)' }}>{queue[0].ao}</div>
+                            <div style={{ fontSize: '12px', color: 'var(--neutral-500)', marginTop: '2px' }}>{queue[0].aoAcademy || 'Unattached'}</div>
+                            <div style={{ marginTop: '8px', display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '11px', fontWeight: 800, color: queue[0].aoReady ? '#059669' : '#dc2626' }}>
+                              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: queue[0].aoReady ? '#10b981' : '#ef4444' }} />
+                              {queue[0].aoReady ? 'READY' : 'NOT READY'}
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          onClick={() => {
+                            const readyCandidate = queue.find(m => m.akaReady && m.aoReady) || queue[0];
+                            loadMatch(readyCandidate);
+                            toast.success(`Loaded Match ${readyCandidate.displayId}: ${readyCandidate.aka} vs ${readyCandidate.ao}`);
+                          }}
+                          style={{
+                            padding: '12px 28px',
+                            fontSize: '14px',
+                            fontWeight: 800,
+                            borderRadius: '10px',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            boxShadow: '0 4px 14px rgba(0,0,0,0.1)'
+                          }}
+                        >
+                          🥋 Load Bout #{queue[0].displayId} to Operator Panel
+                        </button>
+                      </>
+                    ) : (
+                      <div style={{ color: 'var(--neutral-500)', fontWeight: 600 }}>
+                        <p style={{ margin: 0, fontSize: '15px' }}>All matches in this category are completed.</p>
+                        <p style={{ margin: '6px 0 0 0', fontSize: '13px' }}>Click "Finish Category" above to advance the mat schedule.</p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -2057,6 +2146,8 @@ function OperatorPortalInner({ id }: { id: string }) {
                     )}
                     {visibleQueue.length > 0 && visibleQueue.map((match, idx) => {
                       const isDraggable = !isViewer && match.id !== activeMatchId;
+                      const isActive = match.id === activeMatchId;
+                      const isBothReady = Boolean(match.akaReady && match.aoReady);
                       return (
                         <tr 
                           key={match.id}
@@ -2064,17 +2155,29 @@ function OperatorPortalInner({ id }: { id: string }) {
                           onDragStart={(e) => isDraggable && handleDragStart(e, idx)}
                           onDragOver={(e) => isDraggable && e.preventDefault()}
                           onDrop={(e) => isDraggable && handleDropQueue(e, idx)}
+                          onClick={() => {
+                            loadMatch(match);
+                            toast.success(`Loaded Match ${match.displayId}: ${match.aka} vs ${match.ao}`);
+                          }}
                           style={{  
                             borderBottom: '1px solid var(--neutral-100)',
-                            backgroundColor: match.pool && poolStatuses[match.pool] ? '#ecfdf5' : 'transparent',
-                            cursor: isDraggable ? 'grab' : 'default',
-                            opacity: draggedIdx === idx ? 0.5 : 1
+                            backgroundColor: isActive 
+                              ? 'rgba(16, 185, 129, 0.08)' 
+                              : (isBothReady ? 'rgba(16, 185, 129, 0.04)' : (match.pool && poolStatuses[match.pool] ? '#ecfdf5' : 'transparent')),
+                            borderLeft: isActive 
+                              ? '4px solid #10b981' 
+                              : (isBothReady ? '4px solid #34d399' : '4px solid transparent'),
+                            cursor: 'pointer',
+                            opacity: draggedIdx === idx ? 0.5 : 1,
+                            transition: 'all 0.15s ease'
                           }}
                         >
-                          <td style={{ padding: '16px 20px', fontFamily: 'var(--font-mono)', fontWeight: 700, color: idx === 0 ? 'inherit' : 'var(--neutral-500)' }}>{match.displayId}</td>
+                          <td style={{ padding: '16px 20px', fontFamily: 'var(--font-mono)', fontWeight: 700, color: isActive ? '#059669' : (idx === 0 ? 'inherit' : 'var(--neutral-500)') }}>
+                            {match.displayId}
+                          </td>
                           <td style={{ padding: '16px 20px', fontWeight: idx === 0 ? 800 : 700, fontSize: '14px' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                                   <span>{match.aka}</span>
                                   <span style={{ fontSize: '11px', color: 'var(--neutral-500)', fontWeight: 500 }}>{match.akaAcademy || 'Unattached'}</span>
@@ -2084,6 +2187,11 @@ function OperatorPortalInner({ id }: { id: string }) {
                                   <span>{match.ao}</span>
                                   <span style={{ fontSize: '11px', color: 'var(--neutral-500)', fontWeight: 500 }}>{match.aoAcademy || 'Unattached'}</span>
                                 </div>
+                                {isBothReady && !isActive && (
+                                  <span style={{ padding: '2px 8px', background: '#d1fae5', color: '#065f46', borderRadius: '4px', fontSize: '10px', fontWeight: 800, letterSpacing: '0.04em' }}>
+                                    ⚡ READY TO PERFORM
+                                  </span>
+                                )}
                               </div>
                               <div style={{ display: 'flex', gap: '8px', fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                 <span style={{ color: match.akaReady ? '#10b981' : '#ef4444', display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -2100,13 +2208,52 @@ function OperatorPortalInner({ id }: { id: string }) {
                           </td>
                           <td style={{ padding: '16px 20px', color: 'var(--neutral-600)', fontSize: '14px' }}>{match.category}</td>
                           <td style={{ padding: '16px 20px', textAlign: 'right' }}>
-                            {match.id === activeMatchId ? (
-                              <span style={{ background: '#fef2f2', color: '#dc2626', padding: '4px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 800, letterSpacing: '0.05em' }}>LIVE / CURRENT</span>
-                            ) : idx === 0 || (idx === 1 && visibleQueue[0]?.id === activeMatchId) ? (
-                              <span style={{ background: '#fef3c7', color: '#b45309', padding: '4px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 800, letterSpacing: '0.05em' }}>NEXT</span>
-                            ) : (
-                              <span style={{ background: 'var(--neutral-100)', color: 'var(--neutral-600)', padding: '4px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 800, letterSpacing: '0.05em' }}>STANDBY</span>
-                            )}
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
+                              {isActive ? (
+                                <span style={{ 
+                                  background: '#ecfdf5', 
+                                  color: '#065f46', 
+                                  border: '1px solid #a7f3d0', 
+                                  padding: '4px 10px', 
+                                  borderRadius: '6px', 
+                                  fontSize: '11px', 
+                                  fontWeight: 800, 
+                                  letterSpacing: '0.05em',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px'
+                                }}>
+                                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }} />
+                                  LIVE ON MAT
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="btn btn-secondary"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    loadMatch(match);
+                                    toast.success(`Loaded Match ${match.displayId}: ${match.aka} vs ${match.ao}`);
+                                  }}
+                                  style={{
+                                    fontSize: '11px',
+                                    fontWeight: 800,
+                                    padding: '5px 12px',
+                                    borderRadius: '6px',
+                                    background: isBothReady ? 'var(--status-live)' : 'var(--neutral-100)',
+                                    color: isBothReady ? '#000' : 'var(--neutral-700)',
+                                    border: isBothReady ? 'none' : '1px solid var(--neutral-300)',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.15s ease',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                  }}
+                                >
+                                  {isBothReady ? '⚡ Load & Start' : 'Select'}
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );

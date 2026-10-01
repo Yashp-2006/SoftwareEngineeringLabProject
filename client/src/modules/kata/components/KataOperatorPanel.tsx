@@ -134,8 +134,12 @@ export default function KataOperatorPanel({
 
   // Auto-sync performance timer to RTDB when updated
   useEffect(() => {
+    const mins = String(Math.floor(teamTimer / 60)).padStart(2, '0');
+    const secs = String(teamTimer % 60).padStart(2, '0');
     syncRTDB({
       teamTimerSeconds: teamTimer,
+      timerSeconds: teamTimer,
+      timeRemaining: `${mins}:${secs}`,
       timerRunning: timerRunning,
     });
   }, [teamTimer, timerRunning, syncRTDB]);
@@ -582,7 +586,28 @@ export default function KataOperatorPanel({
                   cursor: 'pointer',
                 }}
               >
-                {timerRunning ? '⏸ Stop Timer' : '▶ Start Timer'}
+                {timerRunning ? '⏸ Pause Timer' : '▶ Start Timer'}
+              </button>
+              <button
+                type="button"
+                className="kata-btn"
+                onClick={() => {
+                  setTimerRunning(false);
+                  setTeamTimer(0);
+                }}
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--neutral-300)',
+                  background: 'var(--shiro)',
+                  color: 'var(--neutral-700)',
+                  fontWeight: 700,
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                }}
+                title="Reset timer to 00:00"
+              >
+                ↺ Reset
               </button>
             </div>
 
