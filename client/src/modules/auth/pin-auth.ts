@@ -69,6 +69,9 @@ export function resolveStaffRedirectUrl(
   if (staffMember.role === 'attendance') {
     return `/competitions/${compId}/athletes`;
   }
+  if (staffMember.role === 'judge') {
+    return `/competitions/${compId}/judge`;
+  }
   if (staffMember.role === 'medal') {
     return `/competitions/${compId}/medals`;
   }

@@ -476,9 +476,38 @@ export default function CompetitionsPage() {
               <Search style={{ position: 'absolute', right: '12px', top: '13px', width: '18px', color: 'var(--neutral-500)' }} />
             </div>
             {role === 'admin' && (
-              <button className="btn btn-primary" style={{ flexShrink: 0 }} onClick={() => setIsModalOpen(true)}>
-                <Plus style={{ width: '18px', marginRight: '6px' }} /> Create New
-              </button>
+              <>
+                <button 
+                  className="btn btn-secondary" 
+                  style={{ flexShrink: 0 }} 
+                  onClick={() => {
+                    setConfirmState({
+                      isOpen: true,
+                      title: 'Generate Demo Tournaments (Setup, Live, Archived)',
+                      message: 'Create all 3 realistic tournament scenarios ([Setup], [Live], and [Archived]) with identical categories (Kumite & Kata), seeded athletes, full tiesheet brackets, and pre-configured staff PINs (1234 / 2345 / 3456 / 4567)?',
+                      isDestructive: false,
+                      onConfirm: async () => {
+                        closeConfirm();
+                        const toastId = toast.loading('Generating 3 demo tournaments & computing brackets...');
+                        try {
+                          const { seedAllDemoTournaments } = await import('@/lib/seed-tournament');
+                          const { liveId } = await seedAllDemoTournaments(user?.uid, user?.email || undefined);
+                          toast.success('Generated [Setup], [Live], and [Archived] demo tournaments!', { id: toastId });
+                          router.push(`/competitions/${liveId}`);
+                        } catch (err) {
+                          console.error(err);
+                          toast.error("Failed to generate demo tournaments.", { id: toastId });
+                        }
+                      }
+                    });
+                  }}
+                >
+                  Populate Demo Data
+                </button>
+                <button className="btn btn-primary" style={{ flexShrink: 0 }} onClick={() => setIsModalOpen(true)}>
+                  <Plus style={{ width: '18px', marginRight: '6px' }} /> Create New
+                </button>
+              </>
             )}
           </div>
         </header>
@@ -502,20 +531,20 @@ export default function CompetitionsPage() {
                       onClick={() => {
                         setConfirmState({
                           isOpen: true,
-                          title: 'Generate Live Demo Tournament',
-                          message: 'Create a full mock tournament (Khel Karate Championship 2026) with 4 mats, 4 categories (Kumite & Kata), 30+ seeded athletes, real tiesheet matches, and a live scoreboard on Mat 01?',
+                          title: 'Generate Demo Tournaments (Setup, Live, Archived)',
+                          message: 'Create all 3 realistic tournament scenarios ([Setup], [Live], and [Archived]) with identical categories (Kumite & Kata), seeded athletes, full tiesheet brackets, and pre-configured staff PINs (1234 / 2345 / 3456 / 4567)?',
                           isDestructive: false,
                           onConfirm: async () => {
                             closeConfirm();
-                            const toastId = toast.loading('Generating tournament & computing brackets...');
+                            const toastId = toast.loading('Generating 3 demo tournaments & computing brackets...');
                             try {
-                              const { createFullDummyTournament } = await import('@/lib/seed-tournament');
-                              const compId = await createFullDummyTournament(user?.uid, user?.email || undefined);
-                              toast.success('Generated live demo tournament with 4 mats & brackets!', { id: toastId });
-                              router.push(`/competitions/${compId}`);
+                              const { seedAllDemoTournaments } = await import('@/lib/seed-tournament');
+                              const { liveId } = await seedAllDemoTournaments(user?.uid, user?.email || undefined);
+                              toast.success('Generated [Setup], [Live], and [Archived] demo tournaments!', { id: toastId });
+                              router.push(`/competitions/${liveId}`);
                             } catch (err) {
                               console.error(err);
-                              toast.error("Failed to generate demo tournament.", { id: toastId });
+                              toast.error("Failed to generate demo tournaments.", { id: toastId });
                             }
                           }
                         });
