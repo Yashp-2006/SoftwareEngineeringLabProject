@@ -407,6 +407,7 @@ export default function ScoreboardPage({ params }: { params: Promise<{ matchId: 
             matchId={rtdbData?.displayId || `MAT ${new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('mat')?.replace('mat-', '').padStart(2, '0') || '01'}`}
             winnerName={winnerOverlay.active ? winnerOverlay.winner : undefined}
             winnerColor={winnerOverlay.classMode === 'winner-aka' ? 'aka' : winnerOverlay.classMode === 'winner-ao' ? 'ao' : undefined}
+            onDismissWinner={() => setWinnerOverlay({ ...winnerOverlay, active: false })}
           />
         </ScaleWrapper>
         {winnerOverlay.active && (

@@ -26,7 +26,8 @@ function ScoreboardContent({ id }: { id: string }) {
   const [matchStatus, setMatchStatus] = useState('PRE-MATCH');
   const [timerDisplay, setTimerDisplay] = useState('03:00');
   const [timerColor, setTimerColor] = useState('var(--status-live)');
-  const [winnerState, setWinnerState] = useState<{ name?: string; color?: 'aka' | 'ao' } | null>(null);
+  const [winnerState, setWinnerState] = useState<{ name?: string; color?: 'aka' | 'ao'; academy?: string; points?: number } | null>(null);
+  const [nextMatch, setNextMatch] = useState<any>(null);
 
   // Kumite state
   const [aka, setAka] = useState({
@@ -107,9 +108,18 @@ function ScoreboardContent({ id }: { id: string }) {
 
     // Winner state
     if (payload.winnerName || payload.winnerColor) {
-      setWinnerState({ name: payload.winnerName, color: payload.winnerColor });
+      setWinnerState({
+        name: payload.winnerName,
+        color: payload.winnerColor,
+        academy: payload.winnerAcademy,
+        points: payload.winnerPoints
+      });
     } else if (payload.winnerName === null && payload.winnerColor === null) {
       setWinnerState(null);
+    }
+
+    if (payload.nextMatch !== undefined) {
+      setNextMatch(payload.nextMatch);
     }
 
     // Kumite fighters
@@ -336,6 +346,9 @@ function ScoreboardContent({ id }: { id: string }) {
             onToggleFullscreen={toggleFullscreen}
             kataWinner={winnerState ? winnerState.color : (kataWinner as any)}
             winnerName={winnerState?.name}
+            winnerAcademy={winnerState?.academy}
+            nextMatch={nextMatch}
+            onDismissWinner={() => setWinnerState(null)}
           />
         ) : (
           <KumiteLiveScoreboard
@@ -367,6 +380,9 @@ function ScoreboardContent({ id }: { id: string }) {
             matchId={displayMatchId}
             winnerName={winnerState ? winnerState.name : undefined}
             winnerColor={winnerState ? winnerState.color : undefined}
+            winnerAcademy={winnerState?.academy}
+            nextMatch={nextMatch}
+            onDismissWinner={() => setWinnerState(null)}
             isFullscreen={isFullscreen}
             onToggleFullscreen={toggleFullscreen}
             logoUrl={compData?.scoreboardLogo || compData?.logoUrl}

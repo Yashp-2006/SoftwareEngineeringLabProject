@@ -1,6 +1,5 @@
-'use client';
-
 import React from 'react';
+import SportdataVictoryOverlay, { NextMatchPreview } from '@/modules/shared/components/SportdataVictoryOverlay';
 
 // ─── Flag SVG Component ─────────────────────────────────────────────────────────
 
@@ -46,6 +45,10 @@ export interface KataLiveScoreboardProps {
   // Kata winner (if decided)
   kataWinner?: 'aka' | 'ao' | 'tie_pending' | null;
   winnerName?: string;
+  winnerAcademy?: string;
+  nextMatch?: NextMatchPreview | null;
+  onDismissWinner?: () => void;
+  onProceedNextMatch?: () => void;
 
   // Reveal settings
   revealVotes?: boolean;
@@ -78,6 +81,10 @@ export default function KataLiveScoreboard({
   isFullscreen,
   kataWinner,
   winnerName,
+  winnerAcademy,
+  nextMatch,
+  onDismissWinner,
+  onProceedNextMatch,
   revealVotes = true,
   revealCountdown = 0,
 }: KataLiveScoreboardProps) {
@@ -97,29 +104,36 @@ export default function KataLiveScoreboard({
     return (
       <>
         <style dangerouslySetInnerHTML={{ __html: kataScoreboadStyles }} />
-        <div className="kls-root">
-          <div className="kls-header">
-            <div>
-              <div className="kls-title">{title}</div>
-              <div className="kls-subtitle">{subtitle}</div>
+        <div className="kls-root" style={{ position: 'relative' }}>
+          {(title || subtitle || onToggleFullscreen || onBack || logoUrl) && (
+            <div className="kls-header">
+              <div>
+                <div className="kls-title">{title}</div>
+                <div className="kls-subtitle">{subtitle}</div>
+              </div>
+              <div className="kls-header-actions">
+                {onToggleFullscreen && (
+                  <button className="kls-btn" onClick={onToggleFullscreen}>
+                    {isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+                  </button>
+                )}
+                {onBack && <button className="kls-btn kls-btn-dark" onClick={onBack}>← Return</button>}
+              </div>
             </div>
-            <div className="kls-header-actions">
-              {onToggleFullscreen && (
-                <button className="kls-btn" onClick={onToggleFullscreen}>
-                  {isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
-                </button>
-              )}
-              {onBack && <button className="kls-btn kls-btn-dark" onClick={onBack}>← Return</button>}
-            </div>
-          </div>
+          )}
 
-          <div className="kls-winner-wrap">
-            <div className={`kls-winner-showcase ${kataWinner}`}>
-              <div className="kls-winner-label">{kataWinner === 'aka' ? 'AKA WINS' : 'AO WINS'}</div>
-              <div className="kls-winner-flags">{kataWinner === 'aka' ? akaFlags : aoFlags}</div>
-              <div className="kls-winner-name">{winnerName || (kataWinner === 'aka' ? akaName : aoName)}</div>
-            </div>
-          </div>
+          <SportdataVictoryOverlay
+            winnerName={winnerName || (kataWinner === 'aka' ? akaName : aoName)}
+            winnerColor={kataWinner as 'aka' | 'ao'}
+            winnerAcademy={winnerAcademy || (kataWinner === 'aka' ? akaAcademy : aoAcademy)}
+            winnerCountry={kataWinner === 'aka' ? akaCountry : aoCountry}
+            isKata={true}
+            kataFlags={{ aka: akaFlags, ao: aoFlags }}
+            kataName={kataWinner === 'aka' ? akaKataName : aoKataName}
+            nextMatch={nextMatch}
+            onDismiss={onDismissWinner}
+            onProceedNextMatch={onProceedNextMatch}
+          />
         </div>
       </>
     );

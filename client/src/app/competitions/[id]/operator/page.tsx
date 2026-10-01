@@ -232,6 +232,7 @@ function OperatorPortalInner({ id }: { id: string }) {
   const [activeMatchId, setActiveMatchId] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [tempQueue, setTempQueue] = useState<any[]>([]);
+  const [winnerState, setWinnerState] = useState<{ color: 'aka'|'ao', name: string, academy: string, points: number } | null>(null);
   
   const [queueSearchQuery, setQueueSearchQuery] = useState('');
   const [queueFilterPool, setQueueFilterPool] = useState('1');
@@ -321,12 +322,26 @@ function OperatorPortalInner({ id }: { id: string }) {
           revealVotes,
           revealCountdown,
           adminOverride,
+          winnerName: winnerState?.name || null,
+          winnerColor: winnerState?.color || null,
+          winnerAcademy: winnerState?.academy || null,
+          winnerPoints: winnerState?.points ?? null,
+          nextMatch: queue[0] ? {
+            matchId: queue[0].displayId || queue[0].id,
+            aka: queue[0].aka,
+            ao: queue[0].ao,
+            akaAcademy: queue[0].akaAcademy,
+            aoAcademy: queue[0].aoAcademy,
+            category: queue[0].category,
+            akaReady: queue[0].akaReady,
+            aoReady: queue[0].aoReady,
+          } : null,
         }
       });
     } catch (e) {
       console.warn('Broadcast error:', e);
     }
-  }, [timer, activeCategoryName, status, running, activeCategoryData, queue, activeMatchId, aka, ao, restTimer, restRunning, selectedKata, kataVotes, kataWinner, kataScores, revealVotes, revealCountdown, adminOverride]);
+  }, [timer, activeCategoryName, status, running, activeCategoryData, queue, activeMatchId, aka, ao, restTimer, restRunning, selectedKata, kataVotes, kataWinner, kataScores, revealVotes, revealCountdown, adminOverride, winnerState]);
 
   // Native BroadcastChannel: 0 ms latency local cross-tab / cross-window sync
   useEffect(() => {
@@ -384,6 +399,20 @@ function OperatorPortalInner({ id }: { id: string }) {
       revealVotes,
       revealCountdown,
       adminOverride,
+      winnerName: winnerState?.name || null,
+      winnerColor: winnerState?.color || null,
+      winnerAcademy: winnerState?.academy || null,
+      winnerPoints: winnerState?.points ?? null,
+      nextMatch: queue[0] ? {
+        matchId: queue[0].displayId || queue[0].id,
+        aka: queue[0].aka,
+        ao: queue[0].ao,
+        akaAcademy: queue[0].akaAcademy,
+        aoAcademy: queue[0].aoAcademy,
+        category: queue[0].category,
+        akaReady: queue[0].akaReady,
+        aoReady: queue[0].aoReady,
+      } : null,
     };
 
     if (!isKataMatch) {
@@ -413,7 +442,7 @@ function OperatorPortalInner({ id }: { id: string }) {
     return () => {
       if (rtdbDebounceTimer.current) clearTimeout(rtdbDebounceTimer.current);
     };
-  }, [id, aka, ao, timer, status, running, activeCategoryName, queue, syncRTDB, isViewer, isOverriddenByAdmin, activeMatchId, activeCategoryData, restTimer, restRunning, selectedKata, kataVotes, kataWinner, kataScores, revealVotes, revealCountdown, adminOverride]);
+  }, [id, aka, ao, timer, status, running, activeCategoryName, queue, syncRTDB, isViewer, isOverriddenByAdmin, activeMatchId, activeCategoryData, restTimer, restRunning, selectedKata, kataVotes, kataWinner, kataScores, revealVotes, revealCountdown, adminOverride, winnerState]);
 
   // Unified RTDB Listener: Syncs Admin Override, Viewer/Overridden mirror mode, and Kata events
   useEffect(() => {
@@ -1011,8 +1040,6 @@ function OperatorPortalInner({ id }: { id: string }) {
   const mins = Math.floor(timer / 60).toString().padStart(2, '0');
   const secs = (timer % 60).toString().padStart(2, '0');
 
-  const [winnerState, setWinnerState] = useState<{ color: 'aka'|'ao', name: string, academy: string, points: number } | null>(null);
-
   const handleNextMatch = () => {
     const currentIdx = queue.findIndex(m => m.id === activeMatchId);
     if (currentIdx !== -1 && queue.length > currentIdx + 1) {
@@ -1415,6 +1442,22 @@ function OperatorPortalInner({ id }: { id: string }) {
                 }}
                 kataWinner={winnerState ? winnerState.color : (kataWinner as any)}
                 winnerName={winnerState?.name}
+                winnerAcademy={winnerState?.academy}
+                nextMatch={queue[0] ? {
+                  matchId: queue[0].displayId || queue[0].id,
+                  aka: queue[0].aka,
+                  ao: queue[0].ao,
+                  akaAcademy: queue[0].akaAcademy,
+                  aoAcademy: queue[0].aoAcademy,
+                  category: queue[0].category,
+                  akaReady: queue[0].akaReady,
+                  aoReady: queue[0].aoReady,
+                } : null}
+                onDismissWinner={() => setWinnerState(null)}
+                onProceedNextMatch={() => {
+                  setWinnerState(null);
+                  if (queue[0]) loadMatch(queue[0]);
+                }}
               />
             ) : (
               <KumiteLiveScoreboard
@@ -1447,6 +1490,22 @@ function OperatorPortalInner({ id }: { id: string }) {
                 matchId={`MAT ${matNum} - ${queue.find(m => m.id === activeMatchId)?.displayId || '-'}`}
                 winnerName={winnerState ? winnerState.name : undefined}
                 winnerColor={winnerState ? winnerState.color : undefined}
+                winnerAcademy={winnerState?.academy}
+                nextMatch={queue[0] ? {
+                  matchId: queue[0].displayId || queue[0].id,
+                  aka: queue[0].aka,
+                  ao: queue[0].ao,
+                  akaAcademy: queue[0].akaAcademy,
+                  aoAcademy: queue[0].aoAcademy,
+                  category: queue[0].category,
+                  akaReady: queue[0].akaReady,
+                  aoReady: queue[0].aoReady,
+                } : null}
+                onDismissWinner={() => setWinnerState(null)}
+                onProceedNextMatch={() => {
+                  setWinnerState(null);
+                  if (queue[0]) loadMatch(queue[0]);
+                }}
                 isFullscreen={isFullscreen}
                 onToggleFullscreen={() => {
                   if (document.fullscreenElement) {
@@ -1825,6 +1884,22 @@ function OperatorPortalInner({ id }: { id: string }) {
                           matchId={`MAT ${new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('mat')?.replace('mat-', '').padStart(2, '0') || '01'} - ${queue.find(m => m.id === activeMatchId)?.displayId || '-'}`}
                           winnerName={winnerState ? winnerState.name : undefined}
                           winnerColor={winnerState ? winnerState.color : undefined}
+                          winnerAcademy={winnerState?.academy}
+                          nextMatch={queue[0] ? {
+                            matchId: queue[0].displayId || queue[0].id,
+                            aka: queue[0].aka,
+                            ao: queue[0].ao,
+                            akaAcademy: queue[0].akaAcademy,
+                            aoAcademy: queue[0].aoAcademy,
+                            category: queue[0].category,
+                            akaReady: queue[0].akaReady,
+                            aoReady: queue[0].aoReady,
+                          } : null}
+                          onDismissWinner={() => setWinnerState(null)}
+                          onProceedNextMatch={() => {
+                            setWinnerState(null);
+                            if (queue[0]) loadMatch(queue[0]);
+                          }}
                           isKata={!!isKata}
                           akaKataName={selectedKata?.aka?.name}
                           aoKataName={selectedKata?.ao?.name}

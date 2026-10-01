@@ -1,6 +1,7 @@
 import React from 'react';
+import SportdataVictoryOverlay, { NextMatchPreview } from '@/modules/shared/components/SportdataVictoryOverlay';
 
-type KumiteLiveScoreboardProps = {
+export type KumiteLiveScoreboardProps = {
   akaName: string;
   aoName: string;
   akaAcademy?: string;
@@ -35,6 +36,10 @@ type KumiteLiveScoreboardProps = {
 
   winnerName?: string;
   winnerColor?: 'aka' | 'ao';
+  winnerAcademy?: string;
+  nextMatch?: NextMatchPreview | null;
+  onDismissWinner?: () => void;
+  onProceedNextMatch?: () => void;
 
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
@@ -51,7 +56,7 @@ export default function KumiteLiveScoreboard({
   akaScore, aoScore, akaIppon, aoIppon, akaWazaari, aoWazaari, akaYuko, aoYuko,
   akaC1, aoC1, akaC2, aoC2, akaSenshu, aoSenshu,
   timerDisplay, timerColor, matchStatus, title = 'KHEL KARATE', categoryName = '', matchId = '',
-  winnerName, winnerColor,
+  winnerName, winnerColor, winnerAcademy, nextMatch, onDismissWinner, onProceedNextMatch,
   isFullscreen, onToggleFullscreen, onBack,
   isKata, akaKataName, aoKataName,
   logoUrl
@@ -136,10 +141,24 @@ export default function KumiteLiveScoreboard({
         }
       `}} />
 
-      <div className={`kls-overlay ${winnerName ? 'active' : ''}`}>
-        <div className="kls-win-label">MATCH WINNER</div>
-        <div className={`kls-win-name ${winnerColor === 'aka' ? 'kls-win-aka' : 'kls-win-ao'}`}>{winnerName}</div>
-      </div>
+      {winnerName && winnerColor && (
+        <SportdataVictoryOverlay
+          winnerName={winnerName}
+          winnerColor={winnerColor}
+          winnerAcademy={winnerAcademy || (winnerColor === 'aka' ? akaAcademy : aoAcademy)}
+          winnerCountry={winnerColor === 'aka' ? akaCountry : aoCountry}
+          finalScore={{
+            aka: akaScore,
+            ao: aoScore,
+            senshuWinner: akaSenshu ? 'aka' : (aoSenshu ? 'ao' : null)
+          }}
+          isKata={isKata}
+          kataName={winnerColor === 'aka' ? akaKataName : aoKataName}
+          nextMatch={nextMatch}
+          onDismiss={onDismissWinner}
+          onProceedNextMatch={onProceedNextMatch}
+        />
+      )}
 
       {(title || categoryName || onToggleFullscreen || onBack || logoUrl) && (
         <div className="kls-header">
