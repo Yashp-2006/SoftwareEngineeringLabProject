@@ -97,4 +97,23 @@ describe('Athlete Ingestion & Normalization Engine', () => {
     expect(cadetAthletes.some((a: any) => a.name === 'Exact Max Boundary')).toBe(false);
     expect(juniorAthletes.some((a: any) => a.name === 'Exact Max Boundary')).toBe(true);
   });
+
+  it('skips completely blank rows, trailing empty rows, and BYE placeholders', () => {
+    const rawExcelWithBlankRows = [
+      { 'Name': 'Real Athlete', 'Age': '20', 'Gender': 'Male', 'Weight': '70', 'Dojo': 'Main Dojo' },
+      { 'Name': '', 'Age': '', 'Gender': '', 'Weight': '', 'Dojo': '' },
+      { 'Name': '   ', 'Age': null, 'Gender': undefined },
+      {},
+      { 'Name': 'BYE', 'Age': '18', 'Gender': 'Male' },
+      { 'Name': 'Another Real Athlete', 'Age': '22', 'Gender': 'Female', 'Weight': '55', 'Dojo': 'North Dojo' },
+    ];
+
+    const normalized = normalizeAthleteRows(rawExcelWithBlankRows);
+
+    // Only 2 real athletes should be parsed, NOT 6
+    expect(normalized).toHaveLength(2);
+    expect(normalized[0].name).toBe('Another Real Athlete'); // sorted A-Z
+    expect(normalized[1].name).toBe('Real Athlete');
+  });
 });
+

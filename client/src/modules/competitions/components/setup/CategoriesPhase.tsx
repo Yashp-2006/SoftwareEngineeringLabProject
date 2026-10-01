@@ -77,13 +77,28 @@ export default function CategoriesPhase({
             <button type="button" className="btn btn-ghost" style={{ height: '36px', padding: '0 12px' }} onClick={handleExportPreset}>
               <Download size={16} /> Export
             </button>
-            <button type="button" className="btn btn-ghost" style={{ height: '36px', padding: '0 12px' }} onClick={() => document.getElementById('preset-upload')?.click()}>
+            <button 
+              type="button" 
+              className="btn btn-ghost" 
+              style={{ height: '36px', padding: '0 12px' }} 
+              onClick={(e) => {
+                e.stopPropagation();
+                document.getElementById('preset-upload')?.click();
+              }}
+            >
               <UploadCloud size={16} /> Import
             </button>
             <button type="button" className="btn btn-ghost" onClick={handleLoadWkfCategories} style={{ color: 'var(--ao)', borderColor: 'var(--ao)', height: '36px', padding: '0 12px' }}>
               <RefreshCw size={16} /> Load WKF Rules
             </button>
-            <input type="file" id="preset-upload" style={{ display: 'none' }} accept=".json" onChange={handleImportPreset} />
+            <input 
+              type="file" 
+              id="preset-upload" 
+              style={{ display: 'none' }} 
+              accept=".json" 
+              onClick={(e) => e.stopPropagation()} 
+              onChange={handleImportPreset} 
+            />
             <button type="button" className="btn btn-ghost" style={{ height: '36px', padding: '0 12px' }} onClick={() => setModalType('merge')}>
               <Combine size={16} /> Merge
             </button>

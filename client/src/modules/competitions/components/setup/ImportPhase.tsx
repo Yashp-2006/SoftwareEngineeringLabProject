@@ -69,7 +69,12 @@ export default function ImportPhase({
 
         <div 
           className="dropzone" 
-          onClick={() => document.getElementById('excel-upload')?.click()}
+          onClick={(e) => {
+            const target = e.target as HTMLElement;
+            if (target.tagName !== 'BUTTON' && !target.closest('button')) {
+              document.getElementById('excel-upload')?.click();
+            }
+          }}
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           onDragEnter={handleDragOver}
@@ -89,11 +94,26 @@ export default function ImportPhase({
               <p className="text-small" style={{ marginBottom: 'var(--space-4)' }}>Supports .csv, .xls, .xlsx (Max 10MB)</p>
             </>
           )}
-          <button type="button" className="btn btn-primary" disabled={uploading}>
+          <button 
+            type="button" 
+            className="btn btn-primary" 
+            disabled={uploading}
+            onClick={(e) => {
+              e.stopPropagation();
+              document.getElementById('excel-upload')?.click();
+            }}
+          >
             {uploading ? 'Processing...' : importResult ? 'Upload Another File' : 'Browse Files'}
           </button>
-          <input type="file" id="excel-upload" style={{ display: 'none' }} accept=".csv, .xls, .xlsx" onChange={handleFileUpload} />
         </div>
+        <input 
+          type="file" 
+          id="excel-upload" 
+          style={{ display: 'none' }} 
+          accept=".csv, .xls, .xlsx" 
+          onClick={(e) => e.stopPropagation()}
+          onChange={handleFileUpload} 
+        />
         
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 'var(--space-5)' }}>
           <button type="button" className="btn btn-secondary" onClick={() => {

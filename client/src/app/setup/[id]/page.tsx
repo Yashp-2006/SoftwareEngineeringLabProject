@@ -488,6 +488,11 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
     if (!file) return;
 
     try {
+      const fileName = (file.name || '').toLowerCase();
+      if (!fileName.endsWith('.json')) {
+        toast.error('The Category Preset button accepts .json files. To upload athlete rosters (.xlsx, .xls, .csv), please use Phase 2 (Import Roster).', { duration: 5000 });
+        return;
+      }
       const text = await file.text();
       const imported = JSON.parse(text);
       if (Array.isArray(imported)) {
@@ -625,6 +630,9 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         buffer = await file.arrayBuffer();
       }
       toast.loading('Computing brackets...', { id: toastId });
+      // Brief pause to allow UI thread to paint loading state
+      await new Promise(r => setTimeout(r, 60));
+
       const { parseExcelIntoCategories, generateBracket } = await import('@taikaix/backend/services/tiesheet/generator');
       const { generateWkfCategories } = await import('@taikaix/backend/lib/wkf-categories');
       const wkfCatNames = new Set(generateWkfCategories(wkfMode).map(c => c.name));
@@ -633,7 +641,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         : categories;
       const { categoryMap, uniqueAthletesCount } = parseExcelIntoCategories(buffer, [], wkfMode, customCats, compRules);
 
-      if (categoryMap.size === 0) {
+      if (categoryMap.size === 0 || !uniqueAthletesCount) {
         throw new Error('No athlete data found. Check that the sheet has a header row and at least one athlete row.');
       }
 
