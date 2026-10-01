@@ -95,7 +95,7 @@ export default function CategoriesPhase({
               type="file" 
               id="preset-upload" 
               style={{ display: 'none' }} 
-              accept=".json" 
+              accept=".json,.csv,.xlsx,.xls" 
               onClick={(e) => e.stopPropagation()} 
               onChange={handleImportPreset} 
             />
@@ -129,7 +129,14 @@ export default function CategoriesPhase({
             <option value="kata">Kata Only</option>
             <option value="kumite">Kumite Only</option>
           </select>
-
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--neutral-600)', cursor: 'pointer', userSelect: 'none' }}>
+            <input 
+              type="checkbox" 
+              checked={hideEmpty} 
+              onChange={e => setHideEmpty(e.target.checked)} 
+            />
+            Hide Empty (0 entries)
+          </label>
         </div>
 
         <div className="table-responsive" style={{ maxHeight: '400px', overflowY: 'auto' }}>
@@ -206,8 +213,10 @@ export default function CategoriesPhase({
               ))}
               {filteredCategories.length === 0 && (
                 <tr>
-                  <td colSpan={5} style={{ textAlign: 'center', color: 'var(--neutral-500)', padding: 'var(--space-6)' }}>
-                    No categories found matching filters.
+                  <td colSpan={6} style={{ textAlign: 'center', color: 'var(--neutral-500)', padding: 'var(--space-6)' }}>
+                    {categories.length === 0
+                      ? 'No categories defined yet. Click "Load WKF Rules", "Import", or "Add Category" above to get started.'
+                      : 'No categories found matching filters.'}
                   </td>
                 </tr>
               )}

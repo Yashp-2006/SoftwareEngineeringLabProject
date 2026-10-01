@@ -62,7 +62,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
 
   const [filterGender, setFilterGender] = useState<'all'|'male'|'female'>('all');
   const [filterDiscipline, setFilterDiscipline] = useState<'all'|'kata'|'kumite'>('all');
-  const [hideEmpty, setHideEmpty] = useState<boolean>(true);
+  const [hideEmpty, setHideEmpty] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState("");
   
   const [dragIdx, setDragIdx] = useState<number | null>(null);
@@ -295,7 +295,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
           if (draftData.bronzeRule !== undefined) setBronzeRule(draftData.bronzeRule);
           if (draftData.wkfMode !== undefined) setWkfMode(draftData.wkfMode);
           if (draftData.wkfKataJudgeCount !== undefined) setWkfKataJudgeCount(draftData.wkfKataJudgeCount);
-          if (draftData.categories !== undefined) setCategories(draftData.categories.filter((c: any) => (c.entries || 0) > 0));
+          if (draftData.categories !== undefined) setCategories(draftData.categories);
           if (draftData.importResult !== undefined) setImportResult(draftData.importResult);
           if (draftData.scoreboardLogo !== undefined) setScoreboardLogo(draftData.scoreboardLogo);
           if (draftData.highestPhase !== undefined) setHighestPhase(draftData.highestPhase);
@@ -365,30 +365,29 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
           const { collection, getDocs } = await import('firebase/firestore');
           const catSnap = await getDocs(collection(db, 'competitions', id, 'categories'));
           
-          const existingEntries = new Map<string, number>();
-          catSnap.docs.forEach(doc => {
-            existingEntries.set(doc.data().name, doc.data().entries || 0);
-          });
-          
-          const loadedCats = generateWkfCategories(wkfMode).map(cat => ({
-            id: Math.random().toString(36).substring(2, 9),
-            name: cat.name,
-            entries: existingEntries.get(cat.name) || 0,
-            athletes: [],
-            isKata: cat.isKata,
-            gender: cat.gender,
-            discipline: cat.isKata ? 'Kata' : 'Kumite',
-            judgeCount: cat.isKata ? wkfKataJudgeCount : undefined,
-            minAge: cat.minAge,
-            maxAge: cat.maxAge,
-            minWeight: cat.minWeight,
-            maxWeight: cat.maxWeight,
-          }));
-          setCategories(loadedCats.filter(c => c.entries > 0));
+          if (catSnap.docs.length > 0) {
+            setCategories(catSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any)));
+          } else {
+            const loadedCats = generateWkfCategories(wkfMode).map(cat => ({
+              id: Math.random().toString(36).substring(2, 9),
+              name: cat.name,
+              entries: 0,
+              athletes: [],
+              isKata: cat.isKata,
+              gender: cat.gender,
+              discipline: cat.isKata ? 'Kata' : 'Kumite',
+              judgeCount: cat.isKata ? (wkfKataJudgeCount || 3) : undefined,
+              minAge: cat.minAge,
+              maxAge: cat.maxAge,
+              minWeight: cat.minWeight,
+              maxWeight: cat.maxWeight,
+            }));
+            setCategories(loadedCats);
+          }
         } else {
           const { collection, getDocs } = await import('firebase/firestore');
           const catSnap = await getDocs(collection(db, 'competitions', id, 'categories'));
-          setCategories(catSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any)).filter(c => (c.entries || 0) > 0));
+          setCategories(catSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any)));
         }
         setIsDataLoaded(true);
       } catch (err: any) {
@@ -489,26 +488,113 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
 
     try {
       const fileName = (file.name || '').toLowerCase();
-      if (!fileName.endsWith('.json')) {
-        toast.error('The Category Preset button accepts .json files. To upload athlete rosters (.xlsx, .xls, .csv), please use Phase 2 (Import Roster).', { duration: 5000 });
+      let importedCats: any[] = [];
+
+      if (fileName.endsWith('.json')) {
+        const text = await file.text();
+        const parsed = JSON.parse(text);
+        if (Array.isArray(parsed)) {
+          importedCats = parsed;
+        } else if (parsed && Array.isArray(parsed.categories)) {
+          importedCats = parsed.categories;
+        } else {
+          toast.error('Invalid JSON preset format. Expected an array of categories.');
+          return;
+        }
+      } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls') || fileName.endsWith('.csv')) {
+        const buffer = fileName.endsWith('.csv') ? await file.text() : await file.arrayBuffer();
+        const xlsx = await import('xlsx');
+        const isStr = typeof buffer === 'string';
+        const workbook = xlsx.read(isStr ? buffer : new Uint8Array(buffer), { type: isStr ? 'string' : 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const rows: any[] = xlsx.utils.sheet_to_json(workbook.Sheets[firstSheetName], { defval: '', blankrows: false });
+
+        if (!rows || rows.length === 0) {
+          toast.error('The uploaded file is empty.');
+          return;
+        }
+
+        // Check if rows are category definitions or athlete roster
+        const sampleRow = rows[0] || {};
+        const lowerKeys = Object.keys(sampleRow).map(k => k.trim().toLowerCase());
+        const hasCategoryNameCol = lowerKeys.some(k => k === 'category' || k === 'category name' || k === 'categoryname' || k === 'division');
+        const hasAthleteNameCol = lowerKeys.some(k => k === 'athlete' || k === 'athlete name' || k === 'first name');
+
+        if (hasCategoryNameCol && !hasAthleteNameCol) {
+          // Dedicated Category definitions list
+          importedCats = rows.map(r => {
+            const rowObj: Record<string, any> = {};
+            for (const key of Object.keys(r)) rowObj[key.trim().toLowerCase()] = r[key];
+            const name = String(rowObj['category name'] || rowObj['category'] || rowObj['categoryname'] || rowObj['division'] || '').trim();
+            if (!name) return null;
+            const disc = String(rowObj['discipline'] || (name.toLowerCase().includes('kata') ? 'Kata' : 'Kumite')).trim();
+            const isKata = disc.toLowerCase() === 'kata' || name.toLowerCase().includes('kata');
+            return {
+              name,
+              discipline: isKata ? 'Kata' : 'Kumite',
+              isKata,
+              gender: rowObj['gender'] || (name.toLowerCase().includes('female') ? 'Female' : name.toLowerCase().includes('male') ? 'Male' : 'Any'),
+              minAge: rowObj['min age'] !== undefined && rowObj['min age'] !== '' ? Number(rowObj['min age']) : undefined,
+              maxAge: rowObj['max age'] !== undefined && rowObj['max age'] !== '' ? Number(rowObj['max age']) : undefined,
+              minWeight: rowObj['min weight'] !== undefined && rowObj['min weight'] !== '' ? Number(rowObj['min weight']) : undefined,
+              maxWeight: rowObj['max weight'] !== undefined && rowObj['max weight'] !== '' ? Number(rowObj['max weight']) : undefined,
+              judgeCount: isKata ? 5 : undefined,
+            };
+          }).filter(Boolean);
+        } else {
+          // Extract categories using parseExcelIntoCategories
+          const { parseExcelIntoCategories } = await import('@taikaix/backend/services/tiesheet/generator');
+          const { generateWkfCategories } = await import('@taikaix/backend/lib/wkf-categories');
+          const wkfCatNames = new Set(generateWkfCategories(wkfMode).map(c => c.name));
+          const customCats = compRules === 'wkf'
+            ? categories.filter(c => !wkfCatNames.has(c.name))
+            : categories;
+          const { categoryMap } = parseExcelIntoCategories(buffer, [], wkfMode, customCats, compRules);
+          
+          importedCats = Array.from(categoryMap.entries()).map(([catName, athletes]) => {
+            const isKata = catName.toLowerCase().includes('kata');
+            return {
+              name: catName,
+              discipline: isKata ? 'Kata' : 'Kumite',
+              isKata,
+              entries: athletes.length,
+              athletes,
+              gender: catName.toLowerCase().includes('female') ? 'Female' : catName.toLowerCase().includes('male') ? 'Male' : 'Any',
+              judgeCount: isKata ? 5 : undefined,
+            };
+          });
+        }
+      } else {
+        toast.error('Unsupported file format. Please upload .json, .csv, or .xlsx.');
         return;
       }
-      const text = await file.text();
-      const imported = JSON.parse(text);
-      if (Array.isArray(imported)) {
-        const newCats = imported.map(cat => ({
-          ...cat,
-          id: Math.random().toString(36).substring(2, 9),
-          entries: 0,
-          athletes: []
-        }));
-        setCategories(prev => [...prev, ...newCats]);
-        toast.success(`Imported ${newCats.length} categories`);
-      } else {
-        toast.error('Invalid preset format');
+
+      if (importedCats.length === 0) {
+        toast.error('No categories found in file.');
+        return;
       }
-    } catch (err) {
-      toast.error('Failed to parse preset file');
+
+      const newCats = importedCats.map(cat => ({
+        ...cat,
+        id: cat.id || Math.random().toString(36).substring(2, 9),
+        name: cat.name,
+        discipline: cat.discipline || (cat.isKata || cat.name?.toLowerCase().includes('kata') ? 'Kata' : 'Kumite'),
+        isKata: cat.isKata ?? cat.name?.toLowerCase().includes('kata'),
+        gender: cat.gender || (cat.name?.toLowerCase().includes('female') ? 'Female' : cat.name?.toLowerCase().includes('male') ? 'Male' : 'Any'),
+        entries: cat.entries || (cat.athletes ? cat.athletes.length : 0),
+        athletes: cat.athletes || []
+      }));
+
+      setCategories(prev => {
+        const existingNames = new Set(prev.map(c => c.name));
+        const nonDuplicates = newCats.filter(c => !existingNames.has(c.name));
+        return [...prev, ...nonDuplicates];
+      });
+
+      toast.success(`Imported ${newCats.length} categories`);
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Failed to parse categories file: ' + (err?.message || ''));
     } finally {
       e.target.value = '';
     }
@@ -1079,12 +1165,15 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
   };
 
   const filteredCategories = sortCategories(categories.filter(c => {
-    if (!c.entries || c.entries === 0) return false;
-    const lowerName = c.name.toLowerCase();
+    if (hideEmpty && (!c.entries || c.entries === 0)) return false;
+    const lowerName = (c.name || '').toLowerCase();
     if (searchQuery && !lowerName.includes(searchQuery.toLowerCase())) return false;
-    if (filterGender === 'female' && !lowerName.includes('female')) return false;
-    if (filterGender === 'male' && (!lowerName.includes('male') || lowerName.includes('female'))) return false;
-    const isKata = lowerName.endsWith('kata') || lowerName.includes(' kata ');
+    const catGender = (c.gender || '').toLowerCase();
+    const isFemale = catGender === 'female' || /\b(female|girls?|women)\b/.test(lowerName) || lowerName.includes('female');
+    const isMale = (catGender === 'male' || /\b(male|boys?|men)\b/.test(lowerName) || lowerName.includes('male')) && !isFemale;
+    if (filterGender === 'female' && !isFemale) return false;
+    if (filterGender === 'male' && !isMale) return false;
+    const isKata = c.isKata === true || c.discipline === 'Kata' || lowerName.endsWith('kata') || lowerName.includes('kata');
     if (filterDiscipline === 'kata' && !isKata) return false;
     if (filterDiscipline === 'kumite' && isKata) return false;
     return true;
