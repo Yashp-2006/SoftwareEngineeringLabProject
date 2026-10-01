@@ -9,7 +9,17 @@ import { toast } from 'react-hot-toast';
 import ConfirmModal from '@/modules/shared/components/ConfirmModal';
 import DateRangePicker from '@/modules/shared/components/DateRangePicker';
 import PremiumCTA from '@/modules/shared/components/PremiumCTA';
-import { hashPassword } from '@/lib/hash';
+function getCompetitionDatesString(dates: any): string {
+  if (!dates) return '';
+  if (typeof dates === 'string') return dates;
+  if (typeof dates === 'object') {
+    const start = dates.start || dates.startDate || '';
+    const end = dates.end || dates.endDate || '';
+    if (start && end && start !== end) return `${start} – ${end}`;
+    return String(start || end || '');
+  }
+  return '';
+}
 
 export default function CompetitionsPage() {
   const router = useRouter();
@@ -710,18 +720,17 @@ export default function CompetitionsPage() {
                 </div>
                 <h3 style={{ fontSize: '22px', marginBottom: 'var(--space-1)' }}>{comp.name}</h3>
                 <div className="text-small mb-2">
-                  {typeof comp.dates === 'string' 
-                    ? comp.dates 
-                    : (comp.dates && typeof comp.dates === 'object' && comp.dates.start)
-                      ? (comp.dates.end && comp.dates.end !== comp.dates.start ? `${comp.dates.start} – ${comp.dates.end}` : comp.dates.start)
-                      : ''}
-                  {((comp.dates) && (comp.venue || comp.location)) ? ' • ' : ''}
-                  {comp.venue || comp.location || ''}
+                  {(() => {
+                    const datesText = getCompetitionDatesString(comp.dates);
+                    const venueText = typeof comp.venue === 'string' ? comp.venue : (typeof comp.location === 'string' ? comp.location : '');
+                    if (datesText && venueText) return `${datesText} • ${venueText}`;
+                    return datesText || venueText || '';
+                  })()}
                 </div>
-                 {(comp.startTime || comp.estMinsPerPool || comp.estMinsPerCategory) && (
+                {Boolean(comp.startTime || comp.estMinsPerPool || comp.estMinsPerCategory) && (
                   <div style={{ display: 'flex', gap: '16px', marginBottom: '8px', fontSize: '12px', color: 'var(--neutral-500)' }}>
-                    {comp.startTime && <span>🕘 {comp.startTime} – {comp.endTime || '?'}</span>}
-                    {(comp.estMinsPerPool || comp.estMinsPerCategory) && <span>⏱ {comp.estMinsPerPool || comp.estMinsPerCategory} min/pool</span>}
+                    {comp.startTime && <span>🕘 {typeof comp.startTime === 'string' ? comp.startTime : ''} – {typeof comp.endTime === 'string' ? comp.endTime : '?'}</span>}
+                    {Boolean(comp.estMinsPerPool || comp.estMinsPerCategory) && <span>⏱ {String(comp.estMinsPerPool || comp.estMinsPerCategory)} min/pool</span>}
                   </div>
                 )}
                 <div style={{ display: 'flex', gap: 'var(--space-4)', marginTop: 'var(--space-4)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--neutral-100)' }}>
