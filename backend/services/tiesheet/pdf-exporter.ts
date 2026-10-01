@@ -402,12 +402,7 @@ export async function exportTiesheetsPDF(options: ExportOptions): Promise<void> 
     date = '',
   } = options;
 
-  const categories = [...rawCategories].sort((a, b) => {
-    const ageA = getAgeFromCategory(a.name);
-    const ageB = getAgeFromCategory(b.name);
-    if (ageA !== ageB) return ageA - ageB;
-    return a.name.localeCompare(b.name);
-  });
+  const categories = [...rawCategories].sort((a, b) => compareCategoryNames(a.name, b.name));
 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   let isFirst = true;
@@ -576,9 +571,81 @@ function getAgeFromCategory(catName: string): number {
   if (catName.includes('U14')) return 14;
   if (catName.includes('U16') || catName.includes('Cadet')) return 16;
   if (catName.includes('U18') || catName.includes('Junior')) return 18;
-  if (catName.includes('Senior')) return 20;
-  if (catName.includes('Veteran')) return 35;
-  const ageMatch = catName.match(/(\d+)\s*Years?/i) || catName.match(/\((\d+)-/);
+  if (catName.includes('Under 21') || catName.includes('U21')) return 21;
+  if (catName.includes('Senior')) return 22;
+  if (catName.includes('Veteran') || catName.includes('Masters')) return 35;
+  const ageMatch = catName.match(/(\d+)\s*Years?/i) || catName.match(/(?:^|\s|\()(\d+)-/);
   if (ageMatch) return parseInt(ageMatch[1], 10);
   return 99;
+}
+
+function getGenderRank(catName: string): number {
+  const lower = catName.toLowerCase();
+  // Female categories first (rank 0)
+  if (/\b(female|girls?|women)\b/.test(lower) || lower.includes('female')) {
+    return 0;
+  }
+  // Male categories second (rank 1)
+  if (/\b(male|boys?|men)\b/.test(lower) || lower.includes('male')) {
+    return 1;
+  }
+  // Mixed / open / unspecified last (rank 2)
+  return 2;
+}
+
+function getDisciplineRank(catName: string): number {
+  const lower = catName.toLowerCase();
+  if (lower.includes('kata')) return 0; // Kata first
+  return 1; // Kumite / other
+}
+
+function getWeightInfo(catName: string): { isKata: boolean; isPlus: boolean; weight: number } {
+  const lower = catName.toLowerCase();
+  if (lower.includes('kata')) {
+    return { isKata: true, isPlus: false, weight: -1 };
+  }
+  const match = catName.match(/([+-]?)\s*(\d+(?:\.\d+)?)\s*(?:kg|kilos?)/i);
+  if (match) {
+    const isPlus = match[1] === '+';
+    const weight = parseFloat(match[2]);
+    return { isKata: false, isPlus, weight };
+  }
+  return { isKata: false, isPlus: false, weight: 999 };
+}
+
+export function compareCategoryNames(nameA: string, nameB: string): number {
+  // 1. Age: Youngest to Oldest
+  const ageA = getAgeFromCategory(nameA);
+  const ageB = getAgeFromCategory(nameB);
+  if (ageA !== ageB) return ageA - ageB;
+
+  // 2. Gender: Female first, then Male
+  const genA = getGenderRank(nameA);
+  const genB = getGenderRank(nameB);
+  if (genA !== genB) return genA - genB;
+
+  // 3. Discipline: Kata first, then Kumite
+  const discA = getDisciplineRank(nameA);
+  const discB = getDisciplineRank(nameB);
+  if (discA !== discB) return discA - discB;
+
+  // 4. Weight: Lightest to Heaviest (plus/heavyweight categories last)
+  const wA = getWeightInfo(nameA);
+  const wB = getWeightInfo(nameB);
+
+  if (!wA.isKata && !wB.isKata) {
+    if (wA.isPlus !== wB.isPlus) {
+      if (wA.weight === wB.weight) {
+        return wA.isPlus ? 1 : -1;
+      }
+      if (!wA.isPlus && wB.isPlus && wA.weight <= wB.weight) return -1;
+      if (wA.isPlus && !wB.isPlus && wA.weight >= wB.weight) return 1;
+    }
+    if (wA.weight !== wB.weight) {
+      return wA.weight - wB.weight;
+    }
+  }
+
+  // 5. Fallback alphabetical
+  return nameA.localeCompare(nameB);
 }

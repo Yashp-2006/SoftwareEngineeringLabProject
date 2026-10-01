@@ -115,5 +115,46 @@ describe('Athlete Ingestion & Normalization Engine', () => {
     expect(normalized[0].name).toBe('Another Real Athlete'); // sorted A-Z
     expect(normalized[1].name).toBe('Real Athlete');
   });
+
+  it('correctly sorts categories by Age -> Female first then Male -> Kata first -> Weight ascending with +kg last', async () => {
+    const { sortCategories } = await import('../../src/lib/categoryUtils');
+    const inputCategories = [
+      { name: 'Cadet / U16 (14-15) Male +70 kg' },
+      { name: 'Cadet / U16 (14-15) Male -52 kg' },
+      { name: 'Cadet / U16 (14-15) Female +61 kg' },
+      { name: 'Cadet / U16 (14-15) Female Kata' },
+      { name: 'Junior / U18 (16-17) Male -55 kg' },
+      { name: 'Cadet / U16 (14-15) Female -47 kg' },
+      { name: 'Cadet / U16 (14-15) Male Kata' },
+      { name: 'U14 (12-13) Male -40 kg' },
+      { name: 'U14 (12-13) Female Kata' },
+      { name: 'Cadet / U16 (14-15) Male -63 kg' },
+    ];
+
+    const sorted = sortCategories(inputCategories);
+    const sortedNames = sorted.map(c => c.name);
+
+    expect(sortedNames).toEqual([
+      // 1. U14 (Youngest)
+      'U14 (12-13) Female Kata',     // Female first
+      'U14 (12-13) Male -40 kg',       // Male second
+
+      // 2. Cadet / U16
+      // Female first: Kata, then weights ascending (-47kg, +61kg last)
+      'Cadet / U16 (14-15) Female Kata',
+      'Cadet / U16 (14-15) Female -47 kg',
+      'Cadet / U16 (14-15) Female +61 kg',
+
+      // Male second: Kata, then weights ascending (-52kg, -63kg, +70kg last)
+      'Cadet / U16 (14-15) Male Kata',
+      'Cadet / U16 (14-15) Male -52 kg',
+      'Cadet / U16 (14-15) Male -63 kg',
+      'Cadet / U16 (14-15) Male +70 kg',
+
+      // 3. Junior / U18 (Older)
+      'Junior / U18 (16-17) Male -55 kg',
+    ]);
+  });
 });
+
 
