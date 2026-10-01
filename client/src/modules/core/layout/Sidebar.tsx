@@ -58,7 +58,7 @@ export default function Sidebar() {
     <div ref={menuRef} style={{ position: 'sticky', top: 0, zIndex: 100 }}>
       <nav style={{ position: 'relative', zIndex: 100 }}>
         {user && !user.isAnonymous ? (
-          <Link href="/dashboard" className="nav-logo" style={{ textDecoration: 'none' }}>KHEL KARATE</Link>
+          <Link href={(role === 'admin' || role === 'guest_viewer') ? "/dashboard" : "/competitions"} className="nav-logo" style={{ textDecoration: 'none' }}>KHEL KARATE</Link>
         ) : (
           <Link href="/login" className="nav-logo" style={{ textDecoration: 'none' }}>KHEL KARATE</Link>
         )}

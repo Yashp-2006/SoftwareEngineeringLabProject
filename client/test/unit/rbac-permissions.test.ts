@@ -18,7 +18,8 @@ describe('TaikaiX Role-Based Access Control (RBAC) Specification', () => {
       expect(getNormalizedRole('attendance_volunteer')).toBe('attendance_volunteer');
       expect(getNormalizedRole('medal_distributor')).toBe('medal_distributor');
       expect(getNormalizedRole('judge')).toBe('judge');
-      expect(getNormalizedRole('audience')).toBe('audience');
+      expect(getNormalizedRole('viewer')).toBe('viewer');
+      expect(getNormalizedRole('audience')).toBe('viewer');
     });
 
     it('correctly maps staff sub-collection and UI aliases', () => {
@@ -27,18 +28,26 @@ describe('TaikaiX Role-Based Access Control (RBAC) Specification', () => {
       expect(getNormalizedRole('operator')).toBe('mat_operator');
       expect(getNormalizedRole('attendance')).toBe('attendance_volunteer');
       expect(getNormalizedRole('medal')).toBe('medal_distributor');
-      expect(getNormalizedRole('viewer')).toBe('guest_viewer');
+      expect(getNormalizedRole('viewer')).toBe('viewer');
+      expect(getNormalizedRole('guest_viewer')).toBe('guest_viewer');
+      expect(getNormalizedRole('kata_judge')).toBe('judge');
+    });
+
+    it('distinguishes guest_viewer from normal viewer (audience)', () => {
+      expect(getNormalizedRole('guest_viewer')).toBe('guest_viewer');
+      expect(getNormalizedRole('viewer')).toBe('viewer');
+      expect(getNormalizedRole('guest_viewer')).not.toBe(getNormalizedRole('viewer'));
     });
 
     it('handles case-insensitivity, whitespace and fallback for unknown roles', () => {
       expect(getNormalizedRole('  ADMIN  ')).toBe('admin');
       expect(getNormalizedRole('Score')).toBe('mat_operator');
       expect(getNormalizedRole('ATTENDANCE')).toBe('attendance_volunteer');
-      // Unknown roles fallback safely to read-only guest_viewer
-      expect(getNormalizedRole('random_intruder')).toBe('guest_viewer');
-      // Empty or null defaults to audience
-      expect(getNormalizedRole(null)).toBe('audience');
-      expect(getNormalizedRole('')).toBe('audience');
+      // Unknown roles fallback safely to viewer (normal audience viewer)
+      expect(getNormalizedRole('random_intruder')).toBe('viewer');
+      // Empty or null defaults to viewer
+      expect(getNormalizedRole(null)).toBe('viewer');
+      expect(getNormalizedRole('')).toBe('viewer');
     });
   });
 
@@ -122,6 +131,7 @@ describe('TaikaiX Role-Based Access Control (RBAC) Specification', () => {
         'attendance_volunteer',
         'medal_distributor',
         'judge',
+        'viewer',
         'audience',
         null
       ];

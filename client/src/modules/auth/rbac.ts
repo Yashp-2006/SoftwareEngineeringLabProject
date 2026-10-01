@@ -11,18 +11,20 @@ export const ROLE_ALIASES: Record<string, UserRole> = {
   medal: 'medal_distributor',
   medal_distributor: 'medal_distributor',
   judge: 'judge',
+  kata_judge: 'judge',
   guest_viewer: 'guest_viewer',
-  viewer: 'guest_viewer',
-  audience: 'audience',
+  guest: 'guest_viewer',
+  viewer: 'viewer',
+  audience: 'viewer',
 };
 
 /**
  * Normalizes any role string / alias into canonical UserRole
  */
 export function getNormalizedRole(rawRole?: string | null): UserRole {
-  if (!rawRole) return 'audience';
+  if (!rawRole) return 'viewer';
   const lower = rawRole.toLowerCase().trim();
-  return ROLE_ALIASES[lower] || 'guest_viewer';
+  return ROLE_ALIASES[lower] || 'viewer';
 }
 
 export interface SubNavVisibility {
@@ -108,8 +110,8 @@ export function checkRouteAccess(
     return { allowed: false, redirect: '/competitions' };
   }
 
-  // Judge protection for audience/unauthorized
-  if (pathname.includes('/judge') && role === 'audience') {
+  // Judge protection for viewers/audience (they can't vote)
+  if (pathname.includes('/judge') && (role === 'viewer' || (role as string) === 'audience')) {
     const compId = pathname.split('/')[2] || '';
     return { allowed: false, redirect: `/competitions/${compId}` };
   }

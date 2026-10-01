@@ -6,6 +6,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '@lib/firebase';
 import { useRouter, usePathname } from 'next/navigation';
 import type { UserRole } from '@taikaix/backend/types';
+import { getNormalizedRole } from '@/modules/auth/rbac';
 export type { UserRole };
 
 interface AuthContextType {
@@ -62,8 +63,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const userDoc = await getDoc(userDocRef);
 
             if (userDoc.exists()) {
-              // Fallback: if role field is missing, treat as 'audience'
-              const currentRole = (userDoc.data().role as UserRole) || 'audience';
+              // Normalize role from Firestore doc; defaults safely to 'viewer' (normal audience viewer)
+              const currentRole = getNormalizedRole(userDoc.data().role as string | null | undefined);
               setRole(currentRole);
 
               await setDoc(userDocRef, {
@@ -76,20 +77,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 lastLoginAt: new Date().toISOString()
               }, { merge: true });
             } else {
-              // New user
+              // New user — default to 'viewer' (regular audience viewer role).
+              // 'guest_viewer' is reserved for explicitly elevated view-only administrative staff.
               await setDoc(userDocRef, {
                 email: currentUser.email || null,
                 displayName: currentUser.displayName || null,
                 photoURL: currentUser.photoURL || null,
+                role: 'viewer',
                 isAnonymous: false,
                 createdAt: new Date().toISOString(),
                 lastLoginAt: new Date().toISOString()
               });
-              setRole('audience');
+              setRole('viewer');
             }
           } catch (error) {
             console.error('Error fetching user role:', error);
-            setRole('audience');
+            setRole('viewer');
           }
         } else {
           setRole(null);
@@ -138,8 +141,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        // Block audience/null from judge page (they can't vote)
-        if (pathname.includes('/judge') && role === 'audience') {
+        // Block audience/viewer from judge page (they can't vote)
+        if (pathname.includes('/judge') && (role === 'viewer' || (role as string) === 'audience')) {
           router.push(`/competitions/${pathname.split('/')[2]}`);
           return;
         }

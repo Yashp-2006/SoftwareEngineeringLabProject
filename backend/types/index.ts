@@ -3,11 +3,12 @@
 
 export type UserRole =
   | 'admin'
-  | 'guest_viewer'
-  | 'attendance_volunteer'
   | 'mat_operator'
-  | 'medal_distributor'
+  | 'attendance_volunteer'
   | 'judge'
+  | 'guest_viewer'
+  | 'viewer'
+  | 'medal_distributor'
   | 'audience'
   | null;
 

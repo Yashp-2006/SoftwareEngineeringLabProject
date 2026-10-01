@@ -60,6 +60,14 @@ export default function LoginPage() {
       if (userDocSnap.exists()) {
         const globalRole = userDocSnap.data().role;
         if (globalRole === 'admin' || globalRole === 'guest_viewer') {
+          window.location.href = '/dashboard';
+          return true;
+        }
+        if (globalRole === 'viewer' || globalRole === 'audience') {
+          window.location.href = '/competitions';
+          return true;
+        }
+        if (globalRole === 'mat_operator' || globalRole === 'attendance_volunteer' || globalRole === 'medal_distributor' || globalRole === 'judge') {
           window.location.href = '/competitions';
           return true;
         }
@@ -93,11 +101,12 @@ export default function LoginPage() {
               lastActiveAt: new Date().toISOString()
             });
 
-            let mappedRole: 'mat_operator' | 'attendance_volunteer' | 'medal_distributor' | 'judge' | 'guest_viewer' = 'guest_viewer';
+            let mappedRole: 'mat_operator' | 'attendance_volunteer' | 'medal_distributor' | 'judge' | 'guest_viewer' | 'viewer' = 'viewer';
             if (staffData.role === 'score') mappedRole = 'mat_operator';
             else if (staffData.role === 'attendance') mappedRole = 'attendance_volunteer';
             else if (staffData.role === 'medal') mappedRole = 'medal_distributor';
             else if (staffData.role === 'judge') mappedRole = 'judge';
+            else if (staffData.role === 'guest_viewer' || staffData.role === 'guest') mappedRole = 'guest_viewer';
 
             const { setDoc } = await import('firebase/firestore');
             await setDoc(doc(db, 'users', currentUser.uid), {
@@ -136,11 +145,22 @@ export default function LoginPage() {
       }
       const isStaffRedirected = await checkEmailRosterAndRedirect(userCredential.user);
       if (!isStaffRedirected) {
+        // Regular viewer logged in or signed up — assign 'viewer' role and send to competitions
         const { db } = await import('@lib/firebase');
-        const { collection, getDocs } = await import('firebase/firestore');
-        const snap = await getDocs(collection(db, 'competitions'));
-        setCompetitionsList(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        setShowEnrollForm(true);
+        const { doc, getDoc, setDoc } = await import('firebase/firestore');
+        const userDocRef = doc(db, 'users', userCredential.user.uid);
+        const userDocSnap = await getDoc(userDocRef);
+        if (!userDocSnap.exists() || !userDocSnap.data()?.role) {
+          await setDoc(userDocRef, {
+            email: userCredential.user.email || null,
+            displayName: userCredential.user.displayName || userCredential.user.email?.split('@')[0] || 'Viewer',
+            role: 'viewer',
+            isAnonymous: false,
+            createdAt: new Date().toISOString(),
+            lastLoginAt: new Date().toISOString()
+          }, { merge: true });
+        }
+        window.location.href = '/competitions';
       }
     } catch (err: any) {
       const safeMessages: Record<string, string> = {
@@ -163,11 +183,22 @@ export default function LoginPage() {
       const userCredential = await signInWithPopup(auth, provider);
       const isStaffRedirected = await checkEmailRosterAndRedirect(userCredential.user);
       if (!isStaffRedirected) {
+        // Regular viewer logged in or signed up with Google — assign 'viewer' role and send to competitions
         const { db } = await import('@lib/firebase');
-        const { collection, getDocs } = await import('firebase/firestore');
-        const snap = await getDocs(collection(db, 'competitions'));
-        setCompetitionsList(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        setShowEnrollForm(true);
+        const { doc, getDoc, setDoc } = await import('firebase/firestore');
+        const userDocRef = doc(db, 'users', userCredential.user.uid);
+        const userDocSnap = await getDoc(userDocRef);
+        if (!userDocSnap.exists() || !userDocSnap.data()?.role) {
+          await setDoc(userDocRef, {
+            email: userCredential.user.email || null,
+            displayName: userCredential.user.displayName || userCredential.user.email?.split('@')[0] || 'Viewer',
+            role: 'viewer',
+            isAnonymous: false,
+            createdAt: new Date().toISOString(),
+            lastLoginAt: new Date().toISOString()
+          }, { merge: true });
+        }
+        window.location.href = '/competitions';
       }
     } catch (err: any) { setError(err.message || 'Google Sign-In failed'); }
   };
@@ -228,11 +259,12 @@ export default function LoginPage() {
       }
 
       // Sync Firestore user profile with actual staff name & role so Users page shows accurate details
-      let mappedRole: 'mat_operator' | 'attendance_volunteer' | 'medal_distributor' | 'judge' | 'guest_viewer' = 'guest_viewer';
+      let mappedRole: 'mat_operator' | 'attendance_volunteer' | 'medal_distributor' | 'judge' | 'guest_viewer' | 'viewer' = 'viewer';
       if (staffMember.role === 'score') mappedRole = 'mat_operator';
       else if (staffMember.role === 'attendance') mappedRole = 'attendance_volunteer';
       else if (staffMember.role === 'medal') mappedRole = 'medal_distributor';
       else if (staffMember.role === 'judge') mappedRole = 'judge';
+      else if (staffMember.role === 'guest_viewer' || staffMember.role === 'guest') mappedRole = 'guest_viewer';
 
       const { db } = await import('@lib/firebase');
       const { doc, updateDoc, setDoc } = await import('firebase/firestore');

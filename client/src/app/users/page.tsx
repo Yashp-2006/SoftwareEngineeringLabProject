@@ -9,20 +9,30 @@ const ROLE_MAP: Record<string, string> = {
   'admin': 'Admin',
   'mat_operator': 'Mat Operator',
   'attendance_volunteer': 'Attendance Volunteer',
-  'medal_distributor': 'Medal Distributor',
+  'judge': 'Kata Judge',
   'guest_viewer': 'Guest Viewer',
-  'judge': 'Judge'
+  'viewer': 'Viewer',
+  'medal_distributor': 'Medal Distributor',
 };
 
-const ROLES = Object.keys(ROLE_MAP);
+const ROLES = [
+  'admin',
+  'mat_operator',
+  'attendance_volunteer',
+  'judge',
+  'guest_viewer',
+  'viewer',
+  'medal_distributor',
+];
 
 const ROLE_DESCRIPTIONS: Record<string, string> = {
-  "admin": "Full access: manage users, settings, and all data",
-  "mat_operator": "Run mat scoring, manage tiesheet and points",
-  "attendance_volunteer": "Mark attendance, set ready status, disqualify athletes",
+  "admin": "Full access: manage users, settings, and all tournament data",
+  "mat_operator": "Run mat scoring, manage tiesheet, and match timers",
+  "attendance_volunteer": "Mark athlete attendance, set ready status, and call mats",
+  "judge": "Submit scoring decisions and judgments for kata matches",
+  "guest_viewer": "Elevated view-only: view mats, tiesheets, categories, and setup without write permissions",
+  "viewer": "Audience viewer: public viewing access only to live brackets and matches",
   "medal_distributor": "Distribute medals to top finishers after each pool completes",
-  "guest_viewer": "View only: cannot make changes",
-  "judge": "Score and submit judgments for matches"
 };
 
 const ROLE_ALIASES: Record<string, string> = {
@@ -30,15 +40,24 @@ const ROLE_ALIASES: Record<string, string> = {
   score: 'mat_operator',
   mat: 'mat_operator',
   mat_operator: 'mat_operator',
+  operator: 'mat_operator',
   attendance: 'attendance_volunteer',
   attendance_volunteer: 'attendance_volunteer',
   medal: 'medal_distributor',
   medal_distributor: 'medal_distributor',
   judge: 'judge',
+  kata_judge: 'judge',
+  guest_viewer: 'guest_viewer',
+  guest: 'guest_viewer',
+  viewer: 'viewer',
+  audience: 'viewer',
 };
 
-const getNormalizedRole = (role?: string | null): string =>
-  (role && ROLE_ALIASES[role.toLowerCase()]) || (role && ROLE_MAP[role] ? role : 'guest_viewer');
+const getNormalizedRole = (role?: string | null): string => {
+  if (!role) return 'viewer';
+  const lower = role.toLowerCase().trim();
+  return ROLE_ALIASES[lower] || (ROLE_MAP[role] ? role : 'viewer');
+};
 
 const ACADEMIES = [
   "No Academy",
@@ -66,6 +85,7 @@ export default function UsersPage() {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [section, setSection] = useState<'staff' | 'viewers' | 'all'>('staff');
   const [roleFilter, setRoleFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [savedStatus, setSavedStatus] = useState<Record<string, boolean>>({});
@@ -100,14 +120,30 @@ export default function UsersPage() {
     return () => { if (unsub) unsub(); };
   }, []);
 
+  const staffCount = users.filter(u => u.role !== 'viewer').length;
+  const viewersCount = users.filter(u => u.role === 'viewer').length;
+  const totalCount = users.length;
+
   const filteredUsers = users.filter((user) => {
     const query = searchQuery.toLowerCase();
     const textMatch = !query || 
       user.name.toLowerCase().includes(query) || 
       user.email.toLowerCase().includes(query) || 
       user.academy.toLowerCase().includes(query);
-    const roleMatch = roleFilter === "all" || user.role === roleFilter;
-    return textMatch && roleMatch;
+
+    let sectionMatch = true;
+    if (section === 'staff') {
+      sectionMatch = user.role !== 'viewer';
+    } else if (section === 'viewers') {
+      sectionMatch = user.role === 'viewer';
+    }
+
+    let roleMatch = true;
+    if (roleFilter !== 'all') {
+      roleMatch = user.role === roleFilter;
+    }
+
+    return textMatch && sectionMatch && roleMatch;
   });
 
   const handleDeleteUser = async (id: string) => {
@@ -253,6 +289,61 @@ export default function UsersPage() {
         .delete-btn:active:not(:disabled) { transform: scale(0.92); }
         .delete-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
+        .section-nav {
+          display: flex;
+          gap: 8px;
+          padding: 12px 20px;
+          background: var(--shiro);
+          border-bottom: 1px solid var(--neutral-300);
+        }
+        .section-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 16px;
+          border-radius: 8px;
+          border: 1.5px solid transparent;
+          background: transparent;
+          font-family: var(--font-body);
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--neutral-600);
+          cursor: pointer;
+          transition: all 160ms cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .section-btn:hover {
+          background: var(--neutral-100);
+          color: var(--neutral-900);
+        }
+        .section-btn.active {
+          background: var(--neutral-900);
+          color: var(--shiro);
+        }
+        .section-badge {
+          display: inline-block;
+          padding: 2px 7px;
+          font-size: 11px;
+          font-weight: 700;
+          border-radius: 10px;
+          background: rgba(0, 0, 0, 0.08);
+          color: inherit;
+        }
+        .section-btn.active .section-badge {
+          background: rgba(255, 255, 255, 0.2);
+          color: var(--shiro);
+        }
+        .section-banner {
+          padding: 12px 24px;
+          background: #eff6ff;
+          border-bottom: 1px solid #bfdbfe;
+          font-size: 13px;
+          line-height: 1.5;
+          color: #1e40af;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
         @media (max-width: 1100px) {
           .users-header { grid-template-columns: 1fr; }
           .users-panel { overflow-x: auto; }
@@ -269,6 +360,39 @@ export default function UsersPage() {
         </header>
 
         <section className="users-panel">
+          {/* Section Navigation Tabs: Staff & Officials vs Audience Viewers vs All */}
+          <div className="section-nav">
+            <button 
+              type="button"
+              className={`section-btn ${section === 'staff' ? 'active' : ''}`}
+              onClick={() => { setSection('staff'); setRoleFilter('all'); }}
+            >
+              Staff & Officials <span className="section-badge">{staffCount}</span>
+            </button>
+            <button 
+              type="button"
+              className={`section-btn ${section === 'viewers' ? 'active' : ''}`}
+              onClick={() => { setSection('viewers'); setRoleFilter('all'); }}
+            >
+              Audience Viewers <span className="section-badge">{viewersCount}</span>
+            </button>
+            <button 
+              type="button"
+              className={`section-btn ${section === 'all' ? 'active' : ''}`}
+              onClick={() => { setSection('all'); setRoleFilter('all'); }}
+            >
+              All Users <span className="section-badge">{totalCount}</span>
+            </button>
+          </div>
+
+          {section === 'viewers' && (
+            <div className="section-banner">
+              <div>
+                <strong>Audience Viewers ({viewersCount})</strong>: Registered audience who signed in to view tournament matches, live brackets, and schedules. They do not have access to administrative controls. You can elevate any viewer to an official role or Guest Viewer using the role selector below.
+              </div>
+            </div>
+          )}
+
           <div className="users-header">
             <div className="search-wrap">
               <Search size={16} />
@@ -280,11 +404,40 @@ export default function UsersPage() {
                 onChange={e => setSearchQuery(e.target.value)}
               />
             </div>
-            <select className="filter-select" value={roleFilter} onChange={e => setRoleFilter(e.target.value)}>
-              <option value="all">Filter by Role (All)</option>
-              {ROLES.map(role => (
-                <option key={role} value={role}>{ROLE_MAP[role]}</option>
-              ))}
+            <select 
+              className="filter-select" 
+              value={roleFilter} 
+              onChange={e => {
+                const val = e.target.value;
+                setRoleFilter(val);
+                if (val === 'viewer') {
+                  setSection('viewers');
+                } else if (val !== 'all' && section === 'viewers') {
+                  setSection('staff');
+                }
+              }}
+            >
+              <option value="all">
+                {section === 'staff' ? 'Filter by Role (All Staff & Officials)' : section === 'viewers' ? 'Filter by Role (All Viewers)' : 'Filter by Role (All Users)'}
+              </option>
+              {section === 'staff' && (
+                <>
+                  <option value="admin">Admin</option>
+                  <option value="mat_operator">Mat Operator</option>
+                  <option value="attendance_volunteer">Attendance Volunteer</option>
+                  <option value="judge">Kata Judge</option>
+                  <option value="guest_viewer">Guest Viewer</option>
+                  <option value="medal_distributor">Medal Distributor</option>
+                </>
+              )}
+              {section === 'viewers' && (
+                <option value="viewer">Viewer</option>
+              )}
+              {section === 'all' && (
+                ROLES.map(role => (
+                  <option key={role} value={role}>{ROLE_MAP[role]}</option>
+                ))
+              )}
             </select>
           </div>
 
@@ -323,8 +476,14 @@ export default function UsersPage() {
                       <div className="empty-icon">
                         <Search size={24} />
                       </div>
-                      <div className="empty-title">No users found</div>
-                      <div className="empty-desc">Try adjusting your search or role filters.</div>
+                      <div className="empty-title">
+                        {section === 'viewers' ? 'No audience viewers found' : 'No users found'}
+                      </div>
+                      <div className="empty-desc">
+                        {section === 'viewers'
+                          ? 'Audience members who log in to the app will appear here.'
+                          : 'Try adjusting your search or role filters.'}
+                      </div>
                     </div>
                   </td>
                 </tr>

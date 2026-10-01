@@ -29,7 +29,7 @@ export function generateStaffCredentials(staffId: string): { staffEmail: string;
  * Maps competition staff sub-collection role identifiers to application UserRoles
  */
 export function mapStaffRoleToUserRole(role?: string | null): UserRole {
-  if (!role) return 'guest_viewer';
+  if (!role) return 'viewer';
   const lower = role.toLowerCase().trim();
   switch (lower) {
     case 'score':
@@ -43,9 +43,16 @@ export function mapStaffRoleToUserRole(role?: string | null): UserRole {
     case 'medal_distributor':
       return 'medal_distributor';
     case 'judge':
+    case 'kata_judge':
       return 'judge';
-    default:
+    case 'guest':
+    case 'guest_viewer':
       return 'guest_viewer';
+    case 'viewer':
+    case 'audience':
+      return 'viewer';
+    default:
+      return 'viewer';
   }
 }
 

@@ -61,7 +61,7 @@ export async function verifySession(
     if (!uid) return { uid: null, role: null };
 
     const userDoc = await adminDb.collection('users').doc(uid).get();
-    const role = userDoc.exists ? (userDoc.data()?.role ?? 'audience') : 'audience';
+    const role = userDoc.exists ? (userDoc.data()?.role ?? 'viewer') : 'viewer';
     return { uid, role };
   } catch (error) {
     console.error('Failed to verify session token:', error);
