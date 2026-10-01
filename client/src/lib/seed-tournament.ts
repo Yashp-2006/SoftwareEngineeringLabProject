@@ -376,11 +376,15 @@ async function seedLiveTournament(currentUserId?: string, userEmail?: string): P
   kataMatches[0].akaScore = 4;
   kataMatches[0].aoScore = 1;
   kataMatches[0].winnerId = kataMatches[0].aka?.playerId || null;
+  kataMatches[0].akaKata = 'Anan';
+  kataMatches[0].aoKata = 'Chatanyara Kushanku';
 
   kataMatches[1].status = 'completed';
   kataMatches[1].akaScore = 2;
   kataMatches[1].aoScore = 3;
   kataMatches[1].winnerId = kataMatches[1].ao?.playerId || null;
+  kataMatches[1].akaKata = 'Kururunfa';
+  kataMatches[1].aoKata = 'Papuren';
 
   if (kataMatches[4]) {
     kataMatches[4].status = 'live';
@@ -388,6 +392,8 @@ async function seedLiveTournament(currentUserId?: string, userEmail?: string): P
     kataMatches[4].ao = kataMatches[1].ao;
     kataMatches[4].akaScore = 3;
     kataMatches[4].aoScore = 2;
+    kataMatches[4].akaKata = 'Anan';
+    kataMatches[4].aoKata = 'Chatanyara Kushanku';
   }
 
   const cat3Ref = await addDoc(categoriesCollection, {
@@ -572,6 +578,27 @@ async function seedArchivedTournament(currentUserId?: string, userEmail?: string
     matches[6].akaScore = isKataCat ? 4 : 5;
     matches[6].aoScore = isKataCat ? 1 : 2;
     matches[6].winnerId = matches[6].aka?.playerId || null;
+
+    if (isKataCat) {
+      const KATA_PAIRS = [
+        { aka: 'Papuren', ao: 'Kururunfa' },
+        { aka: 'Anan', ao: 'Chatanyara Kushanku' },
+        { aka: 'Suparinpei', ao: 'Gojushiho Sho' },
+        { aka: 'Kanku Sho', ao: 'Unsu' },
+        { aka: 'Ohan Dai', ao: 'Anan Dai' },
+        { aka: 'Chatanyara Kushanku', ao: 'Kishimoto No Kushanku' },
+        { aka: 'Anan', ao: 'Chatanyara Kushanku' },
+      ];
+      matches.forEach((m, idx) => {
+        const pair = KATA_PAIRS[idx % KATA_PAIRS.length];
+        m.akaKata = pair.aka;
+        m.aoKata = pair.ao;
+        m.selectedKata = {
+          aka: { name: pair.aka },
+          ao: { name: pair.ao }
+        };
+      });
+    }
 
     // Medals:
     // Gold: winner of final (matches[6].aka)
