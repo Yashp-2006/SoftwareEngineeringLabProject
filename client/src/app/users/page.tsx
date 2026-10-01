@@ -59,26 +59,11 @@ const getNormalizedRole = (role?: string | null): string => {
   return ROLE_ALIASES[lower] || (ROLE_MAP[role] ? role : 'viewer');
 };
 
-const ACADEMIES = [
-  "No Academy",
-  "Kyoto Shotokan Club",
-  "Osaka Budokan Academy",
-  "Tokyo Seido Dojo",
-  "Nara Combat Academy",
-  "Kobe Wadoryu Center",
-  "International Guest Team",
-  "Madrid Elite Karate",
-  "São Paulo Strikers",
-  "Cairo Champions Club",
-  "USA National Dev Team"
-];
-
 interface User {
   id: string;
   name: string;
   email: string;
   role: string;
-  academy: string;
 }
 
 export default function UsersPage() {
@@ -109,8 +94,7 @@ export default function UsersPage() {
             id: d.id,
             name: d.data().displayName || d.data().name || (d.data().email ? d.data().email.split('@')[0] : 'Unknown User'),
             email: d.data().email || 'No email',
-            role: getNormalizedRole(d.data().role),
-            academy: d.data().academy || 'No Academy'
+            role: getNormalizedRole(d.data().role)
           })) as User[];
         setUsers(data);
         setLoading(false);
@@ -128,8 +112,7 @@ export default function UsersPage() {
     const query = searchQuery.toLowerCase();
     const textMatch = !query || 
       user.name.toLowerCase().includes(query) || 
-      user.email.toLowerCase().includes(query) || 
-      user.academy.toLowerCase().includes(query);
+      user.email.toLowerCase().includes(query);
 
     let sectionMatch = true;
     if (section === 'staff') {
@@ -163,7 +146,7 @@ export default function UsersPage() {
     }
   };
 
-  const updateUserField = async (id: string, field: 'role' | 'academy', value: string) => {
+  const updateUserField = async (id: string, field: 'role', value: string) => {
 
     // Optimistic
     setUsers(prev => prev.map(u => u.id === id ? { ...u, [field]: value } : u));
@@ -399,7 +382,7 @@ export default function UsersPage() {
               <input 
                 className="search-input" 
                 type="text" 
-                placeholder="Search by name, email, or academy..." 
+                placeholder="Search by name or email..." 
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
               />
@@ -444,25 +427,23 @@ export default function UsersPage() {
           <div className="table-responsive">
           <table className="users-table">
             <colgroup>
-              <col style={{ width: '22%' }} />
-              <col style={{ width: '25%' }} />
-              <col style={{ width: '23%' }} />
-              <col style={{ width: '22%' }} />
-              <col style={{ width: '8%' }} />
+              <col style={{ width: '28%' }} />
+              <col style={{ width: '32%' }} />
+              <col style={{ width: '30%' }} />
+              <col style={{ width: '10%' }} />
             </colgroup>
             <thead>
               <tr>
                 <th>User Name</th>
                 <th>User Email / Gmail</th>
                 <th>Role</th>
-                <th>Academy</th>
                 <th style={{ textAlign: 'right' }}>Status</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={5}>
+                  <td colSpan={4}>
                     <div className="empty-state">
                       <div className="empty-title">Loading users...</div>
                       <div className="empty-desc">Fetching user data from the database.</div>
@@ -471,7 +452,7 @@ export default function UsersPage() {
                 </tr>
               ) : filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={5}>
+                  <td colSpan={4}>
                     <div className="empty-state">
                       <div className="empty-icon">
                         <Search size={24} />
@@ -504,17 +485,6 @@ export default function UsersPage() {
                       </div>
                       <div className="role-desc">
                         {ROLE_DESCRIPTIONS[user.role]}
-                      </div>
-                    </td>
-                    <td>
-                      <div className="inline-select-wrap">
-                        <select 
-                          className="inline-select" 
-                          value={user.academy} 
-                          onChange={e => updateUserField(user.id, 'academy', e.target.value)}
-                        >
-                          {ACADEMIES.map(academy => <option key={academy} value={academy}>{academy}</option>)}
-                        </select>
                       </div>
                     </td>
                     <td className="action-cell">

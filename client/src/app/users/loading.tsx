@@ -23,10 +23,10 @@ export default function UsersLoading() {
           <div className="sk" style={{ width: 220, height: 40, borderRadius: 8 }} />
         </div>
 
-        {/* Users table — 5 cols: Name, Email, Role, Academy, Status */}
+        {/* Users table — 4 cols: Name, Email, Role, Status */}
         <SkTable
           rows={8}
-          cols={['22%', '25%', '23%', '22%', '8%']}
+          cols={['28%', '32%', '30%', '10%']}
         />
       </main>
     </>
