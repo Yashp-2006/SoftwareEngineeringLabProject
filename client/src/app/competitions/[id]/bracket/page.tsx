@@ -194,14 +194,22 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
       const res = await fetch(`/api/competitions/${id}/brackets/${categoryId}/swap`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sourceMatchId, sourceSide, targetMatchId, targetSide, targetCategoryId, action }),
+        body: JSON.stringify({
+          sourceMatchId,
+          sourceSide,
+          targetMatchId,
+          targetSide,
+          targetCategoryId,
+          action: action || 'swap'
+        }),
       });
       const data = await res.json();
       if (data.success) {
         toast.success(action === 'move' ? 'Athlete moved successfully!' : 'Athletes swapped successfully!');
       } else {
         setCategories(previousCategories);
-        toast.error('Failed to update tiesheet: ' + data.error);
+        const errMsg = typeof data.error === 'string' ? data.error : (data.error?.message || 'Unknown error');
+        toast.error('Failed to update tiesheet: ' + errMsg);
       }
     } catch (err) {
       console.error('Error updating tiesheet:', err);

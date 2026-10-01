@@ -19,9 +19,23 @@ export async function PATCH(
     const { id, catId } = await params;
     const body = await request.json();
     const validated = swapMatchSchema.parse(body);
-    
-    // Pass everything as options
-    const result = await BracketService.swapAthletes(id, catId, { ...validated, ...body });
+
+    const sourceMatchId = validated.sourceMatchId || validated.matchId;
+    const targetMatchId = validated.targetMatchId || validated.matchId;
+    const sourceSide = validated.sourceSide || 'aka';
+    const targetSide = validated.targetSide || 'ao';
+    const action = validated.action || 'swap';
+
+    // Pass normalized options to BracketService
+    const result = await BracketService.swapAthletes(id, catId, {
+      ...validated,
+      ...body,
+      sourceMatchId,
+      targetMatchId,
+      sourceSide,
+      targetSide,
+      action
+    });
     return NextResponse.json(result);
 
   } catch (error: unknown) {

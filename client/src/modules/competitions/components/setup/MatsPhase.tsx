@@ -115,15 +115,24 @@ export default function MatsPhase({
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="text-micro">Scoreboard Access Password</label>
               <div className="password-input-group">
-                <input
-                  type={showPasswordMap[i] ? "text" : "password"}
-                  placeholder="Enter mat password"
-                  value={matPasswordMap[i] ?? ''}
-                  onChange={e => setMatPasswordMap(prev => ({ ...prev, [i]: e.target.value }))}
-                  onBlur={() => {
-                    if (matPasswordMap[i]?.trim()) saveMatPassword(i, matPasswordMap[i].trim());
-                  }}
-                />
+                {(() => {
+                  const rawVal = matPasswordMap[i] ?? '';
+                  const isHash = /^[a-f0-9]{64}$/i.test(rawVal);
+                  const displayVal = isHash ? '' : rawVal;
+                  return (
+                    <input
+                      type={showPasswordMap[i] ? "text" : "password"}
+                      placeholder={isHash ? "•••••••• (Password configured)" : "Enter mat password"}
+                      value={displayVal}
+                      onChange={e => setMatPasswordMap(prev => ({ ...prev, [i]: e.target.value }))}
+                      onBlur={() => {
+                        if (matPasswordMap[i]?.trim() && !/^[a-f0-9]{64}$/i.test(matPasswordMap[i])) {
+                          saveMatPassword(i, matPasswordMap[i].trim());
+                        }
+                      }}
+                    />
+                  );
+                })()}
                 <div className="toggle-password" onClick={() => togglePassword(i)}>
                   {showPasswordMap[i] ? <EyeOff size={16} /> : <Eye size={16} />}
                 </div>

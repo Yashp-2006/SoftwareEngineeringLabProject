@@ -11,8 +11,8 @@ import { gsap } from 'gsap';
 export interface StaffAssignment {
   id: string;
   name: string;
-  role: 'score' | 'attendance' | 'medal';
-  type?: 'score' | 'attendance' | 'medal';
+  role: 'score' | 'attendance' | 'medal' | 'judge';
+  type?: 'score' | 'attendance' | 'medal' | 'judge';
   email?: string;
   pin?: string;
   assignedMats?: string[];
@@ -36,7 +36,7 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
 
   // Form states for adding a new roster member
   const [newName, setNewName] = useState('');
-  const [newRole, setNewRole] = useState<'score' | 'attendance' | 'medal'>('score');
+  const [newRole, setNewRole] = useState<'score' | 'attendance' | 'medal' | 'judge'>('score');
   const [newEmail, setNewEmail] = useState('');
   const [newPin, setNewPin] = useState('');
 
@@ -277,6 +277,7 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
 
   const pendingRequests = staffData.filter(s => s.approvalStatus === 'pending' && s.requestUserId);
   const matOperators = staffData.filter(s => s.role === 'score');
+  const kataJudges = staffData.filter(s => s.role === 'judge');
   const attendanceVolunteers = staffData.filter(s => s.role === 'attendance');
   const medalDistributors = staffData.filter(s => s.role === 'medal');
 
@@ -492,7 +493,7 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
                         <td><strong>{req.name}</strong></td>
                         <td>
                           <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--neutral-600)' }}>
-                            {req.role === 'score' ? 'Mat Operator' : req.role === 'attendance' ? 'Attendance' : 'Medals'}
+                            {req.role === 'score' ? 'Mat Operator' : req.role === 'judge' ? 'Kata Judge' : req.role === 'attendance' ? 'Attendance' : 'Medals'}
                           </span>
                         </td>
                         <td>{req.email ? `Email: ${req.email}` : 'Quick PIN Login'}</td>
@@ -535,6 +536,7 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
                     <label>Role</label>
                     <select value={newRole} onChange={e => setNewRole(e.target.value as any)}>
                       <option value="score">Mat Operator</option>
+                      <option value="judge">Kata Judge</option>
                       <option value="attendance">Attendance Volunteer</option>
                       <option value="medal">Medal Distributor</option>
                     </select>
@@ -589,7 +591,7 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
                         <td><strong>{member.name}</strong></td>
                         <td>
                           <span style={{ fontSize: '12px', fontWeight: 600 }}>
-                            {member.role === 'score' ? 'Mat Operator' : member.role === 'attendance' ? 'Attendance' : 'Medals'}
+                            {member.role === 'score' ? 'Mat Operator' : member.role === 'judge' ? 'Kata Judge' : member.role === 'attendance' ? 'Attendance' : 'Medals'}
                           </span>
                         </td>
                         <td>
@@ -608,7 +610,7 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
                         </td>
                         <td>
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                            {member.role === 'score' && (member.assignedMats || []).map(mat => (
+                            {(member.role === 'score' || member.role === 'judge') && (member.assignedMats || []).map(mat => (
                               <span key={mat} style={{ fontSize: '11px', fontWeight: 700, padding: '2px 6px', background: 'var(--neutral-100)', borderRadius: '4px' }}>{mat}</span>
                             ))}
                             {member.role === 'attendance' && (member.assignedCategories || []).map(cat => (
@@ -617,7 +619,7 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
                             {member.role === 'medal' && (member.assignedPools || []).map(pool => (
                               <span key={pool} style={{ fontSize: '11px', fontWeight: 700, padding: '2px 6px', background: 'var(--neutral-100)', borderRadius: '4px' }}>{pool}</span>
                             ))}
-                            {((member.role === 'score' && (!member.assignedMats || member.assignedMats.length === 0)) ||
+                            {(((member.role === 'score' || member.role === 'judge') && (!member.assignedMats || member.assignedMats.length === 0)) ||
                               (member.role === 'attendance' && (!member.assignedCategories || member.assignedCategories.length === 0)) ||
                               (member.role === 'medal' && (!member.assignedPools || member.assignedPools.length === 0))) && (
                               <span style={{ fontSize: '12px', fontStyle: 'italic', color: 'var(--neutral-400)' }}>Unassigned</span>
@@ -661,6 +663,33 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
                         <option value="">Unassigned</option>
                         {matOperators.map(op => (
                           <option key={op.id} value={op.id}>{op.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* Kata Judges Mapping */}
+            <section className="staff-card">
+              <h3 style={{ marginBottom: '4px' }}>Kata Judges Mapping</h3>
+              <p className="text-small" style={{ marginBottom: '16px' }}>Assign roster judges to score and vote on active mats.</p>
+              <div>
+                {matsList.map(mat => {
+                  const assignedJudge = kataJudges.find(j => j.assignedMats?.includes(mat));
+                  return (
+                    <div key={mat} className="assignment-row">
+                      <span><strong>{mat}</strong></span>
+                      <select
+                        className="assignment-select"
+                        value={assignedJudge?.id || ''}
+                        disabled={!isAdmin}
+                        onChange={e => assignTask('mat', mat, e.target.value)}
+                      >
+                        <option value="">Unassigned</option>
+                        {kataJudges.map(judge => (
+                          <option key={judge.id} value={judge.id}>{judge.name}</option>
                         ))}
                       </select>
                     </div>

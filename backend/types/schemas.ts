@@ -119,8 +119,13 @@ export const updateBracketSchema = z.object({
 });
 
 export const swapMatchSchema = z.object({
-  matchId: z.string().min(1, 'Match ID is required'),
-  action: z.enum(['move', 'swap']),
+  sourceMatchId: z.string().optional(),
+  matchId: z.string().optional(),
+  sourceSide: z.enum(['aka', 'ao']).optional(),
+  targetMatchId: z.string().optional(),
+  targetSide: z.enum(['aka', 'ao']).optional(),
+  targetCategoryId: z.string().optional().nullable(),
+  action: z.enum(['move', 'swap']).optional().default('swap'),
   targetPlayerId: z.string().optional().nullable(),
   sourcePlayerId: z.string().optional().nullable(),
 });

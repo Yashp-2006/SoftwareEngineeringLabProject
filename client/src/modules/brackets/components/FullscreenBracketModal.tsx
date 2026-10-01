@@ -89,8 +89,9 @@ const BracketNode = ({
     setShowPromoteMenu(v => !v);
   };
 
-  const isAkaDraggable = isEditMode && !match.akaFromMatchId && (match.status === 'upcoming' || (match.status === 'completed' && !!match.byeFor));
-  const isAoDraggable = isEditMode && !match.aoFromMatchId && (match.status === 'upcoming' || (match.status === 'completed' && !!match.byeFor));
+  const isMatchModifiable = isEditMode && (match.status === 'upcoming' || match.status === 'pending' || !match.status || (match.status === 'completed' && !!match.byeFor));
+  const isAkaDraggable = isMatchModifiable && !match.akaFromMatchId;
+  const isAoDraggable = isMatchModifiable && !match.aoFromMatchId;
 
   return (
     <div className={`bracket-node${isLive ? ' live' : ''}${isCompleted ? ' completed' : ''}${isPending ? ' pending' : ''}${isHighlighted ? ' is-highlighted' : ''}`}>
@@ -104,11 +105,11 @@ const BracketNode = ({
       {/* AKA Row */}
       <div 
         className={`competitor-row aka${isCompleted && match.winnerId && match.winnerId !== akaId ? ' loser' : ''}${isCompleted && match.winnerId && match.winnerId === akaId ? ' winner' : ''}${isAkaDraggable ? ' draggable' : ''}`}
-        draggable={isAkaDraggable}
-        onDragStart={(e) => isAkaDraggable && handleDragStart(e, 'aka')}
+        draggable={isAkaDraggable && !!match.aka}
+        onDragStart={(e) => isAkaDraggable && match.aka && handleDragStart(e, 'aka')}
         onDrop={(e) => isAkaDraggable && handleDrop(e, 'aka')}
         onDragOver={(e) => isAkaDraggable && handleDragOver(e)}
-        style={isAkaDraggable ? { cursor: 'grab' } : {}}
+        style={isAkaDraggable && match.aka ? { cursor: 'grab' } : isAkaDraggable ? { cursor: 'copy' } : {}}
       >
         <div className="comp-info">
           <div className="comp-name">
@@ -158,11 +159,11 @@ const BracketNode = ({
       {/* AO Row */}
       <div 
         className={`competitor-row ao${isCompleted && match.winnerId && match.winnerId !== aoId ? ' loser' : ''}${isCompleted && match.winnerId && match.winnerId === aoId ? ' winner' : ''}${isAoDraggable ? ' draggable' : ''}`}
-        draggable={isAoDraggable}
-        onDragStart={(e) => isAoDraggable && handleDragStart(e, 'ao')}
+        draggable={isAoDraggable && !!match.ao}
+        onDragStart={(e) => isAoDraggable && match.ao && handleDragStart(e, 'ao')}
         onDrop={(e) => isAoDraggable && handleDrop(e, 'ao')}
         onDragOver={(e) => isAoDraggable && handleDragOver(e)}
-        style={isAoDraggable ? { cursor: 'grab' } : {}}
+        style={isAoDraggable && match.ao ? { cursor: 'grab' } : isAoDraggable ? { cursor: 'copy' } : {}}
       >
         <div className="comp-info">
           <div className="comp-name">

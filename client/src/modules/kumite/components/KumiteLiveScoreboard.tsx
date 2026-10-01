@@ -43,6 +43,7 @@ type KumiteLiveScoreboardProps = {
   isKata?: boolean;
   akaKataName?: string;
   aoKataName?: string;
+  logoUrl?: string;
 };
 
 export default function KumiteLiveScoreboard({
@@ -52,7 +53,8 @@ export default function KumiteLiveScoreboard({
   timerDisplay, timerColor, matchStatus, title = 'KHEL KARATE', categoryName = '', matchId = '',
   winnerName, winnerColor,
   isFullscreen, onToggleFullscreen, onBack,
-  isKata, akaKataName, aoKataName
+  isKata, akaKataName, aoKataName,
+  logoUrl
 }: KumiteLiveScoreboardProps) {
 
   const renderDots = (count: number) => {
@@ -100,7 +102,8 @@ export default function KumiteLiveScoreboard({
         .kls-senshu.active { opacity: 1; }
         
         .kls-center { display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 3cqw 0; background: var(--kuro); border-left: 1px solid var(--neutral-900); border-right: 1px solid var(--neutral-900); z-index: 10; }
-        .kls-logo { font-family: var(--font-display); font-size: 2cqw; color: var(--shiro); letter-spacing: 0.1em; text-align: center; }
+        .kls-logo { font-family: var(--font-display); font-size: 2cqw; color: var(--shiro); letter-spacing: 0.1em; text-align: center; max-height: 8cqw; display: flex; align-items: center; justify-content: center; }
+        .kls-logo-img { max-height: 7cqw; max-width: 14cqw; object-fit: contain; }
         
         .kls-timer-wrap { display: flex; flex-direction: column; align-items: center; gap: 1cqw; }
         .kls-timer { font-family: var(--font-mono); font-size: 6cqw; font-weight: 700; line-height: 1; }
@@ -138,11 +141,16 @@ export default function KumiteLiveScoreboard({
         <div className={`kls-win-name ${winnerColor === 'aka' ? 'kls-win-aka' : 'kls-win-ao'}`}>{winnerName}</div>
       </div>
 
-      {(title || categoryName || onToggleFullscreen || onBack) && (
+      {(title || categoryName || onToggleFullscreen || onBack || logoUrl) && (
         <div className="kls-header">
-          <div>
-            <div className="kls-title">{title}</div>
-            <div className="kls-subtitle">{categoryName} • {matchId}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1.5cqw' }}>
+            {logoUrl && (
+              <img src={logoUrl} alt="Logo" style={{ height: '3cqw', width: 'auto', maxHeight: '48px', objectFit: 'contain' }} />
+            )}
+            <div>
+              <div className="kls-title">{title}</div>
+              <div className="kls-subtitle">{categoryName} • {matchId}</div>
+            </div>
           </div>
           <div className="kls-header-actions">
             {onToggleFullscreen && (
@@ -189,7 +197,13 @@ export default function KumiteLiveScoreboard({
 
         {/* CENTER COLUMN */}
         <div className="kls-center">
-          <div className="kls-logo">{title}</div>
+          <div className="kls-logo">
+            {logoUrl ? (
+              <img src={logoUrl} alt={title || "Competition Logo"} className="kls-logo-img" />
+            ) : (
+              title
+            )}
+          </div>
           
           <div className="kls-timer-wrap">
             <div className="kls-timer" style={{ color: timerColor }}>

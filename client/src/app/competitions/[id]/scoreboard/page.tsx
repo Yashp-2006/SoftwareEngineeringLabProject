@@ -309,33 +309,6 @@ function ScoreboardContent({ id }: { id: string }) {
         cursor: showControls ? 'default' : 'none',
       }}
     >
-      {/* Floating Fullscreen Toggle Button */}
-      <button
-        onClick={toggleFullscreen}
-        aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
-        style={{
-          position: 'fixed',
-          top: '16px',
-          right: '16px',
-          zIndex: 9999,
-          background: 'rgba(0, 0, 0, 0.65)',
-          color: '#ffffff',
-          border: '1px solid rgba(255, 255, 255, 0.25)',
-          borderRadius: '8px',
-          padding: '10px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          cursor: 'pointer',
-          opacity: showControls ? 1 : 0,
-          pointerEvents: showControls ? 'auto' : 'none',
-          transition: 'opacity 0.25s ease',
-        }}
-        title="Toggle Fullscreen (F)"
-      >
-        {isFullscreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
-      </button>
-
       {/* Main Scoreboard Scale Container */}
       <ScaleWrapper>
         {isKata ? (
@@ -356,7 +329,7 @@ function ScoreboardContent({ id }: { id: string }) {
             revealCountdown={revealCountdown}
             timeRemaining={timerDisplay}
             matchStatus={matchStatus}
-            logoUrl={compData?.scoreboardLogo}
+            logoUrl={compData?.scoreboardLogo || compData?.logoUrl}
             title={`Mat ${matId.replace('mat-', '').padStart(2, '0')}: Kata Scoreboard`}
             subtitle={`${compData?.name || 'Tournament'} • ${activeCategoryName}`}
             isFullscreen={isFullscreen}
@@ -396,6 +369,7 @@ function ScoreboardContent({ id }: { id: string }) {
             winnerColor={winnerState ? winnerState.color : undefined}
             isFullscreen={isFullscreen}
             onToggleFullscreen={toggleFullscreen}
+            logoUrl={compData?.scoreboardLogo || compData?.logoUrl}
           />
         )}
       </ScaleWrapper>

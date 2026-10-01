@@ -12,10 +12,16 @@ import KumiteLiveScoreboard from '@/modules/kumite/components/KumiteLiveScoreboa
 import { useAuth } from '@/modules/auth/components/AuthProvider';
 import ScaleWrapper from '@/modules/shared/components/ScaleWrapper';
 import { Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { KATA_LIST } from '@/lib/kata-list';
 
-export default function OperatorPortal({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = React.use(params);
+function OperatorPortalInner({ id }: { id: string }) {
+  const searchParams = useSearchParams();
+  const matIdParam = searchParams.get('mat') || 'mat-1';
+  const matNumber = parseInt(matIdParam.replace(/\D/g, '') || '1', 10);
+  const matNum = String(matNumber).padStart(2, '0');
+  const matName = `MAT ${matNum}`;
+
   const [isFullscreen, setIsFullscreen] = useState(false);
   const { user, role, loading: authLoading } = useAuth();
   const [verified, setVerified] = useState(false);
@@ -178,15 +184,14 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
       if (!rtdbRefCache.current || !rtdbSetCache.current) {
         const { rtdb } = await import('@lib/firebase');
         const { ref, update } = await import('firebase/database');
-        const matId = new URLSearchParams(window.location.search).get('mat') || 'mat-1';
-        rtdbRefCache.current = ref(rtdb, `live_scores/${id}/mats/${matId}`);
+        rtdbRefCache.current = ref(rtdb, `live_scores/${id}/mats/${matIdParam}`);
         rtdbSetCache.current = update;
       }
       await rtdbSetCache.current(rtdbRefCache.current, payload);
     } catch (err) {
       console.error('Failed to sync RTDB', err);
     }
-  }, [id, isViewer, isOverriddenByAdmin]);
+  }, [id, isViewer, isOverriddenByAdmin, matIdParam]);
 
   const isKata = activeCategoryData?.isKata || activeCategoryName?.toLowerCase().includes('kata');
 
@@ -237,8 +242,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
   useEffect(() => {
     let bc: BroadcastChannel | null = null;
     try {
-      const matId = new URLSearchParams(window.location.search).get('mat') || 'mat-1';
-      const channelName = `taikaix_scoreboard_${id}_${matId}`;
+      const channelName = `taikaix_scoreboard_${id}_${matIdParam}`;
       bc = new BroadcastChannel(channelName);
       bcRef.current = bc;
 
@@ -256,7 +260,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
       if (bc) bc.close();
       bcRef.current = null;
     };
-  }, [id, broadcastCurrentState]);
+  }, [id, matIdParam, broadcastCurrentState]);
 
   // State sync effect: broadcasts immediately to local TV scoreboard (<1ms) and debounces RTDB
   useEffect(() => {
@@ -327,8 +331,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
     const setupListener = async () => {
       const { rtdb } = await import('@lib/firebase');
       const { ref, onValue, off } = await import('firebase/database');
-      const matId = new URLSearchParams(window.location.search).get('mat') || 'mat-1';
-      const liveRef = ref(rtdb, `live_scores/${id}/mats/${matId}`);
+      const liveRef = ref(rtdb, `live_scores/${id}/mats/${matIdParam}`);
       
       onValue(liveRef, (snapshot) => {
         const val = snapshot.val();
@@ -402,7 +405,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
     };
     setupListener();
     return () => unsubscribe();
-  }, [id, isViewer, role]);
+  }, [id, isViewer, role, matIdParam]);
 
   // Admin Override Toggle Handler (Exclusive to Admin)
   const handleToggleAdminOverride = useCallback(async () => {
@@ -414,8 +417,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
     try {
       const { rtdb } = await import('@lib/firebase');
       const { ref, update, get } = await import('firebase/database');
-      const matId = new URLSearchParams(window.location.search).get('mat') || 'mat-1';
-      const liveRef = ref(rtdb, `live_scores/${id}/mats/${matId}`);
+      const liveRef = ref(rtdb, `live_scores/${id}/mats/${matIdParam}`);
 
       const currentlyActive = Boolean(adminOverride?.active);
       const newActive = !currentlyActive;
@@ -446,7 +448,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
             if (!isNaN(mm) && !isNaN(ss)) setTimer(mm * 60 + ss);
           }
         }
-        toast.success(`You have taken direct control of Mat ${matId.replace('mat-', '')}. Operator controls are locked.`, {
+        toast.success(`You have taken direct control of Mat ${matNum}. Operator controls are locked.`, {
           icon: '🛡️',
           duration: 4000,
         });
@@ -460,12 +462,11 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
       console.error('Failed to update admin override:', err);
       toast.error('Failed to change mat control state.');
     }
-  }, [id, role, user, adminOverride]);
+  }, [id, role, user, adminOverride, matIdParam, matNum]);
 
   // Launch Dedicated TV Scoreboard on Secondary Monitor
   const handleLaunchTVScoreboard = useCallback(async () => {
-    const matParam = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('mat') || 'mat-1';
-    const targetUrl = `/competitions/${id}/scoreboard?mat=${matParam}&auto=1`;
+    const targetUrl = `/competitions/${id}/scoreboard?mat=${matIdParam}&auto=1`;
 
     // 1. Modern Chromium Multi-Screen Window Management API
     if (typeof window !== 'undefined' && 'getScreenDetails' in window) {
@@ -488,7 +489,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
             'popup=yes'
           ].join(',');
 
-          const tvWin = window.open(targetUrl, `taikaix_scoreboard_${matParam}`, windowFeatures);
+          const tvWin = window.open(targetUrl, `taikaix_scoreboard_${matIdParam}`, windowFeatures);
           if (tvWin) {
             toast.success(`Scoreboard opened on secondary display (${secondaryScreen.label || 'Screen 2'})!`, { icon: '📺' });
             return;
@@ -502,7 +503,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
     // 2. Fallback popup window positioned on secondary display or new tab
     const screenLeftOffset = typeof window !== 'undefined' ? (window.screen.availWidth || 1920) : 1920;
     const fallbackFeatures = `left=${screenLeftOffset},top=0,width=1920,height=1080,popup=yes,resizable=yes`;
-    const popup = window.open(targetUrl, `taikaix_scoreboard_${matParam}`, fallbackFeatures);
+    const popup = window.open(targetUrl, `taikaix_scoreboard_${matIdParam}`, fallbackFeatures);
 
     if (popup) {
       toast.success('Scoreboard window opened! Press F on the scoreboard to enter fullscreen.', { icon: '📺' });
@@ -510,34 +511,48 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
       window.open(targetUrl, '_blank');
       toast.success('Scoreboard opened in a new tab. Press F to enter fullscreen.', { icon: '📺' });
     }
-  }, [id]);
+  }, [id, matIdParam]);
 
   useEffect(() => {
     let unsubscribe = () => {};
     const setupQueue = async () => {
       const { db } = await import('@lib/firebase');
-      const { collection, onSnapshot, query, where, doc, getDoc } = await import('firebase/firestore');
+      const { collection, onSnapshot, doc, getDoc } = await import('firebase/firestore');
 
-      const params = new URLSearchParams(window.location.search);
-      const matId = params.get('mat') || 'mat-1';
-      const matNumberStr = matId.replace('mat-', '');
-      const matName = `MAT ${matNumberStr.padStart(2, '0')}`;
-      
+      // Clear previous mat state immediately on mat switch
+      setActiveMatchId(null);
+      activeCategoryRef.current = null;
+      setActiveCategoryId(null);
+      setActiveCategoryName('');
+      setActiveCategoryData(null);
+      setQueue([]);
+      setRecentMatches([]);
+      setSkippedCategories([]);
+      setPoolStatuses({});
+      setAka({ name: 'AKA', country: '', academy: '', score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: '' });
+      setAo({ name: 'AO', country: '', academy: '', score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: '' });
+      setStatus('upcoming');
+      setRunning(false);
+      setTimer(180);
+      rtdbRefCache.current = null;
+
       const compRef = doc(db, 'competitions', id);
       const compSnap = await getDoc(compRef);
       if (compSnap.exists()) {
         setCompData(compSnap.data());
       }
 
-      const qMat = query(
-        collection(db, 'competitions', id, 'categories'),
-        where('mat', '==', matName)
-      );
+      const catsCollection = collection(db, 'competitions', id, 'categories');
 
-      unsubscribe = onSnapshot(qMat, (snap) => {
-        let cats = snap.docs
-          .map(d => ({ id: d.id, ...d.data() } as any))
-          .filter(c => (c.athletes?.length ?? c.entries ?? 0) > 0);
+      unsubscribe = onSnapshot(catsCollection, (snap) => {
+        // Robust mat matching: extracts any digits from category.mat (e.g. 'MAT 03', 'mat-3', 'Mat 3', 3)
+        const allCats = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+        const matCats = allCats.filter(c => {
+          const catMatNum = parseInt(String(c.mat || '').replace(/\D/g, ''), 10);
+          return catMatNum === matNumber;
+        });
+
+        let cats = matCats.filter(c => (c.athletes?.length ?? c.entries ?? 0) > 0);
         
         let completed: any[] = [];
         cats.forEach(cat => {
@@ -549,10 +564,8 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
         });
         setAllCompletedMatches(completed);
 
-        // Extract skipped categories for the sidebar
-        const skipped = snap.docs
-          .map(d => ({ id: d.id, ...d.data() }))
-          .filter((c: any) => c.status === 'skipped');
+        // Extract skipped categories for this mat for the sidebar
+        const skipped = matCats.filter((c: any) => c.status === 'skipped');
         setSkippedCategories(skipped);
         setMatCategories(cats);
 
@@ -624,7 +637,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
     };
     setupQueue();
     return () => unsubscribe();
-  }, [id]);
+  }, [id, matIdParam, matNumber]);
   const loadMatch = (m: any, isHydrating = false) => {
     if (!isHydrating && isOverriddenByAdmin) {
       toast.error('Cannot change match while Admin override is active.');
@@ -685,8 +698,6 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
   }
 
   useEffect(() => {
-    const matIdParam = new URLSearchParams(window.location.search).get('mat') || 'mat-1';
-
     if (queue.length > 0 && !activeMatchId) {
       const storedMatchId = sessionStorage.getItem(`activeMatch_${matIdParam}`);
       const exists = queue.find(m => m.id === storedMatchId);
@@ -720,8 +731,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
     } else if (queue.length > 0 && activeMatchId) {
        sessionStorage.setItem(`activeMatch_${matIdParam}`, activeMatchId);
     }
-
-  }, [queue, activeMatchId, id, isViewer]);
+  }, [queue, activeMatchId, id, isViewer, matIdParam]);
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
     setDraggedIdx(index);
@@ -1104,26 +1114,21 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
     }
     try {
       const { db } = await import('@lib/firebase');
-      const { collection, getDocs, query, where, updateDoc, doc } = await import('firebase/firestore');
+      const { collection, getDocs, updateDoc, doc } = await import('firebase/firestore');
       
-      const params = new URLSearchParams(window.location.search);
-      const matId = params.get('mat') || 'mat-1';
-      const matNumberStr = matId.replace('mat-', '');
-      const matName = `MAT ${matNumberStr.padStart(2, '0')}`;
-      
-      const q = query(
-        collection(db, 'competitions', id, 'categories'),
-        where('mat', '==', matName),
-        where('status', 'in', ['live', 'upcoming'])
-      );
-      
-      const snaps = await getDocs(q);
-      if (snaps.empty) {
-        toast.error(`No active categories found on ${matName} to finish.`);
+      const snaps = await getDocs(collection(db, 'competitions', id, 'categories'));
+      const activeCatDocs = snaps.docs.filter(d => {
+        const c = d.data();
+        const catMatNum = parseInt(String(c.mat || '').replace(/\D/g, ''), 10);
+        return (d.id === activeCategoryId) || (catMatNum === matNumber && (c.status === 'live' || c.status === 'upcoming'));
+      });
+
+      if (activeCatDocs.length === 0) {
+        toast.error(`No active categories found on Mat ${matNum} to finish.`);
         return;
       }
       
-      const targetDoc = snaps.docs[0];
+      const targetDoc = activeCatDocs[0];
       const catRef = doc(db, 'competitions', id, 'categories', targetDoc.id);
       
       const addMinutesToTime = (timeStr: string, minutes: number) => {
@@ -1189,16 +1194,16 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
       
       if (diffMins !== 0) {
         const { writeBatch } = await import('firebase/firestore');
-        const upcomingQ = query(
-          collection(db, 'competitions', id, 'categories'),
-          where('mat', '==', matName),
-          where('status', '==', 'upcoming')
-        );
-        const upcomingSnaps = await getDocs(upcomingQ);
+        const upcomingOnThisMat = snaps.docs.filter(d => {
+          if (d.id === targetDoc.id) return false;
+          const data = d.data();
+          const catMatNum = parseInt(String(data.mat || '').replace(/\D/g, ''), 10);
+          return catMatNum === matNumber && data.status === 'upcoming';
+        });
         const batch = writeBatch(db);
         let shiftedCount = 0;
         
-        upcomingSnaps.docs.forEach(d => {
+        upcomingOnThisMat.forEach(d => {
           const data = d.data();
           const newStart = addMinutesToTime(data.scheduledStartTime, diffMins);
           const newEnd = addMinutesToTime(data.scheduledEndTime, diffMins);
@@ -1233,8 +1238,6 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
   const kataJudgeCount = activeCategoryData?.numberOfJudges || 3;
   const derivedKataData = React.useMemo(() => deriveJudgeVotes(kataScores, kataJudgeCount), [kataScores, kataJudgeCount]);
 
-  const matIdParam = typeof window !== 'undefined' ? (new URLSearchParams(window.location.search).get('mat') || 'mat-1') : 'mat-1';
-  const matNum = matIdParam.replace('mat-', '').padStart(2, '0');
 
   if (!verified && !isViewer && role !== 'admin') {
     return (
@@ -1269,7 +1272,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                 revealCountdown={revealCountdown}
                 timeRemaining={`${Math.floor(timer / 60).toString().padStart(2, '0')}:${(timer % 60).toString().padStart(2, '0')}`}
                 matchStatus={status === 'finished' ? 'COMPLETED' : (running ? 'LIVE' : status.toUpperCase())}
-                logoUrl={compData?.scoreboardLogo}
+                logoUrl={compData?.scoreboardLogo || compData?.logoUrl}
                 title={`Mat ${matNum}: Kata Scoreboard`}
                 subtitle={`${compData?.name || 'Tournament'} • ${activeCategoryName || 'Kata'}`}
                 onToggleFullscreen={() => {
@@ -1318,6 +1321,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                 matchStatus={timer === 0 ? 'TIME OVER' : running ? 'MATCH LIVE' : timer === matchDuration ? 'PRE-MATCH' : 'PAUSED'}
                 title={compData?.name || 'KHEL KARATE'}
                 categoryName={activeCategoryName || 'KUMITE'}
+                logoUrl={compData?.scoreboardLogo || compData?.logoUrl}
                 matchId={`MAT ${matNum} - ${queue.find(m => m.id === activeMatchId)?.displayId || '-'}`}
                 winnerName={winnerState ? winnerState.name : undefined}
                 winnerColor={winnerState ? winnerState.color : undefined}
@@ -1489,9 +1493,10 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
             </Link>
             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
               {Array.from({ length: compData?.mats || 6 }, (_, i) => {
-                const mNum = (i + 1).toString().padStart(2, '0');
-                const mId = `mat-${i + 1}`;
-                const isCurrent = matIdParam === mId || matIdParam === `mat-${mNum}`;
+                const currentNum = i + 1;
+                const mNum = currentNum.toString().padStart(2, '0');
+                const mId = `mat-${currentNum}`;
+                const isCurrent = matNumber === currentNum;
                 return (
                   <Link
                     key={mId}
@@ -1521,7 +1526,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
               {compData?.name ? compData.name.toUpperCase() : 'TOURNAMENT'} • {activeCategoryName ? activeCategoryName.toUpperCase() : 'NO CATEGORY'}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-              <h1 style={{ fontSize: '40px', margin: 0, lineHeight: 1 }}>{new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('mat') ? `Mat ${new URLSearchParams(window.location.search).get('mat')?.replace('mat-', '').padStart(2, '0')}` : 'Mat 01'}</h1>
+              <h1 style={{ fontSize: '40px', margin: 0, lineHeight: 1 }}>{`Mat ${matNum}`}</h1>
               <span className="status-chip status-live">Live</span>
               {activeCategoryName && (
                 <span style={{ fontSize: '16px', fontWeight: 700, color: 'var(--neutral-500)', marginLeft: '4px' }}>
@@ -2333,6 +2338,15 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
       </div>
       </div>
     </PasswordGateway>
+    </Suspense>
+  );
+}
+
+export default function OperatorPortal({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = React.use(params);
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <OperatorPortalInner id={id} />
     </Suspense>
   );
 }

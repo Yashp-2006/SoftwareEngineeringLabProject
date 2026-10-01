@@ -419,8 +419,13 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
           Array.from({ length: matsCount }).map(async (_, i) => {
             const matId = `mat-${i + 1}`;
             const snap = await getDoc(doc(db, 'competitions', id, 'mats', matId));
-            if (snap.exists() && snap.data().password) {
-              loaded[i] = snap.data().password;
+            if (snap.exists()) {
+              const d = snap.data();
+              if (d.displayPassword) {
+                loaded[i] = d.displayPassword;
+              } else if (d.password && !/^[a-f0-9]{64}$/i.test(d.password)) {
+                loaded[i] = d.password;
+              }
             }
           })
         );
@@ -2047,13 +2052,21 @@ function SetupBracketPreview({ competitionId, initialCategoryId, onClose }: {
       const res = await fetch(`/api/competitions/${competitionId}/brackets/${categoryId}/swap`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sourceMatchId, sourceSide, targetMatchId, targetSide, targetCategoryId, action }),
+        body: JSON.stringify({
+          sourceMatchId,
+          sourceSide,
+          targetMatchId,
+          targetSide,
+          targetCategoryId,
+          action: action || 'swap'
+        }),
       });
       const data = await res.json();
       if (data.success) {
         toast.success(action === 'move' ? 'Athlete moved successfully!' : 'Athletes swapped successfully!');
       } else {
-        toast.error('Failed to update tiesheet: ' + data.error);
+        const errMsg = typeof data.error === 'string' ? data.error : (data.error?.message || 'Unknown error');
+        toast.error('Failed to update tiesheet: ' + errMsg);
       }
     } catch (err) {
       console.error('Error updating tiesheet:', err);
