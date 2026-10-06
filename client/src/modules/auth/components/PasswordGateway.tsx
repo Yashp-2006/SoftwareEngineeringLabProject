@@ -60,10 +60,22 @@ export default function PasswordGateway({ children }: { children: React.ReactNod
       if (matId) {
         const matSnap = await getDoc(doc(db, 'competitions', id, 'mats', matId));
         if (matSnap.exists()) {
-          const actualPassword = matSnap.data().password;
-          if (!actualPassword) {
+          const matData = matSnap.data();
+          const rawPassword = matData.password;
+          const displayPassword = matData.displayPassword;
+          const actualPassword = displayPassword || rawPassword;
+          const entered = inputPassword.trim();
+
+          const isMatch = actualPassword && (
+            entered === actualPassword ||
+            entered === rawPassword ||
+            (displayPassword && entered === displayPassword) ||
+            (rawPassword && await verifyPassword(entered, rawPassword))
+          );
+
+          if (!actualPassword && !rawPassword) {
             setError('No password has been set for this mat yet. Configure it in the Setup Wizard.');
-          } else if (await verifyPassword(inputPassword, actualPassword)) {
+          } else if (isMatch) {
             
             // Assign name, global role and local staff record
             if (user && inputName.trim()) {
@@ -95,8 +107,20 @@ export default function PasswordGateway({ children }: { children: React.ReactNod
       } else {
         const snap = await getDoc(doc(db, 'competitions', id));
         if (snap.exists()) {
-          const actualPassword = snap.data().password;
-          if (actualPassword && await verifyPassword(inputPassword, actualPassword)) {
+          const compData = snap.data();
+          const rawPassword = compData.password;
+          const displayPassword = compData.displayPassword;
+          const actualPassword = displayPassword || rawPassword;
+          const entered = inputPassword.trim();
+
+          const isMatch = actualPassword && (
+            entered === actualPassword ||
+            entered === rawPassword ||
+            (displayPassword && entered === displayPassword) ||
+            (rawPassword && await verifyPassword(entered, rawPassword))
+          );
+
+          if (actualPassword && isMatch) {
             
             if (user && inputName.trim()) {
               const { setDoc } = await import('firebase/firestore');

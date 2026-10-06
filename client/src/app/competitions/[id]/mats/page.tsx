@@ -34,6 +34,7 @@ interface MatData {
   name: string; // e.g. 'MAT 01'
   order: number;
   password?: string;
+  displayPassword?: string;
 }
 
 interface RTDBMatState {
@@ -302,7 +303,11 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
     try {
       const { db } = await import('@lib/firebase');
       const { doc, updateDoc } = await import('firebase/firestore');
-      await updateDoc(doc(db, 'competitions', id, 'mats', matId), { password: pwd });
+      await updateDoc(doc(db, 'competitions', id, 'mats', matId), { 
+        password: pwd,
+        displayPassword: pwd
+      });
+      setMats(prev => prev.map(m => m.id === matId ? { ...m, password: pwd, displayPassword: pwd } : m));
       toast.success('Password updated');
     } catch (err) {
       toast.error('Failed to update password');
@@ -1310,18 +1315,24 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
                             </label>
                           </div>
                           <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                            <input 
-                              type={showPasswordMap[mat.id] ? "text" : "password"} 
-                              value={tempPasswords[mat.id] !== undefined ? tempPasswords[mat.id] : (mat.password || '')}
-                              onChange={e => setTempPasswords(prev => ({...prev, [mat.id]: e.target.value}))}
-                              onBlur={() => {
-                                if (tempPasswords[mat.id] !== undefined && tempPasswords[mat.id] !== mat.password) {
-                                  saveMatPassword(mat.id, tempPasswords[mat.id]);
-                                }
-                              }}
-                              placeholder="Set pin..."
-                              style={{ width: '100%', padding: '4px 28px 4px 8px', fontSize: '12px', borderRadius: '6px', border: '1px solid var(--neutral-300)', background: 'var(--shiro)' }}
-                            />
+                            {(() => {
+                              const effectivePwd = mat.displayPassword || (!/^[a-f0-9]{64}$/i.test(mat.password || '') ? (mat.password || '') : '');
+                              const currentVal = tempPasswords[mat.id] !== undefined ? tempPasswords[mat.id] : effectivePwd;
+                              return (
+                                <input 
+                                  type={showPasswordMap[mat.id] ? "text" : "password"} 
+                                  value={currentVal}
+                                  onChange={e => setTempPasswords(prev => ({...prev, [mat.id]: e.target.value}))}
+                                  onBlur={() => {
+                                    if (tempPasswords[mat.id] !== undefined && tempPasswords[mat.id] !== effectivePwd) {
+                                      saveMatPassword(mat.id, tempPasswords[mat.id]);
+                                    }
+                                  }}
+                                  placeholder={effectivePwd ? "Enter mat password" : "Set password..."}
+                                  style={{ width: '100%', padding: '4px 28px 4px 8px', fontSize: '12px', borderRadius: '6px', border: '1px solid var(--neutral-300)', background: 'var(--shiro)' }}
+                                />
+                              );
+                            })()}
                             <button 
                               type="button" 
                               onClick={() => togglePassword(mat.id)}

@@ -36,22 +36,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (data.bulkPasswords && data.bulkPasswords.length > 0) {
       for (const item of data.bulkPasswords) {
         const matRef = adminDb.collection('competitions').doc(competitionId).collection('mats').doc(item.id);
-        const isAlreadyHash = /^[a-f0-9]{64}$/i.test(item.password);
-        const hash = isAlreadyHash ? item.password : crypto.createHash('sha256').update(item.password).digest('hex');
-        const updatePayload: Record<string, any> = { password: hash };
-        if (!isAlreadyHash && item.password) {
-          updatePayload.displayPassword = item.password;
-        }
+        const pwd = item.password;
+        const updatePayload: Record<string, any> = { password: pwd, displayPassword: pwd };
         addOp((b) => b.set(matRef, updatePayload, { merge: true }));
       }
     } else if (data.matId && data.password !== undefined) {
       const matRef = adminDb.collection('competitions').doc(competitionId).collection('mats').doc(data.matId);
-      const isAlreadyHash = /^[a-f0-9]{64}$/i.test(data.password);
-      const hash = isAlreadyHash ? data.password : crypto.createHash('sha256').update(data.password).digest('hex');
-      const updatePayload: Record<string, any> = { password: hash };
-      if (!isAlreadyHash && data.password) {
-        updatePayload.displayPassword = data.password;
-      }
+      const pwd = data.password;
+      const updatePayload: Record<string, any> = { password: pwd, displayPassword: pwd };
       addOp((b) => b.set(matRef, updatePayload, { merge: true }));
     }
 
