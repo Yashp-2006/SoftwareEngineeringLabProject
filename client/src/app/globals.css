@@ -825,6 +825,7 @@ nav {
     overflow-x: auto;
     white-space: nowrap;
     -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
     scrollbar-width: none;
     max-width: 100vw;
   }
@@ -832,17 +833,28 @@ nav {
   .sub-nav-link {
     flex-shrink: 0;
     min-height: 44px;
-    padding: 0 4px;
+    padding: 0 6px;
     margin-right: var(--space-4);
   }
 
-  /* Grids collapse to single column */
+  /* Bento grid: 2-column KPI tiles on mobile portrait for compact scannability */
   .bento-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr) !important;
     gap: var(--space-3);
   }
 
-  .span-2-2 { grid-column: auto; }
+  .bento-tile {
+    padding: 14px 16px;
+    border-radius: 10px;
+  }
+
+  .span-2-2,
+  .span-full,
+  .category-toolbar,
+  .bento-grid > [style*="span 3"],
+  .bento-grid > [style*="span 4"] {
+    grid-column: span 2 !important;
+  }
 
   .category-toolbar {
     flex-direction: column;
@@ -908,6 +920,20 @@ nav {
 
   .sub-nav {
     padding: 0 var(--space-3);
+  }
+
+  .bento-tile {
+    padding: 10px 12px;
+  }
+  .bento-tile .display-large {
+    font-size: 22px;
+  }
+  .bento-tile .text-micro {
+    font-size: 10px;
+    letter-spacing: 0.05em;
+  }
+  .bento-tile .text-small {
+    font-size: 11px;
   }
 
   .card {

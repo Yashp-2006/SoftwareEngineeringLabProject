@@ -76,6 +76,24 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
     return uniqueResults.slice(0, 50);
   }, [categories, searchQuery, isDropdownOpen]);
 
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  // Close search dropdown on outside click or tap
+  useEffect(() => {
+    if (!isDropdownOpen) return;
+    const handleOutside = (e: MouseEvent | TouchEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    document.addEventListener('touchstart', handleOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleOutside);
+      document.removeEventListener('touchstart', handleOutside);
+    };
+  }, [isDropdownOpen]);
+
   const handleSearchResultClick = (result: any) => {
     setActiveCategoryId(result.categoryId);
     setHighlightMatchId(result.matchId);
@@ -482,10 +500,64 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
           .tiesheet-hero-top { flex-direction: column; align-items: stretch; gap: 12px; }
           .tiesheet-actions { width: 100%; display: grid; grid-template-columns: 1fr; gap: 8px; }
           .tiesheet-actions button, .tiesheet-actions a { width: 100%; justify-content: center; min-height: 44px; }
-          .filter-search-row { flex-direction: column; align-items: stretch; padding: 12px; gap: 10px; }
-          .discipline-select { width: 100%; min-width: 0; min-height: 44px; }
-          .search-container { width: 100%; min-width: 0 !important; }
+          .filter-search-row { flex-direction: column; align-items: stretch; padding: 12px; gap: 10px; width: 100%; }
+          .discipline-select { width: 100%; min-width: 0; min-height: 44px; font-size: 15px; }
+          .search-container { width: 100% !important; min-width: 0 !important; }
+          .search-input { min-height: 44px; font-size: 15px; padding: 10px 14px; }
+          .search-dropdown {
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 0;
+            right: 0;
+            width: 100%;
+            z-index: 300;
+            max-height: 55vh;
+            border-radius: 12px;
+            box-shadow: 0 12px 36px rgba(0,0,0,0.22);
+            -webkit-overflow-scrolling: touch;
+          }
+          .search-result-item { padding: 14px 16px; min-height: 50px; }
           .tiesheet-grid { grid-template-columns: 1fr; gap: 10px; }
+        }
+
+        .entry-modal-card {
+          background: white;
+          border-radius: 12px;
+          width: 100%;
+          max-width: 500px;
+          padding: 24px;
+          box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+          max-height: 90vh;
+          overflow-y: auto;
+        }
+        .entry-form-row-2 {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 16px;
+          margin-bottom: 16px;
+        }
+        .entry-form-row-3 {
+          display: grid;
+          grid-template-columns: 1fr 1fr 1fr;
+          gap: 16px;
+          margin-bottom: 16px;
+        }
+        @media (max-width: 480px) {
+          .entry-modal-card {
+            padding: 16px;
+            margin: 12px;
+          }
+          .entry-form-row-2 {
+            grid-template-columns: 1fr;
+            gap: 12px;
+          }
+          .entry-form-row-3 {
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+          }
+          .entry-form-row-3 > div:last-child {
+            grid-column: span 2;
+          }
         }
       `}} />
 
@@ -543,7 +615,7 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
               <option value="Kata">Kata Only</option>
             </select>
             {categories.length > 0 && (
-              <div className="search-container" style={{ flex: 1, minWidth: '240px' }}>
+              <div ref={searchContainerRef} className="search-container" style={{ flex: 1, minWidth: '240px' }}>
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                   <input 
                     type="text" 
@@ -731,7 +803,7 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
       {/* Add On-Spot Entry Modal */}
       {isAddModalOpen && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000 }} onClick={() => !addingAthlete && setIsAddModalOpen(false)}>
-          <div style={{ background: 'white', borderRadius: '12px', width: '100%', maxWidth: '500px', padding: '24px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+          <div className="entry-modal-card" onClick={e => e.stopPropagation()}>
             <h2 style={{ marginBottom: '20px' }}>Add On-Spot Entry</h2>
             <form onSubmit={handleAddAthlete}>
               <div style={{ marginBottom: '16px' }}>
@@ -746,7 +818,7 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Coach Name</label>
                 <input style={{ width: '100%', padding: '10px', border: '1px solid var(--neutral-300)', borderRadius: '6px' }} placeholder="Coach's full name" value={addForm.coachName} onChange={e => setAddForm(p => ({...p, coachName: e.target.value}))} />
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+              <div className="entry-form-row-2">
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Phone Number</label>
                   <input type="tel" style={{ width: '100%', padding: '10px', border: '1px solid var(--neutral-300)', borderRadius: '6px' }} placeholder="e.g. +91 98765 43210" value={addForm.phone} onChange={e => setAddForm(p => ({...p, phone: e.target.value}))} />
@@ -756,7 +828,7 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
                   <input type="email" style={{ width: '100%', padding: '10px', border: '1px solid var(--neutral-300)', borderRadius: '6px' }} placeholder="athlete@email.com" value={addForm.email} onChange={e => setAddForm(p => ({...p, email: e.target.value}))} />
                 </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+              <div className="entry-form-row-3">
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Age</label>
                   <input required type="number" style={{ width: '100%', padding: '10px', border: '1px solid var(--neutral-300)', borderRadius: '6px' }} value={addForm.age} onChange={e => setAddForm(p => ({...p, age: e.target.value}))} />

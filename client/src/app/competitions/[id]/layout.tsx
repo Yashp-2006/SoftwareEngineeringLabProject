@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/modules/auth/components/AuthProvider';
@@ -18,9 +18,20 @@ export default function CompetitionLayout({
   const { role, user, loading: authLoading } = useAuth();
   const { id } = React.use(params);
   const [staffRole, setStaffRole] = useState<string | null>(null);
+  const subNavRef = useRef<HTMLDivElement>(null);
 
   const isActive = (segment: string) => pathname.includes(segment);
   const isRoot = pathname === `/competitions/${id}`;
+
+  // Auto-scroll active sub-nav item into horizontal view on mobile
+  useEffect(() => {
+    if (subNavRef.current) {
+      const activeEl = subNavRef.current.querySelector<HTMLElement>('.sub-nav-link.active');
+      if (activeEl) {
+        activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }
+    }
+  }, [pathname]);
 
   // Redirect unauthenticated viewers trying to access sub-pages directly
   // The overview page handles the password gate itself; sub-pages redirect back to it
@@ -113,7 +124,7 @@ export default function CompetitionLayout({
 
   return (
     <>
-      <div className="sub-nav">
+      <div className="sub-nav" ref={subNavRef}>
         <Link
           href={`/competitions/${id}${joinParam}`}
           className={`sub-nav-link ${isRoot ? 'active' : ''}`}

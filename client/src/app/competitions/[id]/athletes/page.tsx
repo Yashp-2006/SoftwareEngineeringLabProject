@@ -469,6 +469,39 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
           }
           .category-button { margin-bottom: 0; }
         }
+        @media (max-width: 640px) {
+          .category-panel {
+            grid-template-columns: 1fr;
+            max-height: 220px;
+            overflow-y: auto;
+          }
+          .athletes-panel-header {
+            padding: 12px 14px;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 10px;
+          }
+          .search-wrap {
+            width: 100%;
+          }
+          .search-input {
+            height: 40px;
+            font-size: 14px;
+          }
+          .athlete-table thead th,
+          .athlete-table tbody td {
+            padding: 10px 12px;
+            font-size: 13px;
+          }
+          .attendance-control {
+            touch-action: manipulation;
+          }
+          .attendance-btn {
+            padding: 6px 12px;
+            font-size: 11px;
+            min-height: 32px;
+          }
+        }
       `}} />
 
       <main className="container">

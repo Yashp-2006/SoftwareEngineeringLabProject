@@ -1195,14 +1195,29 @@ export default function FullscreenBracketModal({
             opacity: 1;
             pointer-events: auto;
           }
+          .fsb-header {
+            padding: 10px 14px;
+            gap: 10px;
+            flex-wrap: wrap;
+          }
+          .fsb-title {
+            font-size: 14px !important;
+            gap: 8px !important;
+            flex-wrap: wrap;
+            flex: 1;
+            letter-spacing: normal !important;
+          }
           .fsb-mobile-toggle {
-            display: flex !important;
+            display: inline-flex !important;
             align-items: center;
             justify-content: center;
             background: transparent;
             border: none;
             cursor: pointer;
             color: var(--neutral-700);
+            padding: 4px;
+            min-height: 36px;
+            min-width: 36px;
           }
           .fsb-cat-item.active { transform: none; box-shadow: none; border-color: var(--aka); }
           .fsb-cat-item:hover { transform: none; box-shadow: none; }
@@ -1212,6 +1227,31 @@ export default function FullscreenBracketModal({
           .comp-score { font-size: 24px; margin-left: 10px; }
           .bv-canvas { gap: 60px; padding: var(--space-3); }
           .bracket-round { gap: 40px; min-width: 240px; }
+
+          .bv-controls {
+            padding: 8px 12px;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 8px;
+          }
+          .bv-controls > div:first-child {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+          }
+          .bv-zoom {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+          }
+          .bv-zoom input[type="text"] {
+            width: 100% !important;
+            min-width: 90px;
+            flex: 1;
+          }
         }
       `}} />
 
@@ -1219,7 +1259,7 @@ export default function FullscreenBracketModal({
         {/* Modal Header */}
         <div className="fsb-header">
           <div className="fsb-title" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <button type="button" className="fsb-mobile-toggle" style={{ display: 'none' }} onClick={() => setShowMobileSidebar(!showMobileSidebar)}>
+            <button type="button" className="fsb-mobile-toggle" aria-label="Toggle categories list" onClick={() => setShowMobileSidebar(!showMobileSidebar)}>
               {showMobileSidebar ? <X size={20} /> : <Target size={20} />}
             </button>
             Tiesheet: {activeCategory?.name || 'Select Category'}

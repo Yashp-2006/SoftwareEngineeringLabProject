@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, Edit, Filter } from 'lucide-react';
+import { Search, Edit, Filter, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/modules/auth/components/AuthProvider';
 import PageSkeleton from '@/modules/core/layout/PageSkeleton';
@@ -466,6 +466,46 @@ export default function PlayerRecordsPage({ params }: { params: Promise<{ id: st
           opacity: 0.5;
           cursor: not-allowed;
         }
+        @media (max-width: 768px) {
+          .records-header {
+            padding: var(--space-3) var(--space-4) !important;
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 12px !important;
+          }
+          .records-tools {
+            width: 100% !important;
+            display: flex !important;
+            gap: 8px !important;
+          }
+          .search-wrap {
+            flex: 1 !important;
+            width: auto !important;
+          }
+          .search-input {
+            height: 40px !important;
+            font-size: 14px !important;
+          }
+          .filter-dropdown {
+            width: min(280px, calc(100vw - 32px)) !important;
+            right: 0 !important;
+            left: auto !important;
+          }
+          .records-table thead th,
+          .records-table tbody td {
+            padding: 10px 12px !important;
+            font-size: 13px !important;
+          }
+          .pagination-wrap {
+            padding: 12px 14px !important;
+            flex-direction: column !important;
+            gap: 10px !important;
+            align-items: stretch !important;
+          }
+          .pagination-buttons {
+            justify-content: center !important;
+          }
+        }
       `}} />
 
       <main className="container">
@@ -489,9 +529,9 @@ export default function PlayerRecordsPage({ params }: { params: Promise<{ id: st
                 </div>
               </div>
               
-              <div style={{ display: 'flex', gap: '12px', alignItems: 'center', position: 'relative' }}>
+              <div className="records-tools" style={{ display: 'flex', gap: '8px', alignItems: 'center', position: 'relative' }}>
                 <div className="search-wrap">
-                  <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--neutral-500)' }} />
+                  <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--neutral-500)', pointerEvents: 'none' }} />
                   <input
                     className="search-input"
                     type="text"
@@ -501,7 +541,17 @@ export default function PlayerRecordsPage({ params }: { params: Promise<{ id: st
                       setSearchQuery(e.target.value);
                       setCurrentPage(1);
                     }}
+                    style={{ paddingRight: searchQuery ? '30px' : '12px' }}
                   />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => { setSearchQuery(''); setCurrentPage(1); }}
+                      style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--neutral-400)', cursor: 'pointer', padding: 0 }}
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
                 </div>
 
                 <button

@@ -482,21 +482,40 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 12px 0;
+          padding: 10px 0;
           border-bottom: 1px solid var(--neutral-100);
+          gap: 12px;
         }
         .assignment-row:last-child {
           border-bottom: none;
         }
         .assignment-select {
           height: 36px;
-          border-radius: 6px;
+          border-radius: 8px;
           border: 1.5px solid var(--neutral-300);
-          padding: 0 8px;
+          padding: 0 10px;
           font-size: 13px;
           background: #fff;
           outline: none;
-          max-width: 180px;
+          max-width: 200px;
+          flex-shrink: 0;
+          cursor: pointer;
+        }
+        .assignment-select:focus {
+          border-color: var(--kuro);
+        }
+        @media (max-width: 520px) {
+          .assignment-row {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 6px;
+          }
+          .assignment-select {
+            max-width: 100%;
+            width: 100%;
+            height: 40px;
+            font-size: 14px;
+          }
         }
         .confirm-modal-overlay {
           position: fixed;
@@ -835,24 +854,64 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
                   <p style={{ fontSize: '13px', color: 'var(--neutral-500)', fontStyle: 'italic' }}>No active categories loaded.</p>
                 ) : (
                   categories.map(cat => {
-                    const poolCount = Math.ceil(cat.entries / (cat.poolSize || globalPoolSize || 8));
-                    const pools = Array.from({ length: poolCount }, (_, index) => `${cat.name} - Pool ${index + 1}`);
-                    
+                    const allPoolsKey = `${cat.name} (All Pools)`;
+                    const poolList: Array<{ key: string; label: string; isAll?: boolean }> = [
+                      { key: allPoolsKey, label: '★ All Pools (Entire Category)', isAll: true }
+                    ];
+
+                    const poolSet = new Set<string>();
+                    if (cat.pools && Array.isArray(cat.pools)) {
+                      cat.pools.forEach((p: any) => {
+                        const pid = typeof p === 'string' ? p : (p.pool || p.id || '');
+                        if (pid) poolSet.add(String(pid));
+                      });
+                    }
+                    (cat.matches || []).forEach((m: any) => {
+                      const p = m.pool || (m.id && m.id.includes('Pool') ? m.id.split('-')[0].replace('Pool', '') : (m.id && m.id.includes('finals') ? 'finals' : ''));
+                      if (p) poolSet.add(String(p));
+                    });
+                    if (poolSet.size === 0) {
+                      const poolCount = Math.max(1, Math.ceil((cat.entries || 8) / (cat.poolSize || globalPoolSize || 8)));
+                      for (let i = 1; i <= poolCount; i++) poolSet.add(String(i));
+                      poolSet.add('finals');
+                    } else {
+                      poolSet.add('finals');
+                    }
+
+                    const sortedPools = Array.from(poolSet).sort((a, b) => {
+                      if (a === 'finals') return 1;
+                      if (b === 'finals') return -1;
+                      return parseInt(a) - parseInt(b);
+                    });
+
+                    sortedPools.forEach(p => {
+                      const pLabel = p === 'finals' ? 'Finals (Medals Ceremony)' : `Pool ${p}`;
+                      poolList.push({
+                        key: `${cat.name} (${pLabel})`,
+                        label: pLabel
+                      });
+                    });
+
                     return (
                       <div key={cat.id} style={{ borderBottom: '1px solid var(--neutral-200)', paddingBottom: '8px', marginBottom: '8px' }}>
                         <div style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--neutral-500)', marginBottom: '4px' }}>{cat.name}</div>
-                        {pools.map(poolName => {
-                          const assignedDist = medalDistributors.find(d => d.assignedPools?.includes(poolName));
-                          const displayName = poolName.replace(`${cat.name} - `, '');
-                          
+                        {poolList.map(item => {
+                          const assignedDist = medalDistributors.find(d => 
+                            d.assignedPools?.includes(item.key) ||
+                            (item.isAll && (d.assignedPools?.includes(cat.name) || d.assignedPools?.includes(`${cat.name} (All Pools / Category Medals)`))) ||
+                            d.assignedPools?.includes(`${cat.name} - ${item.label}`)
+                          );
+
                           return (
-                            <div key={poolName} className="assignment-row" style={{ paddingLeft: '8px', borderBottom: 'none' }}>
-                              <span style={{ fontSize: '13px' }}>{displayName}</span>
+                            <div key={item.key} className="assignment-row" style={{ paddingLeft: '8px', borderBottom: 'none' }}>
+                              <span style={{ fontSize: '13px', fontWeight: item.isAll ? 700 : 500, color: item.isAll ? 'var(--neutral-900)' : 'var(--neutral-700)' }}>
+                                {item.label}
+                              </span>
                               <select
                                 className="assignment-select"
                                 value={assignedDist?.id || ''}
                                 disabled={!isAdmin}
-                                onChange={e => assignTask('pool', poolName, e.target.value)}
+                                onChange={e => assignTask('pool', item.key, e.target.value)}
                               >
                                 <option value="">Unassigned</option>
                                 {medalDistributors.map(dist => (

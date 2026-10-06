@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, Calendar } from 'lucide-react';
+import { Search, Calendar, X } from 'lucide-react';
 
 interface CategorySchedule {
   id: string;
@@ -225,6 +225,8 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
         }
         .schedule-table-wrap {
           overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+          width: 100%;
         }
         .schedule-table {
           width: 100%;
@@ -301,10 +303,50 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
           font-size: 14px;
         }
         @media (max-width: 980px) {
-          .schedule-summary { grid-template-columns: 1fr; }
+          .schedule-summary { grid-template-columns: repeat(3, 1fr); gap: 10px; }
           .search-wrap { width: 100%; }
           .schedule-tools { width: 100%; }
-          .schedule-select { flex: 1; }
+          .schedule-select { flex: 1; min-width: 130px; }
+        }
+        @media (max-width: 640px) {
+          .schedule-summary {
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+          }
+          .summary-tile {
+            padding: 10px 8px;
+            text-align: center;
+          }
+          .summary-label {
+            font-size: 9px;
+            letter-spacing: 0.04em;
+          }
+          .summary-value {
+            font-size: 18px;
+          }
+          .schedule-header {
+            padding: var(--space-3) var(--space-4);
+          }
+          .schedule-tools {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            width: 100%;
+          }
+          .search-wrap {
+            grid-column: span 2;
+            width: 100%;
+          }
+          .schedule-select {
+            min-width: 0;
+            width: 100%;
+            height: 38px;
+            font-size: 13px;
+          }
+          .schedule-table thead th,
+          .schedule-table tbody td {
+            padding: 10px 14px;
+          }
         }
       `}} />
 
@@ -361,14 +403,34 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
             </div>
             <div className="schedule-tools">
               <div className="search-wrap">
-                <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--neutral-500)' }} />
+                <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--neutral-500)', pointerEvents: 'none' }} />
                 <input 
                   className="schedule-input" 
                   type="text" 
                   placeholder="Search category or mat..." 
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
+                  style={{ paddingRight: searchQuery ? '30px' : '12px' }}
                 />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    style={{
+                      position: 'absolute',
+                      right: '8px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--neutral-400)',
+                      cursor: 'pointer',
+                      padding: 0
+                    }}
+                  >
+                    <X size={14} />
+                  </button>
+                )}
               </div>
               <select className="schedule-select" value={filterType} onChange={e => setFilterType(e.target.value)}>
                 <option value="all">All Types</option>

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, Trophy, Zap } from 'lucide-react';
+import { Search, Trophy, Zap, X } from 'lucide-react';
 import PageSkeleton from '@/modules/core/layout/PageSkeleton';
 import SpecialCategoryModal from '@/modules/competitions/components/category/SpecialCategoryModal';
 import { useAuth } from '@/modules/auth/components/AuthProvider';
@@ -519,9 +519,40 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
             overflow-x: auto;
             max-height: none;
             gap: var(--space-2);
-            padding-bottom: var(--space-4);
+            padding-bottom: var(--space-3);
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
           }
-          .category-button { margin-bottom: 0; min-width: 220px; }
+          .category-button { margin-bottom: 0; min-width: 200px; flex-shrink: 0; }
+        }
+        @media (max-width: 640px) {
+          .category-button { min-width: 170px; padding: 10px; }
+          .medals-panel-header {
+            padding: 12px 14px;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 10px;
+          }
+          .search-wrap {
+            width: 100%;
+          }
+          .search-input {
+            height: 40px;
+            font-size: 14px;
+          }
+          .medal-table thead th,
+          .medal-table tbody td {
+            padding: 10px 12px;
+            font-size: 13px;
+          }
+          .medal-control {
+            touch-action: manipulation;
+          }
+          .medal-btn {
+            padding: 6px 12px;
+            font-size: 11px;
+            min-height: 32px;
+          }
         }
       `}} />
 
@@ -577,14 +608,24 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
                 </div>
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
                   <div className="search-wrap">
-                    <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--neutral-500)' }} />
+                    <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--neutral-500)', pointerEvents: 'none' }} />
                     <input
                       className="search-input"
                       type="text"
                       placeholder="Search athlete or academy..."
                       value={searchQuery}
                       onChange={e => setSearchQuery(e.target.value)}
+                      style={{ paddingRight: searchQuery ? '30px' : '12px' }}
                     />
+                    {searchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setSearchQuery('')}
+                        style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--neutral-400)', cursor: 'pointer', padding: 0 }}
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
                   </div>
                   {role === 'admin' && (
                     <button className="btn-action" onClick={() => setSpecialModalOpen(true)}>

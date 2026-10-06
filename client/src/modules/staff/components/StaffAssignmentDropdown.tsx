@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Search, X, Check, Plus, ChevronDown, Award, Users, Tv, Shield } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Search, X, Check, Plus, ChevronDown, Award, Users, Tv, Shield, AlertTriangle } from 'lucide-react';
 import { StaffAssignment } from './StaffAssignmentManager';
 
 interface Props {
@@ -32,19 +33,52 @@ export default function StaffAssignmentDropdown({
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown on outside click
+  // Assignment confirmation modal state
+  const [confirmModalData, setConfirmModalData] = useState<{
+    actionType: 'assign' | 'unassign';
+    item: {
+      id: string;
+      label: string;
+      assigneeName?: string | null;
+    };
+  } | null>(null);
+
+  const [alignRight, setAlignRight] = useState(false);
+
   useEffect(() => {
-    const handleOutsideClick = (e: MouseEvent) => {
+    setMounted(true);
+  }, []);
+
+  // Check if dropdown extends off screen right and clamp
+  useEffect(() => {
+    if (isOpen && dropdownRef.current) {
+      const rect = dropdownRef.current.getBoundingClientRect();
+      if (rect.left + 320 > window.innerWidth - 16) {
+        setAlignRight(true);
+      } else {
+        setAlignRight(false);
+      }
+    }
+  }, [isOpen]);
+
+  // Close dropdown on outside click or tap
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent | TouchEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setIsOpen(false);
       }
     };
     if (isOpen) {
       document.addEventListener('mousedown', handleOutsideClick);
+      document.addEventListener('touchstart', handleOutsideClick);
     }
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('touchstart', handleOutsideClick);
+    };
   }, [isOpen]);
 
   // Reset search when opened
@@ -104,10 +138,18 @@ export default function StaffAssignmentDropdown({
       const catName = cat.name || cat.id;
       const poolSet = new Set<string>();
 
+      // Check cat.pools array if defined
+      if (cat.pools && Array.isArray(cat.pools)) {
+        cat.pools.forEach((p: any) => {
+          const pid = typeof p === 'string' ? p : (p.pool || p.id || '');
+          if (pid) poolSet.add(String(pid));
+        });
+      }
+
       // Extract pools from matches if available
       (cat.matches || []).forEach((m: any) => {
         const p = m.pool || (m.id && m.id.includes('Pool') ? m.id.split('-')[0].replace('Pool', '') : (m.id && m.id.includes('finals') ? 'finals' : '1'));
-        if (p) poolSet.add(p);
+        if (p) poolSet.add(String(p));
       });
 
       // Fallback: estimate from entries & poolSize
@@ -115,21 +157,30 @@ export default function StaffAssignmentDropdown({
         const numPools = Math.max(1, Math.ceil((cat.entries || 8) / (cat.poolSize || 8)));
         for (let i = 1; i <= numPools; i++) poolSet.add(String(i));
         poolSet.add('finals');
+      } else {
+        poolSet.add('finals');
       }
 
-      if (isAttendance) {
-        // Attendance option for entire category
-        const allPoolsKey = `${catName} (All Pools)`;
-        const isAssigned = (member.assignedCategories || []).includes(allPoolsKey) || (member.assignedCategories || []).includes(catName);
-        items.push({
-          id: allPoolsKey,
-          label: allPoolsKey,
-          categoryName: catName,
-          poolName: 'All Pools',
-          isAssignedToThis: isAssigned,
-          assigneeName: null,
-        });
-      }
+      // "All Pools" option for entire category (Available for BOTH Attendance and Medals!)
+      const allPoolsKey = `${catName} (All Pools)`;
+      const allPoolsLabel = isMedals ? `${catName} (All Pools / Category Medals)` : `${catName} (All Pools)`;
+      const isAllPoolsAssigned = isMedals
+        ? (member.assignedPools || []).includes(allPoolsKey) ||
+          (member.assignedPools || []).includes(allPoolsLabel) ||
+          (member.assignedPools || []).includes(catName) ||
+          (member.assignedCategories || []).includes(allPoolsKey) ||
+          (member.assignedCategories || []).includes(catName)
+        : (member.assignedCategories || []).includes(allPoolsKey) ||
+          (member.assignedCategories || []).includes(catName);
+
+      items.push({
+        id: allPoolsKey,
+        label: allPoolsLabel,
+        categoryName: catName,
+        poolName: isMedals ? 'All Pools (Category Medals)' : 'All Pools',
+        isAssignedToThis: isAllPoolsAssigned,
+        assigneeName: null,
+      });
 
       // Individual pools
       const sortedPools = Array.from(poolSet).sort((a, b) => {
@@ -142,7 +193,7 @@ export default function StaffAssignmentDropdown({
         const pName = p === 'finals' ? (isMedals ? 'Finals (Medals Ceremony)' : 'Finals') : `Pool ${p}`;
         const itemKey = `${catName} (${pName})`;
         const isAssigned = isMedals 
-          ? (member.assignedPools || []).includes(itemKey)
+          ? (member.assignedPools || []).includes(itemKey) || (member.assignedPools || []).includes(`${catName} - ${pName}`)
           : (member.assignedCategories || []).includes(itemKey);
 
         items.push({
@@ -163,27 +214,64 @@ export default function StaffAssignmentDropdown({
     );
   }, [isMedals, isAttendance, categories, member, searchQuery]);
 
-  // Handle select mat
-  const handleSelectMat = async (matId: string) => {
-    setLoadingAction(matId);
+  // Request assignment confirmation for mat
+  const handleSelectMat = (matId: string, label: string, assigneeName?: string | null) => {
+    setConfirmModalData({
+      actionType: 'assign',
+      item: {
+        id: matId,
+        label,
+        assigneeName,
+      },
+    });
+    setIsOpen(false);
+  };
+
+  // Request assignment confirmation for category / pool
+  const handleSelectCategoryPool = (itemKey: string, label: string) => {
+    setConfirmModalData({
+      actionType: 'assign',
+      item: {
+        id: itemKey,
+        label,
+      },
+    });
+    setIsOpen(false);
+  };
+
+  // Execute assignment after confirmation
+  const handleExecuteAssign = async (itemId: string) => {
+    setLoadingAction(itemId);
     try {
-      await onAssignMat(member.id, matId);
-      setIsOpen(false);
+      if (isOperatorOrJudge) {
+        await onAssignMat(member.id, itemId);
+      } else if (isMedals) {
+        await onAssignCategoryPool(member.id, 'medal', itemId);
+      } else {
+        await onAssignCategoryPool(member.id, 'attendance', itemId);
+      }
+      setConfirmModalData(null);
+    } catch (err) {
+      console.error(err);
     } finally {
       setLoadingAction(null);
     }
   };
 
-  // Handle select category / pool
-  const handleSelectCategoryPool = async (itemKey: string) => {
-    setLoadingAction(itemKey);
+  // Execute unassignment after confirmation
+  const handleExecuteUnassign = async (itemId: string) => {
+    setLoadingAction(itemId);
     try {
-      if (isMedals) {
-        await onAssignCategoryPool(member.id, 'medal', itemKey);
+      if (isOperatorOrJudge) {
+        await onUnassignMat(member.id, itemId);
+      } else if (isMedals) {
+        await onUnassignCategoryPool(member.id, 'medal', itemId);
       } else {
-        await onAssignCategoryPool(member.id, 'attendance', itemKey);
+        await onUnassignCategoryPool(member.id, 'attendance', itemId);
       }
-      setIsOpen(false);
+      setConfirmModalData(null);
+    } catch (err) {
+      console.error(err);
     } finally {
       setLoadingAction(null);
     }
@@ -220,81 +308,147 @@ export default function StaffAssignmentDropdown({
 
   return (
     <div ref={dropdownRef} style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-      {/* Current Assignment Badges */}
+      {/* Current Assignment display */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
         {currentAssignedItems.length === 0 ? (
-          <span style={{ fontSize: '12px', fontStyle: 'italic', color: 'var(--neutral-400)' }}>
-            Unassigned
-          </span>
-        ) : (
-          currentAssignedItems.map(item => (
-            <span
-              key={item.id}
+          /* When unassigned: ONLY ONE element shown */
+          isAdmin ? (
+            <button
+              type="button"
+              onClick={() => setIsOpen(!isOpen)}
               style={{
-                fontSize: '11px',
-                fontWeight: 700,
-                padding: '3px 8px',
-                background: isOperatorOrJudge ? '#ecfdf5' : isMedals ? '#fef3c7' : '#eff6ff',
-                color: isOperatorOrJudge ? '#065f46' : isMedals ? '#92400e' : '#1e40af',
-                border: `1px solid ${isOperatorOrJudge ? '#a7f3d0' : isMedals ? '#fde68a' : '#bfdbfe'}`,
+                fontSize: '12px',
+                fontWeight: 600,
+                padding: '4px 10px',
                 borderRadius: '6px',
+                background: isOpen ? 'var(--neutral-200)' : 'var(--neutral-100)',
+                color: 'var(--neutral-600)',
+                border: '1px dashed var(--neutral-300)',
+                cursor: 'pointer',
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '4px',
+                gap: '6px',
+                transition: 'all 0.15s ease',
               }}
             >
-              {item.label}
-              {isAdmin && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (item.type === 'mat') onUnassignMat(member.id, item.id);
-                    else if (item.type === 'medal') onUnassignCategoryPool(member.id, 'medal', item.id);
-                    else onUnassignCategoryPool(member.id, 'attendance', item.id);
-                  }}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    padding: 0,
-                    cursor: 'pointer',
-                    color: 'currentColor',
-                    display: 'flex',
-                    alignItems: 'center',
-                    opacity: 0.7,
-                  }}
-                  title="Remove assignment"
-                >
-                  <X size={12} />
-                </button>
-              )}
+              <span style={{ fontStyle: 'italic', color: 'var(--neutral-500)' }}>Unassigned</span>
+              <ChevronDown
+                size={12}
+                style={{
+                  transform: isOpen ? 'rotate(180deg)' : 'none',
+                  transition: 'transform 0.15s ease',
+                  color: 'var(--neutral-400)',
+                }}
+              />
+            </button>
+          ) : (
+            <span style={{ fontSize: '12px', fontStyle: 'italic', color: 'var(--neutral-400)' }}>
+              Unassigned
             </span>
-          ))
-        )}
+          )
+        ) : (
+          /* When assigned: show what is assigned */
+          <>
+            {currentAssignedItems.map(item => (
+              <span
+                key={item.id}
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  padding: '3px 8px',
+                  background: isOperatorOrJudge ? '#ecfdf5' : isMedals ? '#fef3c7' : '#eff6ff',
+                  color: isOperatorOrJudge ? '#065f46' : isMedals ? '#92400e' : '#1e40af',
+                  border: `1px solid ${isOperatorOrJudge ? '#a7f3d0' : isMedals ? '#fde68a' : '#bfdbfe'}`,
+                  borderRadius: '6px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                {isOperatorOrJudge && isAdmin ? (
+                  <button
+                    type="button"
+                    onClick={() => setIsOpen(!isOpen)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      cursor: 'pointer',
+                      color: 'inherit',
+                      fontWeight: 700,
+                      fontSize: 'inherit',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
+                    title="Click to change mat assignment"
+                  >
+                    <span>{item.label}</span>
+                    <ChevronDown
+                      size={11}
+                      style={{
+                        transform: isOpen ? 'rotate(180deg)' : 'none',
+                        transition: 'transform 0.15s ease',
+                      }}
+                    />
+                  </button>
+                ) : (
+                  <span>{item.label}</span>
+                )}
 
-        {/* Quick Assign Dropdown Trigger */}
-        {isAdmin && (
-          <button
-            type="button"
-            onClick={() => setIsOpen(!isOpen)}
-            style={{
-              fontSize: '11px',
-              fontWeight: 700,
-              padding: '3px 8px',
-              borderRadius: '6px',
-              background: isOpen ? 'var(--neutral-200)' : 'var(--neutral-100)',
-              color: 'var(--neutral-700)',
-              border: '1px solid var(--neutral-300)',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            <Plus size={11} />
-            <span>Assign {isOperatorOrJudge ? 'Mat' : isMedals ? 'Medals' : 'Attendance'}</span>
-            <ChevronDown size={11} style={{ transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }} />
-          </button>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setConfirmModalData({
+                        actionType: 'unassign',
+                        item: { id: item.id, label: item.label },
+                      });
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      cursor: 'pointer',
+                      color: 'currentColor',
+                      display: 'flex',
+                      alignItems: 'center',
+                      opacity: 0.7,
+                    }}
+                    title="Remove assignment"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </span>
+            ))}
+
+            {/* Multi-assignment roles (Medals / Attendance) can optionally add more */}
+            {!isOperatorOrJudge && isAdmin && (
+              <button
+                type="button"
+                onClick={() => setIsOpen(!isOpen)}
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  padding: '3px 7px',
+                  borderRadius: '5px',
+                  background: isOpen ? 'var(--neutral-200)' : 'var(--neutral-100)',
+                  color: 'var(--neutral-700)',
+                  border: '1px solid var(--neutral-300)',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '3px',
+                }}
+                title="Add another assignment"
+              >
+                <Plus size={11} />
+                <span>Add</span>
+                <ChevronDown size={10} style={{ transform: isOpen ? 'rotate(180deg)' : 'none' }} />
+              </button>
+            )}
+          </>
         )}
       </div>
 
@@ -304,13 +458,15 @@ export default function StaffAssignmentDropdown({
           style={{
             position: 'absolute',
             top: 'calc(100% + 4px)',
-            left: 0,
-            zIndex: 100,
-            width: '320px',
+            left: alignRight ? 'auto' : 0,
+            right: alignRight ? 0 : 'auto',
+            zIndex: 300,
+            width: 'min(320px, calc(100vw - 32px))',
+            maxWidth: 'calc(100vw - 24px)',
             background: 'var(--shiro)',
             border: '1.5px solid var(--neutral-300)',
             borderRadius: '10px',
-            boxShadow: '0 12px 28px rgba(0,0,0,0.12)',
+            boxShadow: '0 12px 28px rgba(0,0,0,0.18)',
             overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column',
@@ -322,7 +478,6 @@ export default function StaffAssignmentDropdown({
             <Search size={14} color="var(--neutral-400)" />
             <input
               type="text"
-              autoFocus
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={isOperatorOrJudge ? "Search mat number..." : "Search category or pool..."}
@@ -330,7 +485,7 @@ export default function StaffAssignmentDropdown({
                 width: '100%',
                 border: 'none',
                 background: 'transparent',
-                fontSize: '12px',
+                fontSize: '14px',
                 outline: 'none',
                 color: 'var(--neutral-800)',
               }}
@@ -360,7 +515,7 @@ export default function StaffAssignmentDropdown({
                     key={opt.id}
                     type="button"
                     disabled={loadingAction === opt.id}
-                    onClick={() => handleSelectMat(opt.id)}
+                    onClick={() => handleSelectMat(opt.id, opt.label, opt.assigneeName)}
                     style={{
                       width: '100%',
                       padding: '8px 10px',
@@ -415,7 +570,7 @@ export default function StaffAssignmentDropdown({
                     key={opt.id}
                     type="button"
                     disabled={loadingAction === opt.id}
-                    onClick={() => handleSelectCategoryPool(opt.id)}
+                    onClick={() => handleSelectCategoryPool(opt.id, opt.label)}
                     style={{
                       width: '100%',
                       padding: '8px 10px',
@@ -453,6 +608,112 @@ export default function StaffAssignmentDropdown({
             )}
           </div>
         </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {mounted && confirmModalData && createPortal(
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(3px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '16px',
+          }}
+          onClick={() => !loadingAction && setConfirmModalData(null)}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '16px',
+              border: '1px solid var(--neutral-300)',
+              boxShadow: '0 20px 50px rgba(0, 0, 0, 0.3)',
+              width: 'min(420px, 92vw)',
+              padding: '24px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: confirmModalData.actionType === 'assign' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(217, 38, 44, 0.12)',
+                  color: confirmModalData.actionType === 'assign' ? '#059669' : '#dc2626',
+                  flexShrink: 0,
+                }}
+              >
+                {confirmModalData.actionType === 'assign' ? <Check size={20} /> : <AlertTriangle size={20} />}
+              </div>
+              <div>
+                <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--neutral-900)' }}>
+                  {confirmModalData.actionType === 'assign' ? 'Confirm Assignment' : 'Remove Assignment'}
+                </h3>
+                <p style={{ fontSize: '12px', color: 'var(--neutral-500)', margin: 0 }}>
+                  {confirmModalData.actionType === 'assign' ? 'Please confirm this staff assignment' : 'Please confirm removal of this assignment'}
+                </p>
+              </div>
+            </div>
+
+            <div style={{ fontSize: '14px', color: 'var(--neutral-700)', lineHeight: 1.5, background: 'var(--neutral-50)', padding: '12px 14px', borderRadius: '8px', border: '1px solid var(--neutral-200)' }}>
+              {confirmModalData.actionType === 'assign' ? (
+                <div>
+                  Assign <strong>{member.name}</strong> to <strong>{confirmModalData.item.label}</strong>?
+                </div>
+              ) : (
+                <div>
+                  Remove <strong>{confirmModalData.item.label}</strong> assignment from <strong>{member.name}</strong>?
+                </div>
+              )}
+
+              {confirmModalData.actionType === 'assign' && confirmModalData.item.assigneeName && (
+                <div style={{ marginTop: '8px', fontSize: '12px', color: '#b45309', background: '#fef3c7', padding: '6px 8px', borderRadius: '6px', border: '1px solid #fde68a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <AlertTriangle size={14} style={{ flexShrink: 0 }} />
+                  <span>Currently occupied by <strong>{confirmModalData.item.assigneeName}</strong>. This will reassign it.</span>
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '4px' }}>
+              <button
+                type="button"
+                disabled={loadingAction !== null}
+                onClick={() => setConfirmModalData(null)}
+                className="btn btn-secondary"
+                style={{ padding: '8px 16px', fontSize: '13px' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={loadingAction !== null}
+                onClick={() => {
+                  if (confirmModalData.actionType === 'assign') {
+                    handleExecuteAssign(confirmModalData.item.id);
+                  } else {
+                    handleExecuteUnassign(confirmModalData.item.id);
+                  }
+                }}
+                className={confirmModalData.actionType === 'assign' ? 'btn btn-primary' : 'confirm-btn-danger'}
+                style={{ padding: '8px 16px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
+                {loadingAction !== null ? 'Saving...' : confirmModalData.actionType === 'assign' ? 'Confirm Assignment' : 'Remove'}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );

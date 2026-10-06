@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Mail, MapPin, Calendar, Edit3, ExternalLink, FileText, Trash2 } from 'lucide-react';
+import { Mail, MapPin, Calendar, Edit3, ExternalLink, FileText, Trash2, LogOut } from 'lucide-react';
 import { useAuth } from '@/modules/auth/components/AuthProvider';
 import { auth, db } from '@lib/firebase';
 import { deleteUser } from 'firebase/auth';
@@ -154,9 +154,22 @@ export default function ProfilePage() {
               </div>
             </div>
           </div>
-          <Link href="/profile/edit" className="btn btn-secondary edit-profile-btn">
-            <Edit3 size={16} /> Edit Profile
-          </Link>
+          <div className="edit-profile-btn" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <Link href="/profile/edit" className="btn btn-secondary">
+              <Edit3 size={16} /> Edit Profile
+            </Link>
+            <button
+              type="button"
+              onClick={async () => {
+                await auth.signOut();
+                window.location.href = '/login';
+              }}
+              className="btn btn-ghost"
+              style={{ color: 'var(--aka)', border: '1px solid rgba(217,38,44,0.2)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <LogOut size={16} /> Log Out
+            </button>
+          </div>
         </section>
 
         <section className="stats-row">

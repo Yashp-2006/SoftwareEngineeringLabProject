@@ -20,7 +20,8 @@ import {
   ListOrdered, 
   Activity,
   CalendarPlus,
-  Play
+  Play,
+  Search
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { sortCategories } from '@/lib/categoryUtils';
@@ -115,6 +116,10 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
   // Spectator View State: selected mat for spectating
   const [selectedMat, setSelectedMat] = useState<string | null>(null);
   const [spectateTab, setSpectateTab] = useState<'scoreboard' | 'upcoming' | 'leaderboard'>('scoreboard');
+
+  // Search & Filter State for Mats Overview
+  const [matSearchQuery, setMatSearchQuery] = useState('');
+  const [matFilterStatus, setMatFilterStatus] = useState<'all' | 'live' | 'standby'>('all');
 
   // Check URL on load for pre-selected mat (?spectate=mat-1 or ?mat=mat-1)
   useEffect(() => {
@@ -361,6 +366,44 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
     return list;
   }, [categoriesOnSelectedMat]);
 
+  const filteredMats = useMemo(() => {
+    return mats.filter(mat => {
+      const liveState = liveStates[mat.id] || { status: 'standby' };
+      const isLive = liveState.status === 'live' || liveState.status === 'paused';
+
+      if (matFilterStatus === 'live' && !isLive) return false;
+      if (matFilterStatus === 'standby' && isLive) return false;
+
+      if (!matSearchQuery.trim()) return true;
+      const q = matSearchQuery.toLowerCase().trim();
+
+      if (mat.name.toLowerCase().includes(q)) return true;
+      if (mat.id.toLowerCase().includes(q)) return true;
+
+      // Check assigned categories
+      const assignedCats = categoryByMat[mat.name] || [];
+      if (assignedCats.some(c => c.name.toLowerCase().includes(q))) return true;
+
+      // Check current live match / categories
+      if (liveState.category?.toLowerCase().includes(q)) return true;
+      if (liveState.currentCategory?.toLowerCase().includes(q)) return true;
+      if (liveState.currentMatch?.toLowerCase().includes(q)) return true;
+      if (liveState.aka?.name?.toLowerCase().includes(q)) return true;
+      if (liveState.ao?.name?.toLowerCase().includes(q)) return true;
+
+      // Check assigned operator
+      const assignedOperator = staffList.find(s => 
+        s.role === 'score' && (s.assignedMats || []).some(m => m.toUpperCase() === mat.name.toUpperCase() || m.toLowerCase() === mat.id.toLowerCase())
+      );
+      if (assignedOperator) {
+        const opName = (assignedOperator.displayName || assignedOperator.name || assignedOperator.email || '').toLowerCase();
+        if (opName.includes(q)) return true;
+      }
+
+      return false;
+    });
+  }, [mats, liveStates, matFilterStatus, matSearchQuery, categoryByMat, staffList]);
+
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: `
@@ -548,6 +591,24 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
           gap: 20px;
           flex-wrap: wrap;
           box-shadow: 0 10px 30px rgba(15, 23, 42, 0.15);
+        }
+        @media (max-width: 768px) {
+          .mat-grid {
+            grid-template-columns: 1fr !important;
+            gap: var(--space-4) !important;
+          }
+          .operator-hero-card {
+            padding: 16px !important;
+            flex-direction: column !important;
+            align-items: flex-start !important;
+          }
+          .mats-search-bar {
+            flex-direction: column !important;
+            align-items: stretch !important;
+          }
+          .score-board {
+            padding: var(--space-2) !important;
+          }
         }
       `}} />
 
@@ -956,8 +1017,152 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
                 )}
               </div>
             ) : (
-              <div className="mat-grid">
-                {mats.map(mat => {
+              <div>
+                {/* Mats Search & Filter Controls */}
+                <div
+                  className="mats-search-bar"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '12px',
+                    marginTop: '20px',
+                    marginBottom: '16px',
+                    flexWrap: 'wrap'
+                  }}
+                >
+                  <div
+                    style={{
+                      position: 'relative',
+                      flex: '1 1 240px',
+                      minWidth: '220px'
+                    }}
+                  >
+                    <Search
+                      size={16}
+                      style={{
+                        position: 'absolute',
+                        left: '12px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        color: 'var(--neutral-400)',
+                        pointerEvents: 'none'
+                      }}
+                    />
+                    <input
+                      type="text"
+                      value={matSearchQuery}
+                      onChange={(e) => setMatSearchQuery(e.target.value)}
+                      placeholder="Search mat, category, athlete, or operator..."
+                      style={{
+                        width: '100%',
+                        padding: '10px 34px 10px 38px',
+                        borderRadius: '8px',
+                        border: '1px solid var(--neutral-300)',
+                        background: 'var(--shiro)',
+                        fontSize: '13px',
+                        fontWeight: 500,
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                    {matSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setMatSearchQuery('')}
+                        style={{
+                          position: 'absolute',
+                          right: '10px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--neutral-400)',
+                          cursor: 'pointer',
+                          padding: 0
+                        }}
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Status Filter Chips */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={() => setMatFilterStatus('all')}
+                      style={{
+                        padding: '8px 14px',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        border: '1px solid',
+                        borderColor: matFilterStatus === 'all' ? 'var(--kuro)' : 'var(--neutral-300)',
+                        background: matFilterStatus === 'all' ? 'var(--kuro)' : 'var(--shiro)',
+                        color: matFilterStatus === 'all' ? '#fff' : 'var(--neutral-700)',
+                        cursor: 'pointer',
+                        transition: 'all 150ms ease'
+                      }}
+                    >
+                      All ({mats.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMatFilterStatus('live')}
+                      style={{
+                        padding: '8px 14px',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        border: '1px solid',
+                        borderColor: matFilterStatus === 'live' ? '#22c55e' : 'var(--neutral-300)',
+                        background: matFilterStatus === 'live' ? '#dcfce7' : 'var(--shiro)',
+                        color: matFilterStatus === 'live' ? '#15803d' : 'var(--neutral-700)',
+                        cursor: 'pointer',
+                        transition: 'all 150ms ease'
+                      }}
+                    >
+                      ● Live ({Object.values(liveStates).filter(s => s.status === 'live' || s.status === 'paused').length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMatFilterStatus('standby')}
+                      style={{
+                        padding: '8px 14px',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        border: '1px solid',
+                        borderColor: matFilterStatus === 'standby' ? 'var(--neutral-700)' : 'var(--neutral-300)',
+                        background: matFilterStatus === 'standby' ? 'var(--neutral-100)' : 'var(--shiro)',
+                        color: matFilterStatus === 'standby' ? 'var(--neutral-900)' : 'var(--neutral-700)',
+                        cursor: 'pointer',
+                        transition: 'all 150ms ease'
+                      }}
+                    >
+                      Standby
+                    </button>
+                  </div>
+                </div>
+
+                {filteredMats.length === 0 ? (
+                  <div style={{ padding: '40px 20px', textAlign: 'center', background: 'var(--shiro)', borderRadius: '12px', border: '1px solid var(--neutral-300)', marginTop: '20px' }}>
+                    <Search size={32} style={{ color: 'var(--neutral-400)', margin: '0 auto 12px' }} />
+                    <div style={{ fontWeight: 700, fontSize: '15px' }}>No mats match your search</div>
+                    <p style={{ color: 'var(--neutral-500)', fontSize: '13px', margin: '4px 0 12px' }}>Try clearing your search query or status filter.</p>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => { setMatSearchQuery(''); setMatFilterStatus('all'); }}
+                      style={{ fontSize: '12px', padding: '6px 14px' }}
+                    >
+                      Reset Filters
+                    </button>
+                  </div>
+                ) : (
+                  <div className="mat-grid">
+                    {filteredMats.map(mat => {
                   const liveState = liveStates[mat.id] || { status: 'standby' };
                   const isLive = liveState.status === 'live' || liveState.status === 'paused';
                   const assignedCats = categoryByMat[mat.name] || [];
@@ -1134,7 +1339,9 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
             )}
           </div>
         )}
-      </main>
-    </>
-  );
+      </div>
+    )}
+  </main>
+</>
+);
 }

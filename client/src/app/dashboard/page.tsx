@@ -406,11 +406,69 @@ export default function DashboardPage() {
           .dashboard-bento { gap: var(--space-3); }
         }
 
-        /* Mobile: everything single column */
+        /* Mobile portrait & phone: 2x2 metric grid with fluid charts and scrollable table */
         @media (max-width: 768px) {
-          .col-span-3, .col-span-4, .col-span-6, .col-span-8, .col-span-12 { grid-column: span 12; }
-          .dashboard-bento { gap: var(--space-3); }
-          .bento-card { border-radius: 12px; }
+          .col-span-3 { grid-column: span 6 !important; }
+          .col-span-4, .col-span-6, .col-span-8, .col-span-12 { grid-column: span 12 !important; }
+          .dashboard-bento { gap: 10px; }
+          .bento-card { border-radius: 14px; padding: 14px !important; }
+          .stat-value { font-size: 32px !important; }
+          .stat-header { font-size: 11px !important; margin-bottom: 8px !important; }
+          .stat-footer { font-size: 11px !important; }
+          .page-header {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 14px !important;
+          }
+          .page-header-actions {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr !important;
+            gap: 8px !important;
+            width: 100% !important;
+          }
+          .page-header-actions .btn {
+            width: 100% !important;
+            justify-content: center !important;
+            min-height: 42px !important;
+            padding: 8px 10px !important;
+            font-size: 13px !important;
+          }
+          .chart-header-row {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 10px !important;
+          }
+          .chart-header-row .chart-controls {
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+          }
+          .pie-chart-wrap {
+            flex-direction: column !important;
+            align-items: center !important;
+            gap: 14px !important;
+          }
+          .pie-chart-legend {
+            width: 100% !important;
+            max-height: 180px !important;
+            padding-right: 0 !important;
+          }
+          .modern-table {
+            min-width: 580px;
+          }
+          .modern-table th, .modern-table td {
+            padding: 12px 14px !important;
+          }
+          .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+          }
+        }
+
+        @media (max-width: 380px) {
+          .col-span-3 { grid-column: span 12 !important; }
         }
 
         .stat-header {
@@ -504,7 +562,7 @@ export default function DashboardPage() {
             <div className="breadcrumb">Admin / Dashboard</div>
             <h1>Operations Hub</h1>
           </div>
-          <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
+          <div className="page-header-actions" style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
             <button
               className="btn btn-secondary"
               style={{
@@ -600,7 +658,7 @@ export default function DashboardPage() {
 
           {/* Participation Trends (Wide or Full Width if no live tournament) */}
           <div className={`bento-card ${activeLiveTournaments.length > 0 ? 'col-span-8' : 'col-span-12'}`} style={{ minHeight: '260px' }}>
-            <div className="flex-between mb-4">
+            <div className="flex-between mb-4 chart-header-row">
               <div className="stat-header" style={{ margin: 0 }}>
                 <div className="stat-icon-wrap" style={{ width: '28px', height: '28px', background: 'var(--ao-light)', color: 'var(--ao)', marginRight: '4px' }}>
                   <TrendingUp size={16} />
@@ -720,11 +778,11 @@ export default function DashboardPage() {
                 {currentLiveComp ? `Athletes per category in ${currentLiveComp.name || 'Live Tournament'}` : 'Athletes per category in live tournament'}
               </p>
               
-              <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'center', height: '100%' }}>
+              <div className="pie-chart-wrap" style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'center', height: '100%' }}>
                 <div style={{ flexShrink: 0 }}>
                   {renderPieChart()}
                 </div>
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', maxHeight: '160px', paddingRight: '8px' }}>
+                <div className="pie-chart-legend" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', maxHeight: '160px', paddingRight: '8px' }}>
                   {pieLoading ? (
                     <div style={{ color: 'var(--neutral-400)', fontSize: '12px', fontStyle: 'italic', padding: '16px 0' }}>
                       Loading categories...
