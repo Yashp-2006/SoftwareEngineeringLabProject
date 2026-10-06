@@ -127,16 +127,7 @@ export default function CategoriesPhase({
           <select className="input-field" style={{ width: '160px', height: '36px', marginBottom: 0 }} value={filterDiscipline} onChange={e => setFilterDiscipline(e.target.value as any)}>
             <option value="all">All Disciplines</option>
             <option value="kata">Kata Only</option>
-            <option value="kumite">Kumite Only</option>
           </select>
-          <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--neutral-600)', cursor: 'pointer', userSelect: 'none' }}>
-            <input 
-              type="checkbox" 
-              checked={hideEmpty} 
-              onChange={e => setHideEmpty(e.target.checked)} 
-            />
-            Hide Empty (0 entries)
-          </label>
         </div>
 
         <div className="table-responsive" style={{ maxHeight: '400px', overflowY: 'auto' }}>
@@ -147,7 +138,6 @@ export default function CategoriesPhase({
                 <th>Category Name</th>
                 <th>Discipline</th>
                 <th>Requirements</th>
-                <th>Entries</th>
                 <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
@@ -199,7 +189,6 @@ export default function CategoriesPhase({
                       </div>
                     )}
                   </td>
-                  <td>{cat.entries}</td>
                   <td style={{ textAlign: 'right' }}>
                     <button type="button" className="btn btn-ghost" style={{ padding: '4px' }} onClick={() => {
                       setEditCatId(cat.id);
@@ -213,7 +202,7 @@ export default function CategoriesPhase({
               ))}
               {filteredCategories.length === 0 && (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: 'center', color: 'var(--neutral-500)', padding: 'var(--space-6)' }}>
+                  <td colSpan={5} style={{ textAlign: 'center', color: 'var(--neutral-500)', padding: 'var(--space-6)' }}>
                     {categories.length === 0
                       ? 'No categories defined yet. Click "Load WKF Rules", "Import", or "Add Category" above to get started.'
                       : 'No categories found matching filters.'}
