@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/modules/auth/components/AuthProvider';
-import { Award, Loader2, ShieldAlert, LogOut, ArrowLeft, Lock } from 'lucide-react';
+import { Award, Loader2, ArrowLeft, Lock, Radio } from 'lucide-react';
 import PageSkeleton from '@/modules/core/layout/PageSkeleton';
 import { toast } from 'react-hot-toast';
-import { rtdb } from '@lib/firebase';
+import { rtdb, db } from '@lib/firebase';
 import { ref, onValue, off, update } from 'firebase/database';
 
 // ─── Flag SVG Component ─────────────────────────────────────────────────────────
@@ -17,50 +18,118 @@ const FlagIcon = ({ color, size = 120 }: { color: string; size?: number }) => (
   </svg>
 );
 
-// Convert display mat label (e.g. "MAT 01") → RTDB key (e.g. "mat-1")
-function matLabelToId(label: string): string {
-  const num = parseInt(label.replace(/\D/g, ''), 10);
-  return `mat-${num}`;
+// Standardize mat strings: "MAT 01", "mat-1", "1", "MAT 1" → { matId: "mat-1", matLabel: "MAT 01", matNum: 1 }
+function parseMatInfo(raw: string): { matId: string; matLabel: string; matNum: number } {
+  const num = parseInt(raw.replace(/\D/g, '') || '1', 10);
+  return {
+    matId: `mat-${num}`,
+    matLabel: `MAT ${String(num).padStart(2, '0')}`,
+    matNum: num,
+  };
 }
 
-export default function JudgePanel({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = React.use(params);
+function JudgePanelInner({ id }: { id: string }) {
+  const searchParams = useSearchParams();
   const { user, role, loading: authLoading } = useAuth();
 
-  // Auto-detect mat+seat from staff assignment (judge role only)
+  // URL query params: ?mat=mat-1 & ?judge=1 / ?seat=1
+  const matQuery = searchParams.get('mat') || searchParams.get('matId');
+  const judgeQuery = searchParams.get('judge') || searchParams.get('seat') || searchParams.get('position');
+
+  // Auto-detected mat+seat from staff assignment
   const [assignedMatId, setAssignedMatId] = useState<string | null>(null);
   const [assignedJudgeIndex, setAssignedJudgeIndex] = useState<number | null>(null);
   const [assignmentLoading, setAssignmentLoading] = useState(false);
 
-  // Display labels for mat selection
-  const [matLabel, setMatLabel] = useState<string | null>(null);
-  const matId = matLabel ? matLabelToId(matLabel) : null;
-  const [judgeIndex, setJudgeIndex] = useState<number | null>(null);
+  // Available mats count (dynamically loaded from competition doc, default 8)
+  const [availableMatsCount, setAvailableMatsCount] = useState<number>(8);
 
+  // Display labels for mat selection
+  const [matLabel, setMatLabel] = useState<string | null>(() => {
+    if (matQuery) return parseMatInfo(matQuery).matLabel;
+    return null;
+  });
+  const matId = matLabel ? parseMatInfo(matLabel).matId : null;
+  const [judgeIndex, setJudgeIndex] = useState<number | null>(() => {
+    if (judgeQuery) {
+      const parsed = parseInt(judgeQuery, 10);
+      if (!isNaN(parsed)) return parsed >= 1 ? parsed - 1 : 0;
+    }
+    return null;
+  });
+
+  // Fetch competition mats count
   useEffect(() => {
-    if (!user || role !== 'judge') return;
-    setAssignmentLoading(true);
-    const load = async () => {
+    if (!id) return;
+    const fetchComp = async () => {
       try {
-        const { db } = await import('@lib/firebase');
-        const { collection, query, where, getDocs } = await import('firebase/firestore');
-        const q = query(
-          collection(db, 'competitions', id, 'staff'),
-          where('userId', '==', user.uid),
-          where('approvalStatus', '==', 'approved')
-        );
-        const snap = await getDocs(q);
-        if (!snap.empty) {
-          const data = snap.docs[0].data();
-          if (data.matId) {
-            // matId in DB is like 'mat-2', display label is 'MAT 02'
-            const num = parseInt(data.matId.replace('mat-', ''), 10);
-            const label = `MAT ${String(num).padStart(2, '0')}`;
-            setAssignedMatId(data.matId);
-            setAssignedJudgeIndex(typeof data.judgeIndex === 'number' ? data.judgeIndex : null);
-            setMatLabel(label);
-            if (typeof data.judgeIndex === 'number') setJudgeIndex(data.judgeIndex);
+        const { doc, getDoc } = await import('firebase/firestore');
+        const snap = await getDoc(doc(db, 'competitions', id));
+        if (snap.exists()) {
+          const cData = snap.data();
+          const count = cData.numberOfMats || cData.matsCount || (Array.isArray(cData.mats) ? cData.mats.length : null);
+          if (count && typeof count === 'number' && count > 0) {
+            setAvailableMatsCount(Math.min(Math.max(count, 1), 16));
           }
+        }
+      } catch (e) {
+        console.warn('Could not load competition mat count', e);
+      }
+    };
+    fetchComp();
+  }, [id]);
+
+  // Load staff assignment (by user.uid or user.email, reading assignedMats, reassignedToMat, and matId)
+  useEffect(() => {
+    if (!user) return;
+    setAssignmentLoading(true);
+    let unsubStaff: (() => void) | null = null;
+
+    const loadStaff = async () => {
+      try {
+        const { collection, query, where, getDocs, doc, onSnapshot } = await import('firebase/firestore');
+
+        // 1. Match by UID
+        let q = query(
+          collection(db, 'competitions', id, 'staff'),
+          where('userId', '==', user.uid)
+        );
+        let snap = await getDocs(q);
+
+        // 2. Fallback to match by email
+        if (snap.empty && user.email) {
+          q = query(
+            collection(db, 'competitions', id, 'staff'),
+            where('email', '==', user.email)
+          );
+          snap = await getDocs(q);
+        }
+
+        if (!snap.empty) {
+          const staffDoc = snap.docs[0];
+          const applyAssignment = (data: any) => {
+            const rawMat = data.reassignedToMat || (data.assignedMats && data.assignedMats.length > 0 ? data.assignedMats[0] : null) || data.matId;
+            if (rawMat) {
+              const { matId: pId, matLabel: pLabel } = parseMatInfo(String(rawMat));
+              setAssignedMatId(pId);
+              setMatLabel((curr) => curr || pLabel);
+            }
+
+            const jIdx = typeof data.judgeIndex === 'number' ? data.judgeIndex : (typeof data.seatIndex === 'number' ? data.seatIndex : null);
+            if (jIdx !== null) {
+              setAssignedJudgeIndex(jIdx);
+              setJudgeIndex((curr) => (curr === null ? jIdx : curr));
+            }
+          };
+
+          applyAssignment(staffDoc.data());
+
+          // Listen for live reassignment
+          unsubStaff = onSnapshot(doc(db, 'competitions', id, 'staff', staffDoc.id), (docSnap) => {
+            if (docSnap.exists()) {
+              applyAssignment(docSnap.data());
+            }
+          });
         }
       } catch (err) {
         console.error('Failed to load judge assignment', err);
@@ -68,13 +137,16 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
         setAssignmentLoading(false);
       }
     };
-    load();
-  }, [user, role, id]);
 
+    loadStaff();
+
+    return () => {
+      if (unsubStaff) unsubStaff();
+    };
+  }, [user, id]);
 
   const [liveData, setLiveData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  // Track whether we've received at least one RTDB snapshot after mat selection
   const [rtdbReady, setRtdbReady] = useState(false);
 
   // 5-second countdown state
@@ -82,8 +154,18 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
   const [pendingVote, setPendingVote] = useState<'aka' | 'ao' | null>(null);
   const [voteSubmitted, setVoteSubmitted] = useState(false);
 
-  // Dynamic judge count from the live match data — fallback to 7 until we have data
+  // Dynamic judge count from live match data
   const configuredJudgeCount = liveData?.numberOfJudges ?? null;
+
+  // Track matchId changes to reset voting state for next bout
+  const currentMatchId = liveData?.matchId;
+  const [lastMatchId, setLastMatchId] = useState<string | null>(null);
+  if (currentMatchId && currentMatchId !== lastMatchId) {
+    setLastMatchId(currentMatchId);
+    setVoteCountdown(null);
+    setPendingVote(null);
+    setVoteSubmitted(false);
+  }
 
   const [prevMatId, setPrevMatId] = useState<string | null>(null);
   if (matId !== prevMatId) {
@@ -93,16 +175,26 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
     if (matId) setLoading(true);
   }
 
-  // Listen to RTDB whenever matId changes (even before judge is selected)
+  // Listen to RTDB whenever matId changes
   useEffect(() => {
     if (!matId) return;
 
-    let unsub: () => void;
+    let unsub: (() => void) | undefined;
+    setLoading(true);
+    setRtdbReady(false);
 
-    const setup = () => {
-      try {
-        const r = ref(rtdb, `live_scores/${id}/mats/${matId}`);
-        const handler = onValue(r, (snap) => {
+    // Safety timeout: never hang forever on "Connecting to live mat..."
+    const safetyTimer = setTimeout(() => {
+      setLoading(false);
+      setRtdbReady(true);
+    }, 2500);
+
+    try {
+      const r = ref(rtdb, `live_scores/${id}/mats/${matId}`);
+      const handler = onValue(
+        r,
+        (snap) => {
+          clearTimeout(safetyTimer);
           if (snap.exists()) {
             setLiveData(snap.val());
           } else {
@@ -110,17 +202,26 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
           }
           setLoading(false);
           setRtdbReady(true);
-        });
-        unsub = () => off(r, 'value', handler);
-      } catch (err) {
-        console.error('Failed to listen to live scores', err);
-        setLoading(false);
-        setRtdbReady(true);
-      }
-    };
+        },
+        (error) => {
+          clearTimeout(safetyTimer);
+          console.error('Failed to listen to live scores', error);
+          setLoading(false);
+          setRtdbReady(true);
+        }
+      );
+      unsub = () => off(r, 'value', handler);
+    } catch (err) {
+      clearTimeout(safetyTimer);
+      console.error('Failed to setup live scores listener', err);
+      setLoading(false);
+      setRtdbReady(true);
+    }
 
-    setup();
-    return () => { if (unsub) unsub(); };
+    return () => {
+      clearTimeout(safetyTimer);
+      if (unsub) unsub();
+    };
   }, [id, matId]);
 
   // 5-second countdown timer when bout finishes
@@ -133,23 +234,15 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
   useEffect(() => {
     if (voteCountdown === null || voteCountdown <= 0) return;
     const timer = setTimeout(() => {
-      setVoteCountdown(prev => (prev !== null ? prev - 1 : null));
+      setVoteCountdown((prev) => (prev !== null ? prev - 1 : null));
     }, 1000);
     return () => clearTimeout(timer);
   }, [voteCountdown]);
 
-  // When countdown hits 0, submit the pending vote
-  useEffect(() => {
-    if (voteCountdown === 0 && pendingVote && !voteSubmitted) {
-      submitVote(pendingVote);
-      setVoteSubmitted(true);
-    }
-  }, [voteCountdown, pendingVote, voteSubmitted]);
-
   const submitVote = async (vote: 'aka' | 'ao') => {
+    if (!matId || judgeIndex === null) return;
     try {
       const r = ref(rtdb, `live_scores/${id}/mats/${matId}/kataScores`);
-      
       const patch: any = {};
       if (vote === 'aka') {
         patch[`aka/${judgeIndex}`] = 1;
@@ -160,29 +253,41 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
       }
 
       await update(r, patch);
-      toast.success('Vote submitted!');
+      toast.success(`Vote for ${vote.toUpperCase()} submitted!`);
     } catch (err) {
       console.error('Vote submission failed', err);
-      toast.error('Failed to submit vote.');
+      toast.error('Failed to submit vote. Check connection.');
     }
   };
 
+  // When countdown hits 0, submit pending vote
+  useEffect(() => {
+    if (voteCountdown === 0 && pendingVote && !voteSubmitted) {
+      submitVote(pendingVote);
+      setVoteSubmitted(true);
+    }
+  }, [voteCountdown, pendingVote, voteSubmitted]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleFlagVote = async (vote: 'aka' | 'ao') => {
-    // If bout is finished, use the countdown mechanism
+    if (!matId || judgeIndex === null) {
+      toast.error('Please select your mat and seat first.');
+      return;
+    }
+
+    // If bout is finished, use countdown lock mechanism
     if (liveData?.boutFinished) {
       if (voteSubmitted) {
-        toast.error("Vote already submitted.");
+        toast.error('Vote already submitted.');
         return;
       }
       setPendingVote(vote);
-      if (navigator.vibrate) navigator.vibrate(50);
+      if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(50);
       return;
     }
 
     // Normal voting during match
     try {
       const r = ref(rtdb, `live_scores/${id}/mats/${matId}/kataScores`);
-      
       const patch: any = {};
       if (vote === 'aka') {
         patch[`aka/${judgeIndex}`] = 1;
@@ -193,8 +298,7 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
       }
 
       await update(r, patch);
-      
-      if (navigator.vibrate) {
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
         navigator.vibrate(50);
       }
     } catch (err) {
@@ -214,72 +318,67 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
         <Lock size={48} color="#ef4444" />
         <h1 style={{ fontSize: '28px', fontWeight: 800, margin: 0 }}>Authentication Required</h1>
         <p style={{ fontSize: '16px', color: 'var(--neutral-400)', textAlign: 'center', maxWidth: '400px', margin: 0 }}>
-          The Judge Panel requires authentication. Please sign in with your assigned judge account to access the voting interface.
+          The Judge Panel requires authentication. Please sign in with your judge account to access the voting interface.
         </p>
-        <Link href="/login" className="btn btn-primary" style={{ padding: '12px 32px', fontSize: '15px' }}>
+        <Link href={`/login?compId=${id}`} className="btn btn-primary" style={{ padding: '12px 32px', fontSize: '15px' }}>
           Sign In
         </Link>
       </main>
     );
   }
 
-  // ─── Mat & Judge Selection ──────────────────────────────────────────
-  // Display labels — these are the user-facing mat names
-  const matLabels = ['MAT 01', 'MAT 02', 'MAT 03', 'MAT 04', 'MAT 05', 'MAT 06', 'MAT 07', 'MAT 08'];
-  
-  // Determine how many judges to show:
-  // - If we have RTDB data, use its numberOfJudges
-  // - While loading, show a spinner
-  // - If no RTDB data yet (mat selected but no live match), default to 7
-  const judgeCount = configuredJudgeCount || 7;
-  const judges = Array.from({ length: judgeCount }, (_, i) => i);
-
-  // For judge role: show a loading state while we fetch the assignment
-  // For admin/guest_viewer: fall through to the manual picker below
-  if (role === 'judge' && assignmentLoading) {
+  if (assignmentLoading && !matLabel) {
     return <PageSkeleton />;
   }
 
-  if (role === 'judge' && !assignedMatId) {
-    return (
-      <main style={{ minHeight: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', padding: '32px' }}>
-        <ShieldAlert size={48} color="var(--aka)" />
-        <h2 style={{ margin: 0, fontSize: '22px' }}>No Mat Assignment Found</h2>
-        <p style={{ fontSize: '14px', color: 'var(--neutral-500)', textAlign: 'center', maxWidth: '360px', margin: 0 }}>
-          Your account has not been assigned to a mat for this competition. Contact the tournament director.
-        </p>
-        <Link href={`/competitions/${id}`} className="btn btn-secondary">
-          <ArrowLeft size={16} /> Back to Competition
-        </Link>
-      </main>
-    );
-  }
+  // ─── Mat & Judge Selection Screen ──────────────────────────────────
+  const matLabels = Array.from({ length: availableMatsCount }, (_, i) => `MAT ${String(i + 1).padStart(2, '0')}`);
+  const judgeCount = configuredJudgeCount || 7;
+  const judges = Array.from({ length: judgeCount }, (_, i) => i);
 
   if (!matLabel || judgeIndex === null) {
     return (
-      <main className="container" style={{ maxWidth: '600px', paddingTop: 'var(--space-8)' }}>
-        <div className="card">
-          <div className="flex-between" style={{ marginBottom: 'var(--space-6)' }}>
+      <main className="container" style={{ maxWidth: '640px', paddingTop: 'var(--space-8)', paddingBottom: 'var(--space-8)' }}>
+        <div className="card" style={{ padding: '28px', borderRadius: '16px', border: '1px solid var(--neutral-200)', background: 'var(--bg-surface)' }}>
+          <div className="flex-between" style={{ marginBottom: 'var(--space-6)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <h1 style={{ fontSize: '24px', marginBottom: '4px' }}>Judge Assignment</h1>
-              <p className="text-small">Select your assigned Mat and Position.</p>
+              <h1 style={{ fontSize: '24px', fontWeight: 800, margin: '0 0 4px 0' }}>Judge Assignment</h1>
+              <p className="text-small" style={{ margin: 0, color: 'var(--neutral-500)' }}>Select your assigned Mat and Position to connect live.</p>
             </div>
-            <Link href={`/competitions/${id}`} className="btn btn-ghost">
-              <ArrowLeft size={16} style={{ marginRight: '6px' }} /> Back
+            <Link href={`/competitions/${id}`} className="btn btn-ghost" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <ArrowLeft size={16} /> Back
             </Link>
           </div>
+
+          {!assignedMatId && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px', background: 'rgba(234, 179, 8, 0.1)', border: '1px solid rgba(234, 179, 8, 0.3)', borderRadius: '10px', marginBottom: '20px' }}>
+              <Radio size={18} color="#eab308" style={{ flexShrink: 0 }} />
+              <span style={{ fontSize: '13px', color: 'var(--neutral-700)' }}>
+                No automatic mat assignment linked to your profile. Select your mat and seat manually below to start judging.
+              </span>
+            </div>
+          )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
             {/* Step 1: Select Mat */}
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>1. Select Mat</label>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                1. Select Mat
+              </label>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
-                {matLabels.map(m => (
-                  <button 
+                {matLabels.map((m) => (
+                  <button
                     key={m}
+                    type="button"
                     className={`btn ${matLabel === m ? 'btn-primary' : 'btn-secondary'}`}
-                    onClick={() => { setMatLabel(m); setJudgeIndex(null); setVoteCountdown(null); setPendingVote(null); setVoteSubmitted(false); }}
-                    style={{ padding: '12px 8px', fontSize: '13px' }}
+                    onClick={() => {
+                      setMatLabel(m);
+                      setJudgeIndex(null);
+                      setVoteCountdown(null);
+                      setPendingVote(null);
+                      setVoteSubmitted(false);
+                    }}
+                    style={{ padding: '12px 8px', fontSize: '13px', fontWeight: 700 }}
                   >
                     {m}
                   </button>
@@ -289,9 +388,10 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
 
             {/* Step 2: Select Judge Position */}
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>2. Select Position</label>
-              
-              {/* Status info below the label */}
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                2. Select Judge Position
+              </label>
+
               {!matLabel ? (
                 <p style={{ fontSize: '12px', color: 'var(--neutral-500)', marginBottom: '8px' }}>
                   Select a mat above to see available judge positions.
@@ -299,21 +399,29 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
               ) : loading && !rtdbReady ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: 'var(--neutral-500)', fontSize: '13px' }}>
                   <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
-                  Loading mat data...
+                  Checking mat connection...
                 </div>
               ) : (
                 <p style={{ fontSize: '12px', color: 'var(--neutral-500)', marginBottom: '8px' }}>
                   {configuredJudgeCount
-                    ? `This match has ${configuredJudgeCount} judges configured. Select your position.`
-                    : `No active match on ${matLabel}. Showing all 7 positions.`
-                  }
+                    ? `Active match on ${matLabel} has ${configuredJudgeCount} judges configured.`
+                    : `Connected to ${matLabel}. Showing all ${judgeCount} judge seats.`}
                 </p>
               )}
 
-              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(judgeCount, 7)}, 1fr)`, gap: '8px', opacity: !matLabel ? 0.4 : 1, pointerEvents: !matLabel ? 'none' : 'auto' }}>
-                {judges.map(j => (
-                  <button 
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: `repeat(${Math.min(judgeCount, 7)}, 1fr)`,
+                  gap: '8px',
+                  opacity: !matLabel ? 0.4 : 1,
+                  pointerEvents: !matLabel ? 'none' : 'auto',
+                }}
+              >
+                {judges.map((j) => (
+                  <button
                     key={j}
+                    type="button"
                     className={`btn ${judgeIndex === j ? 'btn-primary' : 'btn-secondary'}`}
                     onClick={() => setJudgeIndex(j)}
                     style={{ padding: '12px 0', fontSize: '14px', fontWeight: 800 }}
@@ -326,7 +434,7 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
 
             <div style={{ marginTop: 'var(--space-4)', padding: 'var(--space-4)', background: 'var(--neutral-50)', borderRadius: '12px', border: '1px solid var(--neutral-200)' }}>
               <p style={{ fontSize: '13px', color: 'var(--neutral-600)', margin: 0 }}>
-                <strong>Note:</strong> Ensure your selection matches the assignment given to you by the tournament director. Your votes will be recorded live.
+                <strong>Note:</strong> Ensure your seat selection matches the assignment given to you by the tournament director. Your votes are transmitted live to the scoreboard.
               </p>
             </div>
           </div>
@@ -339,7 +447,7 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
     );
   }
 
-  // Find out what we voted for
+  // ─── Active Judge View ─────────────────────────────────────────────
   let myVote: 'aka' | 'ao' | 'tie' | null = null;
   if (liveData?.kataScores) {
     const akaScore = liveData.kataScores.aka?.[judgeIndex];
@@ -354,19 +462,45 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
 
   return (
     <main style={{ minHeight: '100vh', background: 'var(--neutral-900)', color: 'var(--shiro)', display: 'flex', flexDirection: 'column' }}>
-      <header style={{ padding: '16px 24px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <header style={{ padding: '16px 24px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <Award size={24} color="#3b82f6" />
           <div>
             <div style={{ fontSize: '16px', fontWeight: 800, letterSpacing: '0.05em' }}>LIVE JUDGE PANEL</div>
-            <div style={{ fontSize: '12px', color: 'var(--neutral-400)' }}>{matLabel} · Judge {judgeIndex + 1}</div>
+            <div style={{ fontSize: '12px', color: 'var(--neutral-400)', display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
+              <span>{matLabel} · Judge {judgeIndex + 1}</span>
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  fontSize: '11px',
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  background: rtdbReady ? (liveData ? 'rgba(34,197,94,0.15)' : 'rgba(234,179,8,0.15)') : 'rgba(239,68,68,0.15)',
+                  color: rtdbReady ? (liveData ? '#4ade80' : '#facc15') : '#f87171',
+                  fontWeight: 700,
+                }}
+              >
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'currentColor' }} />
+                {loading && !rtdbReady ? 'Connecting...' : liveData ? 'Live Connected' : 'Mat Standby'}
+              </span>
+            </div>
           </div>
         </div>
-        <button 
-          onClick={() => { setMatLabel(null); setJudgeIndex(null); setVoteCountdown(null); setPendingVote(null); setVoteSubmitted(false); setLiveData(null); setRtdbReady(false); }}
+        <button
+          onClick={() => {
+            setMatLabel(null);
+            setJudgeIndex(null);
+            setVoteCountdown(null);
+            setPendingVote(null);
+            setVoteSubmitted(false);
+            setLiveData(null);
+            setRtdbReady(false);
+          }}
           style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: 'var(--shiro)', padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
         >
-          Change Mat
+          Change Mat / Seat
         </button>
       </header>
 
@@ -374,10 +508,9 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
         {loading && !rtdbReady ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, gap: '16px', color: 'var(--neutral-400)' }}>
             <Loader2 size={40} style={{ animation: 'spin 1s linear infinite' }} />
-            <span style={{ fontSize: '16px', fontWeight: 600 }}>Connecting to live mat...</span>
+            <span style={{ fontSize: '16px', fontWeight: 600 }}>Connecting to {matLabel}...</span>
           </div>
         ) : (
-          /* ─── Always Show voting flags ─── */
           <>
             {/* Competitor names banner + kata info */}
             {(liveData?.matchId || liveData?.akaName || liveData?.aoName) && (
@@ -393,7 +526,7 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
                     <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'var(--ao)' }} />
                   </div>
                 </div>
-                {/* Kata selection display */}
+
                 {liveData?.isKata && (liveData?.selectedKata?.aka || liveData?.selectedKata?.ao) && (
                   <div style={{ display: 'flex', gap: '8px', padding: '10px 16px', background: 'rgba(59,130,246,0.08)', borderRadius: '10px', border: '1px solid rgba(59,130,246,0.2)', flexWrap: 'wrap', justifyContent: 'space-between' }}>
                     {liveData.selectedKata?.aka && (
@@ -413,9 +546,9 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
 
             {/* No active match notice */}
             {!liveData && rtdbReady && (
-              <div style={{ textAlign: 'center', padding: '24px', marginBottom: '16px', background: 'rgba(255,255,255,0.05)', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--neutral-400)' }}>No active match on {matLabel}</div>
-                <div style={{ fontSize: '12px', color: 'var(--neutral-500)', marginTop: '4px' }}>Waiting for match to start...</div>
+              <div style={{ textAlign: 'center', padding: '20px', marginBottom: '16px', background: 'rgba(255,255,255,0.05)', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--neutral-400)' }}>Connected to {matLabel} (Standby)</div>
+                <div style={{ fontSize: '12px', color: 'var(--neutral-500)', marginTop: '4px' }}>Waiting for mat operator to start next bout. You can vote as soon as the match begins.</div>
               </div>
             )}
 
@@ -441,6 +574,7 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
                 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
               `}</style>
               <button
+                type="button"
                 onClick={() => handleFlagVote('aka')}
                 disabled={voteSubmitted}
                 style={{
@@ -460,7 +594,7 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
                   cursor: voteSubmitted ? 'not-allowed' : 'pointer',
                   opacity: voteSubmitted ? 0.5 : 1,
                   transition: 'all 0.2s',
-                  boxShadow: (myVote === 'aka' || pendingVote === 'aka') ? '0 12px 48px rgba(217,38,44,0.4)' : 'none'
+                  boxShadow: (myVote === 'aka' || pendingVote === 'aka') ? '0 12px 48px rgba(217,38,44,0.4)' : 'none',
                 }}
               >
                 <FlagIcon color={(myVote === 'aka' || pendingVote === 'aka') ? '#fff' : 'var(--aka)'} />
@@ -468,6 +602,7 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
                 <div style={{ fontSize: '14px', fontWeight: 600, opacity: 0.8 }}>{akaName}</div>
               </button>
               <button
+                type="button"
                 onClick={() => handleFlagVote('ao')}
                 disabled={voteSubmitted}
                 style={{
@@ -487,7 +622,7 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
                   cursor: voteSubmitted ? 'not-allowed' : 'pointer',
                   opacity: voteSubmitted ? 0.5 : 1,
                   transition: 'all 0.2s',
-                  boxShadow: (myVote === 'ao' || pendingVote === 'ao') ? '0 12px 48px rgba(26,77,181,0.4)' : 'none'
+                  boxShadow: (myVote === 'ao' || pendingVote === 'ao') ? '0 12px 48px rgba(26,77,181,0.4)' : 'none',
                 }}
               >
                 <FlagIcon color={(myVote === 'ao' || pendingVote === 'ao') ? '#fff' : 'var(--ao)'} />
@@ -511,5 +646,14 @@ export default function JudgePanel({ params }: { params: Promise<{ id: string }>
         </div>
       )}
     </main>
+  );
+}
+
+export default function JudgePanel({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = React.use(params);
+  return (
+    <Suspense fallback={<PageSkeleton />}>
+      <JudgePanelInner id={id} />
+    </Suspense>
   );
 }
