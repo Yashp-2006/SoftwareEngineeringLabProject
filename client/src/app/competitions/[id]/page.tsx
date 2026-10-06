@@ -535,8 +535,9 @@ export default function CompetitionDetail({ params }: { params: Promise<{ id: st
                       if (!m.categoryName) return true;
                       const nameLower = m.categoryName.toLowerCase();
                       if (filterType !== 'all') {
-                        if (filterType === 'kata' && !nameLower.includes('kata')) return false;
-                        if (filterType === 'kumite' && !nameLower.includes('kumite')) return false;
+                        const isKata = Boolean(m.isKata || nameLower.includes('kata'));
+                        if (filterType === 'kata' && !isKata) return false;
+                        if (filterType === 'kumite' && isKata) return false;
                       }
                       if (filterMat !== 'all' && m.mat !== filterMat) return false;
                       return true;

@@ -57,14 +57,15 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
 
   const filteredCategories = categories.filter(row => {
     const nameLower = row.name.toLowerCase();
+    const isKata = Boolean(row.isKata || nameLower.includes('kata'));
+
     if (filterType !== 'all') {
-      if (filterType === 'kata' && !nameLower.includes('kata')) return false;
-      if (filterType === 'kumite' && !nameLower.includes('kumite')) return false;
+      if (filterType === 'kata' && !isKata) return false;
+      if (filterType === 'kumite' && isKata) return false;
     }
     if (filterGender !== 'all') {
-      // 'female' contains 'male', so check 'female' first
-      const isFemale = nameLower.includes('female') || nameLower.includes('women');
-      const isMale = !isFemale && (nameLower.includes('male') || nameLower.includes('men'));
+      const isFemale = /\b(female|girls?|women)\b/.test(nameLower) || nameLower.includes('female');
+      const isMale = !isFemale && (/\b(male|boys?|men)\b/.test(nameLower) || nameLower.includes('male'));
       const isMixed = nameLower.includes('mixed') || nameLower.includes('team');
       
       if (filterGender === 'female' && !isFemale) return false;

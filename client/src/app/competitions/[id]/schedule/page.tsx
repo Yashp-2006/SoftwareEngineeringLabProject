@@ -13,6 +13,8 @@ interface CategorySchedule {
   status: string;
   actualEndTime?: string;
   day?: number;
+  isKata?: boolean;
+  gender?: string;
 }
 
 export default function SchedulePage({ params }: { params: Promise<{ id: string }> }) {
@@ -55,6 +57,9 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
           const entries = data.athletes?.length ?? data.entries ?? 0;
           if (entries === 0) return;
 
+          const isKata = Boolean(data.isKata || (typeof data.name === 'string' && data.name.toLowerCase().includes('kata')));
+          const gender = data.gender || '';
+
           if (data.pools && Array.isArray(data.pools) && data.pools.length > 0) {
             data.pools.forEach((p: any) => {
               const label = p.pool === 'finals' ? 'Finals' : `Pool ${p.pool}`;
@@ -67,6 +72,8 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
                 status: p.status || data.status || 'upcoming',
                 actualEndTime: p.actualEndTime || undefined,
                 day: p.day || data.day || 1,
+                isKata,
+                gender,
               });
             });
           } else {
@@ -79,6 +86,8 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
               status: data.status || 'upcoming',
               actualEndTime: data.actualEndTime || undefined,
               day: data.day || 1,
+              isKata,
+              gender,
             });
           }
         });
@@ -106,24 +115,26 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
   // would override the canonical run order (e.g. when start times are equal or unset).
   // The Firestore listener already fetches rows ordered by `order`, so we preserve that.
   const filteredData = scheduleData.filter(row => {
-    const query = searchQuery.toLowerCase();
+    const query = searchQuery.toLowerCase().trim();
     const nameLower = row.category.toLowerCase();
     
     const matchesText = !query || nameLower.includes(query) || row.mat.toLowerCase().includes(query);
     const matchesMat = matFilter === "all" || row.mat === matFilter;
     const matchesDay = dayFilter === "all" || String(row.day) === dayFilter;
     
+    const isKata = Boolean(row.isKata || nameLower.includes('kata'));
     let matchesType = true;
     if (filterType !== 'all') {
-      if (filterType === 'kata') matchesType = nameLower.includes('kata');
-      if (filterType === 'kumite') matchesType = nameLower.includes('kumite');
+      if (filterType === 'kata') matchesType = isKata;
+      if (filterType === 'kumite') matchesType = !isKata;
     }
     
     let matchesGender = true;
     if (filterGender !== 'all') {
-      const isFemale = nameLower.includes('female') || nameLower.includes('women');
-      const isMale = !isFemale && (nameLower.includes('male') || nameLower.includes('men'));
-      const isMixed = nameLower.includes('mixed') || nameLower.includes('team');
+      const rawGender = (row.gender || '').toLowerCase();
+      const isFemale = rawGender === 'female' || /\b(female|girls?|women)\b/.test(nameLower) || nameLower.includes('female');
+      const isMale = rawGender === 'male' || (!isFemale && (/\b(male|boys?|men)\b/.test(nameLower) || nameLower.includes('male')));
+      const isMixed = rawGender === 'mixed' || nameLower.includes('mixed') || nameLower.includes('team');
       
       if (filterGender === 'female') matchesGender = isFemale;
       if (filterGender === 'male') matchesGender = isMale;
