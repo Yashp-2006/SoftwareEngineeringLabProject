@@ -36,6 +36,10 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
       return;
     }
     
+    const checkStaffTimeout = setTimeout(() => {
+      setVerified(true);
+    }, 2500);
+
     const checkStaff = async () => {
       try {
         const { db } = await import('@lib/firebase');
@@ -52,6 +56,7 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
         }
 
         if (snap.empty) {
+          clearTimeout(checkStaffTimeout);
           window.location.href = `/login?compId=${id}`;
           return;
         }
@@ -65,12 +70,15 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
           if (staffData.assignedCategories && staffData.assignedCategories.length > 0) {
             // Find corresponding category ID later once loaded
           }
+          clearTimeout(checkStaffTimeout);
           setVerified(true);
         } else {
+          clearTimeout(checkStaffTimeout);
           window.location.href = `/login/pending?compId=${id}&staffId=${staffDoc.id}`;
         }
       } catch (err) {
         console.error('Error verifying staff assignment:', err);
+        clearTimeout(checkStaffTimeout);
         setVerified(true);
       }
     };

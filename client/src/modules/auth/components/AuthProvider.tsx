@@ -33,9 +33,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, 5000);
 
     let unsubUserDoc: (() => void) | null = null;
+    let userDocTimeout: ReturnType<typeof setTimeout> | null = null;
 
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       clearTimeout(timeout);
+      if (userDocTimeout) clearTimeout(userDocTimeout);
       if (unsubUserDoc) {
         unsubUserDoc();
         unsubUserDoc = null;
@@ -65,6 +67,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.error('Failed to set session cookie:', err);
           });
 
+          // Unblock app after 2.5s even if user document snapshot is delayed
+          userDocTimeout = setTimeout(() => {
+            setLoading(false);
+          }, 2500);
+
           const userDocRef = doc(db, 'users', currentUser.uid);
           const deletedDocRef = doc(db, 'deleted_users', currentUser.uid);
           let isInitialCheck = true;
@@ -86,6 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           };
 
           unsubUserDoc = onSnapshot(userDocRef, async (snap) => {
+            if (userDocTimeout) clearTimeout(userDocTimeout);
             try {
               if (snap.exists()) {
                 const data = snap.data();

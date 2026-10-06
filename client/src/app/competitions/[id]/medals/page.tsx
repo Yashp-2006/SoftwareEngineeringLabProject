@@ -34,6 +34,10 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
       return;
     }
     
+    const checkStaffTimeout = setTimeout(() => {
+      setVerified(true);
+    }, 2500);
+
     const checkStaff = async () => {
       try {
         const { db } = await import('@lib/firebase');
@@ -50,6 +54,7 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
         }
 
         if (snap.empty) {
+          clearTimeout(checkStaffTimeout);
           window.location.href = `/login?compId=${id}`;
           return;
         }
@@ -59,12 +64,15 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
         
         if (staffData.approvalStatus === 'approved') {
           setStaffRole(staffData.role);
+          clearTimeout(checkStaffTimeout);
           setVerified(true);
         } else {
+          clearTimeout(checkStaffTimeout);
           window.location.href = `/login/pending?compId=${id}&staffId=${staffDoc.id}`;
         }
       } catch (err) {
         console.error('Error verifying staff assignment:', err);
+        clearTimeout(checkStaffTimeout);
         setVerified(true);
       }
     };

@@ -20,13 +20,20 @@ export default function PasswordGateway({ children }: { children: React.ReactNod
 
   const authKey = matId ? `auth_${id}_${matId}` : `auth_${id}`;
 
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem(authKey) === 'true';
+    }
+    return false;
+  });
   const [inputName, setInputName] = useState('');
   const [inputPassword, setInputPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-  const [targetName, setTargetName] = useState('Loading...');
+  const [targetName, setTargetName] = useState(() => {
+    if (matNum !== null) return `Mat ${String(matNum).padStart(2, '0')}`;
+    return 'Staff Portal';
+  });
 
   const { user, role } = useAuth();
 
@@ -50,8 +57,6 @@ export default function PasswordGateway({ children }: { children: React.ReactNod
         }
       } catch (err) {
         console.error('Failed to fetch target for password gateway', err);
-      } finally {
-        setLoading(false);
       }
     };
     fetchTarget();
@@ -222,14 +227,6 @@ export default function PasswordGateway({ children }: { children: React.ReactNod
       setError(err?.message || 'An error occurred verifying the password.');
     }
   };
-
-  if (loading) {
-    return (
-      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        Loading Gateway...
-      </div>
-    );
-  }
 
   if (isAuthenticated) {
     return <>{children}</>;

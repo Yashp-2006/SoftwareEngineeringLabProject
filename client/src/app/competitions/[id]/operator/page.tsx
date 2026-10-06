@@ -24,7 +24,16 @@ function OperatorPortalInner({ id }: { id: string }) {
 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const { user, role, loading: authLoading } = useAuth();
-  const [verified, setVerified] = useState(false);
+  const authKey = matIdParam ? `auth_${id}_${matIdParam}` : `auth_${id}`;
+  const [verified, setVerified] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return (
+        sessionStorage.getItem(`auth_${id}_${matIdParam}`) === 'true' ||
+        sessionStorage.getItem(`auth_${id}`) === 'true'
+      );
+    }
+    return false;
+  });
   const [staffRole, setStaffRole] = useState<string | null>(null);
   const isViewer = role === 'guest_viewer' || (!staffRole && role !== 'admin');
   const isAdmin = role === 'admin';
@@ -72,17 +81,29 @@ function OperatorPortalInner({ id }: { id: string }) {
 
   useEffect(() => {
     if (authLoading) return;
+
+    const hasPasswordAuth = typeof window !== 'undefined' && (
+      sessionStorage.getItem(`auth_${id}_${matIdParam}`) === 'true' ||
+      sessionStorage.getItem(`auth_${id}`) === 'true'
+    );
+
+    if (hasPasswordAuth || role === 'admin') {
+      setVerified(true);
+    }
     
     if (!user) {
-      if (role !== 'admin') {
-        window.location.href = `/login?compId=${id}`;
-      } else {
+      if (hasPasswordAuth || role === 'admin') {
         setVerified(true);
+        return;
       }
+      window.location.href = `/login?compId=${id}`;
       return;
     }
 
     let unsubscribe: (() => void) | null = null;
+    let verifyTimeout = setTimeout(() => {
+      setVerified(true);
+    }, 2500);
     
     const checkStaff = async () => {
       try {
@@ -100,7 +121,8 @@ function OperatorPortalInner({ id }: { id: string }) {
         }
 
         if (snap.empty) {
-          if (role === 'admin') {
+          clearTimeout(verifyTimeout);
+          if (role === 'admin' || hasPasswordAuth) {
             setVerified(true);
             return;
           }
@@ -1388,7 +1410,12 @@ function OperatorPortalInner({ id }: { id: string }) {
   const derivedKataData = React.useMemo(() => deriveJudgeVotes(kataScores, kataJudgeCount), [kataScores, kataJudgeCount]);
 
 
-  if (!verified && !isViewer && role !== 'admin') {
+  const hasPasswordAuth = typeof window !== 'undefined' && (
+    sessionStorage.getItem(authKey) === 'true' ||
+    sessionStorage.getItem(`auth_${id}`) === 'true'
+  );
+
+  if (!verified && !isViewer && role !== 'admin' && !hasPasswordAuth) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--neutral-50)' }}>
         <p style={{ color: 'var(--neutral-500)', fontSize: '14px', fontWeight: 600 }}>Verifying credentials and assignments...</p>
