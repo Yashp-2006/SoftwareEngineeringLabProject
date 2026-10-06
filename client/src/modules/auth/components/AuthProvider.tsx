@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { User, onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '@lib/firebase';
 import { useRouter, usePathname } from 'next/navigation';
 import type { UserRole } from '@taikaix/backend/types';
@@ -32,8 +32,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     }, 5000);
 
+    let unsubUserDoc: (() => void) | null = null;
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       clearTimeout(timeout);
+      if (unsubUserDoc) {
+        unsubUserDoc();
+        unsubUserDoc = null;
+      }
+
       try {
         if (currentUser?.isAnonymous) {
           // Immediately purge legacy anonymous session so it never persists or shows in console
@@ -58,49 +65,102 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.error('Failed to set session cookie:', err);
           });
 
-          try {
-            const userDocRef = doc(db, 'users', currentUser.uid);
-            const userDoc = await getDoc(userDocRef);
+          const userDocRef = doc(db, 'users', currentUser.uid);
+          const deletedDocRef = doc(db, 'deleted_users', currentUser.uid);
+          let isInitialCheck = true;
 
-            if (userDoc.exists()) {
-              // Normalize role from Firestore doc; defaults safely to 'viewer' (normal audience viewer)
-              const currentRole = getNormalizedRole(userDoc.data().role as string | null | undefined);
-              setRole(currentRole);
-
-              await setDoc(userDocRef, {
-                email: currentUser.email,
-                displayName: currentUser.displayName || null,
-                photoURL: currentUser.photoURL || null,
-                // Note: 'role' is intentionally NOT written here.
-                // Role is server-authoritative — we read it above but never write it
-                // from the client to prevent privilege escalation.
-                lastLoginAt: new Date().toISOString()
-              }, { merge: true });
-            } else {
-              // New user — default to 'viewer' (regular audience viewer role).
-              // 'guest_viewer' is reserved for explicitly elevated view-only administrative staff.
-              await setDoc(userDocRef, {
-                email: currentUser.email || null,
-                displayName: currentUser.displayName || null,
-                photoURL: currentUser.photoURL || null,
-                role: 'viewer',
-                isAnonymous: false,
-                createdAt: new Date().toISOString(),
-                lastLoginAt: new Date().toISOString()
-              });
-              setRole('viewer');
+          const evictSession = async () => {
+            try {
+              document.cookie = `session=; path=/; max-age=0; SameSite=Lax; Secure`;
+              sessionStorage.clear();
+              setUser(null);
+              setRole(null);
+              setLoading(false);
+              await currentUser.delete().catch(() => {});
+              await signOut(auth).catch(() => {});
+            } catch (e) {
+              console.error('Failed to evict deleted user session', e);
+            } finally {
+              window.location.href = '/login';
             }
-          } catch (error) {
-            console.error('Error fetching user role:', error);
-            setRole('viewer');
-          }
+          };
+
+          unsubUserDoc = onSnapshot(userDocRef, async (snap) => {
+            try {
+              if (snap.exists()) {
+                const data = snap.data();
+                if (data.deleted === true || data.status === 'deleted') {
+                  // User was marked deleted by admin! Evict all active devices/screens immediately.
+                  await evictSession();
+                  return;
+                }
+
+                const currentRole = getNormalizedRole(data.role as string | null | undefined);
+                setRole(currentRole);
+                setLoading(false);
+
+                if (isInitialCheck) {
+                  isInitialCheck = false;
+                  await setDoc(userDocRef, {
+                    email: currentUser.email,
+                    displayName: currentUser.displayName || null,
+                    photoURL: currentUser.photoURL || null,
+                    lastLoginAt: new Date().toISOString()
+                  }, { merge: true }).catch(() => {});
+                }
+              } else {
+                // Document does not exist in users collection.
+                // 1. Check if user is in deleted_users tombstone collection
+                const delSnap = await getDoc(deletedDocRef).catch(() => null);
+                if (delSnap && delSnap.exists()) {
+                  await evictSession();
+                  return;
+                }
+
+                // 2. If it was already loaded previously and now doc is missing, admin deleted it!
+                if (!isInitialCheck) {
+                  await evictSession();
+                  return;
+                }
+
+                // 3. If very first check: is it a brand new registration?
+                const isRecentlyCreated = currentUser.metadata.creationTime &&
+                  (Date.now() - new Date(currentUser.metadata.creationTime).getTime() < 120000);
+
+                if (isRecentlyCreated) {
+                  isInitialCheck = false;
+                  await setDoc(userDocRef, {
+                    email: currentUser.email || null,
+                    displayName: currentUser.displayName || null,
+                    photoURL: currentUser.photoURL || null,
+                    role: 'viewer',
+                    isAnonymous: false,
+                    createdAt: new Date().toISOString(),
+                    lastLoginAt: new Date().toISOString()
+                  }).catch(() => {});
+                  setRole('viewer');
+                  setLoading(false);
+                } else {
+                  // Existing account with no Firestore doc (deleted by admin) -> evict immediately
+                  await evictSession();
+                }
+              }
+            } catch (err) {
+              console.error('[AuthProvider] Error in user snapshot listener:', err);
+              setLoading(false);
+            }
+          }, (err) => {
+            console.error('[AuthProvider] Snapshot listener error:', err);
+            setLoading(false);
+          });
         } else {
           setRole(null);
           // Clear session cookie
           document.cookie = `session=; path=/; max-age=0; SameSite=Lax; Secure`;
+          setLoading(false);
         }
-      } finally {
-        // ALWAYS unblock the app — even if Firebase throws
+      } catch (err) {
+        console.error('[AuthProvider] Auth state change error:', err);
         setLoading(false);
       }
     });
@@ -108,6 +168,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       clearTimeout(timeout);
       unsubscribe();
+      if (unsubUserDoc) unsubUserDoc();
     };
   }, []);
 

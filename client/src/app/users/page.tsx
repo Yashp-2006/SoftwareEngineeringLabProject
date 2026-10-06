@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Search, Trash2 } from 'lucide-react';
 import { useAuth } from '@/modules/auth/components/AuthProvider';
+import toast from 'react-hot-toast';
 
 const ROLE_MAP: Record<string, string> = {
   'admin': 'Admin',
@@ -85,10 +86,10 @@ export default function UsersPage() {
       unsub = onSnapshot(q, (snap) => {
         const data = snap.docs
           .filter(d => {
-            // Exclude anonymous PIN users — they have no email/displayName
-            // or are explicitly flagged as anonymous. They must not appear here.
+            // Exclude anonymous PIN users and deleted accounts
             const isAnon = d.data().isAnonymous || (!d.data().email && !d.data().displayName);
-            return !isAnon;
+            const isDeleted = d.data().deleted === true || d.data().status === 'deleted';
+            return !isAnon && !isDeleted;
           })
           .map(d => ({
             id: d.id,
@@ -131,18 +132,36 @@ export default function UsersPage() {
 
   const handleDeleteUser = async (id: string) => {
     if (currentUser?.uid === id) {
-      alert("You cannot delete your own account.");
+      toast.error("You cannot delete your own account.");
       return;
     }
-    const confirmDelete = window.confirm("Are you sure you want to completely remove this user? This cannot be undone.");
+    const confirmDelete = window.confirm("Are you sure you want to completely remove this user? They will be immediately logged out from all active devices and screens.");
     if (!confirmDelete) return;
     
     try {
       const { db } = await import('@lib/firebase');
-      const { doc, deleteDoc } = await import('firebase/firestore');
+      const { doc, setDoc, updateDoc, deleteDoc } = await import('firebase/firestore');
+
+      // 1. Record in deleted_users tombstone collection so re-authentication is permanently blocked
+      await setDoc(doc(db, 'deleted_users', id), {
+        uid: id,
+        deletedAt: new Date().toISOString(),
+        deletedBy: currentUser?.uid || 'admin'
+      }).catch(err => console.warn('deleted_users setDoc error:', err));
+
+      // 2. Mark deleted on users doc first so real-time onSnapshot listeners on active devices trigger instant logout
+      await updateDoc(doc(db, 'users', id), {
+        deleted: true,
+        status: 'deleted',
+        deletedAt: new Date().toISOString()
+      }).catch(() => {});
+
+      // 3. Delete users document
       await deleteDoc(doc(db, 'users', id));
+      toast.success("User deleted and logged out from all devices");
     } catch (err) {
       console.error('Failed to delete user', err);
+      toast.error("Failed to delete user");
     }
   };
 
