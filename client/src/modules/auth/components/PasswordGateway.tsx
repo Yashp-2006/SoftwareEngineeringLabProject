@@ -2,27 +2,29 @@
 
 import React, { useState, useEffect } from 'react';
 import { Lock, Eye, EyeOff } from 'lucide-react';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
 import { db } from '@lib/firebase';
 import { useSearchParams, useParams } from 'next/navigation';
 import { useAuth } from '@/modules/auth/components/AuthProvider';
-import { verifyPassword } from '@/lib/hash';
+import {
+  normalizeMatKey,
+  isMatSessionAuthorized,
+  persistMatSessionAuthorization,
+  canBypassMatGateway,
+  verifyMatStationPassword,
+} from '@/modules/auth/operator-auth';
 
 export default function PasswordGateway({ children }: { children: React.ReactNode }) {
   const { id } = useParams() as { id: string };
   const searchParams = useSearchParams();
   const rawMatId = searchParams.get('mat') || searchParams.get('matId'); // e.g. "mat-1", "mat-01", "1"
   
-  // Normalize matId: e.g. "mat-01" -> "mat-1"
-  const matNum = rawMatId ? parseInt(rawMatId.replace(/\D/g, '') || '1', 10) : null;
-  const normalizedMatId = matNum !== null ? `mat-${matNum}` : null;
-  const matId = normalizedMatId || rawMatId;
-
-  const authKey = matId ? `auth_${id}_${matId}` : `auth_${id}`;
+  const { normalizedMatId, matNum, displayMatName } = normalizeMatKey(rawMatId);
+  const targetMatParam = rawMatId || normalizedMatId;
 
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     if (typeof window !== 'undefined') {
-      return sessionStorage.getItem(authKey) === 'true';
+      return isMatSessionAuthorized(id, targetMatParam, (k) => sessionStorage.getItem(k));
     }
     return false;
   });
@@ -31,24 +33,50 @@ export default function PasswordGateway({ children }: { children: React.ReactNod
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [targetName, setTargetName] = useState(() => {
-    if (matNum !== null) return `Mat ${String(matNum).padStart(2, '0')}`;
+    if (rawMatId || normalizedMatId) return displayMatName;
     return 'Staff Portal';
   });
 
   const { user, role } = useAuth();
 
   useEffect(() => {
-    // Check if session storage already has the password authorized
-    const authed = sessionStorage.getItem(authKey);
-    if (authed === 'true' || role === 'admin') {
+    if (typeof window === 'undefined') return;
+
+    // Check if session storage already has any valid authorization key
+    const isAuthedInSession = isMatSessionAuthorized(id, targetMatParam, (k) => sessionStorage.getItem(k));
+    if (isAuthedInSession || canBypassMatGateway(role)) {
       setIsAuthenticated(true);
+      return;
     }
 
-    // Fetch details
+    // Check if logged-in user is an approved staff member for this competition
+    const checkStaffBypass = async () => {
+      if (!user) return;
+      try {
+        const { collection, query, where, getDocs } = await import('firebase/firestore');
+        const q = query(
+          collection(db, 'competitions', id, 'staff'),
+          where('userId', '==', user.uid)
+        );
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const sData = snap.docs[0].data();
+          if (sData.approvalStatus === 'approved' && canBypassMatGateway(role, sData.role)) {
+            persistMatSessionAuthorization(id, targetMatParam, (k, v) => sessionStorage.setItem(k, v));
+            setIsAuthenticated(true);
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to verify staff bypass:', err);
+      }
+    };
+    checkStaffBypass();
+
+    // Fetch tournament/mat display details
     const fetchTarget = async () => {
       try {
-        if (matNum !== null) {
-          setTargetName(`Mat ${String(matNum).padStart(2, '0')}`);
+        if (rawMatId || normalizedMatId) {
+          setTargetName(displayMatName);
         } else {
           const snap = await getDoc(doc(db, 'competitions', id));
           if (snap.exists()) {
@@ -60,7 +88,7 @@ export default function PasswordGateway({ children }: { children: React.ReactNod
       }
     };
     fetchTarget();
-  }, [id, matId, matNum, authKey, user, role]);
+  }, [id, targetMatParam, normalizedMatId, rawMatId, displayMatName, user, role]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,159 +96,81 @@ export default function PasswordGateway({ children }: { children: React.ReactNod
     setError('');
 
     try {
-      if (matId) {
-        // Try normalized matId first (e.g. "mat-1"), then rawMatId if different
-        let matSnap = await getDoc(doc(db, 'competitions', id, 'mats', matId));
-        if (!matSnap.exists() && rawMatId && rawMatId !== matId) {
+      // 1. Fetch mat document (try normalized 'mat-1', raw '1', and padded 'mat-01')
+      let matData: any = null;
+      if (normalizedMatId) {
+        let matSnap = await getDoc(doc(db, 'competitions', id, 'mats', normalizedMatId));
+        if (!matSnap.exists() && rawMatId && rawMatId !== normalizedMatId) {
           matSnap = await getDoc(doc(db, 'competitions', id, 'mats', rawMatId));
         }
-
+        if (!matSnap.exists() && matNum) {
+          const paddedId = `mat-${String(matNum).padStart(2, '0')}`;
+          matSnap = await getDoc(doc(db, 'competitions', id, 'mats', paddedId));
+        }
         if (matSnap.exists()) {
-          const matData = matSnap.data();
-          const rawPassword = matData.password;
-          const displayPassword = matData.displayPassword;
-          const actualPassword = displayPassword || rawPassword;
-          const entered = inputPassword.trim();
+          matData = matSnap.data();
+        }
+      }
 
-          // Check if matches plain or hash
-          let isMatch = false;
-          if (actualPassword !== undefined && actualPassword !== null) {
-            if (
-              entered === String(actualPassword).trim() ||
-              entered === String(rawPassword).trim() ||
-              (displayPassword && entered === String(displayPassword).trim())
-            ) {
-              isMatch = true;
-            } else if (rawPassword) {
-              isMatch = await verifyPassword(entered, rawPassword);
-            }
+      // 2. Fetch competition document
+      let compData: any = null;
+      const compSnap = await getDoc(doc(db, 'competitions', id));
+      if (compSnap.exists()) {
+        compData = compSnap.data();
+      }
+
+      // 3. Fetch staff list for competition (to allow staff PIN match)
+      let assignedStaff: any[] = [];
+      try {
+        const staffSnap = await getDocs(collection(db, 'competitions', id, 'staff'));
+        assignedStaff = staffSnap.docs.map((d) => d.data());
+      } catch (err) {
+        console.warn('Could not read staff roster for PIN check:', err);
+      }
+
+      // 4. Verify password with fallback hierarchy
+      const verificationResult = await verifyMatStationPassword({
+        enteredPassword: inputPassword,
+        matData,
+        compData,
+        matNum,
+        assignedStaff,
+      });
+
+      if (verificationResult.authorized) {
+        // Authorize session across all key aliases
+        persistMatSessionAuthorization(id, targetMatParam, (k, v) => sessionStorage.setItem(k, v));
+        setIsAuthenticated(true);
+        setError('');
+
+        // Best-effort staff & user profile update if logged in
+        if (user && inputName.trim()) {
+          try {
+            const { setDoc } = await import('firebase/firestore');
+            await setDoc(
+              doc(db, 'users', user.uid),
+              { displayName: inputName.trim() },
+              { merge: true }
+            );
+            await setDoc(
+              doc(db, 'competitions', id, 'staff', user.uid),
+              {
+                userId: user.uid,
+                name: inputName.trim(),
+                email: user.email || `${inputName.trim().toLowerCase().replace(/\s+/g, '.')}@taikaix.local`,
+                role: 'score',
+                approvalStatus: 'approved',
+                assignedCategories: [],
+                assignedMats: [String(matNum ?? 1)],
+              },
+              { merge: true }
+            );
+          } catch (uErr) {
+            console.warn('Optional staff profile update skipped:', uErr);
           }
-
-          if (!actualPassword && !rawPassword) {
-            setError('No password has been set for this mat yet. Configure it in the Mats management panel.');
-            return;
-          }
-
-          if (isMatch) {
-            // Authorize session immediately
-            sessionStorage.setItem(authKey, 'true');
-            setIsAuthenticated(true);
-            setError('');
-
-            // Best-effort staff & user profile update (do not block gateway if non-admin has no Firestore write permission)
-            if (user && inputName.trim()) {
-              try {
-                const { setDoc } = await import('firebase/firestore');
-                await setDoc(
-                  doc(db, 'users', user.uid),
-                  { displayName: inputName.trim() },
-                  { merge: true }
-                );
-              } catch (uErr) {
-                console.warn('Could not update user displayName:', uErr);
-              }
-
-              try {
-                const { setDoc } = await import('firebase/firestore');
-                await setDoc(
-                  doc(db, 'competitions', id, 'staff', user.uid),
-                  {
-                    userId: user.uid,
-                    name: inputName.trim(),
-                    email: user.email || `${inputName.trim().toLowerCase().replace(/\s+/g, '.')}@taikaix.local`,
-                    role: 'score',
-                    approvalStatus: 'approved',
-                    assignedCategories: [],
-                    assignedMats: [String(matNum ?? matId.replace('mat-', ''))],
-                  },
-                  { merge: true }
-                );
-              } catch (sErr) {
-                console.warn('Staff roster update skipped (non-admin):', sErr);
-              }
-            }
-          } else {
-            setError(`Incorrect password for ${targetName}.`);
-          }
-        } else {
-          // If mat document does not exist, check if general competition password matches
-          const compSnap = await getDoc(doc(db, 'competitions', id));
-          if (compSnap.exists()) {
-            const compData = compSnap.data();
-            const compPass = compData.displayPassword || compData.password;
-            const entered = inputPassword.trim();
-            const isMatch = compPass && (entered === String(compPass).trim() || (await verifyPassword(entered, compPass)));
-            if (isMatch) {
-              sessionStorage.setItem(authKey, 'true');
-              setIsAuthenticated(true);
-              setError('');
-              return;
-            }
-          }
-          setError('Mat configuration not found for this competition.');
         }
       } else {
-        const snap = await getDoc(doc(db, 'competitions', id));
-        if (snap.exists()) {
-          const compData = snap.data();
-          const rawPassword = compData.password;
-          const displayPassword = compData.displayPassword;
-          const actualPassword = displayPassword || rawPassword;
-          const entered = inputPassword.trim();
-
-          let isMatch = false;
-          if (actualPassword !== undefined && actualPassword !== null) {
-            if (
-              entered === String(actualPassword).trim() ||
-              entered === String(rawPassword).trim() ||
-              (displayPassword && entered === String(displayPassword).trim())
-            ) {
-              isMatch = true;
-            } else if (rawPassword) {
-              isMatch = await verifyPassword(entered, rawPassword);
-            }
-          }
-
-          if (actualPassword && isMatch) {
-            sessionStorage.setItem(authKey, 'true');
-            setIsAuthenticated(true);
-            setError('');
-
-            if (user && inputName.trim()) {
-              try {
-                const { setDoc } = await import('firebase/firestore');
-                await setDoc(
-                  doc(db, 'users', user.uid),
-                  { displayName: inputName.trim() },
-                  { merge: true }
-                );
-              } catch (uErr) {
-                console.warn('Could not update user displayName:', uErr);
-              }
-
-              try {
-                const { setDoc } = await import('firebase/firestore');
-                await setDoc(
-                  doc(db, 'competitions', id, 'staff', user.uid),
-                  {
-                    userId: user.uid,
-                    name: inputName.trim(),
-                    email: user.email || `${inputName.trim().toLowerCase().replace(/\s+/g, '.')}@taikaix.local`,
-                    role: 'guest_viewer',
-                    approvalStatus: 'approved',
-                  },
-                  { merge: true }
-                );
-              } catch (sErr) {
-                console.warn('Staff roster update skipped:', sErr);
-              }
-            }
-          } else {
-            setError('Incorrect password for this competition.');
-          }
-        } else {
-          setError('Competition not found.');
-        }
+        setError(verificationResult.reason || `Incorrect password for ${targetName}.`);
       }
     } catch (err: any) {
       console.error('Password verification error:', err);

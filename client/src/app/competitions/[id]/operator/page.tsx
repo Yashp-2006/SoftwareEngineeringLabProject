@@ -14,6 +14,7 @@ import ScaleWrapper from '@/modules/shared/components/ScaleWrapper';
 import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { KATA_LIST } from '@/lib/kata-list';
+import { isMatSessionAuthorized } from '@/modules/auth/operator-auth';
 
 function OperatorPortalInner({ id }: { id: string }) {
   const searchParams = useSearchParams();
@@ -27,10 +28,7 @@ function OperatorPortalInner({ id }: { id: string }) {
   const authKey = matIdParam ? `auth_${id}_${matIdParam}` : `auth_${id}`;
   const [verified, setVerified] = useState(() => {
     if (typeof window !== 'undefined') {
-      return (
-        sessionStorage.getItem(`auth_${id}_${matIdParam}`) === 'true' ||
-        sessionStorage.getItem(`auth_${id}`) === 'true'
-      );
+      return isMatSessionAuthorized(id, matIdParam, (k) => sessionStorage.getItem(k));
     }
     return false;
   });
@@ -82,21 +80,16 @@ function OperatorPortalInner({ id }: { id: string }) {
   useEffect(() => {
     if (authLoading) return;
 
-    const hasPasswordAuth = typeof window !== 'undefined' && (
-      sessionStorage.getItem(`auth_${id}_${matIdParam}`) === 'true' ||
-      sessionStorage.getItem(`auth_${id}`) === 'true'
-    );
+    const hasPasswordAuth = isMatSessionAuthorized(id, matIdParam, (k) => sessionStorage.getItem(k));
 
-    if (hasPasswordAuth || role === 'admin') {
+    if (hasPasswordAuth || role === 'admin' || role === 'mat_operator') {
       setVerified(true);
     }
     
     if (!user) {
-      if (hasPasswordAuth || role === 'admin') {
+      if (hasPasswordAuth || role === 'admin' || role === 'mat_operator') {
         setVerified(true);
-        return;
       }
-      window.location.href = `/login?compId=${id}`;
       return;
     }
 
@@ -1487,12 +1480,9 @@ function OperatorPortalInner({ id }: { id: string }) {
   const derivedKataData = React.useMemo(() => deriveJudgeVotes(kataScores, kataJudgeCount), [kataScores, kataJudgeCount]);
 
 
-  const hasPasswordAuth = typeof window !== 'undefined' && (
-    sessionStorage.getItem(authKey) === 'true' ||
-    sessionStorage.getItem(`auth_${id}`) === 'true'
-  );
+  const hasPasswordAuth = isMatSessionAuthorized(id, matIdParam, (k) => sessionStorage.getItem(k));
 
-  if (!verified && !isViewer && role !== 'admin' && !hasPasswordAuth) {
+  if (!verified && !isViewer && role !== 'admin' && role !== 'mat_operator' && !hasPasswordAuth) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--neutral-50)' }}>
         <p style={{ color: 'var(--neutral-500)', fontSize: '14px', fontWeight: 600 }}>Verifying credentials and assignments...</p>
@@ -1502,7 +1492,6 @@ function OperatorPortalInner({ id }: { id: string }) {
 
   return (
     <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
-      <PasswordGateway>
       {/* FULLSCREEN OVERLAY */}
       {isFullscreen && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: '#000', zIndex: 9999, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -2909,7 +2898,6 @@ function OperatorPortalInner({ id }: { id: string }) {
       )}
       </div>
       </div>
-    </PasswordGateway>
     </Suspense>
   );
 }
@@ -2918,7 +2906,9 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
   const { id } = React.use(params);
   return (
     <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
-      <OperatorPortalInner id={id} />
+      <PasswordGateway>
+        <OperatorPortalInner id={id} />
+      </PasswordGateway>
     </Suspense>
   );
 }

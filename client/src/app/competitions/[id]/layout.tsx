@@ -12,11 +12,10 @@ export default function CompetitionLayout({
   children: React.ReactNode;
   params: Promise<{ id: string }>;
 }) {
+  const { id } = React.use(params);
   const pathname = usePathname();
-
   const router = useRouter();
   const { role, user, loading: authLoading } = useAuth();
-  const { id } = React.use(params);
   const [staffRole, setStaffRole] = useState<string | null>(null);
   const subNavRef = useRef<HTMLDivElement>(null);
 
@@ -51,11 +50,14 @@ export default function CompetitionLayout({
       return;
     }
 
+    const isStationRoute = pathname.includes('/operator') || pathname.includes('/judge');
+
     // If on a sub-page (not overview) and not authenticated, redirect to overview
-    if (!isRoot && !isJoined) {
+    // Exclude station routes (/operator, /judge) which have dedicated station password gateways
+    if (!isRoot && !isJoined && !isStationRoute) {
       router.replace(`/competitions/${id}`);
     }
-  }, [authLoading, user, id, isRoot, router]);
+  }, [authLoading, user, id, isRoot, pathname, router]);
 
   useEffect(() => {
     if (!user) {

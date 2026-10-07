@@ -120,7 +120,11 @@ export default function LoginPage() {
             }, { merge: true });
 
             let redirectUrl = `/competitions/${targetCompId}`;
-            if (staffData.role === 'score' && staffData.assignedMats?.length > 0) redirectUrl = `/competitions/${targetCompId}/operator?mat=${staffData.assignedMats[0]}`;
+            if (staffData.role === 'score' && staffData.assignedMats?.length > 0) {
+              const { persistMatSessionAuthorization } = await import('@/modules/auth/operator-auth');
+              persistMatSessionAuthorization(targetCompId, staffData.assignedMats[0], (k, v) => sessionStorage.setItem(k, v));
+              redirectUrl = `/competitions/${targetCompId}/operator?mat=${staffData.assignedMats[0]}`;
+            }
             else if (staffData.role === 'attendance') redirectUrl = `/competitions/${targetCompId}/athletes`;
             else if (staffData.role === 'medal') redirectUrl = `/competitions/${targetCompId}/medals`;
             window.location.href = redirectUrl;
@@ -244,10 +248,22 @@ export default function LoginPage() {
       try {
         userCredential = await signInWithEmailAndPassword(auth, staffEmail, staffPassword);
       } catch (authErr: any) {
-        if (authErr?.code === 'auth/user-not-found' || authErr?.code === 'auth/invalid-credential') {
-          // Account doesn't exist yet in Firebase Auth — create it with real staff details!
-          userCredential = await createUserWithEmailAndPassword(auth, staffEmail, staffPassword);
-          await updateProfile(userCredential.user, { displayName: staffMember.name });
+        if (
+          authErr?.code === 'auth/user-not-found' ||
+          authErr?.code === 'auth/invalid-credential' ||
+          authErr?.code === 'auth/wrong-password' ||
+          authErr?.code === 'auth/invalid-login-credentials'
+        ) {
+          // Account doesn't exist yet in Firebase Auth OR credential reset required
+          try {
+            userCredential = await createUserWithEmailAndPassword(auth, staffEmail, staffPassword);
+            await updateProfile(userCredential.user, { displayName: staffMember.name });
+          } catch (createErr: any) {
+            if (createErr?.code === 'auth/email-already-in-use') {
+              throw new Error('Staff credentials mismatch in authentication system. Please notify admin.');
+            }
+            throw createErr;
+          }
         } else {
           throw authErr;
         }
@@ -279,9 +295,13 @@ export default function LoginPage() {
         lastLoginAt: new Date().toISOString()
       }, { merge: true });
 
-      // Build redirect URL up front
+      // Build redirect URL up front and pre-authorize station session
       let redirectUrl = `/competitions/${selectedCompId}`;
-      if (staffMember.role === 'score' && staffMember.assignedMats?.length > 0) redirectUrl = `/competitions/${selectedCompId}/operator?mat=${staffMember.assignedMats[0]}`;
+      if (staffMember.role === 'score' && staffMember.assignedMats?.length > 0) {
+        const { persistMatSessionAuthorization } = await import('@/modules/auth/operator-auth');
+        persistMatSessionAuthorization(selectedCompId, staffMember.assignedMats[0], (k, v) => sessionStorage.setItem(k, v));
+        redirectUrl = `/competitions/${selectedCompId}/operator?mat=${staffMember.assignedMats[0]}`;
+      }
       else if (staffMember.role === 'attendance') redirectUrl = `/competitions/${selectedCompId}/athletes`;
       else if (staffMember.role === 'medal') redirectUrl = `/competitions/${selectedCompId}/medals`;
 

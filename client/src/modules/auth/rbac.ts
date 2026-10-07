@@ -110,7 +110,13 @@ export function checkRouteAccess(
     return { allowed: false, redirect: '/competitions' };
   }
 
-  // Judge page handles its own authentication and competition-level staff roster check
+  // Pure route authorization check for viewer / audience on /judge
+  if (pathname.includes('/judge') && role === 'viewer') {
+    const compMatch = pathname.match(/\/competitions\/([^/]+)/);
+    const compId = compMatch ? compMatch[1] : '';
+    return { allowed: false, redirect: compId ? `/competitions/${compId}` : '/competitions' };
+  }
+
   return { allowed: true };
 }
 
