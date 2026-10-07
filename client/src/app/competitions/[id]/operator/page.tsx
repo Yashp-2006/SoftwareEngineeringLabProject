@@ -143,11 +143,12 @@ function OperatorPortalInner({ id }: { id: string }) {
             setStaffRole(staffData.role);
             setVerified(true);
 
-            // Check live mat assignment
+            // Check live mat assignment (only for dedicated mat operators)
             const currentMatNum = parseInt(matIdParam.replace(/\D/g, '') || '1', 10);
             const targetMat = staffData.reassignedToMat || (staffData.assignedMats && staffData.assignedMats.length > 0 ? staffData.assignedMats[0] : null);
+            const isOperatorStaff = staffData.role === 'score' || role === 'mat_operator';
             
-            if (targetMat) {
+            if (isOperatorStaff && targetMat) {
               const targetMatNum = parseInt(targetMat.replace(/\D/g, '') || '1', 10);
               const targetMatId = `mat-${targetMatNum}`;
               const targetMatName = staffData.reassignedToMatName || `MAT ${String(targetMatNum).padStart(2, '0')}`;
@@ -252,6 +253,7 @@ function OperatorPortalInner({ id }: { id: string }) {
   const [compData, setCompData] = useState<any>(null);
   const [matCategories, setMatCategories] = useState<any[]>([]);
   const [activeMatchId, setActiveMatchId] = useState<string | null>(null);
+  const hasHydratedRef = useRef(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [tempQueue, setTempQueue] = useState<any[]>([]);
   const [winnerState, setWinnerState] = useState<{ color: 'aka'|'ao', name: string, academy: string, points: number } | null>(null);
@@ -455,8 +457,8 @@ function OperatorPortalInner({ id }: { id: string }) {
       }
     }
 
-    // 2. Cloud RTDB sync (skip if viewer or overridden by admin)
-    if (!isViewer && !isOverriddenByAdmin) {
+    // 2. Cloud RTDB sync (skip if viewer, overridden by admin, or not yet hydrated)
+    if (!isViewer && !isOverriddenByAdmin && hasHydratedRef.current) {
       if (rtdbDebounceTimer.current) clearTimeout(rtdbDebounceTimer.current);
       rtdbDebounceTimer.current = setTimeout(() => syncRTDB(payload), 500);
     }
@@ -476,7 +478,10 @@ function OperatorPortalInner({ id }: { id: string }) {
       
       onValue(liveRef, (snapshot) => {
         const val = snapshot.val();
-        if (!val) return;
+        if (!val) {
+          hasHydratedRef.current = true;
+          return;
+        }
 
         // 1. Always sync admin override status
         setAdminOverride(val.adminOverride || null);
@@ -532,8 +537,70 @@ function OperatorPortalInner({ id }: { id: string }) {
             if (!isNaN(mm) && !isNaN(ss)) setTimer(mm * 60 + ss);
           }
           setRunning(val.timerRunning || false);
+        } else if (!hasHydratedRef.current) {
+          // 3. First arrival of live RTDB state for active operator: hydrate state so leaving/returning preserves match
+          hasHydratedRef.current = true;
+          if (val.matchId) {
+            setActiveMatchId(val.matchId);
+            if (typeof window !== 'undefined') {
+              sessionStorage.setItem(`activeMatch_${matIdParam}`, val.matchId);
+            }
+          }
+          if (val.akaName || val.scores?.aka !== undefined) {
+            setAka(prev => ({
+              ...prev,
+              name: val.akaName || prev.name,
+              country: val.akaCountry || prev.country,
+              academy: val.akaAcademy || prev.academy,
+              score: val.scores?.aka ?? prev.score,
+              yuko: val.akaStats?.yuko ?? prev.yuko,
+              waza: val.akaStats?.waza ?? prev.waza,
+              ippon: val.akaStats?.ippon ?? prev.ippon,
+              senshu: val.akaStats?.senshu ?? prev.senshu,
+              c1: val.akaPenalties?.c1 ?? prev.c1,
+              c2: val.akaPenalties?.c2 ?? prev.c2,
+              c3: val.akaPenalties?.c3 ?? prev.c3,
+              hc: val.akaPenalties?.hc ?? prev.hc,
+              h: val.akaPenalties?.h ?? prev.h,
+            }));
+          }
+          if (val.aoName || val.scores?.ao !== undefined) {
+            setAo(prev => ({
+              ...prev,
+              name: val.aoName || prev.name,
+              country: val.aoCountry || prev.country,
+              academy: val.aoAcademy || prev.academy,
+              score: val.scores?.ao ?? prev.score,
+              yuko: val.aoStats?.yuko ?? prev.yuko,
+              waza: val.aoStats?.waza ?? prev.waza,
+              ippon: val.aoStats?.ippon ?? prev.ippon,
+              senshu: val.aoStats?.senshu ?? prev.senshu,
+              c1: val.aoPenalties?.c1 ?? prev.c1,
+              c2: val.aoPenalties?.c2 ?? prev.c2,
+              c3: val.aoPenalties?.c3 ?? prev.c3,
+              hc: val.aoPenalties?.hc ?? prev.hc,
+              h: val.aoPenalties?.h ?? prev.h,
+            }));
+          }
+          if (val.status && val.status !== 'finished') setStatus(val.status);
+          if (val.currentCategory) setActiveCategoryName(val.currentCategory);
+          if (val.kataVotes !== undefined) setKataVotes(val.kataVotes || null);
+          if (val.kataWinner !== undefined) setKataWinner(val.kataWinner || null);
+          if (val.kataScores !== undefined) setKataScores(val.kataScores || null);
+          if (val.selectedKata !== undefined) setSelectedKata(val.selectedKata || null);
+          if (val.revealVotes !== undefined) setRevealVotes(val.revealVotes || false);
+          if (val.revealCountdown !== undefined) setRevealCountdown(val.revealCountdown || 0);
+          if (val.timeRemaining) {
+            const [mm, ss] = val.timeRemaining.split(':').map(Number);
+            if (!isNaN(mm) && !isNaN(ss)) setTimer(mm * 60 + ss);
+          } else if (val.timerSeconds !== undefined) {
+            setTimer(val.timerSeconds);
+          }
+          if (val.timerRunning !== undefined) setRunning(val.timerRunning);
+          if (val.restTimerSeconds !== undefined) setRestTimer(val.restTimerSeconds);
+          if (val.restTimerRunning !== undefined) setRestRunning(val.restTimerRunning);
         } else {
-          // 3. Normal active operator or active admin — sync Kata updates from remote judges / panel
+          // 4. Normal active operator runtime updates — sync Kata updates from remote judges / panel
           if (val.kataVotes !== undefined) setKataVotes(val.kataVotes || null);
           if (val.kataWinner !== undefined) setKataWinner(val.kataWinner || null);
           if (val.kataScores !== undefined) setKataScores(val.kataScores || null);
@@ -661,6 +728,7 @@ function OperatorPortalInner({ id }: { id: string }) {
       const { collection, onSnapshot, doc, getDoc } = await import('firebase/firestore');
 
       // Clear previous mat state immediately on mat switch
+      hasHydratedRef.current = false;
       setActiveMatchId(null);
       activeCategoryRef.current = null;
       setActiveCategoryId(null);
@@ -756,12 +824,14 @@ function OperatorPortalInner({ id }: { id: string }) {
               if (stored && mappedQueue.some((m: any) => m.id === stored)) {
                 const matched = mappedQueue.find((m: any) => m.id === stored);
                 if (matched) {
-                  setAka({ name: matched.aka, country: matched.akaCountry, academy: matched.akaAcademy, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: matched.akaId });
-                  setAo({ name: matched.ao, country: matched.aoCountry, academy: matched.aoAcademy, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: matched.aoId });
-                  const isKata = activeCat.isKata || activeCat.name?.toLowerCase().includes('kata') || false;
-                  setTimer(isKata ? 0 : matchDuration);
-                  setStatus('upcoming');
-                  setWinnerState(null);
+                  if (!hasHydratedRef.current) {
+                    setAka({ name: matched.aka, country: matched.akaCountry, academy: matched.akaAcademy, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: matched.akaId });
+                    setAo({ name: matched.ao, country: matched.aoCountry, academy: matched.aoAcademy, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: matched.aoId });
+                    const isKata = activeCat.isKata || activeCat.name?.toLowerCase().includes('kata') || false;
+                    setTimer(isKata ? 0 : matchDuration);
+                    setStatus('upcoming');
+                    setWinnerState(null);
+                  }
                   return matched.id;
                 }
               }
@@ -770,12 +840,14 @@ function OperatorPortalInner({ id }: { id: string }) {
                 || mappedQueue[0];
 
               if (candidate) {
-                setAka({ name: candidate.aka, country: candidate.akaCountry, academy: candidate.akaAcademy, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: candidate.akaId });
-                setAo({ name: candidate.ao, country: candidate.aoCountry, academy: candidate.aoAcademy, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: candidate.aoId });
-                const isKata = activeCat.isKata || activeCat.name?.toLowerCase().includes('kata') || false;
-                setTimer(isKata ? 0 : matchDuration);
-                setStatus('upcoming');
-                setWinnerState(null);
+                if (!hasHydratedRef.current) {
+                  setAka({ name: candidate.aka, country: candidate.akaCountry, academy: candidate.akaAcademy, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: candidate.akaId });
+                  setAo({ name: candidate.ao, country: candidate.aoCountry, academy: candidate.aoAcademy, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: candidate.aoId });
+                  const isKata = activeCat.isKata || activeCat.name?.toLowerCase().includes('kata') || false;
+                  setTimer(isKata ? 0 : matchDuration);
+                  setStatus('upcoming');
+                  setWinnerState(null);
+                }
                 if (typeof window !== 'undefined') {
                   sessionStorage.setItem(`activeMatch_${matIdParam}`, candidate.id);
                 }
@@ -824,15 +896,20 @@ function OperatorPortalInner({ id }: { id: string }) {
       return;
     }
     setActiveMatchId(m.id);
-    setAka({ name: m.aka, country: m.akaCountry, academy: m.akaAcademy, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: m.akaId });
-    setAo({ name: m.ao, country: m.aoCountry, academy: m.aoAcademy, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: m.aoId });
-    
-    const isKataMatch = m.category?.toLowerCase().includes('kata') || activeCategoryData?.isKata || activeCategoryName?.toLowerCase().includes('kata') || false;
-    
-    setTimer(isKataMatch ? 0 : matchDuration);
-    setStatus('upcoming');
+    if (!isHydrating) {
+      setAka({ name: m.aka, country: m.akaCountry, academy: m.akaAcademy, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: m.akaId });
+      setAo({ name: m.ao, country: m.aoCountry, academy: m.aoAcademy, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: m.aoId });
+      
+      const isKataMatch = m.category?.toLowerCase().includes('kata') || activeCategoryData?.isKata || activeCategoryName?.toLowerCase().includes('kata') || false;
+      
+      setTimer(isKataMatch ? 0 : matchDuration);
+      setStatus('upcoming');
 
-    setWinnerState(null);
+      setWinnerState(null);
+    } else {
+      setAka(p => ({ ...p, name: m.aka, country: m.akaCountry, academy: m.akaAcademy, id: m.akaId }));
+      setAo(p => ({ ...p, name: m.ao, country: m.aoCountry, academy: m.aoAcademy, id: m.aoId }));
+    }
 
     if (!isViewer && !isHydrating) {
       try {
@@ -897,7 +974,7 @@ function OperatorPortalInner({ id }: { id: string }) {
                        if (d.timerSeconds !== undefined) setTimer(d.timerSeconds);
                        if (d.timerRunning !== undefined) setRunning(d.timerRunning);
                        if (d.status) {
-                          setStatus(d.status === 'live' || d.status === 'paused' ? 'upcoming' : d.status);
+                          setStatus(d.status);
                        }
                     }
                  }

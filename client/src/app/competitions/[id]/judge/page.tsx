@@ -160,20 +160,24 @@ function JudgePanelInner({ id }: { id: string }) {
   // Track matchId changes to reset voting state for next bout
   const currentMatchId = liveData?.matchId;
   const [lastMatchId, setLastMatchId] = useState<string | null>(null);
-  if (currentMatchId && currentMatchId !== lastMatchId) {
-    setLastMatchId(currentMatchId);
-    setVoteCountdown(null);
-    setPendingVote(null);
-    setVoteSubmitted(false);
-  }
+  useEffect(() => {
+    if (currentMatchId && currentMatchId !== lastMatchId) {
+      setLastMatchId(currentMatchId);
+      setVoteCountdown(null);
+      setPendingVote(null);
+      setVoteSubmitted(false);
+    }
+  }, [currentMatchId, lastMatchId]);
 
   const [prevMatId, setPrevMatId] = useState<string | null>(null);
-  if (matId !== prevMatId) {
-    setPrevMatId(matId);
-    setLiveData(null);
-    setRtdbReady(false);
-    if (matId) setLoading(true);
-  }
+  useEffect(() => {
+    if (matId !== prevMatId) {
+      setPrevMatId(matId);
+      setLiveData(null);
+      setRtdbReady(false);
+      if (matId) setLoading(true);
+    }
+  }, [matId, prevMatId]);
 
   // Listen to RTDB whenever matId changes
   useEffect(() => {
@@ -373,7 +377,9 @@ function JudgePanelInner({ id }: { id: string }) {
                     className={`btn ${matLabel === m ? 'btn-primary' : 'btn-secondary'}`}
                     onClick={() => {
                       setMatLabel(m);
-                      setJudgeIndex(null);
+                      if (matLabel !== m) {
+                        setJudgeIndex(assignedJudgeIndex !== null ? assignedJudgeIndex : null);
+                      }
                       setVoteCountdown(null);
                       setPendingVote(null);
                       setVoteSubmitted(false);

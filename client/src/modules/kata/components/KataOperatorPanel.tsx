@@ -125,7 +125,12 @@ export default function KataOperatorPanel({
   };
 
   // Auto-sync rest timer to RTDB when updated
+  const hasMountedRestTimer = React.useRef(false);
   useEffect(() => {
+    if (!hasMountedRestTimer.current) {
+      hasMountedRestTimer.current = true;
+      if (restTimer === 0 && !restRunning) return;
+    }
     syncRTDB({
       restTimerSeconds: restTimer,
       restTimerRunning: restRunning,
@@ -133,7 +138,12 @@ export default function KataOperatorPanel({
   }, [restTimer, restRunning, syncRTDB]);
 
   // Auto-sync performance timer to RTDB when updated
+  const hasMountedTeamTimer = React.useRef(false);
   useEffect(() => {
+    if (!hasMountedTeamTimer.current) {
+      hasMountedTeamTimer.current = true;
+      if (teamTimer === 0 && !timerRunning) return;
+    }
     const mins = String(Math.floor(teamTimer / 60)).padStart(2, '0');
     const secs = String(teamTimer % 60).padStart(2, '0');
     syncRTDB({
@@ -184,7 +194,7 @@ export default function KataOperatorPanel({
           const d = snap.val();
           if (d.matchId === matchId) {
             if (d.kataScores) setLiveVotes(d.kataScores);
-            if (d.selectedKata && !boutStarted) {
+            if (d.selectedKata) {
               setSelectedKata(d.selectedKata);
             }
             if (d.boutFinished && !boutFinished) setBoutFinished(true);

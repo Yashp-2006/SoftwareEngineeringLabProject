@@ -210,13 +210,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        // Block audience/viewer from judge page (they can't vote)
-        if (pathname.includes('/judge') && (role === 'viewer' || (role as string) === 'audience')) {
-          router.push(`/competitions/${pathname.split('/')[2]}`);
-          return;
-        }
-
-        // Removed global portal restrictions because competition pages (like /athletes, /medals) 
+        // Removed global portal restrictions because competition pages (like /athletes, /medals, /judge) 
         // check their own competition-specific staff subcollections.
       }
     }

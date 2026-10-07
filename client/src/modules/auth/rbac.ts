@@ -110,12 +110,7 @@ export function checkRouteAccess(
     return { allowed: false, redirect: '/competitions' };
   }
 
-  // Judge protection for viewers/audience (they can't vote)
-  if (pathname.includes('/judge') && (role === 'viewer' || (role as string) === 'audience')) {
-    const compId = pathname.split('/')[2] || '';
-    return { allowed: false, redirect: `/competitions/${compId}` };
-  }
-
+  // Judge page handles its own authentication and competition-level staff roster check
   return { allowed: true };
 }
 
