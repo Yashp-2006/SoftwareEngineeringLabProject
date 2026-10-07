@@ -46,7 +46,7 @@ export default function KataSelectionRow({
   const label = side.toUpperCase();
 
   return (
-    <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
+    <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
       <div
         style={{
           display: 'flex',
@@ -82,6 +82,7 @@ export default function KataSelectionRow({
         onClick={() => setOpen((o) => !o)}
         style={{
           width: '100%',
+          boxSizing: 'border-box',
           padding: '10px 14px',
           border: `1.5px solid ${selectedKata ? colorVar : 'var(--neutral-300)'}`,
           borderRadius: '8px',
@@ -122,6 +123,8 @@ export default function KataSelectionRow({
             top: '100%',
             left: 0,
             right: 0,
+            minWidth: '220px',
+            boxSizing: 'border-box',
             zIndex: 200,
             background: 'var(--shiro)',
             border: '1px solid var(--neutral-200)',
@@ -133,7 +136,7 @@ export default function KataSelectionRow({
             flexDirection: 'column',
           }}
         >
-          <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--neutral-100)' }}>
+          <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--neutral-100)', boxSizing: 'border-box' }}>
             <input
               autoFocus
               type="text"
@@ -142,6 +145,7 @@ export default function KataSelectionRow({
               onChange={(e) => setSearch(e.target.value)}
               style={{
                 width: '100%',
+                boxSizing: 'border-box',
                 padding: '6px 10px',
                 border: '1px solid var(--neutral-300)',
                 borderRadius: '6px',

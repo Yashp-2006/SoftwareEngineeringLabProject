@@ -11,10 +11,18 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
 
   const [competitionsList, setCompetitionsList] = useState<any[]>([]);
-  const [selectedCompId, setSelectedCompId] = useState('');
+  const [selectedCompId, setSelectedCompId] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return new URLSearchParams(window.location.search).get('compId') || '';
+    }
+    return '';
+  });
   const [staffList, setStaffList] = useState<any[]>([]);
   const [selectedStaffId, setSelectedStaffId] = useState('');
   const [pin, setPin] = useState('');
+
+  const [loadingComps, setLoadingComps] = useState(false);
+  const [loadingStaff, setLoadingStaff] = useState(false);
 
   const [showEnrollForm, setShowEnrollForm] = useState(false);
   const [enrollName, setEnrollName] = useState('');
@@ -23,25 +31,64 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Initialize from URL parameters on mount
   useEffect(() => {
-    if (activeTab === 'pin') {
-      const loadComps = async () => {
+    if (typeof window !== 'undefined') {
+      const sp = new URLSearchParams(window.location.search);
+      const urlCompId = sp.get('compId');
+      if (urlCompId && !selectedCompId) {
+        setSelectedCompId(urlCompId);
+      }
+      const urlTab = sp.get('tab');
+      if (urlTab === 'pin') {
+        setActiveTab('pin');
+      }
+    }
+  }, []);
+
+  // Always load competitions on mount so dropdowns populate reliably
+  useEffect(() => {
+    const loadComps = async () => {
+      setLoadingComps(true);
+      try {
         const { db } = await import('@lib/firebase');
         const { collection, getDocs } = await import('firebase/firestore');
         const snap = await getDocs(collection(db, 'competitions'));
-        setCompetitionsList(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      };
-      loadComps();
-    }
-  }, [activeTab]);
+        const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        // If tournament was specified in URL but not yet in list, ensure it appears
+        const urlComp = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('compId') : null;
+        if (urlComp && !list.some(c => c.id === urlComp)) {
+          list.unshift({ id: urlComp, name: `${urlComp.toUpperCase()} (Active Tournament)` });
+        }
+        setCompetitionsList(list);
+      } catch (err) {
+        console.error('Failed to load competitions list:', err);
+      } finally {
+        setLoadingComps(false);
+      }
+    };
+    loadComps();
+  }, []);
 
   useEffect(() => {
     if (selectedCompId) {
       const loadStaff = async () => {
-        const { db } = await import('@lib/firebase');
-        const { collection, getDocs } = await import('firebase/firestore');
-        const snap = await getDocs(collection(db, 'competitions', selectedCompId, 'staff'));
-        setStaffList(snap.docs.map(doc => ({ id: doc.id, ...doc.data() }) as any).filter((s: any) => s.pin));
+        setLoadingStaff(true);
+        try {
+          const { db } = await import('@lib/firebase');
+          const { collection, getDocs } = await import('firebase/firestore');
+          const snap = await getDocs(collection(db, 'competitions', selectedCompId, 'staff'));
+          const allStaff = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }) as any);
+          const withPin = allStaff.filter((s: any) => s.pin);
+          // Prefer staff configured with PIN, fallback to all staff for visibility
+          setStaffList(withPin.length > 0 ? withPin : allStaff);
+        } catch (err) {
+          console.error('Failed to load staff list:', err);
+          setStaffList([]);
+        } finally {
+          setLoadingStaff(false);
+        }
       };
       loadStaff();
     } else {
@@ -332,7 +379,10 @@ export default function LoginPage() {
 
   // ─── shared input style ───────────────────────────────────────
   const inputStyle: React.CSSProperties = {
-    width: '100%', height: '48px',
+    width: '100%',
+    maxWidth: '100%',
+    boxSizing: 'border-box',
+    height: '48px',
     border: '1.5px solid var(--neutral-300)',
     borderRadius: '8px',
     padding: '0 14px',
@@ -344,7 +394,28 @@ export default function LoginPage() {
     transition: 'border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out)',
   };
 
-  const selectStyle: React.CSSProperties = { ...inputStyle, background: 'var(--shiro)', cursor: 'pointer' };
+  const selectStyle: React.CSSProperties = {
+    ...inputStyle,
+    boxSizing: 'border-box',
+    width: '100%',
+    maxWidth: '100%',
+    height: '48px',
+    padding: '0 40px 0 14px',
+    appearance: 'none',
+    WebkitAppearance: 'none',
+    MozAppearance: 'none',
+    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: 'calc(100% - 14px) center',
+    backgroundSize: '16px 16px',
+    backgroundColor: '#ffffff',
+    cursor: 'pointer',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    lineHeight: '44px',
+    display: 'block',
+  };
 
   const labelStyle: React.CSSProperties = {
     display: 'block',
@@ -577,7 +648,7 @@ export default function LoginPage() {
                   <label htmlFor="enroll-comp" style={labelStyle}>Competition</label>
                   <select id="enroll-comp" value={selectedCompId} onChange={e => setSelectedCompId(e.target.value)}
                     style={selectStyle} onFocus={addFocusRing} onBlur={removeFocusRing} required>
-                    <option value="">Select competition…</option>
+                    <option value="">{loadingComps ? 'Loading tournaments…' : 'Select competition…'}</option>
                     {competitionsList.map(comp => <option key={comp.id} value={comp.id}>{comp.name}</option>)}
                   </select>
                 </div>
@@ -680,7 +751,7 @@ export default function LoginPage() {
                         <label htmlFor="pin-comp" style={labelStyle}>Competition</label>
                         <select id="pin-comp" value={selectedCompId} onChange={e => setSelectedCompId(e.target.value)}
                           style={selectStyle} onFocus={addFocusRing} onBlur={removeFocusRing} required>
-                          <option value="">Select competition…</option>
+                          <option value="">{loadingComps ? 'Loading tournaments…' : 'Select competition…'}</option>
                           {competitionsList.map(comp => <option key={comp.id} value={comp.id}>{comp.name}</option>)}
                         </select>
                       </div>
@@ -688,7 +759,15 @@ export default function LoginPage() {
                         <label htmlFor="pin-staff" style={labelStyle}>Staff Profile</label>
                         <select id="pin-staff" value={selectedStaffId} onChange={e => setSelectedStaffId(e.target.value)}
                           style={selectStyle} onFocus={addFocusRing} onBlur={removeFocusRing} required>
-                          <option value="">Select your name…</option>
+                          <option value="">
+                            {!selectedCompId
+                              ? 'Select a competition first…'
+                              : loadingStaff
+                              ? 'Loading staff roster…'
+                              : staffList.length === 0
+                              ? 'No staff profiles found'
+                              : 'Select your name…'}
+                          </option>
                           {staffList.map(staff => <option key={staff.id} value={staff.id}>{staff.name} ({staff.role})</option>)}
                         </select>
                       </div>

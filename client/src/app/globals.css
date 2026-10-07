@@ -111,6 +111,17 @@ h3 { font-family: var(--font-body); font-size: 18px; font-weight: 600; line-heig
 .data-mono { font-family: var(--font-mono); }
 
 /* ================================================
+   BASE FORM CONTROLS
+   ================================================ */
+select, input, textarea, button {
+  box-sizing: border-box;
+}
+
+select {
+  max-width: 100%;
+}
+
+/* ================================================
    NAVIGATION
    ================================================ */
 nav {
