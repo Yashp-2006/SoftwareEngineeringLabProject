@@ -314,17 +314,19 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
 
     try {
       const { db } = await import('@lib/firebase');
-      const { doc, getDoc, updateDoc } = await import('firebase/firestore');
+      const { doc, runTransaction } = await import('firebase/firestore');
       const catRef = doc(db, 'competitions', id, 'categories', activeCategoryId!);
-      const catSnap = await getDoc(catRef);
-      if (!catSnap.exists()) return;
+      await runTransaction(db, async (transaction) => {
+        const catSnap = await transaction.get(catRef);
+        if (!catSnap.exists()) return;
 
-      const catData = catSnap.data();
-      const athletes = (catData.athletes || []).map((a: any) => {
-        if (a.playerId === athletePlayerId) return { ...a, medalReceived: status };
-        return a;
+        const catData = catSnap.data();
+        const athletes = (catData.athletes || []).map((a: any) => {
+          if (a.playerId === athletePlayerId) return { ...a, medalReceived: status };
+          return a;
+        });
+        transaction.update(catRef, { athletes });
       });
-      await updateDoc(catRef, { athletes });
     } catch (err) {
       console.error('Failed to update medal received status', err);
     }

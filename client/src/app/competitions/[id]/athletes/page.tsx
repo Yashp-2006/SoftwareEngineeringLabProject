@@ -199,36 +199,41 @@ export default function AthletesPage({ params }: { params: Promise<{ id: string 
     // Persist to Firestore — update both athletes array and matches array
     try {
       const { db } = await import('@lib/firebase');
-      const { doc, getDoc, updateDoc } = await import('firebase/firestore');
+      const { doc, runTransaction } = await import('firebase/firestore');
       const catRef = doc(db, 'competitions', id, 'categories', activeCategoryId!);
-      const catSnap = await getDoc(catRef);
-      if (!catSnap.exists()) return;
 
-      const data = catSnap.data();
-      
-      const updatedAthletes = (data.athletes || []).map((a: any) => {
-        if (a.playerId === athleteId || a.name === athleteId) {
-          return { ...a, [field]: value };
-        }
-        return a;
+      let latestMatchesForDq: any[] = [];
+      await runTransaction(db, async (transaction) => {
+        const catSnap = await transaction.get(catRef);
+        if (!catSnap.exists()) return;
+
+        const data = catSnap.data();
+
+        const updatedAthletes = (data.athletes || []).map((a: any) => {
+          if (a.playerId === athleteId || a.name === athleteId) {
+            return { ...a, [field]: value };
+          }
+          return a;
+        });
+
+        const updatedMatches = (data.matches || []).map((m: any) => {
+          const newM = { ...m };
+          if (m.aka && (m.aka.playerId === athleteId || m.aka.name === athleteId)) {
+            newM.aka = { ...m.aka, [field]: value };
+          }
+          if (m.ao && (m.ao.playerId === athleteId || m.ao.name === athleteId)) {
+            newM.ao = { ...m.ao, [field]: value };
+          }
+          return newM;
+        });
+
+        transaction.update(catRef, { athletes: updatedAthletes, matches: updatedMatches });
+        latestMatchesForDq = updatedMatches;
       });
-
-      const updatedMatches = (data.matches || []).map((m: any) => {
-        const newM = { ...m };
-        if (m.aka && (m.aka.playerId === athleteId || m.aka.name === athleteId)) {
-          newM.aka = { ...m.aka, [field]: value };
-        }
-        if (m.ao && (m.ao.playerId === athleteId || m.ao.name === athleteId)) {
-          newM.ao = { ...m.ao, [field]: value };
-        }
-        return newM;
-      });
-
-      await updateDoc(catRef, { athletes: updatedAthletes, matches: updatedMatches });
 
       // AUTO-PROMOTE: if athlete is disqualified, find their first incomplete match and promote opponent
       if (field === 'disqualified' && value === true) {
-        const dqMatch = updatedMatches.find((m: any) =>
+        const dqMatch = latestMatchesForDq.find((m: any) =>
           m.status !== 'completed' &&
           ((m.aka?.playerId === athleteId || m.aka?.name === athleteId) ||
            (m.ao?.playerId === athleteId || m.ao?.name === athleteId))
