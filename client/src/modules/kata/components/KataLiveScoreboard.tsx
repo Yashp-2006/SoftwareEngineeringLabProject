@@ -691,19 +691,39 @@ export function deriveJudgeVotes(
   let akaFlags = 0;
   let aoFlags = 0;
 
-  if (!kataScores?.aka || !kataScores?.ao) {
+  if (!kataScores?.aka && !kataScores?.ao) {
     return { judgeVotes: Array(numberOfJudges).fill(null), akaFlags: 0, aoFlags: 0 };
   }
 
+  const akaMap = kataScores.aka || {};
+  const aoMap = kataScores.ao || {};
+
   for (let i = 0; i < numberOfJudges; i++) {
-    const a = kataScores.aka[String(i)] ?? null;
-    const b = kataScores.ao[String(i)] ?? null;
-    if (a === null || b === null) {
+    const a = akaMap[String(i)] ?? null;
+    const b = aoMap[String(i)] ?? null;
+    if (a === null && b === null) {
       judgeVotes.push(null);
-    } else if (a > b) {
+    } else if (a !== null && b === null) {
+      if (a > 0) {
+        judgeVotes.push('aka');
+        akaFlags++;
+      } else {
+        judgeVotes.push(null);
+      }
+    } else if (b !== null && a === null) {
+      if (b > 0) {
+        judgeVotes.push('ao');
+        aoFlags++;
+      } else {
+        judgeVotes.push(null);
+      }
+    } else if (a === 0 && b === 0) {
+      // Both zero means unvoted / reset state
+      judgeVotes.push(null);
+    } else if (a! > b!) {
       judgeVotes.push('aka');
       akaFlags++;
-    } else if (b > a) {
+    } else if (b! > a!) {
       judgeVotes.push('ao');
       aoFlags++;
     } else {

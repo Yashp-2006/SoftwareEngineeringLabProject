@@ -344,9 +344,8 @@ export default function KataOperatorPanel({
     setLiveVotes(nextLiveVotes);
 
     await syncRTDB({
-      'kataScores/aka': newAka,
-      'kataScores/ao': newAo,
-      kataScores: nextLiveVotes,
+      [`kataScores/aka/${judgeIndex}`]: nextVote === 'aka' ? 1 : 0,
+      [`kataScores/ao/${judgeIndex}`]: nextVote === 'ao' ? 1 : 0,
     });
   };
 
@@ -372,9 +371,8 @@ export default function KataOperatorPanel({
     setLiveVotes(nextLiveVotes);
 
     await syncRTDB({
-      'kataScores/aka': newAka,
-      'kataScores/ao': newAo,
-      kataScores: nextLiveVotes,
+      [`kataScores/aka/${judgeIndex}`]: nextVote === 'aka' ? 1 : 0,
+      [`kataScores/ao/${judgeIndex}`]: nextVote === 'ao' ? 1 : 0,
     });
   };
 
