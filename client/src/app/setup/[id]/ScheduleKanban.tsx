@@ -24,7 +24,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { db } from '@lib/firebase';
 import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
-import { Search, Calendar, GripVertical } from 'lucide-react';
+import { Search, Calendar, GripVertical, Layers, ChevronDown } from 'lucide-react';
 import { sortCategories, compareCategoryNames } from '@/lib/categoryUtils';
 import toast from 'react-hot-toast';
 
@@ -44,7 +44,27 @@ interface ScheduleKanbanProps {
   poolSize: number;
 }
 
-function SortablePoolCard({ pool, id, orderNum }: { pool: any, id: string, orderNum?: number }) {
+interface SortablePoolCardProps {
+  pool: any;
+  id: string;
+  orderNum?: number;
+  matsCount?: number;
+  tournamentDays?: number;
+  categoryPoolCount?: number;
+  categoryLocation?: { isSplit: boolean; day: number; matId: number };
+  onMoveCategory?: (categoryId: string, targetKey: string) => void;
+}
+
+function SortablePoolCard({ 
+  pool, 
+  id, 
+  orderNum,
+  matsCount,
+  tournamentDays,
+  categoryPoolCount,
+  categoryLocation,
+  onMoveCategory
+}: SortablePoolCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   
   const style = {
@@ -65,6 +85,7 @@ function SortablePoolCard({ pool, id, orderNum }: { pool: any, id: string, order
 
   const isFinals = pool.id.includes('finals') || pool.categoryName.toLowerCase().includes('finals');
   const isKata = pool.categoryName.toLowerCase().includes('kata');
+  const catId = pool.categoryId || pool.id.split('_pool_')[0].split('_finals')[0];
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
@@ -87,37 +108,139 @@ function SortablePoolCard({ pool, id, orderNum }: { pool: any, id: string, order
         </span>
       )}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '2px' }}>
-          <span style={{ 
-            fontSize: '9px', 
-            fontWeight: 700, 
-            padding: '1px 5px', 
-            borderRadius: '4px', 
-            background: isKata ? '#eff6ff' : '#fff1f2', 
-            color: isKata ? '#1d4ed8' : '#be123c',
-            letterSpacing: '0.04em'
-          }}>
-            {isKata ? 'KATA' : 'KUMITE'}
-          </span>
-          {isFinals && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', marginBottom: '4px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
             <span style={{ 
               fontSize: '9px', 
               fontWeight: 700, 
               padding: '1px 5px', 
               borderRadius: '4px', 
-              background: '#fef3c7', 
-              color: '#92400e',
+              background: isKata ? '#eff6ff' : '#fff1f2', 
+              color: isKata ? '#1d4ed8' : '#be123c',
               letterSpacing: '0.04em'
             }}>
-              FINALS
+              {isKata ? 'KATA' : 'KUMITE'}
             </span>
+            {isFinals && (
+              <span style={{ 
+                fontSize: '9px', 
+                fontWeight: 700, 
+                padding: '1px 5px', 
+                borderRadius: '4px', 
+                background: '#fef3c7', 
+                color: '#92400e',
+                letterSpacing: '0.04em'
+              }}>
+                FINALS
+              </span>
+            )}
+          </div>
+
+          {onMoveCategory && (
+            <div 
+              onPointerDown={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+              style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}
+            >
+              <button
+                type="button"
+                tabIndex={-1}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '2px 7px',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  background: 'var(--neutral-100)',
+                  color: 'var(--neutral-700)',
+                  border: '1px solid var(--neutral-300)',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  lineHeight: '1.3',
+                  whiteSpace: 'nowrap',
+                  userSelect: 'none'
+                }}
+              >
+                <Layers size={11} color="var(--neutral-600)" />
+                <span>Move Cat{categoryPoolCount && categoryPoolCount > 1 ? ` (${categoryPoolCount})` : ''}</span>
+                <ChevronDown size={10} color="var(--neutral-400)" />
+              </button>
+              <select
+                value=""
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val && onMoveCategory) {
+                    onMoveCategory(catId, val);
+                  }
+                }}
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  width: '100%',
+                  height: '100%',
+                  opacity: 0,
+                  cursor: 'pointer',
+                  fontSize: '12px'
+                }}
+                title={`Move all ${categoryPoolCount || 1} pool(s) in this category to a mat`}
+              >
+                <option value="" disabled>Move all pools in category to...</option>
+                {tournamentDays && tournamentDays <= 1 ? (
+                  <>
+                    {Array.from({ length: matsCount || 1 }).map((_, i) => {
+                      const matNum = i + 1;
+                      const isCurrent = !categoryLocation?.isSplit && categoryLocation?.matId === matNum && categoryLocation?.day === 1;
+                      return (
+                        <option key={`mat-${matNum}`} value={`mat-1-${matNum}`}>
+                          Mat {matNum} {isCurrent ? '(Current)' : ''}
+                        </option>
+                      );
+                    })}
+                    <option value="unassigned">
+                      Unassigned {!categoryLocation?.isSplit && categoryLocation?.matId === -1 ? '(Current)' : ''}
+                    </option>
+                  </>
+                ) : (
+                  <>
+                    {Array.from({ length: tournamentDays || 1 }).map((_, d) => {
+                      const dayNum = d + 1;
+                      return (
+                        <optgroup key={`day-${dayNum}`} label={`Day ${dayNum}`}>
+                          {Array.from({ length: matsCount || 1 }).map((_, i) => {
+                            const matNum = i + 1;
+                            const isCurrent = !categoryLocation?.isSplit && categoryLocation?.matId === matNum && categoryLocation?.day === dayNum;
+                            return (
+                              <option key={`day-${dayNum}-mat-${matNum}`} value={`mat-${dayNum}-${matNum}`}>
+                                Day {dayNum} — Mat {matNum} {isCurrent ? '(Current)' : ''}
+                              </option>
+                            );
+                          })}
+                        </optgroup>
+                      );
+                    })}
+                    <optgroup label="Other">
+                      <option value="unassigned">
+                        Unassigned {!categoryLocation?.isSplit && categoryLocation?.matId === -1 ? '(Current)' : ''}
+                      </option>
+                    </optgroup>
+                  </>
+                )}
+              </select>
+            </div>
           )}
         </div>
         <div style={{ fontSize: '13px', fontWeight: 600, color: '#171717', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={pool.categoryName}>
           {pool.categoryName}
         </div>
-        <div style={{ fontSize: '11px', color: 'var(--neutral-500)', marginTop: '2px' }}>
-          {pool.matchesCount} matches • Est. {pool.estTime} mins
+        <div style={{ fontSize: '11px', color: 'var(--neutral-500)', marginTop: '2px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>{pool.matchesCount} matches • Est. {pool.estTime} mins</span>
+          {categoryPoolCount && categoryPoolCount > 1 && (
+            <span style={{ fontSize: '10px', color: 'var(--neutral-400)', fontWeight: 500 }}>
+              {categoryPoolCount} pools in cat
+            </span>
+          )}
         </div>
       </div>
     </div>
@@ -289,7 +412,29 @@ export function computeAutoSchedule(
   return schedule;
 }
 
-function DroppableColumn({ id, title, pools, totalTime }: { id: string, title: string, pools: any[], totalTime?: number }) {
+interface DroppableColumnProps {
+  id: string;
+  title: string;
+  pools: any[];
+  totalTime?: number;
+  matsCount: number;
+  tournamentDays: number;
+  categoryPoolCounts: Record<string, number>;
+  categoryLocations: Record<string, { isSplit: boolean; day: number; matId: number }>;
+  onMoveCategory: (categoryId: string, targetKey: string) => void;
+}
+
+function DroppableColumn({ 
+  id, 
+  title, 
+  pools, 
+  totalTime,
+  matsCount,
+  tournamentDays,
+  categoryPoolCounts,
+  categoryLocations,
+  onMoveCategory
+}: DroppableColumnProps) {
   const { setNodeRef } = useSortable({
     id,
     data: {
@@ -311,9 +456,22 @@ function DroppableColumn({ id, title, pools, totalTime }: { id: string, title: s
       </div>
       <div ref={setNodeRef} style={{ padding: '12px', flex: 1, overflowY: 'auto' }}>
         <SortableContext items={pools.map(p => p.id)} strategy={verticalListSortingStrategy}>
-          {pools.map((pool, idx) => (
-            <SortablePoolCard key={pool.id} id={pool.id} pool={pool} orderNum={idx + 1} />
-          ))}
+          {pools.map((pool, idx) => {
+            const catId = pool.categoryId || pool.id.split('_pool_')[0].split('_finals')[0];
+            return (
+              <SortablePoolCard 
+                key={pool.id} 
+                id={pool.id} 
+                pool={pool} 
+                orderNum={idx + 1}
+                matsCount={matsCount}
+                tournamentDays={tournamentDays}
+                categoryPoolCount={categoryPoolCounts[catId] || 1}
+                categoryLocation={categoryLocations[catId]}
+                onMoveCategory={onMoveCategory}
+              />
+            );
+          })}
         </SortableContext>
         {pools.length === 0 && (
           <div style={{ padding: '24px', textAlign: 'center', color: 'var(--neutral-400)', fontSize: '12px', border: '2px dashed var(--neutral-300)', borderRadius: '8px' }}>
@@ -456,6 +614,113 @@ export default function ScheduleKanban({
       })
     ];
   }, [pools, poolsSchedule, activeDay, matsCount, searchQuery]);
+
+  const categoryPoolCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    pools.forEach(p => {
+      const catId = p.categoryId || p.id.split('_pool_')[0].split('_finals')[0];
+      counts[catId] = (counts[catId] || 0) + 1;
+    });
+    return counts;
+  }, [pools]);
+
+  const categoryLocations = useMemo(() => {
+    const locs: Record<string, { isSplit: boolean; day: number; matId: number }> = {};
+    pools.forEach(p => {
+      const catId = p.categoryId || p.id.split('_pool_')[0].split('_finals')[0];
+      const s = poolsSchedule[p.id];
+      const day = s?.day ?? -1;
+      const matId = s?.matId ?? -1;
+      if (!locs[catId]) {
+        locs[catId] = { isSplit: false, day, matId };
+      } else {
+        if (locs[catId].day !== day || locs[catId].matId !== matId) {
+          locs[catId].isSplit = true;
+        }
+      }
+    });
+    return locs;
+  }, [pools, poolsSchedule]);
+
+  const handleMoveCategory = (categoryId: string, targetKey: string) => {
+    let targetDay = -1;
+    let targetMatId = -1;
+    if (targetKey !== 'unassigned') {
+      const parts = targetKey.split('-');
+      targetDay = parseInt(parts[1], 10);
+      targetMatId = parseInt(parts[2], 10);
+    }
+
+    const catPools = pools.filter(p => {
+      const pCatId = p.categoryId || p.id.split('_pool_')[0].split('_finals')[0];
+      return pCatId === categoryId || p.id.startsWith(categoryId);
+    });
+
+    if (catPools.length === 0) return;
+
+    const baseCatName = catPools[0].categoryName
+      .replace(/\s*-\s*Pool\s*\d+/i, '')
+      .replace(/\s*-\s*Finals/i, '')
+      .trim();
+
+    const sortedCatPools = [...catPools].sort((a, b) => {
+      const isFinalsA = a.id.includes('finals');
+      const isFinalsB = b.id.includes('finals');
+      if (isFinalsA && !isFinalsB) return 1;
+      if (!isFinalsA && isFinalsB) return -1;
+      return a.categoryName.localeCompare(b.categoryName);
+    });
+
+    const catPoolIds = new Set(sortedCatPools.map(p => p.id));
+
+    setPoolsSchedule(prev => {
+      const next = { ...prev };
+
+      if (targetMatId === -1) {
+        let maxOrder = Object.values(next)
+          .filter(p => p.matId === -1)
+          .reduce((max, p) => Math.max(max, p.order || 0), 0);
+
+        sortedCatPools.forEach(p => {
+          maxOrder += 1;
+          next[p.id] = {
+            matId: -1,
+            day: -1,
+            order: maxOrder,
+            estTime: p.estTime
+          };
+        });
+      } else {
+        const existingOnTarget = Object.entries(next)
+          .filter(([id, val]) => val.day === targetDay && val.matId === targetMatId && !catPoolIds.has(id));
+
+        let maxOrder = existingOnTarget.reduce((max, [_, val]) => Math.max(max, val.order || 0), -1);
+
+        sortedCatPools.forEach(p => {
+          maxOrder += 1;
+          next[p.id] = {
+            matId: targetMatId,
+            day: targetDay,
+            order: maxOrder,
+            estTime: p.estTime
+          };
+        });
+      }
+
+      return next;
+    });
+
+    if (targetDay > 0 && targetDay !== activeDay) {
+      setActiveDay(targetDay);
+    }
+
+    if (targetMatId === -1) {
+      toast.success(`Moved all ${catPools.length} pool(s) of "${baseCatName}" to Unassigned`);
+    } else {
+      const daySuffix = tournamentDays > 1 ? ` (Day ${targetDay})` : '';
+      toast.success(`Moved all ${catPools.length} pool(s) of "${baseCatName}" to Mat ${targetMatId}${daySuffix}`);
+    }
+  };
 
   function handleDragStart(event: DragStartEvent) {
     setActiveId(event.active.id as string);
@@ -676,12 +941,29 @@ export default function ScheduleKanban({
       >
         <div style={{ display: 'grid', gridTemplateColumns: `260px repeat(${matsCount}, minmax(280px, 1fr))`, gap: '16px', alignItems: 'start', overflowX: 'auto', paddingBottom: '16px' }}>
           {columns.map(col => (
-            <DroppableColumn key={col.id} id={col.id} title={col.title} pools={col.pools} totalTime={col.totalTime} />
+            <DroppableColumn 
+              key={col.id} 
+              id={col.id} 
+              title={col.title} 
+              pools={col.pools} 
+              totalTime={col.totalTime}
+              matsCount={matsCount}
+              tournamentDays={tournamentDays}
+              categoryPoolCounts={categoryPoolCounts}
+              categoryLocations={categoryLocations}
+              onMoveCategory={handleMoveCategory}
+            />
           ))}
         </div>
         
         <DragOverlay dropAnimation={{ sideEffects: defaultDropAnimationSideEffects({ styles: { active: { opacity: '0.4' } } }) }}>
-          {activePool ? <SortablePoolCard id={activePool.id} pool={activePool} /> : null}
+          {activePool ? (
+            <SortablePoolCard 
+              id={activePool.id} 
+              pool={activePool} 
+              categoryPoolCount={categoryPoolCounts[activePool.categoryId || activePool.id.split('_pool_')[0].split('_finals')[0]] || 1}
+            />
+          ) : null}
         </DragOverlay>
       </DndContext>
     </div>

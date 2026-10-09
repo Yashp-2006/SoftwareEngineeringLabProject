@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { gsap } from 'gsap';
 import {
-  Download,
   Plus,
   Activity,
   Calendar,
@@ -563,20 +562,6 @@ export default function DashboardPage() {
             <h1>Operations Hub</h1>
           </div>
           <div className="page-header-actions" style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
-            <button
-              className="btn btn-secondary"
-              style={{
-                background: 'var(--shiro)',
-                borderColor: 'var(--neutral-300)',
-                color: 'var(--neutral-800)',
-                fontWeight: 600,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}
-            >
-              <Download size={15} /> Export Report
-            </button>
             <Link
               href="/competitions"
               className="btn btn-primary"

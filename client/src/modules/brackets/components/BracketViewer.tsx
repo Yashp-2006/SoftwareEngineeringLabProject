@@ -420,7 +420,7 @@ export default function BracketViewer({ matches, categoryName, isKata: propIsKat
                             {isKata && m.aka && (
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', marginLeft: '12px' }}>
                                 <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-500)', padding: '4px 10px', background: 'var(--neutral-50)', borderRadius: '6px' }}>
-                                  {m.akaKata ? m.akaKata : ''}
+                                  {m.selectedKata?.aka?.name || m.akaKata || ''}
                                 </div>
                                 {(m.akaScore !== undefined && m.akaScore !== null) && (
                                   <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--aka)' }}>
@@ -457,7 +457,7 @@ export default function BracketViewer({ matches, categoryName, isKata: propIsKat
                             {isKata && m.ao && (
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', marginLeft: '12px' }}>
                                 <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-500)', padding: '4px 10px', background: 'var(--neutral-50)', borderRadius: '6px' }}>
-                                  {m.aoKata ? m.aoKata : ''}
+                                  {m.selectedKata?.ao?.name || m.aoKata || ''}
                                 </div>
                                 {(m.aoScore !== undefined && m.aoScore !== null) && (
                                   <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--ao)' }}>

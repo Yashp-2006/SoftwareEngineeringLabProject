@@ -1,7 +1,27 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { X, Search, ZoomIn, ZoomOut, Maximize, Target, LayoutTemplate, Swords, CheckCircle2, ArrowRight, Check, MinusCircle, PlusCircle, RotateCcw } from 'lucide-react';
+import { X, Search, ZoomIn, ZoomOut, Maximize, Target, LayoutTemplate, Swords, CheckCircle2, ArrowRight, Check, MinusCircle, PlusCircle, RotateCcw, ArrowRightLeft } from 'lucide-react';
+
+function getMatchPoolLabel(match?: any, matchId?: string): string {
+  const id = match?.id || matchId || '';
+  if (match?.poolNumber) return `Pool ${match.poolNumber}`;
+  if (match?.pool) return `Pool ${match.pool}`;
+  if (id.toLowerCase().includes('finals')) return 'Finals';
+  if (id.includes('Pool')) {
+    const matchPrefix = id.split('-')[0];
+    return matchPrefix.replace('Pool', 'Pool ');
+  }
+  return 'Pool 1';
+}
+
+function getMatchLabel(matchId?: string): string {
+  if (!matchId) return '';
+  const parts = matchId.split('-');
+  const last = parts[parts.length - 1];
+  if (last.startsWith('M')) return `Match ${last.substring(1)}`;
+  return `Match ${last}`;
+}
 
 const METRICS = ['S', 'Y', 'W', 'I', 'C1', 'C2', 'C3', 'HC', 'H'];
 
@@ -42,6 +62,8 @@ const BracketNode = ({
   categoryId?: string;
 }) => {
   const [showPromoteMenu, setShowPromoteMenu] = useState(false);
+  const [isAkaDragOver, setIsAkaDragOver] = useState(false);
+  const [isAoDragOver, setIsAoDragOver] = useState(false);
   const isLive = match.status === 'live';
   const isCompleted = match.status === 'completed';
   const isPending = !match.aka && !match.ao;
@@ -62,11 +84,17 @@ const BracketNode = ({
 
   const handleDrop = (e: React.DragEvent, side: 'aka' | 'ao') => {
     e.preventDefault();
+    e.stopPropagation();
+    setIsAkaDragOver(false);
+    setIsAoDragOver(false);
     try {
       const data = JSON.parse(e.dataTransfer.getData('text/plain'));
-      if (data.matchId && data.side && onSwapDrop) {
-        onSwapDrop(data.matchId, data.side, match.id, side, data.categoryId);
+      if (!data.matchId || !data.side || !onSwapDrop) return;
+      // Prevent dropping on exact same slot
+      if (data.matchId === match.id && data.side === side && (!data.categoryId || data.categoryId === categoryId)) {
+        return;
       }
+      onSwapDrop(data.matchId, data.side, match.id, side, data.categoryId);
     } catch (err) {}
   };
 
@@ -108,8 +136,17 @@ const BracketNode = ({
         draggable={isAkaDraggable && !!match.aka}
         onDragStart={(e) => isAkaDraggable && match.aka && handleDragStart(e, 'aka')}
         onDrop={(e) => isAkaDraggable && handleDrop(e, 'aka')}
-        onDragOver={(e) => isAkaDraggable && handleDragOver(e)}
-        style={isAkaDraggable && match.aka ? { cursor: 'grab' } : isAkaDraggable ? { cursor: 'copy' } : {}}
+        onDragOver={(e) => {
+          if (isAkaDraggable) {
+            handleDragOver(e);
+            if (!isAkaDragOver) setIsAkaDragOver(true);
+          }
+        }}
+        onDragLeave={() => setIsAkaDragOver(false)}
+        style={{
+          ...(isAkaDraggable && match.aka ? { cursor: 'grab' } : isAkaDraggable ? { cursor: 'copy' } : {}),
+          ...(isAkaDragOver ? { outline: '2px dashed var(--aka)', background: '#fff1f2' } : {})
+        }}
       >
         <div className="comp-info">
           <div className="comp-name">
@@ -126,8 +163,8 @@ const BracketNode = ({
             <div className="metrics-row">
               {isKata ? (
                 <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-500)', padding: '4px 10px', background: 'var(--neutral-50)', borderRadius: '6px', marginTop: '4px', width: 'fit-content' }}>
-                  {match.selectedKata?.aka?.name ? (
-                    <>Kata: <span style={{ color: 'var(--aka)', fontWeight: 700 }}>{match.selectedKata.aka.name}</span></>
+                  {(match.selectedKata?.aka?.name || match.akaKata) ? (
+                    <>Kata: <span style={{ color: 'var(--aka)', fontWeight: 700 }}>{match.selectedKata?.aka?.name || match.akaKata}</span></>
                   ) : (
                     <span style={{ color: 'var(--neutral-400)' }}>&mdash;</span>
                   )}
@@ -162,8 +199,17 @@ const BracketNode = ({
         draggable={isAoDraggable && !!match.ao}
         onDragStart={(e) => isAoDraggable && match.ao && handleDragStart(e, 'ao')}
         onDrop={(e) => isAoDraggable && handleDrop(e, 'ao')}
-        onDragOver={(e) => isAoDraggable && handleDragOver(e)}
-        style={isAoDraggable && match.ao ? { cursor: 'grab' } : isAoDraggable ? { cursor: 'copy' } : {}}
+        onDragOver={(e) => {
+          if (isAoDraggable) {
+            handleDragOver(e);
+            if (!isAoDragOver) setIsAoDragOver(true);
+          }
+        }}
+        onDragLeave={() => setIsAoDragOver(false)}
+        style={{
+          ...(isAoDraggable && match.ao ? { cursor: 'grab' } : isAoDraggable ? { cursor: 'copy' } : {}),
+          ...(isAoDragOver ? { outline: '2px dashed var(--ao)', background: '#eff6ff' } : {})
+        }}
       >
         <div className="comp-info">
           <div className="comp-name">
@@ -180,8 +226,8 @@ const BracketNode = ({
             <div className="metrics-row">
               {isKata ? (
                 <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-500)', padding: '4px 10px', background: 'var(--neutral-50)', borderRadius: '6px', marginTop: '4px', width: 'fit-content' }}>
-                  {match.selectedKata?.ao?.name ? (
-                    <>Kata: <span style={{ color: 'var(--ao)', fontWeight: 700 }}>{match.selectedKata.ao.name}</span></>
+                  {(match.selectedKata?.ao?.name || match.aoKata) ? (
+                    <>Kata: <span style={{ color: 'var(--ao)', fontWeight: 700 }}>{match.selectedKata?.ao?.name || match.aoKata}</span></>
                   ) : (
                     <span style={{ color: 'var(--neutral-400)' }}>&mdash;</span>
                   )}
@@ -872,13 +918,22 @@ export default function FullscreenBracketModal({
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const dragHoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const [crossCategoryPrompt, setCrossCategoryPrompt] = useState<{
+  const [swapConfirmationPrompt, setSwapConfirmationPrompt] = useState<{
+    isCrossCategory: boolean;
     srcAthlete: any;
-    tgtAthlete: any;
+    tgtAthlete: any | null;
     srcCatName: string;
     tgtCatName: string;
+    srcPool: string;
+    tgtPool: string;
+    srcSide: 'aka' | 'ao';
+    tgtSide: 'aka' | 'ao';
+    srcMatchId: string;
+    tgtMatchId: string;
+    srcMatchLabel: string;
+    tgtMatchLabel: string;
     onConfirmSwap: () => void;
-    onConfirmMove: () => void;
+    onConfirmForceAdd?: () => void;
   } | null>(null);
 
   const [sbFilterDiscipline, setSbFilterDiscipline] = useState<'all'|'kata'|'kumite'>('all');
@@ -1425,42 +1480,48 @@ export default function FullscreenBracketModal({
                 isEditMode={isEditMode}
                 categoryId={activeCategory.id}
                 onSwapDrop={async (srcMatchId, srcSide, tgtMatchId, tgtSide, srcCategoryId) => {
-                  if (onSwapDrop && activeCategory && srcCategoryId) {
-                    if (srcCategoryId !== activeCategory.id) {
-                      // Cross-category swap or move
-                      const srcCatName = categories.find(c => c.id === srcCategoryId)?.name || 'Source Category';
-                      const tgtCatName = activeCategory.name;
+                  if (!onSwapDrop || !activeCategory) return;
+                  const sourceCatId = srcCategoryId || activeCategory.id;
+                  const isCrossCategory = sourceCatId !== activeCategory.id;
 
-                      const srcMatch = categories.find(c => c.id === srcCategoryId)?.matches?.find((m: any) => m.id === srcMatchId);
-                      const tgtMatch = activeCategory.matches?.find((m: any) => m.id === tgtMatchId);
+                  const srcCat = categories.find(c => c.id === sourceCatId) || activeCategory;
+                  const tgtCat = activeCategory;
 
-                      const srcAthlete = srcMatch ? srcMatch[srcSide] : null;
-                      const tgtAthlete = tgtMatch ? tgtMatch[tgtSide] : null;
+                  const srcMatch = srcCat.matches?.find((m: any) => m.id === srcMatchId);
+                  const tgtMatch = tgtCat.matches?.find((m: any) => m.id === tgtMatchId);
 
-                      if (!srcAthlete) return;
+                  const srcAthlete = srcMatch ? srcMatch[srcSide] : null;
+                  const tgtAthlete = tgtMatch ? tgtMatch[tgtSide] : null;
 
-                      if (tgtAthlete) {
-                        setCrossCategoryPrompt({
-                          srcAthlete,
-                          tgtAthlete,
-                          srcCatName,
-                          tgtCatName,
-                          onConfirmSwap: () => onSwapDrop(srcCategoryId, srcMatchId, srcSide, tgtMatchId, tgtSide, activeCategory.id, 'swap'),
-                          onConfirmMove: () => onSwapDrop(srcCategoryId, srcMatchId, srcSide, tgtMatchId, tgtSide, activeCategory.id, 'move'),
-                        });
-                      } else {
-                        const confirmMove = window.confirm(
-                          `Are you sure you want to move ${srcAthlete.name} from ${srcCatName} to ${tgtCatName}?`
-                        );
-                        if (confirmMove) {
-                          onSwapDrop(srcCategoryId, srcMatchId, srcSide, tgtMatchId, tgtSide, activeCategory.id, 'move');
-                        }
-                      }
-                    } else {
-                      // Same category
-                      onSwapDrop(srcCategoryId, srcMatchId, srcSide, tgtMatchId, tgtSide);
-                    }
+                  if (!srcAthlete) return;
+
+                  // Prevent dropping on exact same spot
+                  if (!isCrossCategory && srcMatchId === tgtMatchId && srcSide === tgtSide) {
+                    return;
                   }
+
+                  const srcPool = getMatchPoolLabel(srcMatch, srcMatchId);
+                  const tgtPool = getMatchPoolLabel(tgtMatch, tgtMatchId);
+                  const srcMatchLabel = getMatchLabel(srcMatchId);
+                  const tgtMatchLabel = getMatchLabel(tgtMatchId);
+
+                  setSwapConfirmationPrompt({
+                    isCrossCategory,
+                    srcAthlete,
+                    tgtAthlete,
+                    srcCatName: srcCat.name,
+                    tgtCatName: tgtCat.name,
+                    srcPool,
+                    tgtPool,
+                    srcSide,
+                    tgtSide,
+                    srcMatchId,
+                    tgtMatchId,
+                    srcMatchLabel,
+                    tgtMatchLabel,
+                    onConfirmSwap: () => onSwapDrop(sourceCatId, srcMatchId, srcSide, tgtMatchId, tgtSide, activeCategory.id, 'swap'),
+                    onConfirmForceAdd: isCrossCategory ? () => onSwapDrop(sourceCatId, srcMatchId, srcSide, tgtMatchId, tgtSide, activeCategory.id, 'move') : undefined,
+                  });
                 }}
                 onRevertMatch={(matchId) => {
                   if (onRevertMatch && activeCategory) {
@@ -1477,27 +1538,30 @@ export default function FullscreenBracketModal({
         </div>
       </div>
 
-      {crossCategoryPrompt && (
+      {swapConfirmationPrompt && (
         <div 
           style={{
             position: 'fixed',
             inset: 0,
             zIndex: 1100,
-            background: 'rgba(0, 0, 0, 0.4)',
+            background: 'rgba(0, 0, 0, 0.45)',
             backdropFilter: 'blur(4px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             padding: '16px',
           }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSwapConfirmationPrompt(null);
+          }}
         >
           <div 
             style={{
-              background: 'var(--shiro)',
+              background: 'var(--shiro, #ffffff)',
               width: '100%',
-              maxWidth: '480px',
+              maxWidth: '520px',
               borderRadius: '16px',
-              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+              boxShadow: '0 24px 38px 3px rgba(0,0,0,0.14), 0 9px 46px 8px rgba(0,0,0,0.12)',
               border: '1px solid var(--neutral-200)',
               overflow: 'hidden',
               display: 'flex',
@@ -1505,61 +1569,197 @@ export default function FullscreenBracketModal({
               animation: 'fsb-fade-in 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
             }}
           >
-            <div style={{ padding: '24px 24px 16px 24px' }}>
-              <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--neutral-900)', margin: '0 0 12px 0' }}>
-                Cross-Category Transfer
-              </h3>
-              <p style={{ fontSize: '14px', lineHeight: 1.5, color: 'var(--neutral-600)', margin: 0 }}>
-                You dragged <strong>{crossCategoryPrompt.srcAthlete.name}</strong> from <em>{crossCategoryPrompt.srcCatName}</em> onto <strong>{crossCategoryPrompt.tgtAthlete.name}</strong> in <em>{crossCategoryPrompt.tgtCatName}</em>.
-              </p>
-              <p style={{ fontSize: '13px', lineHeight: 1.5, color: 'var(--neutral-500)', margin: '12px 0 0 0', padding: '10px 12px', background: 'var(--neutral-50)', borderRadius: '8px', border: '1px solid var(--neutral-200)' }}>
-                <strong>Force Add</strong> moves {crossCategoryPrompt.srcAthlete.name} to {crossCategoryPrompt.tgtCatName} (which might rebuild the bracket / increase pool size), while keeping {crossCategoryPrompt.tgtAthlete.name} there.
-              </p>
+            {/* Modal Header */}
+            <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ fontSize: '17px', fontWeight: 800, color: 'var(--neutral-900)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <ArrowRightLeft size={18} color="var(--aka)" />
+                  {swapConfirmationPrompt.isCrossCategory
+                    ? 'Cross-Category Athlete Transfer'
+                    : swapConfirmationPrompt.tgtPool !== swapConfirmationPrompt.srcPool
+                    ? `Cross-Pool Athlete Switch (${swapConfirmationPrompt.srcPool} ⇄ ${swapConfirmationPrompt.tgtPool})`
+                    : swapConfirmationPrompt.tgtAthlete
+                    ? `Confirm Athlete Switch (${swapConfirmationPrompt.srcPool})`
+                    : `Confirm Move to Empty Slot (${swapConfirmationPrompt.srcPool})`}
+                </h3>
+                <p style={{ fontSize: '12px', color: 'var(--neutral-500)', margin: '4px 0 0 0' }}>
+                  {swapConfirmationPrompt.isCrossCategory
+                    ? `${swapConfirmationPrompt.srcCatName} ⇄ ${swapConfirmationPrompt.tgtCatName}`
+                    : `Category: ${swapConfirmationPrompt.srcCatName}`}
+                </p>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setSwapConfirmationPrompt(null)}
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--neutral-400)', padding: '4px', borderRadius: '6px' }}
+              >
+                <X size={18} />
+              </button>
             </div>
-            
-            <div 
-              style={{ 
-                padding: '16px 24px 24px 24px', 
-                display: 'flex', 
-                flexDirection: 'column',
-                gap: '8px',
-                borderTop: '1px solid var(--neutral-100)',
-                background: 'var(--shiro)'
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => {
-                  crossCategoryPrompt.onConfirmSwap();
-                  setCrossCategoryPrompt(null);
-                }}
-                style={{
-                  width: '100%',
-                  padding: '10px 16px',
-                  borderRadius: '8px',
+
+            {/* Modal Content */}
+            <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* Athlete comparison grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '12px', alignItems: 'center' }}>
+                {/* Source Athlete Card */}
+                <div style={{
+                  padding: '12px',
+                  borderRadius: '10px',
                   border: '1px solid var(--neutral-200)',
-                  background: 'var(--shiro)',
-                  color: 'var(--neutral-800)',
-                  fontWeight: 700,
-                  fontSize: '13px',
-                  cursor: 'pointer',
+                  background: 'var(--neutral-50)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                    <span style={{
+                      fontSize: '9px',
+                      fontWeight: 800,
+                      padding: '2px 6px',
+                      borderRadius: '4px',
+                      background: swapConfirmationPrompt.srcSide === 'aka' ? '#fff1f2' : '#eff6ff',
+                      color: swapConfirmationPrompt.srcSide === 'aka' ? '#be123c' : '#1d4ed8',
+                      border: swapConfirmationPrompt.srcSide === 'aka' ? '1px solid #fecdd3' : '1px solid #bfdbfe',
+                      letterSpacing: '0.04em'
+                    }}>
+                      {swapConfirmationPrompt.srcSide.toUpperCase()}
+                    </span>
+                    <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--neutral-700)', background: 'white', padding: '1px 6px', borderRadius: '4px', border: '1px solid var(--neutral-200)' }}>
+                      {swapConfirmationPrompt.srcPool}
+                    </span>
+                    <span style={{ fontSize: '10px', color: 'var(--neutral-500)' }}>
+                      {swapConfirmationPrompt.srcMatchLabel}
+                    </span>
+                  </div>
+
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--neutral-900)', marginTop: '2px' }}>
+                    {swapConfirmationPrompt.srcAthlete.name}
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--neutral-500)', lineHeight: '1.2' }}>
+                    {[swapConfirmationPrompt.srcAthlete.academy, swapConfirmationPrompt.srcAthlete.state || swapConfirmationPrompt.srcAthlete.country].filter(Boolean).join(' • ') || 'No Team'}
+                  </div>
+                  {swapConfirmationPrompt.isCrossCategory && (
+                    <div style={{ fontSize: '10px', color: 'var(--neutral-400)', marginTop: '2px', fontStyle: 'italic' }}>
+                      {swapConfirmationPrompt.srcCatName}
+                    </div>
+                  )}
+                </div>
+
+                {/* Transfer Arrow Icon */}
+                <div style={{
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '6px',
-                  transition: 'background 0.2s'
-                }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'var(--neutral-50)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'var(--shiro)')}
-              >
-                Swap Athletes Between Categories
-              </button>
-              
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  background: 'var(--neutral-200)',
+                  color: 'var(--neutral-700)',
+                  flexShrink: 0
+                }}>
+                  <ArrowRightLeft size={16} />
+                </div>
+
+                {/* Target Athlete / Slot Card */}
+                <div style={{
+                  padding: '12px',
+                  borderRadius: '10px',
+                  border: '1px solid var(--neutral-200)',
+                  background: 'var(--neutral-50)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                    <span style={{
+                      fontSize: '9px',
+                      fontWeight: 800,
+                      padding: '2px 6px',
+                      borderRadius: '4px',
+                      background: swapConfirmationPrompt.tgtSide === 'aka' ? '#fff1f2' : '#eff6ff',
+                      color: swapConfirmationPrompt.tgtSide === 'aka' ? '#be123c' : '#1d4ed8',
+                      border: swapConfirmationPrompt.tgtSide === 'aka' ? '1px solid #fecdd3' : '1px solid #bfdbfe',
+                      letterSpacing: '0.04em'
+                    }}>
+                      {swapConfirmationPrompt.tgtSide.toUpperCase()}
+                    </span>
+                    <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--neutral-700)', background: 'white', padding: '1px 6px', borderRadius: '4px', border: '1px solid var(--neutral-200)' }}>
+                      {swapConfirmationPrompt.tgtPool}
+                    </span>
+                    <span style={{ fontSize: '10px', color: 'var(--neutral-500)' }}>
+                      {swapConfirmationPrompt.tgtMatchLabel}
+                    </span>
+                  </div>
+
+                  {swapConfirmationPrompt.tgtAthlete ? (
+                    <>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--neutral-900)', marginTop: '2px' }}>
+                        {swapConfirmationPrompt.tgtAthlete.name}
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--neutral-500)', lineHeight: '1.2' }}>
+                        {[swapConfirmationPrompt.tgtAthlete.academy, swapConfirmationPrompt.tgtAthlete.state || swapConfirmationPrompt.tgtAthlete.country].filter(Boolean).join(' • ') || 'No Team'}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--neutral-400)', fontStyle: 'italic', marginTop: '2px' }}>
+                        Empty Slot (BYE)
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--neutral-400)' }}>
+                        Slot will be assigned
+                      </div>
+                    </>
+                  )}
+
+                  {swapConfirmationPrompt.isCrossCategory && (
+                    <div style={{ fontSize: '10px', color: 'var(--neutral-400)', marginTop: '2px', fontStyle: 'italic' }}>
+                      {swapConfirmationPrompt.tgtCatName}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Informational Summary Box */}
+              <div style={{
+                padding: '10px 14px',
+                borderRadius: '8px',
+                background: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                fontSize: '12px',
+                lineHeight: 1.5,
+                color: '#334155'
+              }}>
+                {swapConfirmationPrompt.tgtAthlete ? (
+                  <>
+                    Switch <strong>{swapConfirmationPrompt.srcAthlete.name}</strong> ({swapConfirmationPrompt.srcPool}) with <strong>{swapConfirmationPrompt.tgtAthlete.name}</strong> ({swapConfirmationPrompt.tgtPool}).
+                  </>
+                ) : (
+                  <>
+                    Move <strong>{swapConfirmationPrompt.srcAthlete.name}</strong> from {swapConfirmationPrompt.srcPool} to {swapConfirmationPrompt.tgtPool} ({swapConfirmationPrompt.tgtMatchLabel}).
+                  </>
+                )}
+                {swapConfirmationPrompt.isCrossCategory && (
+                  <div style={{ marginTop: '6px', fontSize: '11px', color: '#64748b' }}>
+                    Note: Force Add places {swapConfirmationPrompt.srcAthlete.name} into {swapConfirmationPrompt.tgtCatName} while keeping {swapConfirmationPrompt.tgtAthlete?.name || 'existing slot'} in place.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{
+              padding: '16px 24px',
+              borderTop: '1px solid var(--neutral-100)',
+              background: 'var(--shiro)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px'
+            }}>
               <button
                 type="button"
                 onClick={() => {
-                  crossCategoryPrompt.onConfirmMove();
-                  setCrossCategoryPrompt(null);
+                  swapConfirmationPrompt.onConfirmSwap();
+                  setSwapConfirmationPrompt(null);
                 }}
                 style={{
                   width: '100%',
@@ -1567,7 +1767,7 @@ export default function FullscreenBracketModal({
                   borderRadius: '8px',
                   border: 'none',
                   background: 'var(--neutral-900)',
-                  color: '#fff',
+                  color: 'white',
                   fontWeight: 700,
                   fontSize: '13px',
                   cursor: 'pointer',
@@ -1577,15 +1777,40 @@ export default function FullscreenBracketModal({
                   gap: '6px',
                   transition: 'background 0.2s'
                 }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'var(--neutral-800)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'var(--neutral-900)')}
               >
-                Force Add (Keep Both in Target)
+                {swapConfirmationPrompt.tgtAthlete ? 'Confirm Switch' : 'Confirm Move'}
               </button>
-              
+
+              {swapConfirmationPrompt.isCrossCategory && swapConfirmationPrompt.onConfirmForceAdd && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    swapConfirmationPrompt.onConfirmForceAdd!();
+                    setSwapConfirmationPrompt(null);
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '10px 16px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--neutral-200)',
+                    background: 'var(--shiro)',
+                    color: 'var(--neutral-800)',
+                    fontWeight: 700,
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  Force Add (Keep Both in Target)
+                </button>
+              )}
+
               <button
                 type="button"
-                onClick={() => setCrossCategoryPrompt(null)}
+                onClick={() => setSwapConfirmationPrompt(null)}
                 style={{
                   width: '100%',
                   padding: '8px 16px',
@@ -1596,11 +1821,8 @@ export default function FullscreenBracketModal({
                   fontWeight: 600,
                   fontSize: '13px',
                   cursor: 'pointer',
-                  textAlign: 'center',
-                  transition: 'color 0.2s'
+                  textAlign: 'center'
                 }}
-                onMouseEnter={e => (e.currentTarget.style.color = 'var(--neutral-700)')}
-                onMouseLeave={e => (e.currentTarget.style.color = 'var(--neutral-500)')}
               >
                 Cancel
               </button>

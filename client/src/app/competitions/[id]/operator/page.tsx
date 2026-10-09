@@ -436,6 +436,11 @@ function OperatorPortalInner({ id }: { id: string }) {
       payload.timerSeconds = timer;
       payload.timerRunning = running;
       payload.timeRemaining = `${mm}:${ss}`;
+    } else {
+      if (payload.kataScores === null) delete payload.kataScores;
+      if (payload.kataVotes === null) delete payload.kataVotes;
+      if (payload.kataWinner === null) delete payload.kataWinner;
+      if (payload.selectedKata === null) delete payload.selectedKata;
     }
 
     // 1. Instant local broadcast to Scoreboard (< 1 ms latency)
@@ -889,11 +894,10 @@ function OperatorPortalInner({ id }: { id: string }) {
       return;
     }
     setActiveMatchId(m.id);
+    const isKataMatch = m.category?.toLowerCase().includes('kata') || activeCategoryData?.isKata || activeCategoryName?.toLowerCase().includes('kata') || false;
     if (!isHydrating) {
       setAka({ name: m.aka, country: m.akaCountry, academy: m.akaAcademy, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: m.akaId });
       setAo({ name: m.ao, country: m.aoCountry, academy: m.aoAcademy, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: m.aoId });
-      
-      const isKataMatch = m.category?.toLowerCase().includes('kata') || activeCategoryData?.isKata || activeCategoryName?.toLowerCase().includes('kata') || false;
       
       setTimer(isKataMatch ? 0 : matchDuration);
       setStatus('upcoming');
@@ -2021,6 +2025,7 @@ function OperatorPortalInner({ id }: { id: string }) {
                     kataFormat={activeCategoryData?.kataFormat || 'elimination'}
                     isTeam={activeCategoryData?.isTeam}
                     onMatchFinished={handleKataMatchFinished}
+                    onKataSelect={(sel) => setSelectedKata(sel)}
                   />
                 ) : (
                   <div style={{ padding: '32px 24px', background: 'linear-gradient(135deg, rgba(248,250,252,0.9) 0%, rgba(241,245,249,0.9) 100%)', borderRadius: '16px', border: '1.5px dashed var(--neutral-300)', textAlign: 'center' }}>

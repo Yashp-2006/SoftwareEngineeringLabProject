@@ -109,4 +109,42 @@ describe('Kata Judging Engine & WKF Rules', () => {
       expect(attemptFresh.error).toBeUndefined();
     });
   });
+
+  describe('Operator Manual Voting & Name Resolution in Tiesheets', () => {
+    it('accurately tallies mixed votes when operator enters votes for absent judges', () => {
+      // J1 voted Aka from phone, operator manually entered Ao for J2 and Aka for J3
+      const liveVotes = {
+        aka: { '0': 1, '1': 0, '2': 1 },
+        ao:  { '0': 0, '1': 1, '2': 0 },
+      };
+
+      const result = deriveJudgeVotes(liveVotes, 3);
+      expect(result.judgeVotes).toEqual(['aka', 'ao', 'aka']);
+      expect(result.akaFlags).toBe(2);
+      expect(result.aoFlags).toBe(1);
+    });
+
+    it('resolves kata names correctly from either selectedKata object or legacy akaKata/aoKata fields', () => {
+      const matchWithObject = {
+        selectedKata: {
+          aka: { number: 1, name: 'Anan' },
+          ao: { number: 2, name: 'Anan Dai' },
+        },
+      };
+
+      const matchWithStrings = {
+        akaKata: 'Chatanyara Kushanku',
+        aoKata: 'Suparinpei',
+      };
+
+      const getKataName = (m: any, side: 'aka' | 'ao') => {
+        return m.selectedKata?.[side]?.name || (side === 'aka' ? m.akaKata : m.aoKata) || '';
+      };
+
+      expect(getKataName(matchWithObject, 'aka')).toBe('Anan');
+      expect(getKataName(matchWithObject, 'ao')).toBe('Anan Dai');
+      expect(getKataName(matchWithStrings, 'aka')).toBe('Chatanyara Kushanku');
+      expect(getKataName(matchWithStrings, 'ao')).toBe('Suparinpei');
+    });
+  });
 });

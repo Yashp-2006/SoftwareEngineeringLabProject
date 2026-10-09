@@ -59,7 +59,7 @@ export default function LoginPage() {
         // If tournament was specified in URL but not yet in list, ensure it appears
         const urlComp = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('compId') : null;
         if (urlComp && !list.some(c => c.id === urlComp)) {
-          list.unshift({ id: urlComp, name: `${urlComp.toUpperCase()} (Active Tournament)` });
+          list.unshift({ id: urlComp, name: `${urlComp.toUpperCase()} (Active Tournament)` } as any);
         }
         setCompetitionsList(list);
       } catch (err) {

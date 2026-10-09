@@ -161,6 +161,12 @@ function ScoreboardContent({ id }: { id: string }) {
 
     // Kata details
     if (payload.selectedKata !== undefined) setSelectedKata(payload.selectedKata);
+    if (payload.akaKataName && !payload.selectedKata?.aka?.name) {
+      setSelectedKata((prev: any) => ({ ...prev, aka: { ...(prev?.aka || {}), name: payload.akaKataName } }));
+    }
+    if (payload.aoKataName && !payload.selectedKata?.ao?.name) {
+      setSelectedKata((prev: any) => ({ ...prev, ao: { ...(prev?.ao || {}), name: payload.aoKataName } }));
+    }
     if (payload.numberOfJudges) setNumberOfJudges(payload.numberOfJudges);
     if (payload.judgeVotes) setJudgeVotes(payload.judgeVotes);
     if (payload.akaFlags !== undefined) setAkaFlags(payload.akaFlags);
