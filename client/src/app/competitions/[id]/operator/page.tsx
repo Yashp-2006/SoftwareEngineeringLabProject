@@ -1112,7 +1112,7 @@ function OperatorPortalInner({ id }: { id: string }) {
       if (points === -2) next.waza = Math.max(0, next.waza - 1);
       if (points === -1) next.yuko = Math.max(0, next.yuko - 1);
       
-      next.score = Math.max(0, next.score + points);
+      next.score = (next.yuko * 1) + (next.waza * 2) + (next.ippon * 3);
       return next;
     });
   };
@@ -1247,8 +1247,8 @@ function OperatorPortalInner({ id }: { id: string }) {
         body: JSON.stringify({
           matchId: activeMatchId,
           winnerId: realWinnerId || winnerId,
-          akaScore: aka.score,
-          aoScore: ao.score,
+          akaScore: (aka.yuko * 1) + (aka.waza * 2) + (aka.ippon * 3),
+          aoScore: (ao.yuko * 1) + (ao.waza * 2) + (ao.ippon * 3),
           akaIppon: aka.ippon,
           akaWazaari: aka.waza,
           akaYuko: aka.yuko,
@@ -1601,10 +1601,10 @@ function OperatorPortalInner({ id }: { id: string }) {
                 aoWazaari={ao.waza}
                 akaYuko={aka.yuko}
                 aoYuko={ao.yuko}
-                akaC1={(aka.c1?1:0) + (aka.c2?1:0) + (aka.c3?1:0) + (aka.hc?1:0) + (aka.h?1:0)}
-                aoC1={(ao.c1?1:0) + (ao.c2?1:0) + (ao.c3?1:0) + (ao.hc?1:0) + (ao.h?1:0)}
-                akaC2={0}
-                aoC2={0}
+                akaC1={aka.c1}
+                aoC1={ao.c1}
+                akaC2={aka.c2}
+                aoC2={ao.c2}
                 akaSenshu={aka.senshu}
                 aoSenshu={ao.senshu}
                 timerDisplay={`${Math.floor(timer / 60).toString().padStart(2, '0')}:${(timer % 60).toString().padStart(2, '0')}`}
@@ -1996,10 +1996,10 @@ function OperatorPortalInner({ id }: { id: string }) {
                           aoWazaari={ao.waza}
                           akaYuko={aka.yuko}
                           aoYuko={ao.yuko}
-                          akaC1={(aka.c1?1:0) + (aka.c2?1:0) + (aka.c3?1:0) + (aka.hc?1:0) + (aka.h?1:0)}
-                          aoC1={(ao.c1?1:0) + (ao.c2?1:0) + (ao.c3?1:0) + (ao.hc?1:0) + (ao.h?1:0)}
-                          akaC2={0}
-                          aoC2={0}
+                          akaC1={aka.c1}
+                          aoC1={ao.c1}
+                          akaC2={aka.c2}
+                          aoC2={ao.c2}
                           akaSenshu={aka.senshu}
                           aoSenshu={ao.senshu}
                           timerDisplay={`${mins}:${secs}`}

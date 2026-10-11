@@ -323,10 +323,10 @@ export default function KataLiveScoreboard({
 
 const kataScoreboadStyles = `
   .kls-root {
-    position: fixed;
-    inset: 0;
+    width: 100%;
+    height: 100%;
+    position: relative;
     background: var(--neutral-50);
-    z-index: 9999;
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -458,12 +458,18 @@ const kataScoreboadStyles = `
     margin-bottom: 4px;
   }
   .kls-fighter-name {
-    font-size: clamp(28px, 3.5vw, 44px);
+    font-size: clamp(20px, 2.8vw, 36px);
     font-weight: 800;
-    line-height: 1;
+    line-height: 1.1;
     text-transform: uppercase;
     overflow-wrap: break-word;
     word-break: break-word;
+    max-height: 2.3em;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .kls-fighter-body {

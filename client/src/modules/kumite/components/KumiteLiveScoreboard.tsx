@@ -71,35 +71,37 @@ export default function KumiteLiveScoreboard({
   return (
     <div className="kls-root">
       <style dangerouslySetInnerHTML={{ __html: `
-        .kls-root { container-type: inline-size; width: 100%; height: 100%; min-height: 300px; display: flex; flex-direction: column; background: var(--kuro); color: var(--shiro); font-family: var(--font-body); overflow: hidden; }
-        .kls-header { display: flex; justify-content: space-between; align-items: center; padding: 2cqw 4cqw; flex-shrink: 0; z-index: 10; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .kls-root { container-type: inline-size; width: 100%; height: 100%; min-height: 300px; display: flex; flex-direction: column; background: var(--kuro); color: var(--shiro); font-family: var(--font-body); overflow: hidden; position: relative; }
+        .kls-header { display: flex; justify-content: space-between; align-items: center; padding: 1.5cqw 4cqw; flex-shrink: 0; z-index: 10; border-bottom: 1px solid rgba(255,255,255,0.1); }
         .kls-title { font-size: 2cqw; font-weight: 800; color: var(--shiro); line-height: 1.2; }
-        .kls-subtitle { font-size: 1cqw; font-weight: 700; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 0.5cqw; }
+        .kls-subtitle { font-size: 1cqw; font-weight: 700; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 0.3cqw; }
         .kls-header-actions { display: flex; gap: 1cqw; }
         .kls-btn { display: inline-flex; align-items: center; gap: 0.5cqw; padding: 0.8cqw 1.2cqw; border-radius: 0.5cqw; font-size: 1cqw; font-weight: 600; cursor: pointer; border: 1px solid rgba(255,255,255,0.2); background: transparent; color: var(--shiro); transition: background 160ms var(--ease-out); }
         .kls-btn:hover { background: rgba(255,255,255,0.1); }
         
-        .kls-container { flex: 1; display: grid; grid-template-columns: 1fr minmax(15cqw, 20cqw) 1fr; position: relative; }
+        .kls-container { flex: 1; display: grid; grid-template-columns: 1fr minmax(15cqw, 20cqw) 1fr; position: relative; min-height: 0; height: 100%; overflow: hidden; }
         
-        .kls-side { display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 4cqw; position: relative; transition: background-color 0.3s ease; }
+        .kls-side { display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 2cqw 3cqw 3cqw; position: relative; transition: background-color 0.3s ease; height: 100%; min-height: 0; box-sizing: border-box; overflow: hidden; }
         .kls-side.aka { background: var(--aka); }
         .kls-side.ao { background: var(--ao); }
         
-        .kls-name { font-family: var(--font-display); font-size: 7cqw; line-height: 1; text-transform: uppercase; text-align: center; margin-bottom: 1cqw; text-shadow: 0 0.5cqw 1cqw rgba(0,0,0,0.3); word-break: break-word; max-width: 100%; }
-        .kls-country { font-family: var(--font-display); font-size: 2cqw; color: rgba(255,255,255,0.7); letter-spacing: 0.1em; margin-bottom: 3cqw; text-align: center; }
+        .kls-fighter-header { display: flex; flex-direction: column; align-items: center; width: 100%; flex-shrink: 0; }
+        .kls-country { font-family: var(--font-display); font-size: 1.8cqw; color: rgba(255,255,255,0.7); letter-spacing: 0.1em; margin-bottom: 0.5cqw; text-align: center; }
+        .kls-name { font-family: var(--font-display); font-size: clamp(20px, 4cqw, 5.5cqw); line-height: 1.1; text-transform: uppercase; text-align: center; text-shadow: 0 0.5cqw 1cqw rgba(0,0,0,0.3); word-break: break-word; max-width: 100%; max-height: 2.3em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; }
         
-        .kls-score-wrap { position: relative; display: flex; align-items: center; justify-content: center; }
-        .kls-score { font-family: var(--font-display); font-size: 22cqw; line-height: 0.8; margin: 0; color: var(--shiro); }
+        .kls-score-wrap { position: relative; display: flex; align-items: center; justify-content: center; flex: 1; min-height: 0; }
+        .kls-score { font-family: var(--font-display); font-size: clamp(70px, 16cqw, 20cqw); line-height: 0.85; margin: 0; color: var(--shiro); }
         
-        .kls-points { display: flex; gap: 2cqw; margin-top: 3cqw; }
-        .kls-pt-item { display: flex; flex-direction: column; align-items: center; gap: 0.5cqw; }
-        .kls-pt-label { font-size: 1cqw; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; opacity: 0.8; }
-        .kls-pt-val { font-family: var(--font-display); font-size: 3.5cqw; line-height: 1; }
+        .kls-fighter-footer { display: flex; flex-direction: column; align-items: center; width: 100%; flex-shrink: 0; margin-top: auto; }
+        .kls-points { display: flex; justify-content: center; gap: 2.5cqw; margin-bottom: 1.2cqw; flex-shrink: 0; }
+        .kls-pt-item { display: flex; flex-direction: column; align-items: center; gap: 0.3cqw; }
+        .kls-pt-label { font-size: 1.1cqw; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; opacity: 0.8; }
+        .kls-pt-val { font-family: var(--font-display); font-size: 3.2cqw; line-height: 1; font-weight: 800; }
         
-        .kls-pens { display: flex; justify-content: center; gap: 2cqw; margin-top: 4cqw; width: 100%; max-width: 25cqw; }
-        .kls-pen-grp { display: flex; flex-direction: column; gap: 1cqw; }
-        .kls-pen-title { font-size: 0.9cqw; font-weight: 700; text-transform: uppercase; opacity: 0.6; text-align: center; }
-        .kls-pen-dots { display: flex; justify-content: center; gap: 0.8cqw; }
+        .kls-pens { display: grid; grid-template-columns: 1fr 1fr; gap: 2cqw; width: 100%; max-width: 28cqw; flex-shrink: 0; }
+        .kls-pen-grp { display: flex; flex-direction: column; gap: 0.5cqw; align-items: center; }
+        .kls-pen-title { font-size: 0.9cqw; font-weight: 800; text-transform: uppercase; opacity: 0.7; text-align: center; letter-spacing: 0.05em; }
+        .kls-pen-dots { display: flex; justify-content: center; gap: 0.7cqw; }
         .kls-dot { width: 1.2cqw; height: 1.2cqw; border-radius: 50%; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4); transition: background 200ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 200ms cubic-bezier(0.23, 1, 0.32, 1); }
         .kls-dot.active { background: var(--shiro); box-shadow: 0 0 1cqw var(--shiro); border-color: var(--shiro); }
         
@@ -185,8 +187,10 @@ export default function KumiteLiveScoreboard({
       <div className="kls-container">
         <div className={`kls-side aka ${winnerColor === 'aka' ? 'kls-winner-glow' : ''} ${winnerColor === 'ao' ? 'kls-loser-dim' : ''}`}>
           {akaSenshu && !isKata && <div className="kls-senshu active">SENSHU</div>}
-          <div className="kls-country">{akaCountry || 'AKA'}</div>
-          <div className="kls-name">{akaName}</div>
+          <div className="kls-fighter-header">
+            <div className="kls-country">{akaCountry || 'AKA'}</div>
+            <div className="kls-name" title={akaName}>{akaName}</div>
+          </div>
           
           {isKata ? (
             <div style={{ marginTop: '2cqw', padding: '1cqw 2cqw', background: 'rgba(255,255,255,0.1)', borderRadius: '1cqw', textAlign: 'center' }}>
@@ -198,16 +202,23 @@ export default function KumiteLiveScoreboard({
               <div className="kls-score-wrap">
                 <h2 className="kls-score">{akaScore}</h2>
               </div>
-              <div className="kls-points">
-                <div className="kls-pt-item"><span className="kls-pt-label">Y</span><span className="kls-pt-val">{akaYuko}</span></div>
-                <div className="kls-pt-item"><span className="kls-pt-label">W</span><span className="kls-pt-val">{akaWazaari}</span></div>
-                <div className="kls-pt-item"><span className="kls-pt-label">I</span><span className="kls-pt-val">{akaIppon}</span></div>
-              </div>
-              
-              <div className="kls-pens">
-                <div className="kls-pen-grp">
-                  <div className="kls-pen-title">Penalties</div>
-                  <div className="kls-pen-dots">{renderDots(akaC1)}</div>
+
+              <div className="kls-fighter-footer">
+                <div className="kls-points">
+                  <div className="kls-pt-item"><span className="kls-pt-label">Y</span><span className="kls-pt-val">{akaYuko}</span></div>
+                  <div className="kls-pt-item"><span className="kls-pt-label">W</span><span className="kls-pt-val">{akaWazaari}</span></div>
+                  <div className="kls-pt-item"><span className="kls-pt-label">I</span><span className="kls-pt-val">{akaIppon}</span></div>
+                </div>
+                
+                <div className="kls-pens">
+                  <div className="kls-pen-grp">
+                    <div className="kls-pen-title">Category 1</div>
+                    <div className="kls-pen-dots">{renderDots(akaC1)}</div>
+                  </div>
+                  <div className="kls-pen-grp">
+                    <div className="kls-pen-title">Category 2</div>
+                    <div className="kls-pen-dots">{renderDots(akaC2)}</div>
+                  </div>
                 </div>
               </div>
             </>
@@ -242,8 +253,10 @@ export default function KumiteLiveScoreboard({
         {/* AO SIDE */}
         <div className={`kls-side ao ${winnerColor === 'ao' ? 'kls-winner-glow' : ''} ${winnerColor === 'aka' ? 'kls-loser-dim' : ''}`}>
           {aoSenshu && !isKata && <div className="kls-senshu active">SENSHU</div>}
-          <div className="kls-country">{aoCountry || 'AO'}</div>
-          <div className="kls-name">{aoName}</div>
+          <div className="kls-fighter-header">
+            <div className="kls-country">{aoCountry || 'AO'}</div>
+            <div className="kls-name" title={aoName}>{aoName}</div>
+          </div>
           
           {isKata ? (
             <div style={{ marginTop: '2cqw', padding: '1cqw 2cqw', background: 'rgba(255,255,255,0.1)', borderRadius: '1cqw', textAlign: 'center' }}>
@@ -256,16 +269,22 @@ export default function KumiteLiveScoreboard({
                 <h2 className="kls-score">{aoScore}</h2>
               </div>
               
-              <div className="kls-points">
-                <div className="kls-pt-item"><span className="kls-pt-label">Y</span><span className="kls-pt-val">{aoYuko}</span></div>
-                <div className="kls-pt-item"><span className="kls-pt-label">W</span><span className="kls-pt-val">{aoWazaari}</span></div>
-                <div className="kls-pt-item"><span className="kls-pt-label">I</span><span className="kls-pt-val">{aoIppon}</span></div>
-              </div>
-              
-              <div className="kls-pens">
-                <div className="kls-pen-grp">
-                  <div className="kls-pen-title">Penalties</div>
-                  <div className="kls-pen-dots">{renderDots(aoC1)}</div>
+              <div className="kls-fighter-footer">
+                <div className="kls-points">
+                  <div className="kls-pt-item"><span className="kls-pt-label">Y</span><span className="kls-pt-val">{aoYuko}</span></div>
+                  <div className="kls-pt-item"><span className="kls-pt-label">W</span><span className="kls-pt-val">{aoWazaari}</span></div>
+                  <div className="kls-pt-item"><span className="kls-pt-label">I</span><span className="kls-pt-val">{aoIppon}</span></div>
+                </div>
+                
+                <div className="kls-pens">
+                  <div className="kls-pen-grp">
+                    <div className="kls-pen-title">Category 1</div>
+                    <div className="kls-pen-dots">{renderDots(aoC1)}</div>
+                  </div>
+                  <div className="kls-pen-grp">
+                    <div className="kls-pen-title">Category 2</div>
+                    <div className="kls-pen-dots">{renderDots(aoC2)}</div>
+                  </div>
                 </div>
               </div>
             </>

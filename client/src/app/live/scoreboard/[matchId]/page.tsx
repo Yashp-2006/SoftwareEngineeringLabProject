@@ -393,10 +393,10 @@ export default function ScoreboardPage({ params }: { params: Promise<{ matchId: 
             aoWazaari={ao.wazaari}
             akaYuko={aka.yuko}
             aoYuko={ao.yuko}
-            akaC1={(aka.c1?1:0) + (aka.c2?1:0) + (aka.c3?1:0) + (aka.hc?1:0) + (aka.h?1:0)}
-            aoC1={(ao.c1?1:0) + (ao.c2?1:0) + (ao.c3?1:0) + (ao.hc?1:0) + (ao.h?1:0)}
-            akaC2={0}
-            aoC2={0}
+            akaC1={aka.c1 ? 1 : 0}
+            aoC1={ao.c1 ? 1 : 0}
+            akaC2={aka.c2 ? 1 : 0}
+            aoC2={ao.c2 ? 1 : 0}
             akaSenshu={aka.senshu}
             aoSenshu={ao.senshu}
             timerDisplay={formatTime(timer)}

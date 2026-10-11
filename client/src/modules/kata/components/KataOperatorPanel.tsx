@@ -610,7 +610,7 @@ export default function KataOperatorPanel({
         </div>
 
         {/* ── KATA SELECTION ── */}
-        <div className="kata-panel-section" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div className="kata-panel-section" style={{ display: 'flex', flexDirection: 'column', gap: '12px', position: 'relative', zIndex: 60 }}>
           <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--neutral-700)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
             Kata Selection
           </div>
@@ -650,6 +650,8 @@ export default function KataOperatorPanel({
               display: 'flex',
               alignItems: 'center',
               gap: '24px',
+              position: 'relative',
+              zIndex: 10,
             }}
           >
             <div>

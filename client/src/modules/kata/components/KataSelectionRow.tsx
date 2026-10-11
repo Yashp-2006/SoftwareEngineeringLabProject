@@ -27,6 +27,18 @@ export default function KataSelectionRow({
 }: KataSelectionRowProps) {
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
+  const dropdownRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [open]);
 
   const allowedKata = useMemo(() => {
     if (!allowedKataNumbers || allowedKataNumbers.length === 0) return KATA_LIST;
@@ -46,7 +58,7 @@ export default function KataSelectionRow({
   const label = side.toUpperCase();
 
   return (
-    <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
+    <div ref={dropdownRef} style={{ position: 'relative', flex: 1, minWidth: '220px', zIndex: open ? 100 : 1 }}>
       <div
         style={{
           display: 'flex',
@@ -125,7 +137,7 @@ export default function KataSelectionRow({
             right: 0,
             minWidth: '220px',
             boxSizing: 'border-box',
-            zIndex: 200,
+            zIndex: 1000,
             background: 'var(--shiro)',
             border: '1px solid var(--neutral-200)',
             borderRadius: '10px',
