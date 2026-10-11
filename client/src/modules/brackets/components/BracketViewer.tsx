@@ -112,7 +112,7 @@ export default function BracketViewer({ matches, categoryName, isKata: propIsKat
     currentRound++;
   }
 
-  const isKata = propIsKata !== undefined ? propIsKata : (categoryName?.toLowerCase().includes('kata') || false);
+  const isKata = propIsKata !== undefined ? propIsKata : (categoryName?.toLowerCase().includes('kata') || matches.some(m => !!(m.selectedKata || m.akaKata || m.aoKata || m.isKata)) || false);
 
   // ── SVG Connector Computation ── (must stay above early return to satisfy Rules of Hooks)
   const computeConnectors = useCallback(() => {
@@ -389,9 +389,14 @@ export default function BracketViewer({ matches, categoryName, isKata: propIsKat
                 <div key={rIdx} className="bracket-round">
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-around' }}>
                     {roundMatches.map(m => {
-                      const isMatchPlayed = m.status === 'completed' || m.status === 'live' || (m.akaScore !== undefined && m.akaScore !== null && m.akaScore !== 0) || (m.aoScore !== undefined && m.aoScore !== null && m.aoScore !== 0);
-                      const akaDisplayScore = isMatchPlayed && m.akaScore !== undefined && m.akaScore !== null && m.akaScore !== '' ? m.akaScore : (m.status === 'completed' ? 0 : '');
-                      const aoDisplayScore = isMatchPlayed && m.aoScore !== undefined && m.aoScore !== null && m.aoScore !== '' ? m.aoScore : (m.status === 'completed' ? 0 : '');
+                      const effAkaScore = m.akaScore !== undefined && m.akaScore !== null ? m.akaScore : m.kataVotes?.aka;
+                      const effAoScore = m.aoScore !== undefined && m.aoScore !== null ? m.aoScore : m.kataVotes?.ao;
+                      const isMatchPlayed = m.status === 'completed' || m.status === 'live' || (effAkaScore !== undefined && effAkaScore !== null && effAkaScore !== '') || (effAoScore !== undefined && effAoScore !== null && effAoScore !== '');
+                      const akaDisplayScore = isMatchPlayed && effAkaScore !== undefined && effAkaScore !== null && effAkaScore !== '' ? effAkaScore : (m.status === 'completed' ? 0 : '');
+                      const aoDisplayScore = isMatchPlayed && effAoScore !== undefined && effAoScore !== null && effAoScore !== '' ? effAoScore : (m.status === 'completed' ? 0 : '');
+                      const akaKataName = m.selectedKata?.aka?.name || (typeof m.selectedKata?.aka === 'string' ? m.selectedKata.aka : null) || m.akaKata;
+                      const aoKataName = m.selectedKata?.ao?.name || (typeof m.selectedKata?.ao === 'string' ? m.selectedKata.ao : null) || m.aoKata;
+
                       return (
                       <div key={m.id} className="match-wrapper" ref={(el) => { if (el) (el as any).__matchId = m.id; }}>
                         <div className={`bracket-node${m.status === 'live' ? ' live' : ''}`}>
@@ -423,12 +428,16 @@ export default function BracketViewer({ matches, categoryName, isKata: propIsKat
                             </div>
                             {isKata && m.aka && (
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', marginLeft: '12px' }}>
-                                <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-500)', padding: '4px 10px', background: 'var(--neutral-50)', borderRadius: '6px' }}>
-                                  {m.selectedKata?.aka?.name || m.akaKata || ''}
-                                </div>
-                                {(isMatchPlayed && m.akaScore !== undefined && m.akaScore !== null) && (
+                                {akaKataName ? (
+                                  <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-500)', padding: '4px 10px', background: 'var(--neutral-50)', borderRadius: '6px' }}>
+                                    Kata: <span style={{ color: 'var(--aka)', fontWeight: 700 }}>{akaKataName}</span>
+                                  </div>
+                                ) : (
+                                  <div style={{ fontSize: '11px', color: 'var(--neutral-400)', padding: '4px 8px' }}>&mdash;</div>
+                                )}
+                                {(isMatchPlayed && effAkaScore !== undefined && effAkaScore !== null) && (
                                   <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--aka)' }}>
-                                    Flags: {m.akaScore}
+                                    Flags: {effAkaScore}
                                   </div>
                                 )}
                               </div>
@@ -460,12 +469,16 @@ export default function BracketViewer({ matches, categoryName, isKata: propIsKat
                             </div>
                             {isKata && m.ao && (
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', marginLeft: '12px' }}>
-                                <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-500)', padding: '4px 10px', background: 'var(--neutral-50)', borderRadius: '6px' }}>
-                                  {m.selectedKata?.ao?.name || m.aoKata || ''}
-                                </div>
-                                {(isMatchPlayed && m.aoScore !== undefined && m.aoScore !== null) && (
+                                {aoKataName ? (
+                                  <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-500)', padding: '4px 10px', background: 'var(--neutral-50)', borderRadius: '6px' }}>
+                                    Kata: <span style={{ color: 'var(--ao)', fontWeight: 700 }}>{aoKataName}</span>
+                                  </div>
+                                ) : (
+                                  <div style={{ fontSize: '11px', color: 'var(--neutral-400)', padding: '4px 8px' }}>&mdash;</div>
+                                )}
+                                {(isMatchPlayed && effAoScore !== undefined && effAoScore !== null) && (
                                   <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--ao)' }}>
-                                    Flags: {m.aoScore}
+                                    Flags: {effAoScore}
                                   </div>
                                 )}
                               </div>

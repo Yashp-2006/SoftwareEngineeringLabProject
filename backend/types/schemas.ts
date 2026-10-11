@@ -131,6 +131,8 @@ export const updateBracketSchema = z.object({
   aoC1: z.number().optional().nullable(),
   aoC2: z.number().optional().nullable(),
   kataVotes: z.any().optional().nullable(),
+  akaKata: z.string().optional().nullable(),
+  aoKata: z.string().optional().nullable(),
 });
 
 export const swapMatchSchema = z.object({

@@ -701,28 +701,35 @@ export default function MatsPage({ params }: { params: Promise<{ id: string }> }
 
                 <div style={{ width: '100%', minHeight: '600px', background: '#000', borderRadius: '16px', overflow: 'hidden', position: 'relative' }}>
                   <ScaleWrapper>
-                    {selectedLiveState?.isKata ? (
-                      <KataLiveScoreboard
-                        akaName={selectedLiveState?.aka?.name || 'AKA'}
-                        aoName={selectedLiveState?.ao?.name || 'AO'}
-                        akaAcademy={selectedLiveState?.aka?.academy || ''}
-                        aoAcademy={selectedLiveState?.ao?.academy || ''}
-                        akaCountry={selectedLiveState?.aka?.country || ''}
-                        aoCountry={selectedLiveState?.ao?.country || ''}
-                        numberOfJudges={3}
-                        judgeVotes={[null, null, null]}
-                        akaFlags={0}
-                        aoFlags={0}
-                        revealVotes={false}
-                        revealCountdown={0}
-                        timeRemaining={selectedLiveState?.timeRemaining || '03:00'}
-                        matchStatus={selectedLiveState?.status === 'live' ? 'LIVE' : (selectedLiveState?.status?.toUpperCase() || 'STANDBY')}
-                        title={`${selectedMatName}: Kata Scoreboard`}
-                        subtitle={`${compName} • ${selectedLiveState?.category || 'Kata'}`}
-                        isFullscreen={false}
-                        winnerName={selectedLiveState?.winner?.name}
-                      />
-                    ) : (
+                    {selectedLiveState?.isKata ? (() => {
+                      const state = selectedLiveState as any;
+                      const nJudges = state.numberOfJudges || 3;
+                      const derived = deriveJudgeVotes(state.kataScores, nJudges);
+                      return (
+                        <KataLiveScoreboard
+                          akaName={state.aka?.name || state.akaName || 'AKA'}
+                          aoName={state.ao?.name || state.aoName || 'AO'}
+                          akaAcademy={state.aka?.academy || state.akaAcademy || ''}
+                          aoAcademy={state.ao?.academy || state.aoAcademy || ''}
+                          akaCountry={state.aka?.country || state.akaCountry || ''}
+                          aoCountry={state.ao?.country || state.aoCountry || ''}
+                          akaKataName={state.selectedKata?.aka?.name || state.akaKataName || state.akaKata}
+                          aoKataName={state.selectedKata?.ao?.name || state.aoKataName || state.aoKata}
+                          numberOfJudges={nJudges}
+                          judgeVotes={state.judgeVotes || derived.judgeVotes}
+                          akaFlags={state.akaFlags ?? state.kataVotes?.aka ?? derived.akaFlags}
+                          aoFlags={state.aoFlags ?? state.kataVotes?.ao ?? derived.aoFlags}
+                          revealVotes={state.revealVotes === true}
+                          revealCountdown={state.revealCountdown || 0}
+                          timeRemaining={state.timeRemaining || '03:00'}
+                          matchStatus={state.status === 'live' ? 'LIVE' : (state.status?.toUpperCase() || 'STANDBY')}
+                          title={`${selectedMatName}: Kata Scoreboard`}
+                          subtitle={`${compName} • ${state.category || 'Kata'}`}
+                          isFullscreen={false}
+                          winnerName={state.winner?.name || state.winnerName}
+                        />
+                      );
+                    })() : (
                       <KumiteLiveScoreboard
                         akaName={selectedLiveState?.aka?.name || 'AKA'}
                         aoName={selectedLiveState?.ao?.name || 'AO'}

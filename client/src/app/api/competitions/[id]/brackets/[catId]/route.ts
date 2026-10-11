@@ -13,6 +13,22 @@ import { errorResponse, unauthorizedResponse } from '@/lib/api-response';
  *  2. Pushes the winner's athlete data into the next round's match slot
  *  3. Returns the updated matches array
  */
+function cleanFirestoreData(data: any): any {
+  if (Array.isArray(data)) {
+    return data.map(cleanFirestoreData);
+  }
+  if (data !== null && typeof data === 'object') {
+    const res: Record<string, any> = {};
+    for (const [k, v] of Object.entries(data)) {
+      if (v !== undefined) {
+        res[k] = cleanFirestoreData(v);
+      }
+    }
+    return res;
+  }
+  return data;
+}
+
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string; catId: string }> }
@@ -47,6 +63,8 @@ export async function PATCH(
       aoC1,
       aoC2,
       kataVotes,
+      akaKata,
+      aoKata,
     } = validated;
     // byeFor = 'aka' | 'ao' — means that side won by BYE (opponent disqualified/absent)
 
@@ -54,8 +72,8 @@ export async function PATCH(
       return NextResponse.json({ success: false, error: { code: 'BAD_REQUEST', message: 'matchId is required' } }, { status: 400 });
     }
 
-    if (action !== 'revert' && !winnerId && !selectedKata) {
-      return NextResponse.json({ success: false, error: { code: 'BAD_REQUEST', message: 'winnerId or selectedKata is required' } }, { status: 400 });
+    if (action !== 'revert' && !winnerId && !selectedKata && !akaKata && !aoKata) {
+      return NextResponse.json({ success: false, error: { code: 'BAD_REQUEST', message: 'winnerId, selectedKata, or kata selection is required' } }, { status: 400 });
     }
 
     const catRef = adminDb
@@ -190,16 +208,24 @@ export async function PATCH(
         winnerData = currentMatch[loserSide === 'aka' ? 'aka' : 'ao'];
       }
 
+      // Resolve kata names (supporting string or object notation, or explicit fields)
+      const resolvedAkaKata = (typeof selectedKata?.aka === 'string' ? selectedKata.aka : selectedKata?.aka?.name) || akaKata || currentMatch.akaKata || null;
+      const resolvedAoKata = (typeof selectedKata?.ao === 'string' ? selectedKata.ao : selectedKata?.ao?.name) || aoKata || currentMatch.aoKata || null;
+      const resolvedSelectedKata = selectedKata || currentMatch.selectedKata || (resolvedAkaKata || resolvedAoKata ? {
+        aka: resolvedAkaKata ? { name: resolvedAkaKata } : null,
+        ao: resolvedAoKata ? { name: resolvedAoKata } : null,
+      } : null);
+
       // If we only want to update the selected kata without finishing the match
-      if (!winnerId && selectedKata) {
-        matches[currentIdx] = {
+      if (!winnerId && (selectedKata || akaKata || aoKata)) {
+        matches[currentIdx] = cleanFirestoreData({
           ...currentMatch,
-          selectedKata,
-          akaKata: selectedKata.aka?.name,
-          aoKata: selectedKata.ao?.name
-        };
+          selectedKata: resolvedSelectedKata,
+          akaKata: resolvedAkaKata,
+          aoKata: resolvedAoKata,
+        });
         transaction.update(catRef, {
-          matches,
+          matches: cleanFirestoreData(matches),
           updatedAt: new Date().toISOString(),
         });
         return { success: true, nextMatchId: null };
@@ -210,7 +236,7 @@ export async function PATCH(
       }
 
       // Mark current match completed
-      matches[currentIdx] = {
+      matches[currentIdx] = cleanFirestoreData({
         ...currentMatch,
         winnerId,
         status: 'completed',
@@ -229,13 +255,11 @@ export async function PATCH(
         ...(aoC1 !== undefined && aoC1 !== null ? { aoC1 } : {}),
         ...(aoC2 !== undefined && aoC2 !== null ? { aoC2 } : {}),
         ...(byeFor ? { byeFor } : {}),
-        ...(selectedKata ? { 
-            selectedKata, 
-            akaKata: selectedKata.aka?.name, 
-            aoKata: selectedKata.ao?.name 
-        } : {}),
+        ...(resolvedSelectedKata ? { selectedKata: resolvedSelectedKata } : {}),
+        ...(resolvedAkaKata ? { akaKata: resolvedAkaKata } : {}),
+        ...(resolvedAoKata ? { aoKata: resolvedAoKata } : {}),
         ...(kataVotes ? { kataVotes } : {}),
-      };
+      });
       delete (matches[currentIdx] as any).manualByeRevert;
 
       // Propagate winner to the next match
@@ -289,8 +313,8 @@ export async function PATCH(
       }
 
       transaction.update(catRef, {
-        matches,
-        athletes,
+        matches: cleanFirestoreData(matches),
+        athletes: cleanFirestoreData(athletes),
         updatedAt: new Date().toISOString(),
       });
 

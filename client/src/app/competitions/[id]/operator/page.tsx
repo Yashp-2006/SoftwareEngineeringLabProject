@@ -302,6 +302,9 @@ function OperatorPortalInner({ id }: { id: string }) {
   }, [id, isViewer, isOverriddenByAdmin, matIdParam]);
 
   const isKata = activeCategoryData?.isKata || activeCategoryName?.toLowerCase().includes('kata');
+  const isKataCategory = Boolean(isKata);
+  const kataJudgeCount = activeCategoryData?.numberOfJudges || 3;
+  const derivedKataData = React.useMemo(() => deriveJudgeVotes(kataScores, kataJudgeCount), [kataScores, kataJudgeCount]);
 
   // Broadcast current state to TV Scoreboard (via BroadcastChannel)
   const broadcastCurrentState = useCallback(() => {
@@ -333,7 +336,12 @@ function OperatorPortalInner({ id }: { id: string }) {
           timerSeconds: timer,
           timerRunning: running,
           selectedKata,
-          kataVotes,
+          akaKataName: selectedKata?.aka?.name || null,
+          aoKataName: selectedKata?.ao?.name || null,
+          kataVotes: kataVotes || (derivedKataData.akaFlags || derivedKataData.aoFlags ? { aka: derivedKataData.akaFlags, ao: derivedKataData.aoFlags } : null),
+          judgeVotes: derivedKataData.judgeVotes,
+          akaFlags: kataVotes?.aka ?? derivedKataData.akaFlags,
+          aoFlags: kataVotes?.ao ?? derivedKataData.aoFlags,
           kataWinner,
           kataScores,
           revealVotes,
@@ -358,7 +366,7 @@ function OperatorPortalInner({ id }: { id: string }) {
     } catch (e) {
       console.warn('Broadcast error:', e);
     }
-  }, [timer, activeCategoryName, status, running, activeCategoryData, queue, activeMatchId, aka, ao, restTimer, restRunning, selectedKata, kataVotes, kataWinner, kataScores, revealVotes, revealCountdown, adminOverride, winnerState]);
+  }, [timer, activeCategoryName, status, running, activeCategoryData, queue, activeMatchId, aka, ao, restTimer, restRunning, selectedKata, kataVotes, kataWinner, kataScores, revealVotes, revealCountdown, adminOverride, winnerState, derivedKataData]);
 
   // Native BroadcastChannel: 0 ms latency local cross-tab / cross-window sync
   useEffect(() => {
@@ -410,7 +418,12 @@ function OperatorPortalInner({ id }: { id: string }) {
       timerSeconds: timer,
       timerRunning: running,
       selectedKata,
-      kataVotes,
+      akaKataName: selectedKata?.aka?.name || null,
+      aoKataName: selectedKata?.ao?.name || null,
+      kataVotes: kataVotes || (derivedKataData.akaFlags || derivedKataData.aoFlags ? { aka: derivedKataData.akaFlags, ao: derivedKataData.aoFlags } : null),
+      judgeVotes: derivedKataData.judgeVotes,
+      akaFlags: kataVotes?.aka ?? derivedKataData.akaFlags,
+      aoFlags: kataVotes?.ao ?? derivedKataData.aoFlags,
       kataWinner,
       kataScores,
       revealVotes,
@@ -464,7 +477,7 @@ function OperatorPortalInner({ id }: { id: string }) {
     return () => {
       if (rtdbDebounceTimer.current) clearTimeout(rtdbDebounceTimer.current);
     };
-  }, [id, aka, ao, timer, status, running, activeCategoryName, queue, syncRTDB, isViewer, isOverriddenByAdmin, activeMatchId, activeCategoryData, restTimer, restRunning, selectedKata, kataVotes, kataWinner, kataScores, revealVotes, revealCountdown, adminOverride, winnerState]);
+  }, [id, aka, ao, timer, status, running, activeCategoryName, queue, syncRTDB, isViewer, isOverriddenByAdmin, activeMatchId, activeCategoryData, restTimer, restRunning, selectedKata, kataVotes, kataWinner, kataScores, revealVotes, revealCountdown, adminOverride, winnerState, derivedKataData]);
 
   // Unified RTDB Listener: Syncs Admin Override, Viewer/Overridden mirror mode, and Kata events
   useEffect(() => {
@@ -602,7 +615,14 @@ function OperatorPortalInner({ id }: { id: string }) {
           if (val.kataVotes !== undefined) setKataVotes(val.kataVotes || null);
           if (val.kataWinner !== undefined) setKataWinner(val.kataWinner || null);
           if (val.kataScores !== undefined) setKataScores(val.kataScores || null);
-          if (val.selectedKata !== undefined) setSelectedKata(val.selectedKata || null);
+          if (val.selectedKata !== undefined) {
+            setSelectedKata(val.selectedKata || null);
+          } else if (val.akaKataName || val.aoKataName || val.akaKata || val.aoKata) {
+            setSelectedKata((prev: any) => ({
+              aka: (val.akaKataName || val.akaKata) ? { name: val.akaKataName || val.akaKata } : prev?.aka,
+              ao: (val.aoKataName || val.aoKata) ? { name: val.aoKataName || val.aoKata } : prev?.ao,
+            }));
+          }
           if (val.revealVotes !== undefined) setRevealVotes(val.revealVotes || false);
           if (val.revealCountdown !== undefined) setRevealCountdown(val.revealCountdown || 0);
         }
@@ -1292,8 +1312,22 @@ function OperatorPortalInner({ id }: { id: string }) {
     setKataWinner(winner);
     setKataVotes(votes);
 
+    const kataToSave = kataSelectionUsed || selectedKata;
+    const akaKataName = (typeof kataToSave?.aka === 'string' ? kataToSave.aka : kataToSave?.aka?.name) || null;
+    const aoKataName = (typeof kataToSave?.ao === 'string' ? kataToSave.ao : kataToSave?.ao?.name) || null;
+
     if (currentMatch) {
-      setRecentMatches(prev => [{ ...currentMatch, status: 'completed', winnerId: realWinnerId, akaScore: votes.aka, aoScore: votes.ao }, ...prev].slice(0, 3));
+      setRecentMatches(prev => [{
+        ...currentMatch,
+        status: 'completed',
+        winnerId: realWinnerId,
+        akaScore: votes.aka,
+        aoScore: votes.ao,
+        selectedKata: kataToSave || currentMatch.selectedKata,
+        akaKata: akaKataName || currentMatch.akaKata,
+        aoKata: aoKataName || currentMatch.aoKata,
+        kataVotes: votes,
+      }, ...prev].slice(0, 3));
       setQueue(prev => prev.filter(m => m.id !== activeMatchId));
     }
 
@@ -1304,7 +1338,9 @@ function OperatorPortalInner({ id }: { id: string }) {
         body: JSON.stringify({
           matchId: activeMatchId,
           winnerId: realWinnerId,
-          selectedKata: kataSelectionUsed,
+          selectedKata: kataToSave || null,
+          akaKata: akaKataName,
+          aoKata: aoKataName,
           kataVotes: votes,
           akaScore: votes.aka,
           aoScore: votes.ao,
@@ -1506,11 +1542,6 @@ function OperatorPortalInner({ id }: { id: string }) {
       toast.error("Error finishing category.");
     }
   };
-
-
-  const isKataCategory = activeCategoryData?.isKata || activeCategoryName?.toLowerCase().includes('kata') || false;
-  const kataJudgeCount = activeCategoryData?.numberOfJudges || 3;
-  const derivedKataData = React.useMemo(() => deriveJudgeVotes(kataScores, kataJudgeCount), [kataScores, kataJudgeCount]);
 
 
   const hasPasswordAuth = isMatSessionAuthorized(id, matIdParam, (k) => sessionStorage.getItem(k));

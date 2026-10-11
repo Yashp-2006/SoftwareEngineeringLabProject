@@ -289,12 +289,12 @@ export default function LiveMatPage({ params }: { params: Promise<{ matId: strin
                 aoAcademy={matchData.ao?.academy}
                 akaCountry={matchData.aka?.country}
                 aoCountry={matchData.ao?.country}
-                akaKataName={matchData.selectedKata?.aka?.name}
-                aoKataName={matchData.selectedKata?.ao?.name}
+                akaKataName={matchData.selectedKata?.aka?.name || matchData.akaKataName || matchData.akaKata}
+                aoKataName={matchData.selectedKata?.ao?.name || matchData.aoKataName || matchData.aoKata}
                 numberOfJudges={nJudges}
-                judgeVotes={judgeVotes}
-                akaFlags={matchData.kataVotes?.aka ?? akaFlags}
-                aoFlags={matchData.kataVotes?.ao ?? aoFlags}
+                judgeVotes={matchData.judgeVotes || judgeVotes}
+                akaFlags={matchData.akaFlags ?? matchData.kataVotes?.aka ?? akaFlags}
+                aoFlags={matchData.aoFlags ?? matchData.kataVotes?.ao ?? aoFlags}
                 revealVotes={matchData.revealVotes === true}
                 revealCountdown={matchData.revealCountdown || 0}
                 timeRemaining={formatTime(time)}

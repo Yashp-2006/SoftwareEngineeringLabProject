@@ -68,9 +68,13 @@ const BracketNode = ({
   const isCompleted = match.status === 'completed';
   const isPending = !match.aka && !match.ao;
 
-  const isMatchPlayed = isLive || isCompleted || (match.akaScore !== undefined && match.akaScore !== null && match.akaScore !== 0) || (match.aoScore !== undefined && match.aoScore !== null && match.aoScore !== 0);
-  const akaDisplayScore = isMatchPlayed && match.akaScore !== undefined && match.akaScore !== null && match.akaScore !== '' ? match.akaScore : (isCompleted ? 0 : '');
-  const aoDisplayScore = isMatchPlayed && match.aoScore !== undefined && match.aoScore !== null && match.aoScore !== '' ? match.aoScore : (isCompleted ? 0 : '');
+  const effectiveAkaScore = match.akaScore !== undefined && match.akaScore !== null ? match.akaScore : match.kataVotes?.aka;
+  const effectiveAoScore = match.aoScore !== undefined && match.aoScore !== null ? match.aoScore : match.kataVotes?.ao;
+  const isMatchPlayed = isLive || isCompleted || (effectiveAkaScore !== undefined && effectiveAkaScore !== null && effectiveAkaScore !== '') || (effectiveAoScore !== undefined && effectiveAoScore !== null && effectiveAoScore !== '');
+  const akaDisplayScore = isMatchPlayed && effectiveAkaScore !== undefined && effectiveAkaScore !== null && effectiveAkaScore !== '' ? effectiveAkaScore : (isCompleted ? 0 : '');
+  const aoDisplayScore = isMatchPlayed && effectiveAoScore !== undefined && effectiveAoScore !== null && effectiveAoScore !== '' ? effectiveAoScore : (isCompleted ? 0 : '');
+  const akaKataName = match.selectedKata?.aka?.name || (typeof match.selectedKata?.aka === 'string' ? match.selectedKata.aka : null) || match.akaKata;
+  const aoKataName = match.selectedKata?.ao?.name || (typeof match.selectedKata?.ao === 'string' ? match.selectedKata.ao : null) || match.aoKata;
 
   const akaId = match.aka?.playerId;
   const aoId = match.ao?.playerId;
@@ -166,11 +170,18 @@ const BracketNode = ({
           {match.aka && (
             <div className="metrics-row">
               {isKata ? (
-                <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-500)', padding: '4px 10px', background: 'var(--neutral-50)', borderRadius: '6px', marginTop: '4px', width: 'fit-content' }}>
-                  {(match.selectedKata?.aka?.name || match.akaKata) ? (
-                    <>Kata: <span style={{ color: 'var(--aka)', fontWeight: 700 }}>{match.selectedKata?.aka?.name || match.akaKata}</span></>
-                  ) : (
-                    <span style={{ color: 'var(--neutral-400)' }}>&mdash;</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '4px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-500)', padding: '3px 8px', background: 'var(--neutral-50)', borderRadius: '6px', width: 'fit-content' }}>
+                    {akaKataName ? (
+                      <>Kata: <span style={{ color: 'var(--aka)', fontWeight: 700 }}>{akaKataName}</span></>
+                    ) : (
+                      <span style={{ color: 'var(--neutral-400)' }}>&mdash;</span>
+                    )}
+                  </div>
+                  {(isCompleted || isLive || (effectiveAkaScore !== undefined && effectiveAkaScore !== null)) && (
+                    <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--aka)' }}>
+                      Flags: {effectiveAkaScore ?? 0}
+                    </div>
                   )}
                 </div>
               ) : (
@@ -229,11 +240,18 @@ const BracketNode = ({
           {match.ao && (
             <div className="metrics-row">
               {isKata ? (
-                <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-500)', padding: '4px 10px', background: 'var(--neutral-50)', borderRadius: '6px', marginTop: '4px', width: 'fit-content' }}>
-                  {(match.selectedKata?.ao?.name || match.aoKata) ? (
-                    <>Kata: <span style={{ color: 'var(--ao)', fontWeight: 700 }}>{match.selectedKata?.ao?.name || match.aoKata}</span></>
-                  ) : (
-                    <span style={{ color: 'var(--neutral-400)' }}>&mdash;</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '4px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-500)', padding: '3px 8px', background: 'var(--neutral-50)', borderRadius: '6px', width: 'fit-content' }}>
+                    {aoKataName ? (
+                      <>Kata: <span style={{ color: 'var(--ao)', fontWeight: 700 }}>{aoKataName}</span></>
+                    ) : (
+                      <span style={{ color: 'var(--neutral-400)' }}>&mdash;</span>
+                    )}
+                  </div>
+                  {(isCompleted || isLive || (effectiveAoScore !== undefined && effectiveAoScore !== null)) && (
+                    <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--ao)' }}>
+                      Flags: {effectiveAoScore ?? 0}
+                    </div>
                   )}
                 </div>
               ) : (

@@ -313,12 +313,12 @@ export default function ScoreboardPage({ params }: { params: Promise<{ matchId: 
           aoAcademy={rtdbData.aoAcademy}
           akaCountry={rtdbData.akaCountry}
           aoCountry={rtdbData.aoCountry}
-          akaKataName={rtdbData.selectedKata?.aka?.name}
-          aoKataName={rtdbData.selectedKata?.ao?.name}
+          akaKataName={rtdbData.selectedKata?.aka?.name || rtdbData.akaKataName || rtdbData.akaKata}
+          aoKataName={rtdbData.selectedKata?.ao?.name || rtdbData.aoKataName || rtdbData.aoKata}
           numberOfJudges={nJudges}
-          judgeVotes={judgeVotes}
-          akaFlags={rtdbData.kataVotes?.aka ?? akaFlags}
-          aoFlags={rtdbData.kataVotes?.ao ?? aoFlags}
+          judgeVotes={rtdbData.judgeVotes || judgeVotes}
+          akaFlags={rtdbData.akaFlags ?? rtdbData.kataVotes?.aka ?? akaFlags}
+          aoFlags={rtdbData.aoFlags ?? rtdbData.kataVotes?.ao ?? aoFlags}
           revealVotes={rtdbData.revealVotes === true}
           revealCountdown={rtdbData.revealCountdown || 0}
           timeRemaining={

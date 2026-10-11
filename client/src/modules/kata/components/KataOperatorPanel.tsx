@@ -101,7 +101,7 @@ export default function KataOperatorPanel({
   );
 
   const startRevealCountdown = async () => {
-    const { judgeVotes } = deriveJudgeVotes(liveVotes, numberOfJudges);
+    const { judgeVotes, akaFlags, aoFlags } = deriveJudgeVotes(liveVotes, numberOfJudges);
     const votedCount = judgeVotes.filter((v) => v !== null).length;
     if (votedCount < numberOfJudges) {
       const missing = numberOfJudges - votedCount;
@@ -111,14 +111,22 @@ export default function KataOperatorPanel({
 
     setRevealing(true);
     let count = 3;
-    await syncRTDB({ revealCountdown: count, revealVotes: false });
+    await syncRTDB({ revealCountdown: count, revealVotes: false, judgeVotes, akaFlags, aoFlags });
 
     const interval = setInterval(async () => {
       count -= 1;
       if (count <= 0) {
         clearInterval(interval);
         setRevealing(false);
-        await syncRTDB({ revealCountdown: 0, revealVotes: true });
+        const { judgeVotes: jv, akaFlags: af, aoFlags: of_ } = deriveJudgeVotes(liveVotes, numberOfJudges);
+        await syncRTDB({
+          revealCountdown: 0,
+          revealVotes: true,
+          judgeVotes: jv,
+          akaFlags: af,
+          aoFlags: of_,
+          kataVotes: { aka: af, ao: of_ },
+        });
         handleFinishBout();
       } else {
         await syncRTDB({ revealCountdown: count });
@@ -343,9 +351,16 @@ export default function KataOperatorPanel({
     const nextLiveVotes = { aka: newAka, ao: newAo };
     setLiveVotes(nextLiveVotes);
 
+    const { judgeVotes: nextJudgeVotes, akaFlags: nextAkaFlags, aoFlags: nextAoFlags } = deriveJudgeVotes(nextLiveVotes, numberOfJudges);
+
     await syncRTDB({
       [`kataScores/aka/${judgeIndex}`]: nextVote === 'aka' ? 1 : 0,
       [`kataScores/ao/${judgeIndex}`]: nextVote === 'ao' ? 1 : 0,
+      kataScores: nextLiveVotes,
+      judgeVotes: nextJudgeVotes,
+      akaFlags: nextAkaFlags,
+      aoFlags: nextAoFlags,
+      kataVotes: { aka: nextAkaFlags, ao: nextAoFlags },
     });
   };
 
@@ -370,21 +385,35 @@ export default function KataOperatorPanel({
     const nextLiveVotes = { aka: newAka, ao: newAo };
     setLiveVotes(nextLiveVotes);
 
+    const { judgeVotes: nextJudgeVotes, akaFlags: nextAkaFlags, aoFlags: nextAoFlags } = deriveJudgeVotes(nextLiveVotes, numberOfJudges);
+
     await syncRTDB({
       [`kataScores/aka/${judgeIndex}`]: nextVote === 'aka' ? 1 : 0,
       [`kataScores/ao/${judgeIndex}`]: nextVote === 'ao' ? 1 : 0,
+      kataScores: nextLiveVotes,
+      judgeVotes: nextJudgeVotes,
+      akaFlags: nextAkaFlags,
+      aoFlags: nextAoFlags,
+      kataVotes: { aka: nextAkaFlags, ao: nextAoFlags },
     });
   };
 
   const handleInstantReveal = async () => {
-    const { judgeVotes: votes } = deriveJudgeVotes(liveVotes, numberOfJudges);
+    const { judgeVotes: votes, akaFlags, aoFlags } = deriveJudgeVotes(liveVotes, numberOfJudges);
     const votedCount = votes.filter((v) => v !== null).length;
     if (votedCount < numberOfJudges) {
       const missing = numberOfJudges - votedCount;
       toast.error(`${missing} judge${missing > 1 ? 's' : ''} haven't voted yet.`);
       return;
     }
-    await syncRTDB({ revealCountdown: 0, revealVotes: true });
+    await syncRTDB({
+      revealCountdown: 0,
+      revealVotes: true,
+      judgeVotes: votes,
+      akaFlags,
+      aoFlags,
+      kataVotes: { aka: akaFlags, ao: aoFlags },
+    });
     handleFinishBout();
   };
 
@@ -402,6 +431,12 @@ export default function KataOperatorPanel({
       'kataScores/aka': clearedAka,
       'kataScores/ao': clearedAo,
       kataScores: clearedVotes,
+      judgeVotes: Array(numberOfJudges).fill(null),
+      akaFlags: 0,
+      aoFlags: 0,
+      kataVotes: { aka: 0, ao: 0 },
+      revealVotes: false,
+      revealCountdown: 0,
     });
     toast.success('Judge votes reset');
   };
@@ -418,20 +453,28 @@ export default function KataOperatorPanel({
       fullVotesAo[String(i)] = opponentSide === 'ao' ? 1 : 0;
     }
 
+    const opponentFlags = numberOfJudges;
+    const opponentVotes = Array(numberOfJudges).fill(opponentSide);
+
     const patch: Record<string, any> = {
       [`isDQ/${side}`]: true,
       [`isDQ/${opponentSide}`]: false,
       kataWinner: opponentSide,
       boutFinished: true,
+      revealVotes: true,
+      revealCountdown: 0,
       'kataScores/aka': fullVotesAka,
       'kataScores/ao': fullVotesAo,
-      kataVotes: { aka: opponentSide === 'aka' ? numberOfJudges : 0, ao: opponentSide === 'ao' ? numberOfJudges : 0 },
+      judgeVotes: opponentVotes,
+      akaFlags: opponentSide === 'aka' ? opponentFlags : 0,
+      aoFlags: opponentSide === 'ao' ? opponentFlags : 0,
+      kataVotes: { aka: opponentSide === 'aka' ? opponentFlags : 0, ao: opponentSide === 'ao' ? opponentFlags : 0 },
     };
     await syncRTDB(patch);
     toast.success(`${side.toUpperCase()} disqualified. ${opponentSide.toUpperCase()} wins.`);
     setBoutFinished(true);
     setKataWinner(opponentSide);
-    onMatchFinished(opponentSide, { aka: opponentSide === 'aka' ? numberOfJudges : 0, ao: opponentSide === 'ao' ? numberOfJudges : 0 }, selectedKata);
+    onMatchFinished(opponentSide, { aka: opponentSide === 'aka' ? opponentFlags : 0, ao: opponentSide === 'ao' ? opponentFlags : 0 }, selectedKata);
   };
 
   const handleLogFoul = (side: 'aka' | 'ao', code: string) => {
@@ -469,6 +512,9 @@ export default function KataOperatorPanel({
 
     await syncRTDB({
       kataVotes: { aka: akaFlags, ao: aoFlags },
+      judgeVotes,
+      akaFlags,
+      aoFlags,
       kataWinner: winner,
       boutFinished: true,
       revealVotes: true,
@@ -491,6 +537,9 @@ export default function KataOperatorPanel({
     await syncRTDB({
       kataScores: null,
       kataVotes: null,
+      judgeVotes: Array(numberOfJudges).fill(null),
+      akaFlags: 0,
+      aoFlags: 0,
       kataWinner: null,
       boutFinished: false,
       revealVotes: false,

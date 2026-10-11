@@ -173,27 +173,50 @@ function ScoreboardContent({ id }: { id: string }) {
 
     // Kata details
     if (payload.selectedKata !== undefined) setSelectedKata(payload.selectedKata);
-    if (payload.akaKataName && !payload.selectedKata?.aka?.name) {
-      setSelectedKata((prev: any) => ({ ...prev, aka: { ...(prev?.aka || {}), name: payload.akaKataName } }));
+    if ((payload.akaKataName || payload.akaKata) && !payload.selectedKata?.aka?.name) {
+      setSelectedKata((prev: any) => ({ ...prev, aka: { ...(prev?.aka || {}), name: payload.akaKataName || payload.akaKata } }));
     }
-    if (payload.aoKataName && !payload.selectedKata?.ao?.name) {
-      setSelectedKata((prev: any) => ({ ...prev, ao: { ...(prev?.ao || {}), name: payload.aoKataName } }));
+    if ((payload.aoKataName || payload.aoKata) && !payload.selectedKata?.ao?.name) {
+      setSelectedKata((prev: any) => ({ ...prev, ao: { ...(prev?.ao || {}), name: payload.aoKataName || payload.aoKata } }));
     }
     if (payload.numberOfJudges) setNumberOfJudges(payload.numberOfJudges);
-    if (payload.judgeVotes) setJudgeVotes(payload.judgeVotes);
-    if (payload.akaFlags !== undefined) setAkaFlags(payload.akaFlags);
-    if (payload.aoFlags !== undefined) setAoFlags(payload.aoFlags);
     if (payload.revealVotes !== undefined) setRevealVotes(payload.revealVotes);
     if (payload.revealCountdown !== undefined) setRevealCountdown(payload.revealCountdown);
     if (payload.kataWinner !== undefined) setKataWinner(payload.kataWinner);
 
-    // If raw kataScores present, derive votes
-    if (payload.kataScores && !payload.judgeVotes) {
-      const nJ = payload.numberOfJudges || 3;
+    // Derive or assign flags & judge votes
+    const nJ = payload.numberOfJudges || 3;
+    let derivedVotes: Array<'aka' | 'ao' | 'tie' | null> | null = null;
+    let derivedAka = 0;
+    let derivedAo = 0;
+
+    if (payload.kataScores) {
       const derived = deriveJudgeVotes(payload.kataScores, nJ);
-      setJudgeVotes(derived.judgeVotes);
-      setAkaFlags(payload.kataVotes?.aka ?? derived.akaFlags);
-      setAoFlags(payload.kataVotes?.ao ?? derived.aoFlags);
+      derivedVotes = derived.judgeVotes;
+      derivedAka = derived.akaFlags;
+      derivedAo = derived.aoFlags;
+    }
+
+    if (payload.judgeVotes) {
+      setJudgeVotes(payload.judgeVotes);
+    } else if (derivedVotes) {
+      setJudgeVotes(derivedVotes);
+    }
+
+    if (payload.akaFlags !== undefined) {
+      setAkaFlags(payload.akaFlags);
+    } else if (payload.kataVotes?.aka !== undefined) {
+      setAkaFlags(payload.kataVotes.aka);
+    } else if (payload.kataScores) {
+      setAkaFlags(derivedAka);
+    }
+
+    if (payload.aoFlags !== undefined) {
+      setAoFlags(payload.aoFlags);
+    } else if (payload.kataVotes?.ao !== undefined) {
+      setAoFlags(payload.kataVotes.ao);
+    } else if (payload.kataScores) {
+      setAoFlags(derivedAo);
     }
   }, []);
 
