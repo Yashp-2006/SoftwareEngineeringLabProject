@@ -397,6 +397,14 @@ export default function ScoreboardPage({ params }: { params: Promise<{ matchId: 
             aoC1={ao.c1 ? 1 : 0}
             akaC2={aka.c2 ? 1 : 0}
             aoC2={ao.c2 ? 1 : 0}
+            akaC3={aka.c3 ? 1 : 0}
+            aoC3={ao.c3 ? 1 : 0}
+            akaHC={aka.hc ? 1 : 0}
+            aoHC={ao.hc ? 1 : 0}
+            akaH={aka.h ? 1 : 0}
+            aoH={ao.h ? 1 : 0}
+            akaPenalties={{ c1: aka.c1, c2: aka.c2, c3: aka.c3, hc: aka.hc, h: aka.h }}
+            aoPenalties={{ c1: ao.c1, c2: ao.c2, c3: ao.c3, hc: ao.hc, h: ao.h }}
             akaSenshu={aka.senshu}
             aoSenshu={ao.senshu}
             timerDisplay={formatTime(timer)}

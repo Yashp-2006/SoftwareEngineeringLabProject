@@ -55,6 +55,15 @@ export interface KataLiveScoreboardProps {
   revealCountdown?: number;
 }
 
+export function getKataAutoscaledFontSize(name: string): string {
+  const len = (name || '').trim().length;
+  if (len <= 7) return 'clamp(28px, 3.6vw, 44px)';
+  if (len <= 14) return 'clamp(24px, 3.0vw, 36px)';
+  if (len <= 22) return 'clamp(20px, 2.4vw, 30px)';
+  if (len <= 30) return 'clamp(16px, 1.9vw, 24px)';
+  return 'clamp(13px, 1.5vw, 20px)';
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────────
 
 export default function KataLiveScoreboard({
@@ -223,7 +232,7 @@ export default function KataLiveScoreboard({
           <div className="kls-fighter-card">
             <div className="kls-fighter-head kls-fighter-head-aka">
               <div className="kls-fighter-lane">AKA</div>
-              <div className="kls-fighter-name">{akaName}</div>
+              <div className="kls-fighter-name" title={akaName} style={{ fontSize: getKataAutoscaledFontSize(akaName) }}>{akaName}</div>
             </div>
             <div className="kls-fighter-body">
               <div className="kls-flag-count kls-flag-count-aka">{revealVotes ? akaFlags : 0}</div>
@@ -270,7 +279,7 @@ export default function KataLiveScoreboard({
           <div className="kls-fighter-card">
             <div className="kls-fighter-head kls-fighter-head-ao">
               <div className="kls-fighter-lane">AO</div>
-              <div className="kls-fighter-name">{aoName}</div>
+              <div className="kls-fighter-name" title={aoName} style={{ fontSize: getKataAutoscaledFontSize(aoName) }}>{aoName}</div>
             </div>
             <div className="kls-fighter-body">
               <div className="kls-flag-count kls-flag-count-ao">{revealVotes ? aoFlags : 0}</div>

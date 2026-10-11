@@ -18,10 +18,18 @@ export type KumiteLiveScoreboardProps = {
   akaYuko: number;
   aoYuko: number;
   
-  akaC1: number;
-  aoC1: number;
-  akaC2: number;
-  aoC2: number;
+  akaC1?: number;
+  aoC1?: number;
+  akaC2?: number;
+  aoC2?: number;
+  akaC3?: number;
+  aoC3?: number;
+  akaHC?: number;
+  aoHC?: number;
+  akaH?: number;
+  aoH?: number;
+  akaPenalties?: { c1?: boolean | number; c2?: boolean | number; c3?: boolean | number; hc?: boolean | number; h?: boolean | number };
+  aoPenalties?: { c1?: boolean | number; c2?: boolean | number; c3?: boolean | number; hc?: boolean | number; h?: boolean | number };
   
   akaSenshu: boolean;
   aoSenshu: boolean;
@@ -51,10 +59,22 @@ export type KumiteLiveScoreboardProps = {
   logoUrl?: string;
 };
 
+export function getKumiteAutoscaledFontSize(name: string): string {
+  const len = (name || '').trim().length;
+  if (len <= 7) return 'clamp(26px, 5.8cqw, 7.2cqw)';
+  if (len <= 14) return 'clamp(22px, 4.6cqw, 5.6cqw)';
+  if (len <= 22) return 'clamp(18px, 3.6cqw, 4.4cqw)';
+  if (len <= 30) return 'clamp(15px, 2.9cqw, 3.5cqw)';
+  return 'clamp(13px, 2.3cqw, 2.8cqw)';
+}
+
 export default function KumiteLiveScoreboard({
   akaName, aoName, akaAcademy, aoAcademy, akaCountry, aoCountry,
   akaScore, aoScore, akaIppon, aoIppon, akaWazaari, aoWazaari, akaYuko, aoYuko,
-  akaC1, aoC1, akaC2, aoC2, akaSenshu, aoSenshu,
+  akaC1 = 0, aoC1 = 0, akaC2 = 0, aoC2 = 0,
+  akaC3 = 0, aoC3 = 0, akaHC = 0, aoHC = 0, akaH = 0, aoH = 0,
+  akaPenalties, aoPenalties,
+  akaSenshu, aoSenshu,
   timerDisplay, timerColor, matchStatus, title = 'KHEL KARATE', categoryName = '', matchId = '',
   winnerName, winnerColor, winnerAcademy, nextMatch, onDismissWinner, onProceedNextMatch,
   isFullscreen, onToggleFullscreen, onBack,
@@ -62,10 +82,38 @@ export default function KumiteLiveScoreboard({
   logoUrl
 }: KumiteLiveScoreboardProps) {
 
-  const renderDots = (count: number) => {
-    return Array.from({ length: 4 }).map((_, i) => (
-      <div key={i} className={`kls-dot ${i < count ? 'active' : ''}`}></div>
-    ));
+  const render5Penalties = (
+    c1: number = 0,
+    c2: number = 0,
+    c3: number = 0,
+    hc: number = 0,
+    h: number = 0,
+    pens?: { c1?: boolean | number; c2?: boolean | number; c3?: boolean | number; hc?: boolean | number; h?: boolean | number }
+  ) => {
+    const isC1 = Boolean(pens?.c1 ?? (c1 >= 1));
+    const isC2 = Boolean(pens?.c2 ?? (c2 >= 1 || c1 >= 2));
+    const isC3 = Boolean(pens?.c3 ?? (c3 >= 1 || c1 >= 3));
+    const isHC = Boolean(pens?.hc ?? (hc >= 1 || c1 >= 4));
+    const isH  = Boolean(pens?.h  ?? (h >= 1  || c1 >= 5));
+
+    const slots = [
+      { code: 'C1', active: isC1 },
+      { code: 'C2', active: isC2 },
+      { code: 'C3', active: isC3 },
+      { code: 'HC', active: isHC },
+      { code: 'H',  active: isH },
+    ];
+
+    return (
+      <div className="kls-pen-5track">
+        {slots.map((s) => (
+          <div key={s.code} className="kls-pen-slot">
+            <span className="kls-pen-slot-code">{s.code}</span>
+            <div className={`kls-dot ${s.active ? 'active' : ''}`} />
+          </div>
+        ))}
+      </div>
+    );
   };
 
   return (
@@ -87,7 +135,7 @@ export default function KumiteLiveScoreboard({
         
         .kls-fighter-header { display: flex; flex-direction: column; align-items: center; width: 100%; flex-shrink: 0; }
         .kls-country { font-family: var(--font-display); font-size: 1.8cqw; color: rgba(255,255,255,0.7); letter-spacing: 0.1em; margin-bottom: 0.5cqw; text-align: center; }
-        .kls-name { font-family: var(--font-display); font-size: clamp(20px, 4cqw, 5.5cqw); line-height: 1.1; text-transform: uppercase; text-align: center; text-shadow: 0 0.5cqw 1cqw rgba(0,0,0,0.3); word-break: break-word; max-width: 100%; max-height: 2.3em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; }
+        .kls-name { font-family: var(--font-display); line-height: 1.1; text-transform: uppercase; text-align: center; text-shadow: 0 0.5cqw 1cqw rgba(0,0,0,0.3); word-break: break-word; max-width: 100%; max-height: 2.3em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; }
         
         .kls-score-wrap { position: relative; display: flex; align-items: center; justify-content: center; flex: 1; min-height: 0; }
         .kls-score { font-family: var(--font-display); font-size: clamp(70px, 16cqw, 20cqw); line-height: 0.85; margin: 0; color: var(--shiro); }
@@ -98,12 +146,13 @@ export default function KumiteLiveScoreboard({
         .kls-pt-label { font-size: 1.1cqw; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; opacity: 0.8; }
         .kls-pt-val { font-family: var(--font-display); font-size: 3.2cqw; line-height: 1; font-weight: 800; }
         
-        .kls-pens { display: grid; grid-template-columns: 1fr 1fr; gap: 2cqw; width: 100%; max-width: 28cqw; flex-shrink: 0; }
-        .kls-pen-grp { display: flex; flex-direction: column; gap: 0.5cqw; align-items: center; }
-        .kls-pen-title { font-size: 0.9cqw; font-weight: 800; text-transform: uppercase; opacity: 0.7; text-align: center; letter-spacing: 0.05em; }
-        .kls-pen-dots { display: flex; justify-content: center; gap: 0.7cqw; }
-        .kls-dot { width: 1.2cqw; height: 1.2cqw; border-radius: 50%; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4); transition: background 200ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 200ms cubic-bezier(0.23, 1, 0.32, 1); }
-        .kls-dot.active { background: var(--shiro); box-shadow: 0 0 1cqw var(--shiro); border-color: var(--shiro); }
+        .kls-pens { display: flex; flex-direction: column; align-items: center; gap: 0.6cqw; width: 100%; max-width: 32cqw; flex-shrink: 0; }
+        .kls-pen-title { font-size: 0.9cqw; font-weight: 800; text-transform: uppercase; opacity: 0.75; text-align: center; letter-spacing: 0.1em; }
+        .kls-pen-5track { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 0.6cqw 1.2cqw; background: rgba(0,0,0,0.25); border-radius: 0.8cqw; border: 1px solid rgba(255,255,255,0.15); box-sizing: border-box; }
+        .kls-pen-slot { display: flex; flex-direction: column; align-items: center; gap: 0.4cqw; }
+        .kls-pen-slot-code { font-family: var(--font-mono); font-size: 1.1cqw; font-weight: 800; letter-spacing: 0.05em; color: rgba(255,255,255,0.85); }
+        .kls-dot { width: 1.3cqw; height: 1.3cqw; border-radius: 50%; background: rgba(255,255,255,0.15); border: 1.5px solid rgba(255,255,255,0.35); transition: background 200ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 200ms cubic-bezier(0.23, 1, 0.32, 1); }
+        .kls-dot.active { background: #facc15; box-shadow: 0 0 1cqw #facc15, 0 0 1.5cqw #ffffff; border-color: #ffffff; }
         
         .kls-senshu { position: absolute; top: 3cqw; font-family: var(--font-display); font-size: 2cqw; background: var(--shiro); color: var(--kuro); padding: 0.5cqw 1.5cqw; border-radius: 0.5cqw; opacity: 0; transition: opacity 0.3s ease; }
         .kls-senshu.active { opacity: 1; }
@@ -189,7 +238,7 @@ export default function KumiteLiveScoreboard({
           {akaSenshu && !isKata && <div className="kls-senshu active">SENSHU</div>}
           <div className="kls-fighter-header">
             <div className="kls-country">{akaCountry || 'AKA'}</div>
-            <div className="kls-name" title={akaName}>{akaName}</div>
+            <div className="kls-name" title={akaName} style={{ fontSize: getKumiteAutoscaledFontSize(akaName) }}>{akaName}</div>
           </div>
           
           {isKata ? (
@@ -211,14 +260,8 @@ export default function KumiteLiveScoreboard({
                 </div>
                 
                 <div className="kls-pens">
-                  <div className="kls-pen-grp">
-                    <div className="kls-pen-title">Category 1</div>
-                    <div className="kls-pen-dots">{renderDots(akaC1)}</div>
-                  </div>
-                  <div className="kls-pen-grp">
-                    <div className="kls-pen-title">Category 2</div>
-                    <div className="kls-pen-dots">{renderDots(akaC2)}</div>
-                  </div>
+                  <div className="kls-pen-title">Penalties</div>
+                  {render5Penalties(akaC1, akaC2, akaC3, akaHC, akaH, akaPenalties)}
                 </div>
               </div>
             </>
@@ -255,7 +298,7 @@ export default function KumiteLiveScoreboard({
           {aoSenshu && !isKata && <div className="kls-senshu active">SENSHU</div>}
           <div className="kls-fighter-header">
             <div className="kls-country">{aoCountry || 'AO'}</div>
-            <div className="kls-name" title={aoName}>{aoName}</div>
+            <div className="kls-name" title={aoName} style={{ fontSize: getKumiteAutoscaledFontSize(aoName) }}>{aoName}</div>
           </div>
           
           {isKata ? (
@@ -277,14 +320,8 @@ export default function KumiteLiveScoreboard({
                 </div>
                 
                 <div className="kls-pens">
-                  <div className="kls-pen-grp">
-                    <div className="kls-pen-title">Category 1</div>
-                    <div className="kls-pen-dots">{renderDots(aoC1)}</div>
-                  </div>
-                  <div className="kls-pen-grp">
-                    <div className="kls-pen-title">Category 2</div>
-                    <div className="kls-pen-dots">{renderDots(aoC2)}</div>
-                  </div>
+                  <div className="kls-pen-title">Penalties</div>
+                  {render5Penalties(aoC1, aoC2, aoC3, aoHC, aoH, aoPenalties)}
                 </div>
               </div>
             </>

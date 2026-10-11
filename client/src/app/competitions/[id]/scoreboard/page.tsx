@@ -40,6 +40,9 @@ function ScoreboardContent({ id }: { id: string }) {
     yuko: 0,
     c1: 0,
     c2: 0,
+    c3: 0,
+    hc: 0,
+    h: 0,
     senshu: false,
   });
 
@@ -53,6 +56,9 @@ function ScoreboardContent({ id }: { id: string }) {
     yuko: 0,
     c1: 0,
     c2: 0,
+    c3: 0,
+    hc: 0,
+    h: 0,
     senshu: false,
   });
 
@@ -138,6 +144,9 @@ function ScoreboardContent({ id }: { id: string }) {
         senshu: payload.akaStats?.senshu ?? prev.senshu,
         c1: payload.akaPenalties?.c1 ? 1 : (payload.akaC1 ?? prev.c1),
         c2: payload.akaPenalties?.c2 ? 1 : (payload.akaC2 ?? prev.c2),
+        c3: payload.akaPenalties?.c3 ? 1 : (payload.akaC3 ?? prev.c3),
+        hc: payload.akaPenalties?.hc ? 1 : (payload.akaHC ?? prev.hc),
+        h: payload.akaPenalties?.h ? 1 : (payload.akaH ?? prev.h),
       }));
     }
 
@@ -156,6 +165,9 @@ function ScoreboardContent({ id }: { id: string }) {
         senshu: payload.aoStats?.senshu ?? prev.senshu,
         c1: payload.aoPenalties?.c1 ? 1 : (payload.aoC1 ?? prev.c1),
         c2: payload.aoPenalties?.c2 ? 1 : (payload.aoC2 ?? prev.c2),
+        c3: payload.aoPenalties?.c3 ? 1 : (payload.aoC3 ?? prev.c3),
+        hc: payload.aoPenalties?.hc ? 1 : (payload.aoHC ?? prev.hc),
+        h: payload.aoPenalties?.h ? 1 : (payload.aoH ?? prev.h),
       }));
     }
 
@@ -376,6 +388,14 @@ function ScoreboardContent({ id }: { id: string }) {
             aoC1={ao.c1}
             akaC2={aka.c2}
             aoC2={ao.c2}
+            akaC3={aka.c3}
+            aoC3={ao.c3}
+            akaHC={aka.hc}
+            aoHC={ao.hc}
+            akaH={aka.h}
+            aoH={ao.h}
+            akaPenalties={{ c1: aka.c1, c2: aka.c2, c3: aka.c3, hc: aka.hc, h: aka.h }}
+            aoPenalties={{ c1: ao.c1, c2: ao.c2, c3: ao.c3, hc: ao.hc, h: ao.h }}
             akaSenshu={aka.senshu}
             aoSenshu={ao.senshu}
             timerDisplay={timerDisplay}
