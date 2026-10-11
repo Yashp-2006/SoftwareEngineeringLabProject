@@ -12,7 +12,8 @@ import {
   DragStartEvent,
   DragOverEvent,
   DragEndEvent,
-  defaultDropAnimationSideEffects
+  defaultDropAnimationSideEffects,
+  useDroppable
 } from '@dnd-kit/core';
 import { 
   SortableContext, 
@@ -24,11 +25,11 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { db } from '@lib/firebase';
 import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
-import { Search, Calendar, GripVertical, Layers, ChevronDown } from 'lucide-react';
+import { Search, Calendar, GripVertical, Layers, ChevronDown, Info, X, Clock, Users, Swords } from 'lucide-react';
 import { sortCategories, compareCategoryNames } from '@/lib/categoryUtils';
 import toast from 'react-hot-toast';
 
-export type AutoAssignStrategy = 'dedicated_age_mats' | 'synchronized_age_slots' | 'sequential_fill';
+export type AutoAssignStrategy = 'balanced_finish' | 'dedicated_age_mats' | 'synchronized_age_slots' | 'sequential_fill';
 
 interface ScheduleKanbanProps {
   compId: string;
@@ -53,6 +54,7 @@ interface SortablePoolCardProps {
   categoryPoolCount?: number;
   categoryLocation?: { isSplit: boolean; day: number; matId: number };
   onMoveCategory?: (categoryId: string, targetKey: string) => void;
+  onOpenDetails?: (pool: any) => void;
 }
 
 function SortablePoolCard({ 
@@ -63,9 +65,16 @@ function SortablePoolCard({
   tournamentDays,
   categoryPoolCount,
   categoryLocation,
-  onMoveCategory
+  onMoveCategory,
+  onOpenDetails
 }: SortablePoolCardProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ 
+    id,
+    data: {
+      type: 'Card',
+      poolId: id,
+    }
+  });
   
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -80,15 +89,27 @@ function SortablePoolCard({
     boxShadow: isDragging ? '0 4px 12px rgba(0,0,0,0.1)' : 'none',
     display: 'flex',
     gap: '10px',
-    alignItems: 'center'
+    alignItems: 'center',
+    userSelect: 'none' as const
   };
 
-  const isFinals = pool.id.includes('finals') || pool.categoryName.toLowerCase().includes('finals');
-  const isKata = pool.categoryName.toLowerCase().includes('kata');
-  const catId = pool.categoryId || pool.id.split('_pool_')[0].split('_finals')[0];
+  const isKata = Boolean(pool.isKata || pool.categoryName?.toLowerCase().includes('kata'));
+  const catId = pool.categoryId || pool.id.split('_pool_')[0];
+  const poolNum = pool.poolNumber || (pool.categoryName?.match(/Pool\s*(\d+)/i)?.[1] ?? 1);
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+    <div 
+      ref={setNodeRef} 
+      style={style} 
+      {...attributes} 
+      {...listeners}
+      onClick={(e) => {
+        // Prevent click if user clicked Move Category dropdown or drag handle
+        if ((e.target as HTMLElement).closest('select') || (e.target as HTMLElement).closest('button')) return;
+        if (onOpenDetails) onOpenDetails(pool);
+      }}
+      title={`Click to view pool details\nCategory: ${pool.categoryName}\nPool: #${poolNum}\nAthletes: ${pool.athletesCount ?? 'N/A'}\nMatches: ${pool.matchesCount}\nEst Time: ${pool.estTime} mins`}
+    >
       <GripVertical size={16} color="var(--neutral-400)" style={{ flexShrink: 0 }} />
       {orderNum !== undefined && (
         <span style={{ 
@@ -121,19 +142,17 @@ function SortablePoolCard({
             }}>
               {isKata ? 'KATA' : 'KUMITE'}
             </span>
-            {isFinals && (
-              <span style={{ 
-                fontSize: '9px', 
-                fontWeight: 700, 
-                padding: '1px 5px', 
-                borderRadius: '4px', 
-                background: '#fef3c7', 
-                color: '#92400e',
-                letterSpacing: '0.04em'
-              }}>
-                FINALS
-              </span>
-            )}
+            <span style={{ 
+              fontSize: '9px', 
+              fontWeight: 700, 
+              padding: '1px 5px', 
+              borderRadius: '4px', 
+              background: '#f3f4f6', 
+              color: '#374151',
+              letterSpacing: '0.04em'
+            }}>
+              POOL {poolNum}
+            </span>
           </div>
 
           {onMoveCategory && (
@@ -235,10 +254,13 @@ function SortablePoolCard({
           {pool.categoryName}
         </div>
         <div style={{ fontSize: '11px', color: 'var(--neutral-500)', marginTop: '2px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>{pool.matchesCount} matches • Est. {pool.estTime} mins</span>
+          <span>
+            {pool.athletesCount !== undefined ? `${pool.athletesCount} athletes • ` : ''}
+            {pool.matchesCount} matches • Est. {pool.estTime}m
+          </span>
           {categoryPoolCount && categoryPoolCount > 1 && (
             <span style={{ fontSize: '10px', color: 'var(--neutral-400)', fontWeight: 500 }}>
-              {categoryPoolCount} pools in cat
+              {categoryPoolCount} pools
             </span>
           )}
         </div>
@@ -251,18 +273,17 @@ export function computeAutoSchedule(
   poolsList: any[],
   matsCount: number,
   tournamentDays: number,
-  strategy: AutoAssignStrategy = 'dedicated_age_mats'
+  strategy: AutoAssignStrategy = 'balanced_finish'
 ): Record<string, { matId: number; day: number; order: number; estTime: number }> {
   if (!poolsList || poolsList.length === 0) return {};
 
-  // 1. Group pools by their parent category so all pools of a category stay together
+  // 1. Group pools by their parent category so all pools of a category stay together on the same mat
   const categoryMap = new Map<string, { categoryId: string; categoryName: string; pools: any[]; totalEstTime: number }>();
   poolsList.forEach(p => {
-    const catId = p.categoryId || p.id.split('_pool_')[0].split('_finals')[0];
+    const catId = p.categoryId || p.id.split('_pool_')[0];
     if (!categoryMap.has(catId)) {
       const baseName = p.categoryName
         .replace(/\s*-\s*Pool\s*\d+/i, '')
-        .replace(/\s*-\s*Finals/i, '')
         .trim();
       categoryMap.set(catId, {
         categoryId: catId,
@@ -282,14 +303,12 @@ export function computeAutoSchedule(
     compareCategoryNames(a.categoryName, b.categoryName)
   );
 
-  // 3. Within each group, order: Pool 1 -> Pool 2 -> ... -> Finals
+  // 3. Within each group, order: Pool 1 -> Pool 2 -> ... -> Pool N
   sortedGroups.forEach(group => {
     group.pools.sort((a, b) => {
-      const isFinalsA = a.id.includes('finals');
-      const isFinalsB = b.id.includes('finals');
-      if (isFinalsA && !isFinalsB) return 1;
-      if (!isFinalsA && isFinalsB) return -1;
-      return a.categoryName.localeCompare(b.categoryName);
+      const numA = a.poolNumber ?? (parseInt(a.id.split('_pool_')[1], 10) || 0);
+      const numB = b.poolNumber ?? (parseInt(b.id.split('_pool_')[1], 10) || 0);
+      return numA - numB;
     });
   });
 
@@ -302,10 +321,82 @@ export function computeAutoSchedule(
     return orderCounters[key];
   };
 
-  if (strategy === 'dedicated_age_mats') {
-    // Divided by age brackets across mats:
-    // Mat 1 gets youngest categories, Mat 2 gets the next age bracket, Mat 3 older...
-    // All pools of each category run back-to-back on that mat so the category finishes together.
+  if (strategy === 'balanced_finish') {
+    // BALANCED FINISH: All mats finish at the same time!
+    // We balance the total estimated load across mats so every mat's total run time is virtually identical.
+    // Within each mat, categories remain sorted by age so all mats start youngest and progress to oldest.
+    const matBuckets: { day: number; matId: number; totalTime: number; groups: typeof sortedGroups }[] = [];
+    for (let d = 1; d <= tournamentDays; d++) {
+      for (let m = 1; m <= matsCount; m++) {
+        matBuckets.push({ day: d, matId: m, totalTime: 0, groups: [] });
+      }
+    }
+
+    // Assign categories using least-loaded bucket heuristic while preserving age balance
+    // To ensure all mats have a balanced progression and finish simultaneously,
+    // iterate over sorted groups and place each onto the bucket with the currently lowest total duration
+    sortedGroups.forEach(group => {
+      let minBucket = matBuckets[0];
+      for (let i = 1; i < matBuckets.length; i++) {
+        if (matBuckets[i].totalTime < minBucket.totalTime) {
+          minBucket = matBuckets[i];
+        }
+      }
+      minBucket.groups.push(group);
+      minBucket.totalTime += group.totalEstTime;
+    });
+
+    // Optional local optimization to further reduce variance between mats
+    let improved = true;
+    let iterations = 0;
+    while (improved && iterations < 50) {
+      improved = false;
+      iterations++;
+      matBuckets.sort((a, b) => b.totalTime - a.totalTime);
+      const maxB = matBuckets[0];
+      const minB = matBuckets[matBuckets.length - 1];
+      const currentDiff = maxB.totalTime - minB.totalTime;
+
+      if (currentDiff > 10 && maxB.groups.length > 1) {
+        let bestSwapIdx = -1;
+        let bestNewDiff = currentDiff;
+
+        for (let gIdx = 0; gIdx < maxB.groups.length; gIdx++) {
+          const gTime = maxB.groups[gIdx].totalEstTime;
+          const newDiff = Math.abs((maxB.totalTime - gTime) - (minB.totalTime + gTime));
+          if (newDiff < bestNewDiff) {
+            bestNewDiff = newDiff;
+            bestSwapIdx = gIdx;
+          }
+        }
+
+        if (bestSwapIdx !== -1 && bestNewDiff < currentDiff) {
+          const [movedGroup] = maxB.groups.splice(bestSwapIdx, 1);
+          maxB.totalTime -= movedGroup.totalEstTime;
+          minB.groups.push(movedGroup);
+          minB.totalTime += movedGroup.totalEstTime;
+          improved = true;
+        }
+      }
+    }
+
+    // Now write out the schedule, sorting each mat's groups by age progression
+    matBuckets.forEach(bucket => {
+      bucket.groups.sort((a, b) => compareCategoryNames(a.categoryName, b.categoryName));
+      bucket.groups.forEach(group => {
+        group.pools.forEach(pool => {
+          schedule[pool.id] = {
+            matId: bucket.matId,
+            day: bucket.day,
+            order: getNextOrder(bucket.day, bucket.matId),
+            estTime: pool.estTime
+          };
+        });
+      });
+    });
+
+  } else if (strategy === 'dedicated_age_mats') {
+    // Dedicated age mats: Mat 1 youngest, Mat 2 older...
     const totalTime = sortedGroups.reduce((sum, g) => sum + g.totalEstTime, 0);
     const totalBuckets = Math.max(1, matsCount * tournamentDays);
 
@@ -333,7 +424,6 @@ export function computeAutoSchedule(
         currentBucketTime = 0;
       }
 
-      // Assign all pools of this category group consecutively to (currentDay, currentMat)
       group.pools.forEach(pool => {
         schedule[pool.id] = {
           matId: currentMat,
@@ -346,8 +436,6 @@ export function computeAutoSchedule(
       });
     }
   } else if (strategy === 'synchronized_age_slots') {
-    // Parallel age progression: All mats start with youngest categories simultaneously at slot 1,
-    // and progress through age groups together.
     const matLoads: Record<string, number> = {};
     for (let d = 1; d <= tournamentDays; d++) {
       for (let m = 1; m <= matsCount; m++) {
@@ -383,7 +471,7 @@ export function computeAutoSchedule(
       matLoads[`${bestDay}-${bestMat}`] += group.totalEstTime;
     });
   } else {
-    // sequential_fill: Fill Mat 1 up to day capacity, then Mat 2, then Mat 3
+    // sequential_fill
     const totalTime = sortedGroups.reduce((sum, g) => sum + g.totalEstTime, 0);
     const targetTimePerMat = Math.ceil(totalTime / matsCount);
 
@@ -422,6 +510,7 @@ interface DroppableColumnProps {
   categoryPoolCounts: Record<string, number>;
   categoryLocations: Record<string, { isSplit: boolean; day: number; matId: number }>;
   onMoveCategory: (categoryId: string, targetKey: string) => void;
+  onOpenDetails: (pool: any) => void;
 }
 
 function DroppableColumn({ 
@@ -433,19 +522,32 @@ function DroppableColumn({
   tournamentDays,
   categoryPoolCounts,
   categoryLocations,
-  onMoveCategory
+  onMoveCategory,
+  onOpenDetails
 }: DroppableColumnProps) {
-  const { setNodeRef } = useSortable({
+  const { setNodeRef, isOver } = useDroppable({
     id,
     data: {
       type: 'Column',
+      columnId: id
     }
   });
 
   const hours = totalTime ? (totalTime / 60).toFixed(1) : '0';
 
   return (
-    <div style={{ background: 'var(--neutral-50)', borderRadius: '12px', border: '1px solid var(--neutral-200)', display: 'flex', flexDirection: 'column', height: '520px' }}>
+    <div 
+      ref={setNodeRef}
+      style={{ 
+        background: isOver ? '#f0fdf4' : 'var(--neutral-50)', 
+        borderRadius: '12px', 
+        border: isOver ? '2px dashed #16a34a' : '1px solid var(--neutral-200)', 
+        display: 'flex', 
+        flexDirection: 'column', 
+        height: '540px',
+        transition: 'background 0.15s ease, border-color 0.15s ease'
+      }}
+    >
       <div style={{ padding: '12px', borderBottom: '1px solid var(--neutral-200)', background: 'var(--shiro)', borderRadius: '12px 12px 0 0' }}>
         <h4 style={{ margin: 0, fontSize: '14px', color: '#171717' }}>{title}</h4>
         {totalTime !== undefined && (
@@ -454,10 +556,10 @@ function DroppableColumn({
           </div>
         )}
       </div>
-      <div ref={setNodeRef} style={{ padding: '12px', flex: 1, overflowY: 'auto' }}>
+      <div style={{ padding: '12px', flex: 1, overflowY: 'auto' }}>
         <SortableContext items={pools.map(p => p.id)} strategy={verticalListSortingStrategy}>
           {pools.map((pool, idx) => {
-            const catId = pool.categoryId || pool.id.split('_pool_')[0].split('_finals')[0];
+            const catId = pool.categoryId || pool.id.split('_pool_')[0];
             return (
               <SortablePoolCard 
                 key={pool.id} 
@@ -469,6 +571,7 @@ function DroppableColumn({
                 categoryPoolCount={categoryPoolCounts[catId] || 1}
                 categoryLocation={categoryLocations[catId]}
                 onMoveCategory={onMoveCategory}
+                onOpenDetails={onOpenDetails}
               />
             );
           })}
@@ -482,7 +585,6 @@ function DroppableColumn({
     </div>
   );
 }
-
 export default function ScheduleKanban({
   compId, tournamentDays, matsCount, globalMatchTime, globalRestTime, globalMedicalTime, globalBunkaiTime, poolsSchedule, setPoolsSchedule, importResult, poolSize
 }: ScheduleKanbanProps) {
@@ -491,7 +593,8 @@ export default function ScheduleKanban({
   const [activeDay, setActiveDay] = useState<number>(1);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [autoAssignStrategy, setAutoAssignStrategy] = useState<AutoAssignStrategy>('dedicated_age_mats');
+  const [autoAssignStrategy, setAutoAssignStrategy] = useState<AutoAssignStrategy>('balanced_finish');
+  const [selectedPoolForDetails, setSelectedPoolForDetails] = useState<any | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -514,7 +617,7 @@ export default function ScheduleKanban({
           if (athleteCount === 0) return;
           
           const catPoolSize = cat.poolSize || poolSizeVal;
-          const poolCount = Math.ceil(athleteCount / catPoolSize);
+          const poolCount = Math.max(1, Math.ceil(athleteCount / catPoolSize));
           const baseEntries = Math.floor(athleteCount / poolCount);
           const extraEntries = athleteCount % poolCount;
           
@@ -532,21 +635,19 @@ export default function ScheduleKanban({
               id: `${cat.id}_pool_${p}`,
               categoryId: cat.id,
               categoryName: `${cat.name} - Pool ${p}`,
+              baseCategoryName: cat.name,
+              poolNumber: p,
+              poolLabel: `Pool ${p}`,
+              totalPoolsInCategory: poolCount,
+              athletesCount: entriesInPool,
               matchesCount: matchesInPool,
               estTime,
-            });
-          }
-          
-          if (poolCount > 1) {
-            const matchesInFinals = cat.isKata ? poolCount : Math.max(0, poolCount - 1);
-            const estTime = Math.ceil((mTime + rTime) * matchesInFinals + globalRestTime + globalMedicalTime);
-            
-            generatedPools.push({
-              id: `${cat.id}_finals`,
-              categoryId: cat.id,
-              categoryName: `${cat.name} - Finals`,
-              matchesCount: matchesInFinals,
-              estTime,
+              isKata: Boolean(cat.isKata),
+              matchTime: mTime,
+              restTime: rTime,
+              medicalTime: medTime,
+              bunkaiTime: bTime,
+              athletes: Array.isArray(cat.athletes) ? cat.athletes.slice((p - 1) * entriesInPool, p * entriesInPool) : []
             });
           }
         });
@@ -571,13 +672,13 @@ export default function ScheduleKanban({
           if (newPools.length > 0) {
             changed = true;
             
-            // If all or most pools are unscheduled, compute fresh age-ordered schedule
+            // If all or most pools are unscheduled, compute fresh balanced schedule
             if (Object.keys(next).length === 0 || Object.values(next).every((v: any) => v.matId === -1)) {
-              const freshSchedule = computeAutoSchedule(generatedPools, matsCount, tournamentDays, 'dedicated_age_mats');
+              const freshSchedule = computeAutoSchedule(generatedPools, matsCount, tournamentDays, 'balanced_finish');
               Object.assign(next, freshSchedule);
             } else {
-              // Append new pools using age order
-              const appendSchedule = computeAutoSchedule(newPools, matsCount, tournamentDays, 'dedicated_age_mats');
+              // Append new pools using balanced order
+              const appendSchedule = computeAutoSchedule(newPools, matsCount, tournamentDays, 'balanced_finish');
               Object.assign(next, appendSchedule);
             }
           }
@@ -602,15 +703,17 @@ export default function ScheduleKanban({
 
   const columns = useMemo(() => {
     const filteredPools = pools.filter(p => p.categoryName.toLowerCase().includes(searchQuery.toLowerCase()));
-    const unassigned = filteredPools.filter(p => !poolsSchedule[p.id] || poolsSchedule[p.id].matId === -1).sort((a,b) => (poolsSchedule[a.id]?.order || 0) - (poolsSchedule[b.id]?.order || 0));
+    const unassigned = filteredPools.filter(p => !poolsSchedule[p.id] || poolsSchedule[p.id].matId === -1)
+      .sort((a,b) => (poolsSchedule[a.id]?.order || 0) - (poolsSchedule[b.id]?.order || 0));
     
     return [
       { id: 'unassigned', title: 'Unassigned Pools', pools: unassigned, totalTime: 0 },
       ...Array.from({ length: matsCount }).map((_, i) => {
-        const matPools = filteredPools.filter(p => poolsSchedule[p.id]?.day === activeDay && poolsSchedule[p.id]?.matId === (i + 1))
-          .sort((a,b) => poolsSchedule[a.id].order - poolsSchedule[b.id].order);
-        const totalTime = matPools.reduce((sum, p) => sum + poolsSchedule[p.id].estTime, 0);
-        return { id: `mat-${i + 1}`, title: `Mat ${i + 1} (Day ${activeDay})`, pools: matPools, totalTime };
+        const matNum = i + 1;
+        const matPools = filteredPools.filter(p => poolsSchedule[p.id]?.day === activeDay && poolsSchedule[p.id]?.matId === matNum)
+          .sort((a,b) => (poolsSchedule[a.id]?.order || 0) - (poolsSchedule[b.id]?.order || 0));
+        const totalTime = matPools.reduce((sum, p) => sum + (poolsSchedule[p.id]?.estTime || 0), 0);
+        return { id: `mat-${matNum}`, title: `Mat ${matNum} (Day ${activeDay})`, pools: matPools, totalTime };
       })
     ];
   }, [pools, poolsSchedule, activeDay, matsCount, searchQuery]);
@@ -618,7 +721,7 @@ export default function ScheduleKanban({
   const categoryPoolCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     pools.forEach(p => {
-      const catId = p.categoryId || p.id.split('_pool_')[0].split('_finals')[0];
+      const catId = p.categoryId || p.id.split('_pool_')[0];
       counts[catId] = (counts[catId] || 0) + 1;
     });
     return counts;
@@ -627,7 +730,7 @@ export default function ScheduleKanban({
   const categoryLocations = useMemo(() => {
     const locs: Record<string, { isSplit: boolean; day: number; matId: number }> = {};
     pools.forEach(p => {
-      const catId = p.categoryId || p.id.split('_pool_')[0].split('_finals')[0];
+      const catId = p.categoryId || p.id.split('_pool_')[0];
       const s = poolsSchedule[p.id];
       const day = s?.day ?? -1;
       const matId = s?.matId ?? -1;
@@ -652,23 +755,18 @@ export default function ScheduleKanban({
     }
 
     const catPools = pools.filter(p => {
-      const pCatId = p.categoryId || p.id.split('_pool_')[0].split('_finals')[0];
+      const pCatId = p.categoryId || p.id.split('_pool_')[0];
       return pCatId === categoryId || p.id.startsWith(categoryId);
     });
 
     if (catPools.length === 0) return;
 
-    const baseCatName = catPools[0].categoryName
-      .replace(/\s*-\s*Pool\s*\d+/i, '')
-      .replace(/\s*-\s*Finals/i, '')
-      .trim();
+    const baseCatName = catPools[0].baseCategoryName || catPools[0].categoryName.replace(/\s*-\s*Pool\s*\d+/i, '').trim();
 
     const sortedCatPools = [...catPools].sort((a, b) => {
-      const isFinalsA = a.id.includes('finals');
-      const isFinalsB = b.id.includes('finals');
-      if (isFinalsA && !isFinalsB) return 1;
-      if (!isFinalsA && isFinalsB) return -1;
-      return a.categoryName.localeCompare(b.categoryName);
+      const numA = a.poolNumber ?? (parseInt(a.id.split('_pool_')[1], 10) || 0);
+      const numB = b.poolNumber ?? (parseInt(b.id.split('_pool_')[1], 10) || 0);
+      return numA - numB;
     });
 
     const catPoolIds = new Set(sortedCatPools.map(p => p.id));
@@ -735,29 +833,44 @@ export default function ScheduleKanban({
 
     if (activeId === overId) return;
 
-    const isActiveTask = active.data.current?.sortable;
-    const isOverColumn = over.data.current?.type === 'Column';
+    // Detect destination container
+    let destMatId: number | null = null;
+    let destDay: number | null = null;
 
-    if (!isActiveTask) return;
-
-    setPoolsSchedule(prev => {
-      const next = { ...prev };
-      
-      if (isOverColumn) {
-        if (overId === 'unassigned') {
-          next[activeId] = { ...next[activeId], matId: -1, day: -1 };
-        } else {
-          const matId = parseInt(overId.split('-')[1]);
-          next[activeId] = { ...next[activeId], matId, day: activeDay };
-        }
-      } else {
-        const overItem = prev[overId];
-        if (overItem) {
-          next[activeId] = { ...next[activeId], matId: overItem.matId, day: overItem.day };
-        }
+    if (overId === 'unassigned') {
+      destMatId = -1;
+      destDay = -1;
+    } else if (overId.startsWith('mat-')) {
+      destMatId = parseInt(overId.split('-')[1], 10);
+      destDay = activeDay;
+    } else {
+      const overSched = poolsSchedule[overId];
+      if (overSched) {
+        destMatId = overSched.matId;
+        destDay = overSched.day;
       }
-      return next;
-    });
+    }
+
+    if (destMatId === null || destDay === null) return;
+
+    const currentSched = poolsSchedule[activeId];
+    if (!currentSched) return;
+
+    // Only update container if card moved across columns
+    if (currentSched.matId !== destMatId || currentSched.day !== destDay) {
+      setPoolsSchedule(prev => {
+        const next = { ...prev };
+        const destItems = Object.values(next).filter(p => p.matId === destMatId && p.day === destDay);
+        const maxOrder = destItems.reduce((max, p) => Math.max(max, p.order || 0), -1);
+        next[activeId] = {
+          ...next[activeId],
+          matId: destMatId!,
+          day: destDay!,
+          order: maxOrder + 1
+        };
+        return next;
+      });
+    }
   }
 
   function handleDragEnd(event: DragEndEvent) {
@@ -768,36 +881,67 @@ export default function ScheduleKanban({
     const activeId = active.id as string;
     const overId = over.id as string;
 
-    if (activeId === overId) return;
-
     setPoolsSchedule(prev => {
       const next = { ...prev };
-      
-      const activeItem = next[activeId];
-      const overItem = next[overId];
-      
-      if (activeItem && overItem && activeItem.matId === overItem.matId && activeItem.day === overItem.day) {
-        const sameColItems = Object.entries(next)
-          .filter(([_, v]) => v.matId === activeItem.matId && v.day === activeItem.day)
-          .sort((a,b) => a[1].order - b[1].order)
-          .map(e => e[0]);
-          
-        const oldIndex = sameColItems.indexOf(activeId);
-        let newIndex = sameColItems.indexOf(overId);
-        
-        // If moving to the bottom of a column
-        if (newIndex === -1) {
-          newIndex = sameColItems.length - 1;
-        }
+      const currentActive = next[activeId];
+      if (!currentActive) return prev;
 
-        if (oldIndex !== -1 && newIndex !== -1) {
-          const newArray = arrayMove(sameColItems, oldIndex, newIndex);
-          newArray.forEach((id, idx) => {
-            next[id] = { ...next[id], order: idx };
-          });
+      let targetMatId = currentActive.matId;
+      let targetDay = currentActive.day;
+
+      if (overId === 'unassigned') {
+        targetMatId = -1;
+        targetDay = -1;
+      } else if (overId.startsWith('mat-')) {
+        targetMatId = parseInt(overId.split('-')[1], 10);
+        targetDay = activeDay;
+      } else if (next[overId]) {
+        targetMatId = next[overId].matId;
+        targetDay = next[overId].day;
+      }
+
+      // Collect target mat pools in order
+      const targetList = Object.entries(next)
+        .filter(([id, val]) => val.matId === targetMatId && val.day === targetDay && id !== activeId)
+        .sort((a, b) => (a[1].order || 0) - (b[1].order || 0))
+        .map(([id]) => id);
+
+      let insertIdx = targetList.length; // default bottom
+      if (next[overId] && overId !== activeId && next[overId].matId === targetMatId && next[overId].day === targetDay) {
+        const overIdx = targetList.indexOf(overId);
+        if (overIdx !== -1) {
+          insertIdx = overIdx;
         }
       }
-      
+
+      // Insert activeId into target list
+      targetList.splice(insertIdx, 0, activeId);
+
+      // Re-index target column
+      targetList.forEach((id, idx) => {
+        next[id] = {
+          ...next[id],
+          matId: targetMatId,
+          day: targetDay,
+          order: idx
+        };
+      });
+
+      // If moved from another column, re-index source column
+      if (currentActive.matId !== targetMatId || currentActive.day !== targetDay) {
+        const sourceList = Object.entries(next)
+          .filter(([id, val]) => val.matId === currentActive.matId && val.day === currentActive.day && id !== activeId)
+          .sort((a, b) => (a[1].order || 0) - (b[1].order || 0))
+          .map(([id]) => id);
+
+        sourceList.forEach((id, idx) => {
+          next[id] = {
+            ...next[id],
+            order: idx
+          };
+        });
+      }
+
       return next;
     });
   }
@@ -823,6 +967,7 @@ export default function ScheduleKanban({
     const computed = computeAutoSchedule(pools, matsCount, tournamentDays, strat);
     setPoolsSchedule(computed);
     const stratLabels: Record<AutoAssignStrategy, string> = {
+      balanced_finish: 'Balanced Finish (Equal mat finish times)',
       dedicated_age_mats: 'Dedicated Age Mats (Youngest on Mat 1)',
       synchronized_age_slots: 'Synchronized Age Slots (All mats start youngest)',
       sequential_fill: 'Sequential Fill (Fill Mat 1, then Mat 2...)'
@@ -840,7 +985,7 @@ export default function ScheduleKanban({
         <div>
           <h3 style={{ margin: 0 }}>Schedule & Mat Assignment</h3>
           <p className="text-small" style={{ color: 'var(--neutral-500)', marginTop: '4px' }}>
-            Auto-order by age, keep category pools together, or drag-and-drop between mats.
+            Auto-balance finishing times across all mats, or drag individual pools and categories freely.
           </p>
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -861,6 +1006,7 @@ export default function ScheduleKanban({
               cursor: 'pointer'
             }}
           >
+            <option value="balanced_finish">Balanced Finish (All mats finish at the same time)</option>
             <option value="dedicated_age_mats">Dedicated Age Mats (Mat 1 Youngest → Mat 2 Older)</option>
             <option value="synchronized_age_slots">Synchronized Age Slots (All mats start youngest)</option>
             <option value="sequential_fill">Sequential Fill (Fill Mat 1, then Mat 2...)</option>
@@ -952,6 +1098,7 @@ export default function ScheduleKanban({
               categoryPoolCounts={categoryPoolCounts}
               categoryLocations={categoryLocations}
               onMoveCategory={handleMoveCategory}
+              onOpenDetails={(p) => setSelectedPoolForDetails(p)}
             />
           ))}
         </div>
@@ -961,11 +1108,144 @@ export default function ScheduleKanban({
             <SortablePoolCard 
               id={activePool.id} 
               pool={activePool} 
-              categoryPoolCount={categoryPoolCounts[activePool.categoryId || activePool.id.split('_pool_')[0].split('_finals')[0]] || 1}
+              categoryPoolCount={categoryPoolCounts[activePool.categoryId || activePool.id.split('_pool_')[0]] || 1}
             />
           ) : null}
         </DragOverlay>
       </DndContext>
+
+      {/* Pool Details Modal */}
+      {selectedPoolForDetails && (
+        <div 
+          onClick={() => setSelectedPoolForDetails(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.45)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            backdropFilter: 'blur(3px)'
+          }}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'white',
+              borderRadius: '14px',
+              padding: '24px',
+              width: '100%',
+              maxWidth: '480px',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+              border: '1px solid var(--neutral-200)',
+              position: 'relative'
+            }}
+          >
+            <button 
+              onClick={() => setSelectedPoolForDetails(null)}
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                border: 'none',
+                background: 'transparent',
+                cursor: 'pointer',
+                color: 'var(--neutral-400)',
+                padding: '4px',
+                display: 'flex',
+                borderRadius: '6px'
+              }}
+            >
+              <X size={20} />
+            </button>
+
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
+              <span style={{ 
+                fontSize: '11px', 
+                fontWeight: 700, 
+                padding: '2px 8px', 
+                borderRadius: '6px', 
+                background: selectedPoolForDetails.isKata ? '#eff6ff' : '#fff1f2', 
+                color: selectedPoolForDetails.isKata ? '#1d4ed8' : '#be123c',
+                letterSpacing: '0.04em'
+              }}>
+                {selectedPoolForDetails.isKata ? 'KATA' : 'KUMITE'}
+              </span>
+              <span style={{ 
+                fontSize: '11px', 
+                fontWeight: 700, 
+                padding: '2px 8px', 
+                borderRadius: '6px', 
+                background: '#f3f4f6', 
+                color: '#374151',
+                letterSpacing: '0.04em'
+              }}>
+                POOL {selectedPoolForDetails.poolNumber} OF {selectedPoolForDetails.totalPoolsInCategory || 1}
+              </span>
+            </div>
+
+            <h3 style={{ margin: '0 0 16px 0', fontSize: '18px', fontWeight: 700, color: '#171717', lineHeight: '1.3' }}>
+              {selectedPoolForDetails.categoryName}
+            </h3>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', marginBottom: '20px' }}>
+              <div style={{ padding: '12px', background: 'var(--neutral-50)', borderRadius: '8px', border: '1px solid var(--neutral-200)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--neutral-500)', fontSize: '12px', marginBottom: '4px' }}>
+                  <Users size={14} />
+                  <span>Athletes in Pool</span>
+                </div>
+                <div style={{ fontSize: '18px', fontWeight: 700, color: '#171717' }}>
+                  {selectedPoolForDetails.athletesCount ?? 'N/A'}
+                </div>
+              </div>
+
+              <div style={{ padding: '12px', background: 'var(--neutral-50)', borderRadius: '8px', border: '1px solid var(--neutral-200)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--neutral-500)', fontSize: '12px', marginBottom: '4px' }}>
+                  <Swords size={14} />
+                  <span>Matches</span>
+                </div>
+                <div style={{ fontSize: '18px', fontWeight: 700, color: '#171717' }}>
+                  {selectedPoolForDetails.matchesCount ?? 0}
+                </div>
+              </div>
+
+              <div style={{ padding: '12px', background: 'var(--neutral-50)', borderRadius: '8px', border: '1px solid var(--neutral-200)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--neutral-500)', fontSize: '12px', marginBottom: '4px' }}>
+                  <Clock size={14} />
+                  <span>Est. Duration</span>
+                </div>
+                <div style={{ fontSize: '18px', fontWeight: 700, color: '#171717' }}>
+                  {selectedPoolForDetails.estTime} mins
+                </div>
+              </div>
+
+              <div style={{ padding: '12px', background: 'var(--neutral-50)', borderRadius: '8px', border: '1px solid var(--neutral-200)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--neutral-500)', fontSize: '12px', marginBottom: '4px' }}>
+                  <Calendar size={14} />
+                  <span>Current Mat</span>
+                </div>
+                <div style={{ fontSize: '15px', fontWeight: 700, color: '#171717' }}>
+                  {poolsSchedule[selectedPoolForDetails.id]?.matId > 0 
+                    ? `Mat ${poolsSchedule[selectedPoolForDetails.id].matId} (Day ${poolsSchedule[selectedPoolForDetails.id].day})`
+                    : 'Unassigned'}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button 
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setSelectedPoolForDetails(null)}
+                style={{ fontSize: '13px', padding: '6px 16px' }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

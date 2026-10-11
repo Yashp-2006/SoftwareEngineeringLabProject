@@ -122,28 +122,13 @@ export class GatewayService {
         });
       }
 
-      if (poolCount > 1) {
-        const finalsId = `${cat.id || cat.name}_finals`;
-        const finalsSched = data.poolsSchedule?.[finalsId];
+      const finalsId = `${cat.id || cat.name}_finals`;
+      const finalsSched = data.poolsSchedule?.[finalsId];
 
-        const estTime = finalsSched?.estTime || configEstMins;
-
-        let finalsMatId = 1;
-        let finalsDay = 1;
-        if (finalsSched && finalsSched.matId !== -1) {
-          finalsMatId = finalsSched.matId;
-          finalsDay = finalsSched.day !== -1 ? finalsSched.day : 1;
-        } else {
-          let bestMatIdx = assignedMatId - 1;
-          const tracker = matTrackers[bestMatIdx];
-          if (tracker.currentMins + estTime > configEndMins && tracker.currentMins > configStartMins) {
-            tracker.day++;
-            tracker.currentMins = configStartMins;
-          }
-          finalsMatId = bestMatIdx + 1;
-          finalsDay = tracker.day;
-          tracker.currentMins += estTime;
-        }
+      if (poolCount > 1 && finalsSched && finalsSched.matId !== -1) {
+        const estTime = finalsSched.estTime || configEstMins;
+        const finalsMatId = finalsSched.matId;
+        const finalsDay = finalsSched.day !== -1 ? finalsSched.day : 1;
 
         scheduledPoolsList.push({
           id: finalsId,
@@ -152,7 +137,7 @@ export class GatewayService {
           poolLabel: 'finals',
           matId: finalsMatId,
           day: finalsDay,
-          order: finalsSched ? finalsSched.order : 0,
+          order: finalsSched.order || 0,
           duration: estTime,
           isFinals: true
         });
