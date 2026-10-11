@@ -116,6 +116,21 @@ export const updateBracketSchema = z.object({
   byeFor: z.enum(['aka', 'ao']).optional().nullable(),
   selectedKata: z.any().optional().nullable(),
   action: z.enum(['revert']).optional().nullable(),
+  akaScore: z.number().optional().nullable(),
+  aoScore: z.number().optional().nullable(),
+  akaIppon: z.number().optional().nullable(),
+  akaWazaari: z.number().optional().nullable(),
+  akaYuko: z.number().optional().nullable(),
+  akaSenshu: z.boolean().optional().nullable(),
+  akaC1: z.number().optional().nullable(),
+  akaC2: z.number().optional().nullable(),
+  aoIppon: z.number().optional().nullable(),
+  aoWazaari: z.number().optional().nullable(),
+  aoYuko: z.number().optional().nullable(),
+  aoSenshu: z.boolean().optional().nullable(),
+  aoC1: z.number().optional().nullable(),
+  aoC2: z.number().optional().nullable(),
+  kataVotes: z.any().optional().nullable(),
 });
 
 export const swapMatchSchema = z.object({

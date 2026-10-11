@@ -1244,7 +1244,24 @@ function OperatorPortalInner({ id }: { id: string }) {
       const res = await fetch(`/api/competitions/${id}/brackets/${activeCategoryId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ matchId: activeMatchId, winnerId: realWinnerId || winnerId }),
+        body: JSON.stringify({
+          matchId: activeMatchId,
+          winnerId: realWinnerId || winnerId,
+          akaScore: aka.score,
+          aoScore: ao.score,
+          akaIppon: aka.ippon,
+          akaWazaari: aka.waza,
+          akaYuko: aka.yuko,
+          akaSenshu: aka.senshu,
+          akaC1: aka.c1,
+          akaC2: aka.c2,
+          aoIppon: ao.ippon,
+          aoWazaari: ao.waza,
+          aoYuko: ao.yuko,
+          aoSenshu: ao.senshu,
+          aoC1: ao.c1,
+          aoC2: ao.c2,
+        }),
       });
       const data = await res.json();
       if (data.success) {
@@ -1284,7 +1301,14 @@ function OperatorPortalInner({ id }: { id: string }) {
       const res = await fetch(`/api/competitions/${id}/brackets/${activeCategoryId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ matchId: activeMatchId, winnerId: realWinnerId, selectedKata: kataSelectionUsed, kataVotes: votes }),
+        body: JSON.stringify({
+          matchId: activeMatchId,
+          winnerId: realWinnerId,
+          selectedKata: kataSelectionUsed,
+          kataVotes: votes,
+          akaScore: votes.aka,
+          aoScore: votes.ao,
+        }),
       });
       const data = await res.json();
       if (data.success) {
@@ -1334,7 +1358,12 @@ function OperatorPortalInner({ id }: { id: string }) {
       const res = await fetch(`/api/competitions/${id}/brackets/${activeCategoryId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ matchId: activeMatchId, winnerId }),
+        body: JSON.stringify({
+          matchId: activeMatchId,
+          winnerId,
+          akaScore: aka.score,
+          aoScore: ao.score,
+        }),
       });
       const data = await res.json();
       if (data.success) {

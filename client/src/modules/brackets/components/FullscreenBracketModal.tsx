@@ -68,6 +68,10 @@ const BracketNode = ({
   const isCompleted = match.status === 'completed';
   const isPending = !match.aka && !match.ao;
 
+  const isMatchPlayed = isLive || isCompleted || (match.akaScore !== undefined && match.akaScore !== null && match.akaScore !== 0) || (match.aoScore !== undefined && match.aoScore !== null && match.aoScore !== 0);
+  const akaDisplayScore = isMatchPlayed && match.akaScore !== undefined && match.akaScore !== null && match.akaScore !== '' ? match.akaScore : (isCompleted ? 0 : '');
+  const aoDisplayScore = isMatchPlayed && match.aoScore !== undefined && match.aoScore !== null && match.aoScore !== '' ? match.aoScore : (isCompleted ? 0 : '');
+
   const akaId = match.aka?.playerId;
   const aoId = match.ao?.playerId;
   const hasAka = !!match.aka;
@@ -190,7 +194,7 @@ const BracketNode = ({
             </div>
           )}
         </div>
-        <div className="comp-score">{(match.akaScore !== undefined && match.akaScore !== null && match.akaScore !== '') ? match.akaScore : ''}</div>
+        <div className="comp-score">{akaDisplayScore}</div>
       </div>
 
       {/* AO Row */}
@@ -253,7 +257,7 @@ const BracketNode = ({
             </div>
           )}
         </div>
-        <div className="comp-score">{(match.aoScore !== undefined && match.aoScore !== null && match.aoScore !== '') ? match.aoScore : ''}</div>
+        <div className="comp-score">{aoDisplayScore}</div>
       </div>
 
       {/* Match Footer */}
@@ -404,10 +408,34 @@ export function BracketViewer({
 }) {
   const { role } = useAuth();
   const isAdmin = role === 'admin';
-  const availablePools = Array.from(new Set((matches || []).filter(m => m.id.startsWith('Pool')).map(m => m.id.split('-')[0].replace('Pool', '')))).sort((a, b) => parseInt(a) - parseInt(b));
+  const availablePools = Array.from(new Set(
+    (matches || [])
+      .map(m => {
+        if (m.id && m.id.startsWith('Pool')) {
+          return m.id.split('-')[0].replace('Pool', '').trim();
+        }
+        if (m.poolNumber) return String(m.poolNumber).trim();
+        if (m.pool) return String(m.pool).replace('Pool', '').trim();
+        return null;
+      })
+      .filter(Boolean) as string[]
+  )).sort((a, b) => parseInt(a) - parseInt(b));
   const [selectedPool, setSelectedPool] = useState<string | null>(null);
   const [showPoolDropdown, setShowPoolDropdown] = useState(false);
+  const poolDropdownRef = useRef<HTMLDivElement>(null);
   const poolDragHoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Close pool dropdown on outside click
+  useEffect(() => {
+    if (!showPoolDropdown) return;
+    const handleOutsideClick = (e: MouseEvent | TouchEvent) => {
+      if (poolDropdownRef.current && !poolDropdownRef.current.contains(e.target as Node)) {
+        setShowPoolDropdown(false);
+      }
+    };
+    document.addEventListener('pointerdown', handleOutsideClick);
+    return () => document.removeEventListener('pointerdown', handleOutsideClick);
+  }, [showPoolDropdown]);
 
   const [localSearch, setLocalSearch] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -460,21 +488,29 @@ export function BracketViewer({
 
   // Auto-select the first available pool (or switch when highlight changes)
   useEffect(() => {
-    if (availablePools.length === 0) return;
+    if (availablePools.length === 0) {
+      setSelectedPool(null);
+      return;
+    }
     if (activeHighlight && activeHighlight.startsWith('Pool')) {
-      const highlightPool = activeHighlight.split('-')[0].replace('Pool', '');
+      const highlightPool = activeHighlight.split('-')[0].replace('Pool', '').trim();
       if (availablePools.includes(highlightPool)) {
         setSelectedPool(highlightPool);
         return;
       }
     }
-    // Default: select pool 1 (or first available)
+    // Default: keep existing selected pool if still available, otherwise first available
     setSelectedPool(prev => (prev && availablePools.includes(prev)) ? prev : availablePools[0]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [poolsKey, activeHighlight]);
+  }, [poolsKey]);
 
   const filteredMatches = (availablePools.length > 0 && selectedPool)
-    ? (matches || []).filter(m => m.id.startsWith(`Pool${selectedPool}-`))
+    ? (matches || []).filter(m => {
+        const poolId = m.id?.startsWith('Pool')
+          ? m.id.split('-')[0].replace('Pool', '').trim()
+          : (m.poolNumber ? String(m.poolNumber).trim() : (m.pool ? String(m.pool).replace('Pool', '').trim() : null));
+        return poolId === selectedPool;
+      })
     : (matches || []);
 
   const [zoom, setZoom] = useState(1);
@@ -672,8 +708,8 @@ export function BracketViewer({
           
           {availablePools.length > 0 && (
             <div 
+              ref={poolDropdownRef}
               style={{ position: 'relative' }}
-              onMouseLeave={() => setShowPoolDropdown(false)}
             >
               <button
                 type="button"
@@ -724,6 +760,7 @@ export function BracketViewer({
                       onClick={() => {
                         setSelectedPool(p);
                         setShowPoolDropdown(false);
+                        setLocalHighlightMatchId(null);
                       }}
                       onDragOver={(e) => {
                         e.preventDefault();
@@ -731,7 +768,7 @@ export function BracketViewer({
                           poolDragHoverTimeoutRef.current = setTimeout(() => {
                             setSelectedPool(p);
                             poolDragHoverTimeoutRef.current = null;
-                          }, 500);
+                          }, 400);
                         }
                       }}
                       onDragLeave={() => {

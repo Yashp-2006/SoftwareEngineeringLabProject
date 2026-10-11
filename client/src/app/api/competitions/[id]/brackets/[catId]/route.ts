@@ -26,7 +26,28 @@ export async function PATCH(
     const { id, catId } = await params;
     const body = await req.json();
     const validated = updateBracketSchema.parse(body);
-    const { matchId, winnerId, byeFor, selectedKata, action } = validated;
+    const {
+      matchId,
+      winnerId,
+      byeFor,
+      selectedKata,
+      action,
+      akaScore,
+      aoScore,
+      akaIppon,
+      akaWazaari,
+      akaYuko,
+      akaSenshu,
+      akaC1,
+      akaC2,
+      aoIppon,
+      aoWazaari,
+      aoYuko,
+      aoSenshu,
+      aoC1,
+      aoC2,
+      kataVotes,
+    } = validated;
     // byeFor = 'aka' | 'ao' — means that side won by BYE (opponent disqualified/absent)
 
     if (!matchId) {
@@ -127,10 +148,25 @@ export async function PATCH(
           ...currentMatch,
           winnerId: null,
           status: 'upcoming',
+          akaScore: 0,
+          aoScore: 0,
+          akaIppon: 0,
+          akaWazaari: 0,
+          akaYuko: 0,
+          akaSenshu: false,
+          akaC1: 0,
+          akaC2: 0,
+          aoIppon: 0,
+          aoWazaari: 0,
+          aoYuko: 0,
+          aoSenshu: false,
+          aoC1: 0,
+          aoC2: 0,
           byeFor: null,
           selectedKata: null,
           akaKata: null,
           aoKata: null,
+          kataVotes: null,
           manualByeRevert: isBye ? true : undefined,
         } as any;
 
@@ -178,12 +214,27 @@ export async function PATCH(
         ...currentMatch,
         winnerId,
         status: 'completed',
+        ...(akaScore !== undefined && akaScore !== null ? { akaScore } : {}),
+        ...(aoScore !== undefined && aoScore !== null ? { aoScore } : {}),
+        ...(akaIppon !== undefined && akaIppon !== null ? { akaIppon } : {}),
+        ...(akaWazaari !== undefined && akaWazaari !== null ? { akaWazaari } : {}),
+        ...(akaYuko !== undefined && akaYuko !== null ? { akaYuko } : {}),
+        ...(akaSenshu !== undefined && akaSenshu !== null ? { akaSenshu } : {}),
+        ...(akaC1 !== undefined && akaC1 !== null ? { akaC1 } : {}),
+        ...(akaC2 !== undefined && akaC2 !== null ? { akaC2 } : {}),
+        ...(aoIppon !== undefined && aoIppon !== null ? { aoIppon } : {}),
+        ...(aoWazaari !== undefined && aoWazaari !== null ? { aoWazaari } : {}),
+        ...(aoYuko !== undefined && aoYuko !== null ? { aoYuko } : {}),
+        ...(aoSenshu !== undefined && aoSenshu !== null ? { aoSenshu } : {}),
+        ...(aoC1 !== undefined && aoC1 !== null ? { aoC1 } : {}),
+        ...(aoC2 !== undefined && aoC2 !== null ? { aoC2 } : {}),
         ...(byeFor ? { byeFor } : {}),
         ...(selectedKata ? { 
             selectedKata, 
             akaKata: selectedKata.aka?.name, 
             aoKata: selectedKata.ao?.name 
         } : {}),
+        ...(kataVotes ? { kataVotes } : {}),
       };
       delete (matches[currentIdx] as any).manualByeRevert;
 
