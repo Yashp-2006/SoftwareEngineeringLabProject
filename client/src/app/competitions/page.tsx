@@ -29,7 +29,7 @@ export default function CompetitionsPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     name: '', dates: '', venue: '', type: 'national', rules: 'wkf', mats: '6', password: '',
-    startTime: '09:00', endTime: '18:00', estMinsPerPool: '45', tournamentDays: 1,
+    startTime: '09:00', endTime: '18:00', tournamentDays: 1,
     globalMatchTime: '3', globalRestTime: '1', globalMedicalTime: '0', globalBunkaiTime: '0'
   });
   const [presetCategories, setPresetCategories] = useState<any[] | null>(null);
@@ -848,10 +848,6 @@ export default function CompetitionsPage() {
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px', color: 'var(--neutral-700)' }}>End Time</label>
                   <input type="time" id="new-comp-end" className="input-field" value={formData.endTime} onChange={e => setFormData(p => ({ ...p, endTime: e.target.value }))} />
                 </div>
-                <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px', color: 'var(--neutral-700)' }}>Est. Min / Pool</label>
-                  <input type="number" id="new-comp-est" className="input-field" placeholder="45" min="5" max="240" value={formData.estMinsPerPool} onChange={e => setFormData(p => ({ ...p, estMinsPerPool: e.target.value }))} />
-                </div>
               </div>
               <div style={{ display: 'flex', gap: '12px' }}>
                 <div style={{ flex: 1 }}>
@@ -872,7 +868,7 @@ export default function CompetitionsPage() {
                 </div>
               </div>
               <p style={{ fontSize: '11px', color: 'var(--neutral-500)', marginTop: '8px', marginBottom: 0 }}>
-                These are used to auto-generate the competition schedule on deploy. Timings adapt automatically when categories finish early or late.
+                Pool and match durations are automatically calculated from match time, rest/buffer, medical, and bunkai times.
               </p>
             </div>
 
@@ -905,7 +901,7 @@ export default function CompetitionsPage() {
           <div className="modal-footer">
             <button className="btn btn-secondary" onClick={() => { setIsModalOpen(false); setPresetCategories(null); setPresetFileName(''); }}>Cancel</button>
             <button className="btn btn-primary" onClick={async () => {
-              const { name, dates, venue, type, mats, password, startTime, endTime, estMinsPerPool, tournamentDays } = formData;
+              const { name, dates, venue, type, mats, password, startTime, endTime, tournamentDays } = formData;
               if (!name.trim()) { toast.error('Competition name is required'); return; }
               if (!password.trim()) { 
                 toast.error('A password is required to protect this competition'); 
@@ -925,7 +921,6 @@ export default function CompetitionsPage() {
                   password: await hashPassword(password),
                   startTime: startTime || '09:00',
                   endTime: endTime || '18:00',
-                  estMinsPerPool: parseInt(estMinsPerPool) || 45,
                   globalMatchTime: parseFloat(formData.globalMatchTime) || 3,
                   globalRestTime: parseFloat(formData.globalRestTime) || 1,
                   globalMedicalTime: parseFloat(formData.globalMedicalTime) || 0,
@@ -965,7 +960,7 @@ export default function CompetitionsPage() {
                 setIsModalOpen(false);
                 setPresetCategories(null);
                 setPresetFileName('');
-                setFormData({ name: '', dates: '', venue: '', type: 'national', rules: 'custom', mats: '6', password: '', startTime: '09:00', endTime: '18:00', estMinsPerPool: '45', tournamentDays: 1, globalMatchTime: '3', globalRestTime: '1', globalMedicalTime: '0', globalBunkaiTime: '0' });
+                setFormData({ name: '', dates: '', venue: '', type: 'national', rules: 'custom', mats: '6', password: '', startTime: '09:00', endTime: '18:00', tournamentDays: 1, globalMatchTime: '3', globalRestTime: '1', globalMedicalTime: '0', globalBunkaiTime: '0' });
                 router.push(`/setup/${newDocRef.id}`);
               } catch (err: any) {
                 console.error(err);

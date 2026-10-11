@@ -26,6 +26,7 @@ interface CategoriesPhaseProps {
   handleImportPreset: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleLoadWkfCategories: () => void;
   setModalType: (val: any) => void;
+  onClearAll?: () => void;
 
   searchQuery: string;
   setSearchQuery: (val: string) => void;
@@ -57,7 +58,7 @@ export default function CategoriesPhase({
   compEndTime, setCompEndTime, compEstMinsPerPool, setCompEstMinsPerPool,
   globalMatchTime, setGlobalMatchTime, globalRestTime, setGlobalRestTime,
   globalMedicalTime, setGlobalMedicalTime, globalBunkaiTime, setGlobalBunkaiTime,
-  handleExportPreset, handleImportPreset, handleLoadWkfCategories, setModalType,
+  handleExportPreset, handleImportPreset, handleLoadWkfCategories, setModalType, onClearAll,
   searchQuery, setSearchQuery, filterGender, setFilterGender, filterDiscipline, setFilterDiscipline,
   hideEmpty, setHideEmpty, filteredCategories, categories, setCategories,
   dragIdx, dragOverIdx, handleDragStart, handleRowDragOver, handleRowDrop,
@@ -105,6 +106,17 @@ export default function CategoriesPhase({
             <button type="button" className="btn btn-secondary" style={{ height: '36px', padding: '0 12px' }} onClick={() => setModalType('standard')}>
               <Plus size={16} /> Add Category
             </button>
+            {categories.length > 0 && onClearAll && (
+              <button 
+                type="button" 
+                className="btn btn-ghost" 
+                style={{ height: '36px', padding: '0 12px', color: 'var(--aka)', borderColor: 'var(--aka)' }} 
+                onClick={onClearAll}
+                title="Delete all categories from this tournament"
+              >
+                <Trash2 size={16} /> Clear All
+              </button>
+            )}
           </div>
         </div>
 

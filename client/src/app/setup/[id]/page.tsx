@@ -447,6 +447,46 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
     setModalType('merge');
   };
 
+  const handleClearAllCategories = () => {
+    if (categories.length === 0) return;
+    setConfirmState({
+      isOpen: true,
+      title: 'Clear All Categories?',
+      message: `Are you sure you want to delete all ${categories.length} categories? This will permanently remove all categories, pools, and entries for this competition draft.`,
+      isDestructive: true,
+      onConfirm: async () => {
+        closeConfirm();
+        try {
+          // 1. Clear local states
+          setCategories([]);
+          setSelectedCats(new Set());
+          setPoolsSchedule({});
+
+          // 2. Delete all categories from Firestore
+          const catSnap = await getDocs(collection(db, 'competitions', id, 'categories'));
+          const batch = writeBatch(db);
+          catSnap.docs.forEach(d => {
+            batch.delete(d.ref);
+          });
+
+          // 3. Update setup draft
+          const draftRef = doc(db, 'competitions', id, 'drafts', 'setup');
+          batch.set(draftRef, {
+            categories: [],
+            poolsSchedule: {},
+            updatedAt: new Date().toISOString()
+          }, { merge: true });
+
+          await batch.commit();
+          toast.success('All categories cleared from draft');
+        } catch (err: any) {
+          console.error('Error clearing categories:', err);
+          toast.error('Failed to clear categories: ' + (err?.message || err));
+        }
+      }
+    });
+  };
+
   const togglePassword = (idx: number) => {
     setShowPasswordMap(prev => ({ ...prev, [idx]: !prev[idx] }));
   };
@@ -1396,6 +1436,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                 handleImportPreset={handleImportPreset}
                 handleLoadWkfCategories={handleLoadWkfCategories}
                 setModalType={setModalType}
+                onClearAll={handleClearAllCategories}
                 searchQuery={searchQuery} setSearchQuery={setSearchQuery}
                 filterGender={filterGender} setFilterGender={setFilterGender}
                 filterDiscipline={filterDiscipline} setFilterDiscipline={setFilterDiscipline}
@@ -1987,6 +2028,15 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
           onCategoriesUpdated={(newCats) => setCategories(newCats)}
         />
       )}
+
+      <ConfirmModal
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        isDestructive={confirmState.isDestructive}
+        onConfirm={confirmState.onConfirm}
+        onCancel={closeConfirm}
+      />
     </>
   );
 }

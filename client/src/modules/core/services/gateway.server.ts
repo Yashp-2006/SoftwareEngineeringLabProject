@@ -82,8 +82,17 @@ export class GatewayService {
       for (let p = 1; p <= poolCount; p++) {
         const poolId = `${cat.id || cat.name}_pool_${p}`;
         const poolSched = data.poolsSchedule?.[poolId];
+        const mTime = cat.matchTime ?? (data.globalMatchTime || 3);
+        const rTime = cat.restTime ?? (data.globalRestTime || 1);
+        const medTime = cat.medicalTime ?? (data.globalMedicalTime || 0);
+        const bTime = cat.bunkaiTime ?? (data.globalBunkaiTime || 0);
+        const isKata = Boolean(cat.isKata || cat.name?.toLowerCase().includes('kata'));
+        const matchDuration = mTime + rTime + medTime + (isKata ? bTime : 0);
+        const entriesInPool = baseEntries + (p - 1 < extraEntries ? 1 : 0);
+        const matchesInPool = isKata ? entriesInPool : Math.max(0, entriesInPool - 1);
+        const computedEstTime = Math.max(1, Math.ceil(matchesInPool * matchDuration));
 
-        const estTime = poolSched?.estTime || configEstMins;
+        const estTime = poolSched?.estTime || computedEstTime;
 
         let matId = 1;
         let day = 1;

@@ -625,11 +625,12 @@ export default function ScheduleKanban({
           const rTime = cat.restTime ?? globalRestTime;
           const medTime = cat.medicalTime ?? globalMedicalTime;
           const bTime = cat.bunkaiTime ?? globalBunkaiTime;
+          const matchDuration = mTime + rTime + medTime + (cat.isKata ? bTime : 0);
           
           for (let p = 1; p <= poolCount; p++) {
             const entriesInPool = baseEntries + (p - 1 < extraEntries ? 1 : 0);
             const matchesInPool = cat.isKata ? entriesInPool : Math.max(0, entriesInPool - 1);
-            const estTime = Math.ceil((mTime + rTime) * matchesInPool + globalRestTime + globalMedicalTime);
+            const estTime = Math.max(1, Math.ceil(matchesInPool * matchDuration));
             
             generatedPools.push({
               id: `${cat.id}_pool_${p}`,
