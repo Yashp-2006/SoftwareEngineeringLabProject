@@ -11,10 +11,18 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
 
   const [competitionsList, setCompetitionsList] = useState<any[]>([]);
-  const [selectedCompId, setSelectedCompId] = useState('');
+  const [selectedCompId, setSelectedCompId] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return new URLSearchParams(window.location.search).get('compId') || '';
+    }
+    return '';
+  });
   const [staffList, setStaffList] = useState<any[]>([]);
   const [selectedStaffId, setSelectedStaffId] = useState('');
   const [pin, setPin] = useState('');
+
+  const [loadingComps, setLoadingComps] = useState(false);
+  const [loadingStaff, setLoadingStaff] = useState(false);
 
   const [showEnrollForm, setShowEnrollForm] = useState(false);
   const [enrollName, setEnrollName] = useState('');
@@ -23,25 +31,64 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Initialize from URL parameters on mount
   useEffect(() => {
-    if (activeTab === 'pin') {
-      const loadComps = async () => {
+    if (typeof window !== 'undefined') {
+      const sp = new URLSearchParams(window.location.search);
+      const urlCompId = sp.get('compId');
+      if (urlCompId && !selectedCompId) {
+        setSelectedCompId(urlCompId);
+      }
+      const urlTab = sp.get('tab');
+      if (urlTab === 'pin') {
+        setActiveTab('pin');
+      }
+    }
+  }, []);
+
+  // Always load competitions on mount so dropdowns populate reliably
+  useEffect(() => {
+    const loadComps = async () => {
+      setLoadingComps(true);
+      try {
         const { db } = await import('@lib/firebase');
         const { collection, getDocs } = await import('firebase/firestore');
         const snap = await getDocs(collection(db, 'competitions'));
-        setCompetitionsList(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      };
-      loadComps();
-    }
-  }, [activeTab]);
+        const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        // If tournament was specified in URL but not yet in list, ensure it appears
+        const urlComp = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('compId') : null;
+        if (urlComp && !list.some(c => c.id === urlComp)) {
+          list.unshift({ id: urlComp, name: `${urlComp.toUpperCase()} (Active Tournament)` } as any);
+        }
+        setCompetitionsList(list);
+      } catch (err) {
+        console.error('Failed to load competitions list:', err);
+      } finally {
+        setLoadingComps(false);
+      }
+    };
+    loadComps();
+  }, []);
 
   useEffect(() => {
     if (selectedCompId) {
       const loadStaff = async () => {
-        const { db } = await import('@lib/firebase');
-        const { collection, getDocs } = await import('firebase/firestore');
-        const snap = await getDocs(collection(db, 'competitions', selectedCompId, 'staff'));
-        setStaffList(snap.docs.map(doc => ({ id: doc.id, ...doc.data() }) as any).filter((s: any) => s.pin));
+        setLoadingStaff(true);
+        try {
+          const { db } = await import('@lib/firebase');
+          const { collection, getDocs } = await import('firebase/firestore');
+          const snap = await getDocs(collection(db, 'competitions', selectedCompId, 'staff'));
+          const allStaff = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }) as any);
+          const withPin = allStaff.filter((s: any) => s.pin);
+          // Prefer staff configured with PIN, fallback to all staff for visibility
+          setStaffList(withPin.length > 0 ? withPin : allStaff);
+        } catch (err) {
+          console.error('Failed to load staff list:', err);
+          setStaffList([]);
+        } finally {
+          setLoadingStaff(false);
+        }
       };
       loadStaff();
     } else {
@@ -60,6 +107,14 @@ export default function LoginPage() {
       if (userDocSnap.exists()) {
         const globalRole = userDocSnap.data().role;
         if (globalRole === 'admin' || globalRole === 'guest_viewer') {
+          window.location.href = '/dashboard';
+          return true;
+        }
+        if (globalRole === 'viewer' || globalRole === 'audience') {
+          window.location.href = '/competitions';
+          return true;
+        }
+        if (globalRole === 'mat_operator' || globalRole === 'attendance_volunteer' || globalRole === 'medal_distributor' || globalRole === 'judge') {
           window.location.href = '/competitions';
           return true;
         }
@@ -86,8 +141,37 @@ export default function LoginPage() {
             window.location.href = `/login/pending?compId=${targetCompId}&staffId=${staffId}`;
             return true;
           } else {
+            const staffDocRef = doc(db, 'competitions', targetCompId, 'staff', staffId);
+            await updateDoc(staffDocRef, {
+              userId: currentUser.uid,
+              requestUserId: currentUser.uid,
+              lastActiveAt: new Date().toISOString()
+            });
+
+            let mappedRole: 'mat_operator' | 'attendance_volunteer' | 'medal_distributor' | 'judge' | 'guest_viewer' | 'viewer' = 'viewer';
+            if (staffData.role === 'score') mappedRole = 'mat_operator';
+            else if (staffData.role === 'attendance') mappedRole = 'attendance_volunteer';
+            else if (staffData.role === 'medal') mappedRole = 'medal_distributor';
+            else if (staffData.role === 'judge') mappedRole = 'judge';
+            else if (staffData.role === 'guest_viewer' || staffData.role === 'guest') mappedRole = 'guest_viewer';
+
+            const { setDoc } = await import('firebase/firestore');
+            await setDoc(doc(db, 'users', currentUser.uid), {
+              displayName: staffData.name || currentUser.displayName || currentUser.email,
+              email: currentUser.email,
+              role: mappedRole,
+              isAnonymous: false,
+              staffId,
+              competitionId: targetCompId,
+              lastLoginAt: new Date().toISOString()
+            }, { merge: true });
+
             let redirectUrl = `/competitions/${targetCompId}`;
-            if (staffData.role === 'score' && staffData.assignedMats?.length > 0) redirectUrl = `/competitions/${targetCompId}/operator?mat=${staffData.assignedMats[0]}`;
+            if (staffData.role === 'score' && staffData.assignedMats?.length > 0) {
+              const { persistMatSessionAuthorization } = await import('@/modules/auth/operator-auth');
+              persistMatSessionAuthorization(targetCompId, staffData.assignedMats[0], (k, v) => sessionStorage.setItem(k, v));
+              redirectUrl = `/competitions/${targetCompId}/operator?mat=${staffData.assignedMats[0]}`;
+            }
             else if (staffData.role === 'attendance') redirectUrl = `/competitions/${targetCompId}/athletes`;
             else if (staffData.role === 'medal') redirectUrl = `/competitions/${targetCompId}/medals`;
             window.location.href = redirectUrl;
@@ -112,11 +196,22 @@ export default function LoginPage() {
       }
       const isStaffRedirected = await checkEmailRosterAndRedirect(userCredential.user);
       if (!isStaffRedirected) {
+        // Regular viewer logged in or signed up — assign 'viewer' role and send to competitions
         const { db } = await import('@lib/firebase');
-        const { collection, getDocs } = await import('firebase/firestore');
-        const snap = await getDocs(collection(db, 'competitions'));
-        setCompetitionsList(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        setShowEnrollForm(true);
+        const { doc, getDoc, setDoc } = await import('firebase/firestore');
+        const userDocRef = doc(db, 'users', userCredential.user.uid);
+        const userDocSnap = await getDoc(userDocRef);
+        if (!userDocSnap.exists() || !userDocSnap.data()?.role) {
+          await setDoc(userDocRef, {
+            email: userCredential.user.email || null,
+            displayName: userCredential.user.displayName || userCredential.user.email?.split('@')[0] || 'Viewer',
+            role: 'viewer',
+            isAnonymous: false,
+            createdAt: new Date().toISOString(),
+            lastLoginAt: new Date().toISOString()
+          }, { merge: true });
+        }
+        window.location.href = '/competitions';
       }
     } catch (err: any) {
       const safeMessages: Record<string, string> = {
@@ -139,11 +234,22 @@ export default function LoginPage() {
       const userCredential = await signInWithPopup(auth, provider);
       const isStaffRedirected = await checkEmailRosterAndRedirect(userCredential.user);
       if (!isStaffRedirected) {
+        // Regular viewer logged in or signed up with Google — assign 'viewer' role and send to competitions
         const { db } = await import('@lib/firebase');
-        const { collection, getDocs } = await import('firebase/firestore');
-        const snap = await getDocs(collection(db, 'competitions'));
-        setCompetitionsList(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        setShowEnrollForm(true);
+        const { doc, getDoc, setDoc } = await import('firebase/firestore');
+        const userDocRef = doc(db, 'users', userCredential.user.uid);
+        const userDocSnap = await getDoc(userDocRef);
+        if (!userDocSnap.exists() || !userDocSnap.data()?.role) {
+          await setDoc(userDocRef, {
+            email: userCredential.user.email || null,
+            displayName: userCredential.user.displayName || userCredential.user.email?.split('@')[0] || 'Viewer',
+            role: 'viewer',
+            isAnonymous: false,
+            createdAt: new Date().toISOString(),
+            lastLoginAt: new Date().toISOString()
+          }, { merge: true });
+        }
+        window.location.href = '/competitions';
       }
     } catch (err: any) { setError(err.message || 'Google Sign-In failed'); }
   };
@@ -177,22 +283,94 @@ export default function LoginPage() {
       const staffMember = staffList.find(s => s.id === selectedStaffId);
       if (!staffMember) throw new Error('Please select your profile.');
       if (staffMember.pin !== pin) throw new Error('Invalid PIN code.');
-      const { signInAnonymously } = await import('firebase/auth');
-      let user = auth.currentUser;
-      if (!user || !user.isAnonymous) { const cred = await signInAnonymously(auth); user = cred.user; }
+
+      // Deterministic, named staff credentials for Firebase Auth
+      // Firebase Auth console will show real staff name and email instead of "Anonymous"
+      const cleanStaffId = staffMember.id.replace(/[^a-zA-Z0-9]/g, '');
+      const staffEmail = `staff.${cleanStaffId}@taikaix.app`;
+      const staffPassword = `TaikaiX#Staff#${cleanStaffId}`;
+
+      const { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } = await import('firebase/auth');
+      let userCredential;
+      try {
+        userCredential = await signInWithEmailAndPassword(auth, staffEmail, staffPassword);
+      } catch (authErr: any) {
+        if (
+          authErr?.code === 'auth/user-not-found' ||
+          authErr?.code === 'auth/invalid-credential' ||
+          authErr?.code === 'auth/wrong-password' ||
+          authErr?.code === 'auth/invalid-login-credentials'
+        ) {
+          // Account doesn't exist yet in Firebase Auth OR credential reset required
+          try {
+            userCredential = await createUserWithEmailAndPassword(auth, staffEmail, staffPassword);
+            await updateProfile(userCredential.user, { displayName: staffMember.name });
+          } catch (createErr: any) {
+            if (createErr?.code === 'auth/email-already-in-use') {
+              throw new Error('Staff credentials mismatch in authentication system. Please notify admin.');
+            }
+            throw createErr;
+          }
+        } else {
+          throw authErr;
+        }
+      }
+
+      const user = userCredential.user;
+      if (user.displayName !== staffMember.name) {
+        await updateProfile(user, { displayName: staffMember.name });
+      }
+
+      // Sync Firestore user profile with actual staff name & role so Users page shows accurate details
+      let mappedRole: 'mat_operator' | 'attendance_volunteer' | 'medal_distributor' | 'judge' | 'guest_viewer' | 'viewer' = 'viewer';
+      if (staffMember.role === 'score') mappedRole = 'mat_operator';
+      else if (staffMember.role === 'attendance') mappedRole = 'attendance_volunteer';
+      else if (staffMember.role === 'medal') mappedRole = 'medal_distributor';
+      else if (staffMember.role === 'judge') mappedRole = 'judge';
+      else if (staffMember.role === 'guest_viewer' || staffMember.role === 'guest') mappedRole = 'guest_viewer';
+
       const { db } = await import('@lib/firebase');
-      const { doc, updateDoc } = await import('firebase/firestore');
-      const staffDocRef = doc(db, 'competitions', selectedCompId, 'staff', selectedStaffId);
+      const { doc, updateDoc, setDoc } = await import('firebase/firestore');
+
+      await setDoc(doc(db, 'users', user.uid), {
+        displayName: staffMember.name,
+        email: staffEmail,
+        role: mappedRole,
+        isAnonymous: false,
+        staffId: staffMember.id,
+        competitionId: selectedCompId,
+        lastLoginAt: new Date().toISOString()
+      }, { merge: true });
+
+      // Build redirect URL up front and pre-authorize station session
+      let redirectUrl = `/competitions/${selectedCompId}`;
+      if (staffMember.role === 'score' && staffMember.assignedMats?.length > 0) {
+        const { persistMatSessionAuthorization } = await import('@/modules/auth/operator-auth');
+        persistMatSessionAuthorization(selectedCompId, staffMember.assignedMats[0], (k, v) => sessionStorage.setItem(k, v));
+        redirectUrl = `/competitions/${selectedCompId}/operator?mat=${staffMember.assignedMats[0]}`;
+      }
+      else if (staffMember.role === 'attendance') redirectUrl = `/competitions/${selectedCompId}/athletes`;
+      else if (staffMember.role === 'medal') redirectUrl = `/competitions/${selectedCompId}/medals`;
+
       if (staffMember.approvalStatus === 'approved') {
-        await updateDoc(staffDocRef, { userId: user!.uid, requestUserId: user!.uid, lastActiveAt: new Date().toISOString() });
-        let redirectUrl = `/competitions/${selectedCompId}`;
-        if (staffMember.role === 'score' && staffMember.assignedMats?.length > 0) redirectUrl = `/competitions/${selectedCompId}/operator?mat=${staffMember.assignedMats[0]}`;
-        else if (staffMember.role === 'attendance') redirectUrl = `/competitions/${selectedCompId}/athletes`;
-        else if (staffMember.role === 'medal') redirectUrl = `/competitions/${selectedCompId}/medals`;
+        // Idempotency: skip Firestore write if this user is already linked to this staff record
+        if (staffMember.userId !== user.uid) {
+          await updateDoc(doc(db, 'competitions', selectedCompId, 'staff', selectedStaffId), {
+            userId: user.uid,
+            requestUserId: user.uid,
+            lastActiveAt: new Date().toISOString()
+          });
+        }
         window.location.href = redirectUrl;
         return;
       }
-      await updateDoc(staffDocRef, { approvalStatus: 'pending', requestUserId: user!.uid, requestTimestamp: new Date().toISOString() });
+
+      // Not yet approved — mark pending
+      await updateDoc(doc(db, 'competitions', selectedCompId, 'staff', selectedStaffId), {
+        approvalStatus: 'pending',
+        requestUserId: user.uid,
+        requestTimestamp: new Date().toISOString()
+      });
       window.location.href = `/login/pending?compId=${selectedCompId}&staffId=${selectedStaffId}`;
     } catch (err: any) {
       setError(err.message || 'PIN Authentication failed.');
@@ -201,7 +379,10 @@ export default function LoginPage() {
 
   // ─── shared input style ───────────────────────────────────────
   const inputStyle: React.CSSProperties = {
-    width: '100%', height: '48px',
+    width: '100%',
+    maxWidth: '100%',
+    boxSizing: 'border-box',
+    height: '48px',
     border: '1.5px solid var(--neutral-300)',
     borderRadius: '8px',
     padding: '0 14px',
@@ -213,7 +394,28 @@ export default function LoginPage() {
     transition: 'border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out)',
   };
 
-  const selectStyle: React.CSSProperties = { ...inputStyle, background: 'var(--shiro)', cursor: 'pointer' };
+  const selectStyle: React.CSSProperties = {
+    ...inputStyle,
+    boxSizing: 'border-box',
+    width: '100%',
+    maxWidth: '100%',
+    height: '48px',
+    padding: '0 40px 0 14px',
+    appearance: 'none',
+    WebkitAppearance: 'none',
+    MozAppearance: 'none',
+    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: 'calc(100% - 14px) center',
+    backgroundSize: '16px 16px',
+    backgroundColor: '#ffffff',
+    cursor: 'pointer',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    lineHeight: '44px',
+    display: 'block',
+  };
 
   const labelStyle: React.CSSProperties = {
     display: 'block',
@@ -383,7 +585,7 @@ export default function LoginPage() {
               lineHeight: 1.7,
               maxWidth: '300px',
             }}>
-              Real-time brackets, mat displays, and athlete management — built for officials under pressure.
+              Live brackets, mat scoring, and athlete management for karate tournaments.
             </p>
           </div>
 
@@ -446,7 +648,7 @@ export default function LoginPage() {
                   <label htmlFor="enroll-comp" style={labelStyle}>Competition</label>
                   <select id="enroll-comp" value={selectedCompId} onChange={e => setSelectedCompId(e.target.value)}
                     style={selectStyle} onFocus={addFocusRing} onBlur={removeFocusRing} required>
-                    <option value="">Select competition…</option>
+                    <option value="">{loadingComps ? 'Loading tournaments…' : 'Select competition…'}</option>
                     {competitionsList.map(comp => <option key={comp.id} value={comp.id}>{comp.name}</option>)}
                   </select>
                 </div>
@@ -549,7 +751,7 @@ export default function LoginPage() {
                         <label htmlFor="pin-comp" style={labelStyle}>Competition</label>
                         <select id="pin-comp" value={selectedCompId} onChange={e => setSelectedCompId(e.target.value)}
                           style={selectStyle} onFocus={addFocusRing} onBlur={removeFocusRing} required>
-                          <option value="">Select competition…</option>
+                          <option value="">{loadingComps ? 'Loading tournaments…' : 'Select competition…'}</option>
                           {competitionsList.map(comp => <option key={comp.id} value={comp.id}>{comp.name}</option>)}
                         </select>
                       </div>
@@ -557,7 +759,15 @@ export default function LoginPage() {
                         <label htmlFor="pin-staff" style={labelStyle}>Staff Profile</label>
                         <select id="pin-staff" value={selectedStaffId} onChange={e => setSelectedStaffId(e.target.value)}
                           style={selectStyle} onFocus={addFocusRing} onBlur={removeFocusRing} required>
-                          <option value="">Select your name…</option>
+                          <option value="">
+                            {!selectedCompId
+                              ? 'Select a competition first…'
+                              : loadingStaff
+                              ? 'Loading staff roster…'
+                              : staffList.length === 0
+                              ? 'No staff profiles found'
+                              : 'Select your name…'}
+                          </option>
                           {staffList.map(staff => <option key={staff.id} value={staff.id}>{staff.name} ({staff.role})</option>)}
                         </select>
                       </div>

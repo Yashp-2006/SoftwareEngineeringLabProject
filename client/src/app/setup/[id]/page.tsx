@@ -62,7 +62,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
 
   const [filterGender, setFilterGender] = useState<'all'|'male'|'female'>('all');
   const [filterDiscipline, setFilterDiscipline] = useState<'all'|'kata'|'kumite'>('all');
-  const [hideEmpty, setHideEmpty] = useState<boolean>(true);
+  const [hideEmpty, setHideEmpty] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState("");
   
   const [dragIdx, setDragIdx] = useState<number | null>(null);
@@ -263,11 +263,18 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         const mainData = snap.data();
         setCompName(mainData.name || 'Untitled Tournament');
         if (mainData.venue) setCompVenue(mainData.venue);
+        else if (mainData.location) setCompVenue(mainData.location);
         if (mainData.scoreboardLogo) setScoreboardLogo(mainData.scoreboardLogo);
         if (mainData.startDate) {
           const startDate = new Date(mainData.startDate).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
           const endDate = mainData.endDate ? new Date(mainData.endDate).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
           setCompDate(endDate && startDate !== endDate ? `${startDate} - ${endDate}` : startDate);
+        } else if (mainData.dates) {
+          if (typeof mainData.dates === 'string') {
+            setCompDate(mainData.dates);
+          } else if (typeof mainData.dates === 'object' && mainData.dates.start) {
+            setCompDate(mainData.dates.end && mainData.dates.end !== mainData.dates.start ? `${mainData.dates.start} - ${mainData.dates.end}` : mainData.dates.start);
+          }
         }
         if (mainData.startTime) setCompStartTime(mainData.startTime);
         if (mainData.endTime) setCompEndTime(mainData.endTime);
@@ -288,7 +295,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
           if (draftData.bronzeRule !== undefined) setBronzeRule(draftData.bronzeRule);
           if (draftData.wkfMode !== undefined) setWkfMode(draftData.wkfMode);
           if (draftData.wkfKataJudgeCount !== undefined) setWkfKataJudgeCount(draftData.wkfKataJudgeCount);
-          if (draftData.categories !== undefined) setCategories(draftData.categories.filter((c: any) => (c.entries || 0) > 0));
+          if (draftData.categories !== undefined) setCategories(draftData.categories);
           if (draftData.importResult !== undefined) setImportResult(draftData.importResult);
           if (draftData.scoreboardLogo !== undefined) setScoreboardLogo(draftData.scoreboardLogo);
           if (draftData.highestPhase !== undefined) setHighestPhase(draftData.highestPhase);
@@ -358,30 +365,29 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
           const { collection, getDocs } = await import('firebase/firestore');
           const catSnap = await getDocs(collection(db, 'competitions', id, 'categories'));
           
-          const existingEntries = new Map<string, number>();
-          catSnap.docs.forEach(doc => {
-            existingEntries.set(doc.data().name, doc.data().entries || 0);
-          });
-          
-          const loadedCats = generateWkfCategories(wkfMode).map(cat => ({
-            id: Math.random().toString(36).substring(2, 9),
-            name: cat.name,
-            entries: existingEntries.get(cat.name) || 0,
-            athletes: [],
-            isKata: cat.isKata,
-            gender: cat.gender,
-            discipline: cat.isKata ? 'Kata' : 'Kumite',
-            judgeCount: cat.isKata ? wkfKataJudgeCount : undefined,
-            minAge: cat.minAge,
-            maxAge: cat.maxAge,
-            minWeight: cat.minWeight,
-            maxWeight: cat.maxWeight,
-          }));
-          setCategories(loadedCats.filter(c => c.entries > 0));
+          if (catSnap.docs.length > 0) {
+            setCategories(catSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any)));
+          } else {
+            const loadedCats = generateWkfCategories(wkfMode).map(cat => ({
+              id: Math.random().toString(36).substring(2, 9),
+              name: cat.name,
+              entries: 0,
+              athletes: [],
+              isKata: cat.isKata,
+              gender: cat.gender,
+              discipline: cat.isKata ? 'Kata' : 'Kumite',
+              judgeCount: cat.isKata ? (wkfKataJudgeCount || 3) : undefined,
+              minAge: cat.minAge,
+              maxAge: cat.maxAge,
+              minWeight: cat.minWeight,
+              maxWeight: cat.maxWeight,
+            }));
+            setCategories(loadedCats);
+          }
         } else {
           const { collection, getDocs } = await import('firebase/firestore');
           const catSnap = await getDocs(collection(db, 'competitions', id, 'categories'));
-          setCategories(catSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any)).filter(c => (c.entries || 0) > 0));
+          setCategories(catSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any)));
         }
         setIsDataLoaded(true);
       } catch (err: any) {
@@ -413,8 +419,13 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
           Array.from({ length: matsCount }).map(async (_, i) => {
             const matId = `mat-${i + 1}`;
             const snap = await getDoc(doc(db, 'competitions', id, 'mats', matId));
-            if (snap.exists() && snap.data().password) {
-              loaded[i] = snap.data().password;
+            if (snap.exists()) {
+              const d = snap.data();
+              if (d.displayPassword) {
+                loaded[i] = d.displayPassword;
+              } else if (d.password && !/^[a-f0-9]{64}$/i.test(d.password)) {
+                loaded[i] = d.password;
+              }
             }
           })
         );
@@ -434,6 +445,46 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
     }
     setModalFormData({ name: Array.from(selectedCats).join(' / ') });
     setModalType('merge');
+  };
+
+  const handleClearAllCategories = () => {
+    if (categories.length === 0) return;
+    setConfirmState({
+      isOpen: true,
+      title: 'Clear All Categories?',
+      message: `Are you sure you want to delete all ${categories.length} categories? This will permanently remove all categories, pools, and entries for this competition draft.`,
+      isDestructive: true,
+      onConfirm: async () => {
+        closeConfirm();
+        try {
+          // 1. Clear local states
+          setCategories([]);
+          setSelectedCats(new Set());
+          setPoolsSchedule({});
+
+          // 2. Delete all categories from Firestore
+          const catSnap = await getDocs(collection(db, 'competitions', id, 'categories'));
+          const batch = writeBatch(db);
+          catSnap.docs.forEach(d => {
+            batch.delete(d.ref);
+          });
+
+          // 3. Update setup draft
+          const draftRef = doc(db, 'competitions', id, 'drafts', 'setup');
+          batch.set(draftRef, {
+            categories: [],
+            poolsSchedule: {},
+            updatedAt: new Date().toISOString()
+          }, { merge: true });
+
+          await batch.commit();
+          toast.success('All categories cleared from draft');
+        } catch (err: any) {
+          console.error('Error clearing categories:', err);
+          toast.error('Failed to clear categories: ' + (err?.message || err));
+        }
+      }
+    });
   };
 
   const togglePassword = (idx: number) => {
@@ -481,22 +532,115 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
     if (!file) return;
 
     try {
-      const text = await file.text();
-      const imported = JSON.parse(text);
-      if (Array.isArray(imported)) {
-        const newCats = imported.map(cat => ({
-          ...cat,
-          id: Math.random().toString(36).substring(2, 9),
-          entries: 0,
-          athletes: []
-        }));
-        setCategories(prev => [...prev, ...newCats]);
-        toast.success(`Imported ${newCats.length} categories`);
+      const fileName = (file.name || '').toLowerCase();
+      let importedCats: any[] = [];
+
+      if (fileName.endsWith('.json')) {
+        const text = await file.text();
+        const parsed = JSON.parse(text);
+        if (Array.isArray(parsed)) {
+          importedCats = parsed;
+        } else if (parsed && Array.isArray(parsed.categories)) {
+          importedCats = parsed.categories;
+        } else {
+          toast.error('Invalid JSON preset format. Expected an array of categories.');
+          return;
+        }
+      } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls') || fileName.endsWith('.csv')) {
+        const buffer = fileName.endsWith('.csv') ? await file.text() : await file.arrayBuffer();
+        // @ts-ignore
+        const xlsx = await import('xlsx');
+        const isStr = typeof buffer === 'string';
+        const workbook = xlsx.read(isStr ? buffer : new Uint8Array(buffer), { type: isStr ? 'string' : 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const rows: any[] = xlsx.utils.sheet_to_json(workbook.Sheets[firstSheetName], { defval: '', blankrows: false });
+
+        if (!rows || rows.length === 0) {
+          toast.error('The uploaded file is empty.');
+          return;
+        }
+
+        // Check if rows are category definitions or athlete roster
+        const sampleRow = rows[0] || {};
+        const lowerKeys = Object.keys(sampleRow).map(k => k.trim().toLowerCase());
+        const hasCategoryNameCol = lowerKeys.some(k => k === 'category' || k === 'category name' || k === 'categoryname' || k === 'division');
+        const hasAthleteNameCol = lowerKeys.some(k => k === 'athlete' || k === 'athlete name' || k === 'first name');
+
+        if (hasCategoryNameCol && !hasAthleteNameCol) {
+          // Dedicated Category definitions list
+          importedCats = rows.map(r => {
+            const rowObj: Record<string, any> = {};
+            for (const key of Object.keys(r)) rowObj[key.trim().toLowerCase()] = r[key];
+            const name = String(rowObj['category name'] || rowObj['category'] || rowObj['categoryname'] || rowObj['division'] || '').trim();
+            if (!name) return null;
+            const disc = String(rowObj['discipline'] || (name.toLowerCase().includes('kata') ? 'Kata' : 'Kumite')).trim();
+            const isKata = disc.toLowerCase() === 'kata' || name.toLowerCase().includes('kata');
+            return {
+              name,
+              discipline: isKata ? 'Kata' : 'Kumite',
+              isKata,
+              gender: rowObj['gender'] || (name.toLowerCase().includes('female') ? 'Female' : name.toLowerCase().includes('male') ? 'Male' : 'Any'),
+              minAge: rowObj['min age'] !== undefined && rowObj['min age'] !== '' ? Number(rowObj['min age']) : undefined,
+              maxAge: rowObj['max age'] !== undefined && rowObj['max age'] !== '' ? Number(rowObj['max age']) : undefined,
+              minWeight: rowObj['min weight'] !== undefined && rowObj['min weight'] !== '' ? Number(rowObj['min weight']) : undefined,
+              maxWeight: rowObj['max weight'] !== undefined && rowObj['max weight'] !== '' ? Number(rowObj['max weight']) : undefined,
+              judgeCount: isKata ? 5 : undefined,
+            };
+          }).filter(Boolean);
+        } else {
+          // Extract categories using parseExcelIntoCategories
+          const { parseExcelIntoCategories } = await import('@taikaix/backend/services/tiesheet/generator');
+          const { generateWkfCategories } = await import('@taikaix/backend/lib/wkf-categories');
+          const wkfCatNames = new Set(generateWkfCategories(wkfMode).map(c => c.name));
+          const customCats = compRules === 'wkf'
+            ? categories.filter(c => !wkfCatNames.has(c.name))
+            : categories;
+          const { categoryMap } = parseExcelIntoCategories(buffer, [], wkfMode, customCats, compRules);
+          
+          importedCats = Array.from(categoryMap.entries()).map(([catName, athletes]) => {
+            const isKata = catName.toLowerCase().includes('kata');
+            return {
+              name: catName,
+              discipline: isKata ? 'Kata' : 'Kumite',
+              isKata,
+              entries: athletes.length,
+              athletes,
+              gender: catName.toLowerCase().includes('female') ? 'Female' : catName.toLowerCase().includes('male') ? 'Male' : 'Any',
+              judgeCount: isKata ? 5 : undefined,
+            };
+          });
+        }
       } else {
-        toast.error('Invalid preset format');
+        toast.error('Unsupported file format. Please upload .json, .csv, or .xlsx.');
+        return;
       }
-    } catch (err) {
-      toast.error('Failed to parse preset file');
+
+      if (importedCats.length === 0) {
+        toast.error('No categories found in file.');
+        return;
+      }
+
+      const newCats = importedCats.map(cat => ({
+        ...cat,
+        id: cat.id || Math.random().toString(36).substring(2, 9),
+        name: cat.name,
+        discipline: cat.discipline || (cat.isKata || cat.name?.toLowerCase().includes('kata') ? 'Kata' : 'Kumite'),
+        isKata: cat.isKata ?? cat.name?.toLowerCase().includes('kata'),
+        gender: cat.gender || (cat.name?.toLowerCase().includes('female') ? 'Female' : cat.name?.toLowerCase().includes('male') ? 'Male' : 'Any'),
+        entries: cat.entries || (cat.athletes ? cat.athletes.length : 0),
+        athletes: cat.athletes || []
+      }));
+
+      setCategories(prev => {
+        const existingNames = new Set(prev.map(c => c.name));
+        const nonDuplicates = newCats.filter(c => !existingNames.has(c.name));
+        return [...prev, ...nonDuplicates];
+      });
+
+      toast.success(`Imported ${newCats.length} categories`);
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Failed to parse categories file: ' + (err?.message || ''));
     } finally {
       e.target.value = '';
     }
@@ -618,6 +762,9 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         buffer = await file.arrayBuffer();
       }
       toast.loading('Computing brackets...', { id: toastId });
+      // Brief pause to allow UI thread to paint loading state
+      await new Promise(r => setTimeout(r, 60));
+
       const { parseExcelIntoCategories, generateBracket } = await import('@taikaix/backend/services/tiesheet/generator');
       const { generateWkfCategories } = await import('@taikaix/backend/lib/wkf-categories');
       const wkfCatNames = new Set(generateWkfCategories(wkfMode).map(c => c.name));
@@ -626,7 +773,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
         : categories;
       const { categoryMap, uniqueAthletesCount } = parseExcelIntoCategories(buffer, [], wkfMode, customCats, compRules);
 
-      if (categoryMap.size === 0) {
+      if (categoryMap.size === 0 || !uniqueAthletesCount) {
         throw new Error('No athlete data found. Check that the sheet has a header row and at least one athlete row.');
       }
 
@@ -1064,12 +1211,15 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
   };
 
   const filteredCategories = sortCategories(categories.filter(c => {
-    if (!c.entries || c.entries === 0) return false;
-    const lowerName = c.name.toLowerCase();
+    if (hideEmpty && (!c.entries || c.entries === 0)) return false;
+    const lowerName = (c.name || '').toLowerCase();
     if (searchQuery && !lowerName.includes(searchQuery.toLowerCase())) return false;
-    if (filterGender === 'female' && !lowerName.includes('female')) return false;
-    if (filterGender === 'male' && (!lowerName.includes('male') || lowerName.includes('female'))) return false;
-    const isKata = lowerName.endsWith('kata') || lowerName.includes(' kata ');
+    const catGender = (c.gender || '').toLowerCase();
+    const isFemale = catGender === 'female' || /\b(female|girls?|women)\b/.test(lowerName) || lowerName.includes('female');
+    const isMale = (catGender === 'male' || /\b(male|boys?|men)\b/.test(lowerName) || lowerName.includes('male')) && !isFemale;
+    if (filterGender === 'female' && !isFemale) return false;
+    if (filterGender === 'male' && !isMale) return false;
+    const isKata = c.isKata === true || c.discipline === 'Kata' || lowerName.endsWith('kata') || lowerName.includes('kata');
     if (filterDiscipline === 'kata' && !isKata) return false;
     if (filterDiscipline === 'kumite' && isKata) return false;
     return true;
@@ -1267,7 +1417,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
               {!isReviewMode && (
                 <div className="phase-header">
                   <div>
-                    <h3 style={{ margin: 0 }}>Phase 1 — Define Categories</h3>
+                    <h3 style={{ margin: 0 }}>Phase 1: Define Categories</h3>
                     <p className="text-small" style={{ marginTop: '4px' }}>Define divisions for the tournament.</p>
                   </div>
                 </div>
@@ -1286,6 +1436,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                 handleImportPreset={handleImportPreset}
                 handleLoadWkfCategories={handleLoadWkfCategories}
                 setModalType={setModalType}
+                onClearAll={handleClearAllCategories}
                 searchQuery={searchQuery} setSearchQuery={setSearchQuery}
                 filterGender={filterGender} setFilterGender={setFilterGender}
                 filterDiscipline={filterDiscipline} setFilterDiscipline={setFilterDiscipline}
@@ -1304,13 +1455,13 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
               {!isReviewMode && (
                 <div className="phase-header">
                   <div>
-                    <h3 style={{ margin: 0 }}>Phase 2 — Roster/CSV Import</h3>
+                    <h3 style={{ margin: 0 }}>Phase 2: Import Roster</h3>
                     <p className="text-small" style={{ marginTop: '4px' }}>Choose a pool size and import athletes to generate tiesheets.</p>
                   </div>
                 </div>
               )}
               <ImportPhase
-                poolSize={poolSize} setPoolSize={setPoolSize}
+                poolSize={poolSize} setPoolSize={(val: number) => setPoolSize(val as 4 | 8 | 16 | 32)}
                 wkfKataJudgeCount={wkfKataJudgeCount as number} setWkfKataJudgeCount={setWkfKataJudgeCount}
                 setCategories={setCategories} importResult={importResult}
                 uploading={uploading} handleDrop={handleDrop} handleDragOver={handleDragOver}
@@ -1326,7 +1477,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
               {!isReviewMode && (
                 <div className="phase-header">
                   <div>
-                    <h3 style={{ margin: 0 }}>Phase 3 — Category, Mat & Schedule Management</h3>
+                    <h3 style={{ margin: 0 }}>Phase 3: Categories & Mats</h3>
                     <p className="text-small" style={{ marginTop: '4px' }}>Set how many mats will be active for the tournament.</p>
                   </div>
                 </div>
@@ -1364,7 +1515,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
               {!isReviewMode && (
                 <div className="phase-header">
                   <div>
-                    <h3 style={{ margin: 0 }}>Phase 4 — Tiesheet Generation Preview</h3>
+                    <h3 style={{ margin: 0 }}>Phase 4: Brackets & Tiesheets</h3>
                     <p className="text-small" style={{ marginTop: '4px' }}>Tiesheets are generated on import. Preview verifies first-round matchups.</p>
                   </div>
                 </div>
@@ -1387,7 +1538,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
               {!isReviewMode && (
                 <div className="phase-header">
                   <div>
-                    <h3 style={{ margin: 0 }}>Phase 5 — Staff Management</h3>
+                    <h3 style={{ margin: 0 }}>Phase 5: Staff Management</h3>
                     <p className="text-small" style={{ marginTop: '4px' }}>Lock in attendance coverage.</p>
                   </div>
                 </div>
@@ -1731,7 +1882,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                           style={{ marginBottom: 0 }}
                         />
                       </div>
-                      <span style={{ color: 'var(--neutral-400)', marginTop: '16px' }}>—</span>
+                      <span style={{ color: 'var(--neutral-400)', marginTop: '16px' }}>to</span>
                       <div style={{ flex: 1 }}>
                         <label style={{ fontSize: '11px', color: 'var(--neutral-500)', display: 'block', marginBottom: '4px' }}>Max Age</label>
                         <input
@@ -1747,7 +1898,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                     </div>
                   </div>
 
-                  {/* Weight Range — only for Kumite */}
+                  {/* Weight Range: only for Kumite */}
                   {(editCatData.discipline !== 'Kata' && !(editCatData.isKata)) && (
                     <div className="form-group" style={{ marginBottom: 0 }}>
                       <label className="text-micro" style={{ display: 'block', marginBottom: '6px' }}>Weight Range (kg)</label>
@@ -1763,7 +1914,7 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
                             style={{ marginBottom: 0 }}
                           />
                         </div>
-                        <span style={{ color: 'var(--neutral-400)', marginTop: '16px' }}>—</span>
+                        <span style={{ color: 'var(--neutral-400)', marginTop: '16px' }}>to</span>
                         <div style={{ flex: 1 }}>
                           <label style={{ fontSize: '11px', color: 'var(--neutral-500)', display: 'block', marginBottom: '4px' }}>Max Weight</label>
                           <input
@@ -1877,6 +2028,15 @@ export default function SetupWizard({ params }: { params: Promise<{ id: string }
           onCategoriesUpdated={(newCats) => setCategories(newCats)}
         />
       )}
+
+      <ConfirmModal
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        isDestructive={confirmState.isDestructive}
+        onConfirm={confirmState.onConfirm}
+        onCancel={closeConfirm}
+      />
     </>
   );
 }
@@ -1943,13 +2103,21 @@ function SetupBracketPreview({ competitionId, initialCategoryId, onClose }: {
       const res = await fetch(`/api/competitions/${competitionId}/brackets/${categoryId}/swap`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sourceMatchId, sourceSide, targetMatchId, targetSide, targetCategoryId, action }),
+        body: JSON.stringify({
+          sourceMatchId,
+          sourceSide,
+          targetMatchId,
+          targetSide,
+          targetCategoryId,
+          action: action || 'swap'
+        }),
       });
       const data = await res.json();
       if (data.success) {
         toast.success(action === 'move' ? 'Athlete moved successfully!' : 'Athletes swapped successfully!');
       } else {
-        toast.error('Failed to update tiesheet: ' + data.error);
+        const errMsg = typeof data.error === 'string' ? data.error : (data.error?.message || 'Unknown error');
+        toast.error('Failed to update tiesheet: ' + errMsg);
       }
     } catch (err) {
       console.error('Error updating tiesheet:', err);

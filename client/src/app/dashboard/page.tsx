@@ -3,6 +3,21 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { gsap } from 'gsap';
+import {
+  Plus,
+  Activity,
+  Calendar,
+  Users,
+  MapPin,
+  Trophy,
+  TrendingUp,
+  PieChart as PieChartIcon,
+  ArrowRight,
+  LayoutGrid,
+  Tv,
+  Settings
+} from 'lucide-react';
 import { useAuth } from '@/modules/auth/components/AuthProvider';
 
 export default function DashboardPage() {
@@ -24,6 +39,17 @@ export default function DashboardPage() {
   const [liveCompetitions, setLiveCompetitions] = useState<any[]>([]);
   const [trendData, setTrendData] = useState<{label: string, val: number, peak: boolean}[]>([]);
   const [pieData, setPieData] = useState<{label: string, val: number, color: string}[]>([]);
+  const [selectedLiveCompId, setSelectedLiveCompId] = useState<string | null>(null);
+  const [pieLoading, setPieLoading] = useState(false);
+
+  const activeLiveTournaments = React.useMemo(() => {
+    return liveCompetitions.filter(c => c.status === 'live');
+  }, [liveCompetitions]);
+
+  const currentLiveComp = React.useMemo(() => {
+    if (!activeLiveTournaments.length) return null;
+    return activeLiveTournaments.find(c => c.id === selectedLiveCompId) || activeLiveTournaments[0];
+  }, [activeLiveTournaments, selectedLiveCompId]);
 
   useEffect(() => {
     if (!authLoading) {
@@ -96,8 +122,7 @@ export default function DashboardPage() {
           }
         });
         
-        if (athletes === 0) athletes = 1482; // Fallback to mock if no real data
-        const totalClubs = 42; 
+        const totalClubs = 0; 
         
         setStats({ active, upcoming, athletes, completed, activeMats, nextUpcomingName, eventsThisYear, totalClubs });
 
@@ -105,48 +130,12 @@ export default function DashboardPage() {
         compsForTrend.sort((a, b) => a.date - b.date); // Oldest to newest
         let finalTrends = compsForTrend.map(c => ({ label: c.label, val: c.val, peak: false }));
         if (finalTrends.length === 0) {
-          // Fallback if no comps have athletes
-          finalTrends = [
-            { label: 'Winter Cup', val: 320, peak: false },
-            { label: 'Spring Open', val: 480, peak: false },
-            { label: 'Summer Clash', val: 640, peak: false },
-            { label: 'Nationals', val: 850, peak: true }
-          ];
+          // No competitions with athlete data yet — chart stays empty
+          setTrendData([]);
         } else {
           const maxVal = Math.max(...finalTrends.map(t => t.val));
           finalTrends.forEach(t => t.peak = t.val === maxVal);
-        }
-        setTrendData(finalTrends);
-
-        // Process pie chart data (fetch categories for the latest competition with athletes)
-        if (compsForTrend.length > 0) {
-          const latestComp = compsForTrend[compsForTrend.length - 1];
-          const catsSnap = await getDocs(collection(db, 'competitions', latestComp.id, 'categories'));
-          const colors = [
-            'var(--aka)',
-            'var(--ao)',
-            'oklch(65% 0.18 50)',
-            'oklch(60% 0.15 160)',
-            'oklch(45% 0.12 280)',
-            'oklch(80% 0.10 90)',
-            'oklch(75% 0.05 220)'
-          ];
-          let pData: any[] = [];
-          catsSnap.forEach(catDoc => {
-            const cData = catDoc.data();
-            const count = Array.isArray(cData.athletes) ? cData.athletes.length : 0;
-            if (count > 0) {
-              pData.push({ label: cData.name || 'Unnamed', val: count });
-            }
-          });
-          pData.sort((a, b) => b.val - a.val); // Sort by count descending
-          // Group small categories into "Other" if there are too many
-          if (pData.length > 6) {
-            const top = pData.slice(0, 5);
-            const otherVal = pData.slice(5).reduce((sum, item) => sum + item.val, 0);
-            pData = [...top, { label: 'Other Categories', val: otherVal }];
-          }
-          setPieData(pData.map((d, i) => ({ ...d, color: colors[i % colors.length] })));
+          setTrendData(finalTrends);
         }
 
       } catch (err) {
@@ -177,58 +166,125 @@ export default function DashboardPage() {
     return () => { if (typeof unsub === 'function') unsub(); };
   }, []);
 
+  // Sync selectedLiveCompId with active live tournaments
+  useEffect(() => {
+    if (activeLiveTournaments.length === 0) {
+      if (selectedLiveCompId !== null) setSelectedLiveCompId(null);
+    } else if (!selectedLiveCompId || !activeLiveTournaments.some(c => c.id === selectedLiveCompId)) {
+      setSelectedLiveCompId(activeLiveTournaments[0].id);
+    }
+  }, [activeLiveTournaments, selectedLiveCompId]);
+
+  // Real-time listener for categories of selected live tournament
+  useEffect(() => {
+    if (!selectedLiveCompId) {
+      setPieData([]);
+      setPieLoading(false);
+      return;
+    }
+
+    setPieLoading(true);
+    let unsub: any;
+
+    const listenToCategories = async () => {
+      try {
+        const { db } = await import('@lib/firebase');
+        const { collection, onSnapshot } = await import('firebase/firestore');
+
+        const colors = [
+          'var(--aka)',
+          'var(--ao)',
+          'oklch(65% 0.18 50)',
+          'oklch(60% 0.15 160)',
+          'oklch(45% 0.12 280)',
+          'oklch(80% 0.10 90)',
+          'oklch(75% 0.05 220)'
+        ];
+
+        unsub = onSnapshot(collection(db, 'competitions', selectedLiveCompId, 'categories'), (catSnap) => {
+          let pData: any[] = [];
+          catSnap.forEach(catDoc => {
+            const cData = catDoc.data();
+            const count = Array.isArray(cData.athletes)
+              ? cData.athletes.length
+              : (typeof cData.entries === 'number'
+                  ? cData.entries
+                  : (typeof cData.athletesCount === 'number' ? cData.athletesCount : 0));
+            if (count > 0) {
+              pData.push({ label: cData.name || catDoc.id, val: count });
+            }
+          });
+
+          pData.sort((a, b) => b.val - a.val);
+
+          if (pData.length > 6) {
+            const top = pData.slice(0, 5);
+            const otherVal = pData.slice(5).reduce((sum, item) => sum + item.val, 0);
+            pData = [...top, { label: 'Other Categories', val: otherVal }];
+          }
+
+          setPieData(pData.map((d, i) => ({ ...d, color: colors[i % colors.length] })));
+          setPieLoading(false);
+        }, (err) => {
+          console.error('Failed to listen to live categories', err);
+          setPieLoading(false);
+        });
+      } catch (err) {
+        console.error(err);
+        setPieLoading(false);
+      }
+    };
+
+    listenToCategories();
+
+    return () => {
+      if (typeof unsub === 'function') unsub();
+    };
+  }, [selectedLiveCompId]);
+
   useEffect(() => {
     if (typeof window !== 'undefined' && (window as any).lucide) {
       (window as any).lucide.createIcons();
     }
 
-    const gsap = (window as any).gsap;
-    let ctx: any;
-    
-    if (gsap) {
-      ctx = gsap.context(() => {
-        gsap.from('.stagger-in', {
-          y: 20,
-          opacity: 0,
-          duration: 0.8,
-          stagger: 0.15,
-          ease: 'expo.out'
-        });
+    const ctx = gsap.context(() => {
+      gsap.from('.stagger-in', {
+        y: 20,
+        opacity: 0,
+        duration: 0.8,
+        stagger: 0.15,
+        ease: 'expo.out'
       });
-    }
+    });
 
     setLoading(false);
 
     return () => {
-      if (ctx) ctx.revert(); // Fixes React Strict Mode double-firing bug
+      ctx.revert();
     };
   }, []);
 
   useEffect(() => {
-    const gsap = (window as any).gsap;
-    let ctx: any;
-    if (gsap) {
-      ctx = gsap.context(() => {
-        if (chartType === 'bar') {
-          gsap.fromTo('.bar-inner', 
-            { scaleY: 0 },
-            { scaleY: 1, duration: 0.8, stagger: 0.05, ease: 'expo.out', transformOrigin: 'bottom' }
-          );
-        } else {
-          // Line drawing effect
-          gsap.fromTo('.graph-line',
-            { strokeDasharray: 1000, strokeDashoffset: 1000 },
-            { strokeDashoffset: 0, duration: 1.2, ease: 'expo.inOut' }
-          );
-          // Point fade/pop effect
-          gsap.fromTo('.graph-point',
-            { scale: 0, opacity: 0, transformOrigin: 'center' },
-            { scale: 1, opacity: 1, duration: 0.6, stagger: 0.05, ease: 'back.out(1.5)', delay: 0.4 }
-          );
-        }
-      });
-    }
-    return () => { if (ctx) ctx.revert(); };
+    const ctx = gsap.context(() => {
+      if (chartType === 'bar') {
+        gsap.fromTo('.bar-inner', 
+          { scaleY: 0 },
+          { scaleY: 1, duration: 0.8, stagger: 0.05, ease: 'expo.out', transformOrigin: 'bottom' }
+        );
+      } else {
+        // Line drawing effect
+        gsap.fromTo('.graph-line',
+          { strokeDasharray: 1000, strokeDashoffset: 1000 },
+          { strokeDashoffset: 0, duration: 1.2, ease: 'expo.inOut' }
+        );
+        // Point fade/pop effect
+        gsap.fromTo('.graph-point',
+          { scale: 0, opacity: 0, transformOrigin: 'center' },
+          { scale: 1, opacity: 1, duration: 0.6, stagger: 0.05, ease: 'back.out(1.5)', delay: 0.4 }
+        );
+      }
+    });
+    return () => { ctx.revert(); };
   }, [chartType, timeFilter]);
 
   const chartData = timeFilter === '12M' ? trendData : trendData.slice(-6);
@@ -236,7 +292,20 @@ export default function DashboardPage() {
   
   // SVG Pie Chart Helper
   const renderPieChart = () => {
-    if (pieData.length === 0) return <div style={{ color: 'var(--neutral-500)', fontSize: '13px', textAlign: 'center', marginTop: '40px' }}>No category data available</div>;
+    if (pieLoading) {
+      return (
+        <div style={{ width: '140px', height: '140px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: '70px', height: '70px', borderRadius: '50%', border: '3px solid var(--neutral-200)', borderTopColor: 'var(--ao)', animation: 'spin 1s linear infinite' }} />
+        </div>
+      );
+    }
+    if (pieData.length === 0) {
+      return (
+        <div style={{ width: '140px', height: '140px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', border: '2px dashed var(--neutral-300)', color: 'var(--neutral-400)', fontSize: '11px', textAlign: 'center', padding: '14px', boxSizing: 'border-box', lineHeight: 1.3 }}>
+          No category entries
+        </div>
+      );
+    }
     let cumulativePercent = 0;
     const totalPieVal = pieData.reduce((sum, d) => sum + d.val, 0);
     
@@ -336,11 +405,69 @@ export default function DashboardPage() {
           .dashboard-bento { gap: var(--space-3); }
         }
 
-        /* Mobile: everything single column */
+        /* Mobile portrait & phone: 2x2 metric grid with fluid charts and scrollable table */
         @media (max-width: 768px) {
-          .col-span-3, .col-span-4, .col-span-6, .col-span-8, .col-span-12 { grid-column: span 12; }
-          .dashboard-bento { gap: var(--space-3); }
-          .bento-card { border-radius: 12px; }
+          .col-span-3 { grid-column: span 6 !important; }
+          .col-span-4, .col-span-6, .col-span-8, .col-span-12 { grid-column: span 12 !important; }
+          .dashboard-bento { gap: 10px; }
+          .bento-card { border-radius: 14px; padding: 14px !important; }
+          .stat-value { font-size: 32px !important; }
+          .stat-header { font-size: 11px !important; margin-bottom: 8px !important; }
+          .stat-footer { font-size: 11px !important; }
+          .page-header {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 14px !important;
+          }
+          .page-header-actions {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr !important;
+            gap: 8px !important;
+            width: 100% !important;
+          }
+          .page-header-actions .btn {
+            width: 100% !important;
+            justify-content: center !important;
+            min-height: 42px !important;
+            padding: 8px 10px !important;
+            font-size: 13px !important;
+          }
+          .chart-header-row {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 10px !important;
+          }
+          .chart-header-row .chart-controls {
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+          }
+          .pie-chart-wrap {
+            flex-direction: column !important;
+            align-items: center !important;
+            gap: 14px !important;
+          }
+          .pie-chart-legend {
+            width: 100% !important;
+            max-height: 180px !important;
+            padding-right: 0 !important;
+          }
+          .modern-table {
+            min-width: 580px;
+          }
+          .modern-table th, .modern-table td {
+            padding: 12px 14px !important;
+          }
+          .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+          }
+        }
+
+        @media (max-width: 380px) {
+          .col-span-3 { grid-column: span 12 !important; }
         }
 
         .stat-header {
@@ -423,6 +550,9 @@ export default function DashboardPage() {
         .action-btns .btn-ghost { background: var(--neutral-50); border: 1px solid var(--neutral-200); }
         .action-btns .btn-ghost:hover { background: var(--neutral-100); }
         .action-btns a:active { transform: scale(0.92); }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
       `}} />
 
       <main className="container">
@@ -431,12 +561,19 @@ export default function DashboardPage() {
             <div className="breadcrumb">Admin / Dashboard</div>
             <h1>Operations Hub</h1>
           </div>
-          <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
-            <button className="btn btn-secondary">
-              <i data-lucide="download" style={{ width: '18px' }}></i> Export Report
-            </button>
-            <Link href="/competitions" className="btn btn-primary" style={{ textDecoration: 'none' }}>
-              <i data-lucide="plus" style={{ width: '18px' }}></i> New Competition
+          <div className="page-header-actions" style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
+            <Link
+              href="/competitions"
+              className="btn btn-primary"
+              style={{
+                textDecoration: 'none',
+                fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              <Plus size={15} /> New Competition
             </Link>
           </div>
         </header>
@@ -446,7 +583,7 @@ export default function DashboardPage() {
             <div>
               <div className="stat-header">
                 <div className="stat-icon-wrap">
-                  <i data-lucide="activity" style={{ width: '18px' }}></i>
+                  <Activity size={18} />
                 </div>
                 Active Now
               </div>
@@ -462,7 +599,7 @@ export default function DashboardPage() {
             <div>
               <div className="stat-header">
                 <div className="stat-icon-wrap">
-                  <i data-lucide="calendar" style={{ width: '18px' }}></i>
+                  <Calendar size={18} />
                 </div>
                 Upcoming
               </div>
@@ -477,14 +614,14 @@ export default function DashboardPage() {
             <div>
               <div className="stat-header">
                 <div className="stat-icon-wrap">
-                  <i data-lucide="users" style={{ width: '18px' }}></i>
+                  <Users size={18} />
                 </div>
                 Total Athletes
               </div>
               <div className="stat-value">{stats.athletes.toLocaleString()}</div>
             </div>
             <div className="stat-footer">
-              <i data-lucide="map-pin" style={{ width: '14px' }}></i>
+              <MapPin size={13} style={{ display: 'inline', marginRight: 4, verticalAlign: -1 }} />
               Across {stats.totalClubs} clubs globally
             </div>
           </div>
@@ -493,7 +630,7 @@ export default function DashboardPage() {
             <div>
               <div className="stat-header">
                 <div className="stat-icon-wrap">
-                  <i data-lucide="trophy" style={{ width: '18px' }}></i>
+                  <Trophy size={18} />
                 </div>
                 Completed Events
               </div>
@@ -504,12 +641,12 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Participation Trends (Wide) */}
-          <div className="bento-card col-span-8" style={{ minHeight: '260px' }}>
-            <div className="flex-between mb-4">
+          {/* Participation Trends (Wide or Full Width if no live tournament) */}
+          <div className={`bento-card ${activeLiveTournaments.length > 0 ? 'col-span-8' : 'col-span-12'}`} style={{ minHeight: '260px' }}>
+            <div className="flex-between mb-4 chart-header-row">
               <div className="stat-header" style={{ margin: 0 }}>
                 <div className="stat-icon-wrap" style={{ width: '28px', height: '28px', background: 'var(--ao-light)', color: 'var(--ao)', marginRight: '4px' }}>
-                  <i data-lucide="trending-up" style={{ width: '16px' }}></i>
+                  <TrendingUp size={16} />
                 </div>
                 Participation Trends
               </div>
@@ -596,39 +733,70 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Category Distribution Pie Chart */}
-          <div className="bento-card col-span-4" style={{ minHeight: '260px' }}>
-            <div className="stat-header" style={{ margin: 0, marginBottom: 'var(--space-2)' }}>
-              <div className="stat-icon-wrap" style={{ width: '28px', height: '28px', background: 'var(--neutral-100)', color: 'var(--neutral-900)', marginRight: '4px' }}>
-                <i data-lucide="pie-chart" style={{ width: '16px' }}></i>
-              </div>
-              Category Distribution
-            </div>
-            <p className="text-small" style={{ color: 'var(--neutral-500)', marginBottom: 'var(--space-4)', fontWeight: 500 }}>Athletes per category in recent event</p>
-            
-            <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'center', height: '100%' }}>
-              <div style={{ flexShrink: 0 }}>
-                {renderPieChart()}
-              </div>
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', maxHeight: '160px', paddingRight: '8px' }}>
-                {pieData.map((d, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12px' }}>
-                    <span style={{ width: '12px', height: '12px', borderRadius: '4px', background: d.color, flexShrink: 0 }}></span>
-                    <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--neutral-700)', fontWeight: 500 }} title={d.label}>{d.label}</span>
-                    <span style={{ fontWeight: 700, color: 'var(--neutral-900)' }}>{d.val}</span>
+          {/* Category Distribution Pie Chart - Only displayed when at least 1 tournament is live */}
+          {activeLiveTournaments.length > 0 && (
+            <div className="bento-card col-span-4" style={{ minHeight: '260px' }}>
+              <div className="flex-between" style={{ alignItems: 'flex-start', marginBottom: 'var(--space-2)', gap: '8px' }}>
+                <div className="stat-header" style={{ margin: 0 }}>
+                  <div className="stat-icon-wrap" style={{ width: '28px', height: '28px', background: 'var(--neutral-100)', color: 'var(--neutral-900)', marginRight: '4px' }}>
+                    <PieChartIcon size={16} />
                   </div>
-                ))}
+                  Category Distribution
+                </div>
+                {activeLiveTournaments.length > 1 && (
+                  <select
+                    className="select-minimal"
+                    value={selectedLiveCompId || ''}
+                    onChange={(e) => setSelectedLiveCompId(e.target.value)}
+                    style={{ height: '30px', fontSize: '11px', padding: '0 26px 0 10px', maxWidth: '170px' }}
+                    title="Select Live Tournament"
+                  >
+                    {activeLiveTournaments.map(comp => (
+                      <option key={comp.id} value={comp.id}>
+                        {comp.name || 'Unnamed Tournament'}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              <p className="text-small" style={{ color: 'var(--neutral-500)', marginBottom: 'var(--space-4)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {currentLiveComp ? `Athletes per category in ${currentLiveComp.name || 'Live Tournament'}` : 'Athletes per category in live tournament'}
+              </p>
+              
+              <div className="pie-chart-wrap" style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'center', height: '100%' }}>
+                <div style={{ flexShrink: 0 }}>
+                  {renderPieChart()}
+                </div>
+                <div className="pie-chart-legend" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', maxHeight: '160px', paddingRight: '8px' }}>
+                  {pieLoading ? (
+                    <div style={{ color: 'var(--neutral-400)', fontSize: '12px', fontStyle: 'italic', padding: '16px 0' }}>
+                      Loading categories...
+                    </div>
+                  ) : pieData.length === 0 ? (
+                    <div style={{ color: 'var(--neutral-400)', fontSize: '12px', fontStyle: 'italic', padding: '16px 0' }}>
+                      No athlete category entries found for this tournament.
+                    </div>
+                  ) : (
+                    pieData.map((d, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12px' }}>
+                        <span style={{ width: '12px', height: '12px', borderRadius: '4px', background: d.color, flexShrink: 0 }}></span>
+                        <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--neutral-700)', fontWeight: 500 }} title={d.label}>{d.label}</span>
+                        <span style={{ fontWeight: 700, color: 'var(--neutral-900)' }}>{d.val}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </section>
         
 
         <section className="stagger-in" style={{ marginTop: 'var(--space-6)' }}>
           <div className="flex-between mb-4">
-            <h2 style={{ fontSize: '20px', letterSpacing: '-0.02em' }}>Live Competition Stream</h2>
-            <Link href="/competitions" className="btn btn-ghost" style={{ fontSize: '13px', fontWeight: 700, padding: '8px 16px', color: 'var(--ao)', textDecoration: 'none', background: 'var(--ao-light)', borderRadius: '8px' }}>
-              View Directory <i data-lucide="arrow-right" style={{ width: '16px' }}></i>
+            <h2 style={{ fontSize: '20px', letterSpacing: '-0.02em' }}>Live Tournaments</h2>
+            <Link href="/competitions" className="btn btn-ghost" style={{ fontSize: '13px', fontWeight: 700, padding: '8px 16px', color: 'var(--ao)', textDecoration: 'none', background: 'var(--ao-light)', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              View All Tournaments <ArrowRight size={14} />
             </Link>
           </div>
           
@@ -644,10 +812,10 @@ export default function DashboardPage() {
               </colgroup>
               <thead>
                 <tr>
-                  <th>Competition</th>
+                  <th>Tournament</th>
                   <th>Category</th>
                   <th>Status</th>
-                  <th>Active Mat</th>
+                  <th>Mats</th>
                   <th style={{ textAlign: 'right' }}>Action</th>
                 </tr>
               </thead>
@@ -656,15 +824,15 @@ export default function DashboardPage() {
                   <tr key={comp.id}>
                     <td>
                       <Link href={`/competitions/${comp.id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
-                        <div className="event-title">{comp.name || 'Unnamed Competition'}</div>
+                        <div className="event-title">{comp.name || 'Unnamed Tournament'}</div>
                         <div className="text-small">{comp.type || 'Tournament'}</div>
                       </Link>
                     </td>
                     <td>
                       {comp.status === 'live' ? (
-                        <span style={{ fontWeight: 600, color: 'var(--neutral-900)' }}>Live Categories Active</span>
+                        <span style={{ fontWeight: 600, color: 'var(--neutral-900)' }}>In Progress</span>
                       ) : (
-                        <span style={{ fontWeight: 500, color: 'var(--neutral-500)' }}>Awaiting Categories...</span>
+                        <span style={{ fontWeight: 500, color: 'var(--neutral-500)' }}>Waiting to Start</span>
                       )}
                     </td>
                     <td>
@@ -674,24 +842,75 @@ export default function DashboardPage() {
                       {comp.status === 'live' ? (
                         <div className="mat-pill active" style={{ display: 'inline-flex', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: 700, alignItems: 'center', gap: '6px', background: 'var(--aka-light)', color: 'var(--aka)', border: '1px solid var(--aka)' }}>
                           <span style={{ display: 'inline-block', width: '6px', height: '6px', background: 'var(--aka)', borderRadius: '50%' }}></span>
-                          Active Mats
+                          Active
                         </div>
                       ) : (
                         <div className="mat-pill" style={{ display: 'inline-flex', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: 700, alignItems: 'center', gap: '6px', background: 'var(--neutral-100)', color: 'var(--neutral-500)', border: '1px solid var(--neutral-300)' }}>
-                          Standby
+                          Scheduled
                         </div>
                       )}
                     </td>
                     <td style={{ textAlign: 'right' }}>
-                      <div className="action-btns" style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <div className="action-btns" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
                         {comp.status === 'live' ? (
                           <>
-                            <Link href={`/competitions/${comp.id}/mats`} className="btn btn-ghost"><i data-lucide="layout-grid" style={{ width: '18px' }}></i></Link>
-                            <Link href={`/competitions/${comp.id}`} className="btn btn-primary"><i data-lucide="monitor" style={{ width: '18px' }}></i></Link>
+                            <Link
+                              href={`/competitions/${comp.id}/mats`}
+                              className="btn btn-ghost"
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                fontSize: '12px',
+                                padding: '6px 12px',
+                                border: '1px solid var(--neutral-300)',
+                                background: 'var(--shiro)',
+                                color: 'var(--neutral-700)',
+                                textDecoration: 'none',
+                                height: '34px',
+                                borderRadius: '8px',
+                                fontWeight: 600
+                              }}
+                              title="View Mats"
+                            >
+                              <LayoutGrid size={14} /> Mats
+                            </Link>
+                            <Link
+                              href={`/competitions/${comp.id}`}
+                              className="btn btn-primary"
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                fontSize: '12px',
+                                padding: '6px 14px',
+                                textDecoration: 'none',
+                                height: '34px',
+                                borderRadius: '8px',
+                                fontWeight: 600
+                              }}
+                              title="Live Stream"
+                            >
+                              <Tv size={14} /> Live
+                            </Link>
                           </>
                         ) : (
-                          <Link href={`/competitions/${comp.id}`} className="btn btn-secondary" style={{ textDecoration: 'none' }}>
-                            <i data-lucide="settings" style={{ width: '16px' }}></i> Setup
+                          <Link
+                            href={`/competitions/${comp.id}`}
+                            className="btn btn-secondary"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              fontSize: '12px',
+                              padding: '6px 14px',
+                              height: '34px',
+                              textDecoration: 'none',
+                              borderRadius: '8px',
+                              fontWeight: 600
+                            }}
+                          >
+                            <Settings size={14} /> Setup
                           </Link>
                         )}
                       </div>

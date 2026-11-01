@@ -114,24 +114,51 @@ function drawAthleteRow(
 
   /* ── Athlete name */
   if (athlete) {
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7);
-    doc.setTextColor(...(isWinner && isArchived ? [0, 130, 60] as [number,number,number] : BLACK));
-    doc.text(athlete.name.toUpperCase(), x + 3.5, y + 4, { maxWidth: w - 5 });
+    /* ── Score box for Kata (right-aligned pill) */
+    const scoreBoxW = 9;
+    const scoreBoxH = nameH - 1.6;
+    const scoreBoxX = x + w - scoreBoxW - 1.2;
+    const scoreBoxY = y + 0.8;
 
-    /* ── Academy / ID sub-line */
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(5);
-    doc.setTextColor(...GRAY_400);
-    const sub = [athlete.academy, athlete.playerId].filter(Boolean).join('   ');
-    if (sub) doc.text(sub, x + 3.5, y + 6.5, { maxWidth: w - 12 });
+    if (isKata && score !== undefined) {
+      doc.setFillColor(...(isWinner && isArchived ? [230, 248, 235] as [number, number, number] : WHITE));
+      doc.setDrawColor(...(isWinner && isArchived ? [0, 130, 60] as [number, number, number] : GRAY_200));
+      doc.setLineWidth(0.2);
+      doc.roundedRect(scoreBoxX, scoreBoxY, scoreBoxW, scoreBoxH, 0.8, 0.8, 'FD');
 
-    /* ── Score display for Kata (right aligned) */
-    if (isKata) {
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
-      doc.setTextColor(...BLACK);
-      doc.text(String(score ?? 0), x + w - 4, y + 5.5, { align: 'right' });
+      doc.setFontSize(7.5);
+      doc.setTextColor(...(isWinner && isArchived ? [0, 130, 60] as [number, number, number] : BLACK));
+      doc.text(String(score ?? 0), scoreBoxX + scoreBoxW / 2, scoreBoxY + scoreBoxH / 2 + 1, { align: 'center' });
+    }
+
+    const maxNameW = (isKata && score !== undefined) ? w - scoreBoxW - 6 : w - 6;
+    const upperName = athlete.name.toUpperCase();
+    let nameFontSize = 7;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(nameFontSize);
+    while (nameFontSize > 5 && doc.getTextWidth(upperName) > maxNameW) {
+      nameFontSize -= 0.4;
+      doc.setFontSize(nameFontSize);
+    }
+    doc.setTextColor(...(isWinner && isArchived ? [0, 130, 60] as [number, number, number] : BLACK));
+    doc.text(upperName, x + 3.5, y + 4.2);
+
+    /* ── Academy sub-line (no raw internal IDs) */
+    const sub = [athlete.academy, athlete.state || athlete.country].filter(Boolean).join(' • ') || athlete.academy || '';
+    if (sub) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(4.8);
+      doc.setTextColor(...GRAY_400);
+      const maxSubW = (isKata && score !== undefined) ? w - scoreBoxW - 6 : w - 6;
+      let subText = sub;
+      if (doc.getTextWidth(subText) > maxSubW) {
+        while (subText.length > 5 && doc.getTextWidth(subText + '…') > maxSubW) {
+          subText = subText.slice(0, -1);
+        }
+        subText += '…';
+      }
+      doc.text(subText, x + 3.5, y + 6.3);
     }
   }
 
@@ -166,33 +193,40 @@ function drawAthleteRow(
       doc.line(cx + 0.5, sy + 3.8, cx + colW - 0.5, sy + 3.8);
     }
   } else {
-    // Kata layout - display kata name or placeholder
+    // Kata layout - clean kata name display or bounded handwriting underline
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(5.5);
+    doc.setFontSize(5);
     doc.setTextColor(...GRAY_400);
     
-    // Draw "Kata Name: " in gray
-    const prefix = 'Kata Name: ';
+    const prefix = 'Kata: ';
+    const startX = x + 3.5;
     const prefixW = doc.getTextWidth(prefix);
+    doc.text(prefix, startX, sy + 3.4);
     
-    // Calculate total width to center it
-    const valText = kataName ? kataName.toUpperCase() : '';
-    doc.setFont('helvetica', 'bold');
-    const valW = doc.getTextWidth(valText);
-    const totalW = prefixW + valW;
-    const startX = x + 2 + (w - 2) / 2 - totalW / 2;
-    
-    doc.setTextColor(...GRAY_400);
-    doc.text(prefix, startX, sy + 3.5);
+    const valText = kataName ? kataName.trim() : '';
+    const maxValW = w - 7 - prefixW;
     
     if (valText) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(5.5);
       doc.setTextColor(...color); // Use the competitor's color (red/blue)
-      doc.text(valText, startX + prefixW, sy + 3.5);
+      let dispKata = valText;
+      if (doc.getTextWidth(dispKata) > maxValW) {
+        while (dispKata.length > 3 && doc.getTextWidth(dispKata + '…') > maxValW) {
+          dispKata = dispKata.slice(0, -1);
+        }
+        dispKata += '…';
+      }
+      doc.text(dispKata, startX + prefixW, sy + 3.4);
     } else {
-      // Draw a blank underline for handwriting
-      doc.setDrawColor(...GRAY_400);
-      doc.setLineWidth(0.2);
-      doc.line(startX + prefixW, sy + 3.8, startX + prefixW + 40, sy + 3.8);
+      // Draw an underline for handwriting that STAYS STRICTLY INSIDE THE BLOCK
+      const lineStartX = startX + prefixW;
+      const lineEndX = x + w - 3.5;
+      if (lineEndX > lineStartX) {
+        doc.setDrawColor(...GRAY_200);
+        doc.setLineWidth(0.2);
+        doc.line(lineStartX, sy + 3.8, lineEndX, sy + 3.8);
+      }
     }
   }
 }
@@ -368,12 +402,7 @@ export async function exportTiesheetsPDF(options: ExportOptions): Promise<void> 
     date = '',
   } = options;
 
-  const categories = [...rawCategories].sort((a, b) => {
-    const ageA = getAgeFromCategory(a.name);
-    const ageB = getAgeFromCategory(b.name);
-    if (ageA !== ageB) return ageA - ageB;
-    return a.name.localeCompare(b.name);
-  });
+  const categories = [...rawCategories].sort((a, b) => compareCategoryNames(a.name, b.name));
 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   let isFirst = true;
@@ -542,9 +571,81 @@ function getAgeFromCategory(catName: string): number {
   if (catName.includes('U14')) return 14;
   if (catName.includes('U16') || catName.includes('Cadet')) return 16;
   if (catName.includes('U18') || catName.includes('Junior')) return 18;
-  if (catName.includes('Senior')) return 20;
-  if (catName.includes('Veteran')) return 35;
-  const ageMatch = catName.match(/(\d+)\s*Years?/i) || catName.match(/\((\d+)-/);
+  if (catName.includes('Under 21') || catName.includes('U21')) return 21;
+  if (catName.includes('Senior')) return 22;
+  if (catName.includes('Veteran') || catName.includes('Masters')) return 35;
+  const ageMatch = catName.match(/(\d+)\s*Years?/i) || catName.match(/(?:^|\s|\()(\d+)-/);
   if (ageMatch) return parseInt(ageMatch[1], 10);
   return 99;
+}
+
+function getGenderRank(catName: string): number {
+  const lower = catName.toLowerCase();
+  // Female categories first (rank 0)
+  if (/\b(female|girls?|women)\b/.test(lower) || lower.includes('female')) {
+    return 0;
+  }
+  // Male categories second (rank 1)
+  if (/\b(male|boys?|men)\b/.test(lower) || lower.includes('male')) {
+    return 1;
+  }
+  // Mixed / open / unspecified last (rank 2)
+  return 2;
+}
+
+function getDisciplineRank(catName: string): number {
+  const lower = catName.toLowerCase();
+  if (lower.includes('kata')) return 0; // Kata first
+  return 1; // Kumite / other
+}
+
+function getWeightInfo(catName: string): { isKata: boolean; isPlus: boolean; weight: number } {
+  const lower = catName.toLowerCase();
+  if (lower.includes('kata')) {
+    return { isKata: true, isPlus: false, weight: -1 };
+  }
+  const match = catName.match(/([+-]?)\s*(\d+(?:\.\d+)?)\s*(?:kg|kilos?)/i);
+  if (match) {
+    const isPlus = match[1] === '+';
+    const weight = parseFloat(match[2]);
+    return { isKata: false, isPlus, weight };
+  }
+  return { isKata: false, isPlus: false, weight: 999 };
+}
+
+export function compareCategoryNames(nameA: string, nameB: string): number {
+  // 1. Age: Youngest to Oldest
+  const ageA = getAgeFromCategory(nameA);
+  const ageB = getAgeFromCategory(nameB);
+  if (ageA !== ageB) return ageA - ageB;
+
+  // 2. Gender: Female first, then Male
+  const genA = getGenderRank(nameA);
+  const genB = getGenderRank(nameB);
+  if (genA !== genB) return genA - genB;
+
+  // 3. Discipline: Kata first, then Kumite
+  const discA = getDisciplineRank(nameA);
+  const discB = getDisciplineRank(nameB);
+  if (discA !== discB) return discA - discB;
+
+  // 4. Weight: Lightest to Heaviest (plus/heavyweight categories last)
+  const wA = getWeightInfo(nameA);
+  const wB = getWeightInfo(nameB);
+
+  if (!wA.isKata && !wB.isKata) {
+    if (wA.isPlus !== wB.isPlus) {
+      if (wA.weight === wB.weight) {
+        return wA.isPlus ? 1 : -1;
+      }
+      if (!wA.isPlus && wB.isPlus && wA.weight <= wB.weight) return -1;
+      if (wA.isPlus && !wB.isPlus && wA.weight >= wB.weight) return 1;
+    }
+    if (wA.weight !== wB.weight) {
+      return wA.weight - wB.weight;
+    }
+  }
+
+  // 5. Fallback alphabetical
+  return nameA.localeCompare(nameB);
 }

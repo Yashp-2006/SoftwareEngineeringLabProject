@@ -4,67 +4,74 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Search, Trash2 } from 'lucide-react';
 import { useAuth } from '@/modules/auth/components/AuthProvider';
+import toast from 'react-hot-toast';
 
 const ROLE_MAP: Record<string, string> = {
   'admin': 'Admin',
   'mat_operator': 'Mat Operator',
   'attendance_volunteer': 'Attendance Volunteer',
-  'medal_distributor': 'Medal Distributor',
+  'judge': 'Kata Judge',
   'guest_viewer': 'Guest Viewer',
-  'judge': 'Judge'
+  'viewer': 'Viewer',
+  'medal_distributor': 'Medal Distributor',
 };
 
-const ROLES = Object.keys(ROLE_MAP);
+const ROLES = [
+  'admin',
+  'mat_operator',
+  'attendance_volunteer',
+  'judge',
+  'guest_viewer',
+  'viewer',
+  'medal_distributor',
+];
 
 const ROLE_DESCRIPTIONS: Record<string, string> = {
-  "admin": "Full control (Read/Write)",
-  "mat_operator": "Score mat, manage tiesheet, points",
-  "attendance_volunteer": "Athlete page, ready status, disqualify",
-  "medal_distributor": "Filter state/country, distribute",
-  "guest_viewer": "Read-only access",
-  "judge": "Provide inputs for judging matches"
+  "admin": "Full access: manage users, settings, and all tournament data",
+  "mat_operator": "Run mat scoring, manage tiesheet, and match timers",
+  "attendance_volunteer": "Mark athlete attendance, set ready status, and call mats",
+  "judge": "Submit scoring decisions and judgments for kata matches",
+  "guest_viewer": "Elevated view-only: view mats, tiesheets, categories, and setup without write permissions",
+  "viewer": "Audience viewer: public viewing access only to live brackets and matches",
+  "medal_distributor": "Distribute medals to top finishers after each pool completes",
 };
 
-const getNormalizedRole = (role: string) => {
-  if (!role) return 'guest_viewer';
-  const lower = role.toLowerCase();
-  if (lower === 'admin') return 'admin';
-  if (lower.includes('score') || lower.includes('mat')) return 'mat_operator';
-  if (lower.includes('attendance')) return 'attendance_volunteer';
-  if (lower.includes('medal')) return 'medal_distributor';
-  if (lower.includes('judge')) return 'judge';
-  if (lower.includes('viewer') || lower.includes('audience')) return 'guest_viewer';
-  
-  if (ROLE_MAP[role]) return role;
-  return 'guest_viewer'; // Prevent default select mismatch selecting admin
+const ROLE_ALIASES: Record<string, string> = {
+  admin: 'admin',
+  score: 'mat_operator',
+  mat: 'mat_operator',
+  mat_operator: 'mat_operator',
+  operator: 'mat_operator',
+  attendance: 'attendance_volunteer',
+  attendance_volunteer: 'attendance_volunteer',
+  medal: 'medal_distributor',
+  medal_distributor: 'medal_distributor',
+  judge: 'judge',
+  kata_judge: 'judge',
+  guest_viewer: 'guest_viewer',
+  guest: 'guest_viewer',
+  viewer: 'viewer',
+  audience: 'viewer',
 };
 
-const ACADEMIES = [
-  "No Academy",
-  "Kyoto Shotokan Club",
-  "Osaka Budokan Academy",
-  "Tokyo Seido Dojo",
-  "Nara Combat Academy",
-  "Kobe Wadoryu Center",
-  "International Guest Team",
-  "Madrid Elite Karate",
-  "São Paulo Strikers",
-  "Cairo Champions Club",
-  "USA National Dev Team"
-];
+const getNormalizedRole = (role?: string | null): string => {
+  if (!role) return 'viewer';
+  const lower = role.toLowerCase().trim();
+  return ROLE_ALIASES[lower] || (ROLE_MAP[role] ? role : 'viewer');
+};
 
 interface User {
   id: string;
   name: string;
   email: string;
   role: string;
-  academy: string;
 }
 
 export default function UsersPage() {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [section, setSection] = useState<'staff' | 'viewers' | 'all'>('staff');
   const [roleFilter, setRoleFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [savedStatus, setSavedStatus] = useState<Record<string, boolean>>({});
@@ -77,16 +84,19 @@ export default function UsersPage() {
 
       const q = query(collection(db, 'users'));
       unsub = onSnapshot(q, (snap) => {
-        const data = snap.docs.map(d => {
-          const isAnon = d.data().isAnonymous || (!d.data().email && !d.data().displayName);
-          return {
+        const data = snap.docs
+          .filter(d => {
+            // Exclude anonymous PIN users and deleted accounts
+            const isAnon = d.data().isAnonymous || (!d.data().email && !d.data().displayName);
+            const isDeleted = d.data().deleted === true || d.data().status === 'deleted';
+            return !isAnon && !isDeleted;
+          })
+          .map(d => ({
             id: d.id,
-            name: isAnon ? 'Anonymous PIN Login' : (d.data().displayName || d.data().name || (d.data().email ? d.data().email.split('@')[0] : 'Unknown User')),
+            name: d.data().displayName || d.data().name || (d.data().email ? d.data().email.split('@')[0] : 'Unknown User'),
             email: d.data().email || 'No email',
-            role: getNormalizedRole(d.data().role),
-            academy: d.data().academy || 'No Academy'
-          };
-        }) as User[];
+            role: getNormalizedRole(d.data().role)
+          })) as User[];
         setUsers(data);
         setLoading(false);
       });
@@ -95,34 +105,67 @@ export default function UsersPage() {
     return () => { if (unsub) unsub(); };
   }, []);
 
+  const staffCount = users.filter(u => u.role !== 'viewer').length;
+  const viewersCount = users.filter(u => u.role === 'viewer').length;
+  const totalCount = users.length;
+
   const filteredUsers = users.filter((user) => {
     const query = searchQuery.toLowerCase();
     const textMatch = !query || 
       user.name.toLowerCase().includes(query) || 
-      user.email.toLowerCase().includes(query) || 
-      user.academy.toLowerCase().includes(query);
-    const roleMatch = roleFilter === "all" || user.role === roleFilter;
-    return textMatch && roleMatch;
+      user.email.toLowerCase().includes(query);
+
+    let sectionMatch = true;
+    if (section === 'staff') {
+      sectionMatch = user.role !== 'viewer';
+    } else if (section === 'viewers') {
+      sectionMatch = user.role === 'viewer';
+    }
+
+    let roleMatch = true;
+    if (roleFilter !== 'all') {
+      roleMatch = user.role === roleFilter;
+    }
+
+    return textMatch && sectionMatch && roleMatch;
   });
 
   const handleDeleteUser = async (id: string) => {
     if (currentUser?.uid === id) {
-      alert("You cannot delete your own account.");
+      toast.error("You cannot delete your own account.");
       return;
     }
-    const confirmDelete = window.confirm("Are you sure you want to completely remove this user? This cannot be undone.");
+    const confirmDelete = window.confirm("Are you sure you want to completely remove this user? They will be immediately logged out from all active devices and screens.");
     if (!confirmDelete) return;
     
     try {
       const { db } = await import('@lib/firebase');
-      const { doc, deleteDoc } = await import('firebase/firestore');
+      const { doc, setDoc, updateDoc, deleteDoc } = await import('firebase/firestore');
+
+      // 1. Record in deleted_users tombstone collection so re-authentication is permanently blocked
+      await setDoc(doc(db, 'deleted_users', id), {
+        uid: id,
+        deletedAt: new Date().toISOString(),
+        deletedBy: currentUser?.uid || 'admin'
+      }).catch(err => console.warn('deleted_users setDoc error:', err));
+
+      // 2. Mark deleted on users doc first so real-time onSnapshot listeners on active devices trigger instant logout
+      await updateDoc(doc(db, 'users', id), {
+        deleted: true,
+        status: 'deleted',
+        deletedAt: new Date().toISOString()
+      }).catch(() => {});
+
+      // 3. Delete users document
       await deleteDoc(doc(db, 'users', id));
+      toast.success("User deleted and logged out from all devices");
     } catch (err) {
       console.error('Failed to delete user', err);
+      toast.error("Failed to delete user");
     }
   };
 
-  const updateUserField = async (id: string, field: 'role' | 'academy', value: string) => {
+  const updateUserField = async (id: string, field: 'role', value: string) => {
 
     // Optimistic
     setUsers(prev => prev.map(u => u.id === id ? { ...u, [field]: value } : u));
@@ -248,6 +291,61 @@ export default function UsersPage() {
         .delete-btn:active:not(:disabled) { transform: scale(0.92); }
         .delete-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
+        .section-nav {
+          display: flex;
+          gap: 8px;
+          padding: 12px 20px;
+          background: var(--shiro);
+          border-bottom: 1px solid var(--neutral-300);
+        }
+        .section-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 16px;
+          border-radius: 8px;
+          border: 1.5px solid transparent;
+          background: transparent;
+          font-family: var(--font-body);
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--neutral-600);
+          cursor: pointer;
+          transition: all 160ms cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .section-btn:hover {
+          background: var(--neutral-100);
+          color: var(--neutral-900);
+        }
+        .section-btn.active {
+          background: var(--neutral-900);
+          color: var(--shiro);
+        }
+        .section-badge {
+          display: inline-block;
+          padding: 2px 7px;
+          font-size: 11px;
+          font-weight: 700;
+          border-radius: 10px;
+          background: rgba(0, 0, 0, 0.08);
+          color: inherit;
+        }
+        .section-btn.active .section-badge {
+          background: rgba(255, 255, 255, 0.2);
+          color: var(--shiro);
+        }
+        .section-banner {
+          padding: 12px 24px;
+          background: #eff6ff;
+          border-bottom: 1px solid #bfdbfe;
+          font-size: 13px;
+          line-height: 1.5;
+          color: #1e40af;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
         @media (max-width: 1100px) {
           .users-header { grid-template-columns: 1fr; }
           .users-panel { overflow-x: auto; }
@@ -264,47 +362,107 @@ export default function UsersPage() {
         </header>
 
         <section className="users-panel">
+          {/* Section Navigation Tabs: Staff & Officials vs Audience Viewers vs All */}
+          <div className="section-nav">
+            <button 
+              type="button"
+              className={`section-btn ${section === 'staff' ? 'active' : ''}`}
+              onClick={() => { setSection('staff'); setRoleFilter('all'); }}
+            >
+              Staff & Officials <span className="section-badge">{staffCount}</span>
+            </button>
+            <button 
+              type="button"
+              className={`section-btn ${section === 'viewers' ? 'active' : ''}`}
+              onClick={() => { setSection('viewers'); setRoleFilter('all'); }}
+            >
+              Audience Viewers <span className="section-badge">{viewersCount}</span>
+            </button>
+            <button 
+              type="button"
+              className={`section-btn ${section === 'all' ? 'active' : ''}`}
+              onClick={() => { setSection('all'); setRoleFilter('all'); }}
+            >
+              All Users <span className="section-badge">{totalCount}</span>
+            </button>
+          </div>
+
+          {section === 'viewers' && (
+            <div className="section-banner">
+              <div>
+                <strong>Audience Viewers ({viewersCount})</strong>: Registered audience who signed in to view tournament matches, live brackets, and schedules. They do not have access to administrative controls. You can elevate any viewer to an official role or Guest Viewer using the role selector below.
+              </div>
+            </div>
+          )}
+
           <div className="users-header">
             <div className="search-wrap">
               <Search size={16} />
               <input 
                 className="search-input" 
                 type="text" 
-                placeholder="Search by name, email, or academy..." 
+                placeholder="Search by name or email..." 
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
               />
             </div>
-            <select className="filter-select" value={roleFilter} onChange={e => setRoleFilter(e.target.value)}>
-              <option value="all">Filter by Role (All)</option>
-              {ROLES.map(role => (
-                <option key={role} value={role}>{ROLE_MAP[role]}</option>
-              ))}
+            <select 
+              className="filter-select" 
+              value={roleFilter} 
+              onChange={e => {
+                const val = e.target.value;
+                setRoleFilter(val);
+                if (val === 'viewer') {
+                  setSection('viewers');
+                } else if (val !== 'all' && section === 'viewers') {
+                  setSection('staff');
+                }
+              }}
+            >
+              <option value="all">
+                {section === 'staff' ? 'Filter by Role (All Staff & Officials)' : section === 'viewers' ? 'Filter by Role (All Viewers)' : 'Filter by Role (All Users)'}
+              </option>
+              {section === 'staff' && (
+                <>
+                  <option value="admin">Admin</option>
+                  <option value="mat_operator">Mat Operator</option>
+                  <option value="attendance_volunteer">Attendance Volunteer</option>
+                  <option value="judge">Kata Judge</option>
+                  <option value="guest_viewer">Guest Viewer</option>
+                  <option value="medal_distributor">Medal Distributor</option>
+                </>
+              )}
+              {section === 'viewers' && (
+                <option value="viewer">Viewer</option>
+              )}
+              {section === 'all' && (
+                ROLES.map(role => (
+                  <option key={role} value={role}>{ROLE_MAP[role]}</option>
+                ))
+              )}
             </select>
           </div>
 
           <div className="table-responsive">
           <table className="users-table">
             <colgroup>
-              <col style={{ width: '22%' }} />
-              <col style={{ width: '25%' }} />
-              <col style={{ width: '23%' }} />
-              <col style={{ width: '22%' }} />
-              <col style={{ width: '8%' }} />
+              <col style={{ width: '28%' }} />
+              <col style={{ width: '32%' }} />
+              <col style={{ width: '30%' }} />
+              <col style={{ width: '10%' }} />
             </colgroup>
             <thead>
               <tr>
                 <th>User Name</th>
                 <th>User Email / Gmail</th>
                 <th>Role</th>
-                <th>Academy</th>
                 <th style={{ textAlign: 'right' }}>Status</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={5}>
+                  <td colSpan={4}>
                     <div className="empty-state">
                       <div className="empty-title">Loading users...</div>
                       <div className="empty-desc">Fetching user data from the database.</div>
@@ -313,13 +471,19 @@ export default function UsersPage() {
                 </tr>
               ) : filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={5}>
+                  <td colSpan={4}>
                     <div className="empty-state">
                       <div className="empty-icon">
                         <Search size={24} />
                       </div>
-                      <div className="empty-title">No users found</div>
-                      <div className="empty-desc">Try adjusting your search or role filters.</div>
+                      <div className="empty-title">
+                        {section === 'viewers' ? 'No audience viewers found' : 'No users found'}
+                      </div>
+                      <div className="empty-desc">
+                        {section === 'viewers'
+                          ? 'Audience members who log in to the app will appear here.'
+                          : 'Try adjusting your search or role filters.'}
+                      </div>
                     </div>
                   </td>
                 </tr>
@@ -340,17 +504,6 @@ export default function UsersPage() {
                       </div>
                       <div className="role-desc">
                         {ROLE_DESCRIPTIONS[user.role]}
-                      </div>
-                    </td>
-                    <td>
-                      <div className="inline-select-wrap">
-                        <select 
-                          className="inline-select" 
-                          value={user.academy} 
-                          onChange={e => updateUserField(user.id, 'academy', e.target.value)}
-                        >
-                          {ACADEMIES.map(academy => <option key={academy} value={academy}>{academy}</option>)}
-                        </select>
                       </div>
                     </td>
                     <td className="action-cell">

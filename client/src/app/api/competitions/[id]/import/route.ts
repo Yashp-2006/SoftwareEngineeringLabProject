@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { verifySession } from '@taikaix/backend/lib/firebase-admin';
 import { cookies } from 'next/headers';
 import { ImportService } from '@/modules/competitions/services/import.server';
+import { errorResponse, unauthorizedResponse } from '@/lib/api-response';
 
 // Parses file + generates brackets only — NO Firestore writes.
 // Firestore writes are done client-side to avoid Vercel timeout.
@@ -14,7 +15,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const sessionToken = (await cookies()).get('session')?.value;
     const { role } = await verifySession(sessionToken);
     if (role !== 'admin' && role !== 'guest_viewer') {
-      return NextResponse.json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } }, { status: 403 });
+      return unauthorizedResponse();
     }
 
     const { id } = await params;
@@ -48,17 +49,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const result = await ImportService.processImport(id, options);
 
     return NextResponse.json({ success: true, competitionId: id, ...result });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[import/route]', error);
-    const msg = error?.message || 'Internal server error';
-
-    if (msg.startsWith('BAD_REQUEST:')) {
-      return NextResponse.json({ success: false, error: { code: 'BAD_REQUEST', message: msg.replace('BAD_REQUEST: ', '') } }, { status: 400 });
-    }
-    if (msg.startsWith('UNPROCESSABLE_ENTITY:')) {
-      return NextResponse.json({ success: false, error: { code: 'UNPROCESSABLE_ENTITY', message: msg.replace('UNPROCESSABLE_ENTITY: ', '') } }, { status: 422 });
-    }
-
-    return NextResponse.json({ success: false, error: { code: 'INTERNAL_ERROR', message: msg } }, { status: 500 });
+    return errorResponse(error, 'Internal server error');
   }
 }

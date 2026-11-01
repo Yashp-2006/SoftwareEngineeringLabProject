@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, Calendar } from 'lucide-react';
+import { Search, Calendar, X } from 'lucide-react';
 
 interface CategorySchedule {
   id: string;
@@ -13,13 +13,15 @@ interface CategorySchedule {
   status: string;
   actualEndTime?: string;
   day?: number;
+  isKata?: boolean;
+  gender?: string;
 }
 
 export default function SchedulePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
   
   const [scheduleData, setScheduleData] = useState<CategorySchedule[]>([]);
-  const [compData, setCompData] = useState<{ name: string; dates: string; deployedAt?: string } | null>(null);
+  const [compData, setCompData] = useState<{ name: string; dates: any; deployedAt?: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [matFilter, setMatFilter] = useState("all");
   const [filterType, setFilterType] = useState("all");
@@ -55,30 +57,37 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
           const entries = data.athletes?.length ?? data.entries ?? 0;
           if (entries === 0) return;
 
+          const isKata = Boolean(data.isKata || (typeof data.name === 'string' && data.name.toLowerCase().includes('kata')));
+          const gender = data.gender || '';
+
           if (data.pools && Array.isArray(data.pools) && data.pools.length > 0) {
             data.pools.forEach((p: any) => {
               const label = p.pool === 'finals' ? 'Finals' : `Pool ${p.pool}`;
               scheduleRows.push({
                 id: `${doc.id}_pool_${p.pool}`,
                 category: `${data.name} - ${label}`,
-                mat: p.mat || data.mat || '—',
-                start: p.startTime || '—',
-                end: p.endTime || '—',
+                mat: p.mat || data.mat || '-',
+                start: p.startTime || '-',
+                end: p.endTime || '-',
                 status: p.status || data.status || 'upcoming',
                 actualEndTime: p.actualEndTime || undefined,
                 day: p.day || data.day || 1,
+                isKata,
+                gender,
               });
             });
           } else {
             scheduleRows.push({
               id: doc.id,
               category: data.name,
-              mat: data.mat || '—',
-              start: data.scheduledStartTime || '—',
-              end: data.scheduledEndTime || '—',
+              mat: data.mat || '-',
+              start: data.scheduledStartTime || '-',
+              end: data.scheduledEndTime || '-',
               status: data.status || 'upcoming',
               actualEndTime: data.actualEndTime || undefined,
               day: data.day || 1,
+              isKata,
+              gender,
             });
           }
         });
@@ -98,7 +107,7 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
   const scheduledCount = scheduleData.filter(isScheduled).length;
   const unscheduledCount = totalCategories - scheduledCount;
 
-  const mats = Array.from(new Set(scheduleData.map(item => item.mat).filter(mat => mat && mat !== "—"))).sort();
+  const mats = Array.from(new Set(scheduleData.map(item => item.mat).filter(mat => mat && mat !== '-' && mat !== '—'))).sort();
   const daysList = Array.from(new Set(scheduleData.map(item => item.day).filter(Boolean))).sort((a, b) => Number(a) - Number(b));
 
   // BUG FIX: Do NOT re-sort by time here. The schedule is ordered by the `order` field
@@ -106,24 +115,26 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
   // would override the canonical run order (e.g. when start times are equal or unset).
   // The Firestore listener already fetches rows ordered by `order`, so we preserve that.
   const filteredData = scheduleData.filter(row => {
-    const query = searchQuery.toLowerCase();
+    const query = searchQuery.toLowerCase().trim();
     const nameLower = row.category.toLowerCase();
     
     const matchesText = !query || nameLower.includes(query) || row.mat.toLowerCase().includes(query);
     const matchesMat = matFilter === "all" || row.mat === matFilter;
     const matchesDay = dayFilter === "all" || String(row.day) === dayFilter;
     
+    const isKata = Boolean(row.isKata || nameLower.includes('kata'));
     let matchesType = true;
     if (filterType !== 'all') {
-      if (filterType === 'kata') matchesType = nameLower.includes('kata');
-      if (filterType === 'kumite') matchesType = nameLower.includes('kumite');
+      if (filterType === 'kata') matchesType = isKata;
+      if (filterType === 'kumite') matchesType = !isKata;
     }
     
     let matchesGender = true;
     if (filterGender !== 'all') {
-      const isFemale = nameLower.includes('female') || nameLower.includes('women');
-      const isMale = !isFemale && (nameLower.includes('male') || nameLower.includes('men'));
-      const isMixed = nameLower.includes('mixed') || nameLower.includes('team');
+      const rawGender = (row.gender || '').toLowerCase();
+      const isFemale = rawGender === 'female' || /\b(female|girls?|women)\b/.test(nameLower) || nameLower.includes('female');
+      const isMale = rawGender === 'male' || (!isFemale && (/\b(male|boys?|men)\b/.test(nameLower) || nameLower.includes('male')));
+      const isMixed = rawGender === 'mixed' || nameLower.includes('mixed') || nameLower.includes('team');
       
       if (filterGender === 'female') matchesGender = isFemale;
       if (filterGender === 'male') matchesGender = isMale;
@@ -225,6 +236,8 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
         }
         .schedule-table-wrap {
           overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+          width: 100%;
         }
         .schedule-table {
           width: 100%;
@@ -301,10 +314,50 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
           font-size: 14px;
         }
         @media (max-width: 980px) {
-          .schedule-summary { grid-template-columns: 1fr; }
+          .schedule-summary { grid-template-columns: repeat(3, 1fr); gap: 10px; }
           .search-wrap { width: 100%; }
           .schedule-tools { width: 100%; }
-          .schedule-select { flex: 1; }
+          .schedule-select { flex: 1; min-width: 130px; }
+        }
+        @media (max-width: 640px) {
+          .schedule-summary {
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+          }
+          .summary-tile {
+            padding: 10px 8px;
+            text-align: center;
+          }
+          .summary-label {
+            font-size: 9px;
+            letter-spacing: 0.04em;
+          }
+          .summary-value {
+            font-size: 18px;
+          }
+          .schedule-header {
+            padding: var(--space-3) var(--space-4);
+          }
+          .schedule-tools {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            width: 100%;
+          }
+          .search-wrap {
+            grid-column: span 2;
+            width: 100%;
+          }
+          .schedule-select {
+            min-width: 0;
+            width: 100%;
+            height: 38px;
+            font-size: 13px;
+          }
+          .schedule-table thead th,
+          .schedule-table tbody td {
+            padding: 10px 14px;
+          }
         }
       `}} />
 
@@ -312,7 +365,7 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
         <header className="page-header">
           <div>
             <div className="breadcrumb">
-              <Link href="/competitions" style={{ color: 'inherit', textDecoration: 'none' }}>Competitions</Link> / {id} / Operations
+              <Link href="/competitions" style={{ color: 'inherit', textDecoration: 'none' }}>Competitions</Link> / {compData?.name || id} / Schedule
             </div>
             <h1>Category Schedule</h1>
             {compData && (
@@ -320,7 +373,12 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
                 <span style={{ fontSize: '14px', color: 'var(--neutral-700)', fontWeight: 600 }}>{compData.name}</span>
                 {compData.dates && (
                   <span style={{ fontSize: '13px', color: 'var(--neutral-500)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Calendar size={13} /> {compData.dates}
+                    <Calendar size={13} /> {typeof compData.dates === 'string' ? compData.dates : (() => {
+                      const s = compData.dates?.start || compData.dates?.startDate || '';
+                      const e = compData.dates?.end || compData.dates?.endDate || '';
+                      if (s && e && s !== e) return `${s} – ${e}`;
+                      return String(s || e || '');
+                    })()}
                   </span>
                 )}
                 {compData.deployedAt && (
@@ -351,19 +409,39 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
         <section className="schedule-panel">
           <div className="schedule-header">
             <div>
-              <h2 style={{ margin: 0 }}>Chronological Category Schedule</h2>
-              <div className="text-small">Read-only view of the competition timeline.</div>
+              <h2 style={{ margin: 0 }}>Match Schedule</h2>
+              <div className="text-small">Find your category, mat number, and match time.</div>
             </div>
             <div className="schedule-tools">
               <div className="search-wrap">
-                <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--neutral-500)' }} />
+                <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--neutral-500)', pointerEvents: 'none' }} />
                 <input 
                   className="schedule-input" 
                   type="text" 
                   placeholder="Search category or mat..." 
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
+                  style={{ paddingRight: searchQuery ? '30px' : '12px' }}
                 />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    style={{
+                      position: 'absolute',
+                      right: '8px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--neutral-400)',
+                      cursor: 'pointer',
+                      padding: 0
+                    }}
+                  >
+                    <X size={14} />
+                  </button>
+                )}
               </div>
               <select className="schedule-select" value={filterType} onChange={e => setFilterType(e.target.value)}>
                 <option value="all">All Types</option>
@@ -421,7 +499,7 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
                         {row.status === 'live' && <div style={{ fontSize: '11px', color: 'var(--aka)', fontWeight: 700, marginTop: '2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>In Progress</div>}
                       </td>
                       <td><span style={{ fontWeight: 700, color: 'var(--neutral-700)', fontSize: '13px' }}>Day {row.day || 1}</span></td>
-                      <td><span className="mat-pill">{row.mat || '\u2014'}</span></td>
+                      <td><span className="mat-pill">{row.mat || '-'}</span></td>
                       <td>
                         {row.start && row.end ? (
                           <div className="timeframe-chip">

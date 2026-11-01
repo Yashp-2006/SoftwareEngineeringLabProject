@@ -7,12 +7,13 @@ import { db } from '@lib/firebase';
 import { collection, doc, setDoc, deleteDoc, updateDoc, query, getDoc, getDocs, onSnapshot } from 'firebase/firestore';
 import { toast } from 'react-hot-toast';
 import { gsap } from 'gsap';
+import StaffAssignmentDropdown from './StaffAssignmentDropdown';
 
 export interface StaffAssignment {
   id: string;
   name: string;
-  role: 'score' | 'attendance' | 'medal';
-  type?: 'score' | 'attendance' | 'medal';
+  role: 'score' | 'attendance' | 'medal' | 'judge';
+  type?: 'score' | 'attendance' | 'medal' | 'judge';
   email?: string;
   pin?: string;
   assignedMats?: string[];
@@ -36,7 +37,7 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
 
   // Form states for adding a new roster member
   const [newName, setNewName] = useState('');
-  const [newRole, setNewRole] = useState<'score' | 'attendance' | 'medal'>('score');
+  const [newRole, setNewRole] = useState<'score' | 'attendance' | 'medal' | 'judge'>('score');
   const [newEmail, setNewEmail] = useState('');
   const [newPin, setNewPin] = useState('');
 
@@ -275,8 +276,107 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
     }
   };
 
+  const handleAssignMemberMat = async (staffId: string, matId: string) => {
+    try {
+      const matNum = parseInt(matId.replace(/\D/g, '') || '1', 10);
+      const matParam = `mat-${matNum}`;
+      const matDisplay = `MAT ${String(matNum).padStart(2, '0')}`;
+      
+      const member = staffData.find(s => s.id === staffId);
+      if (!member) return;
+
+      const docRef = doc(db, 'competitions', competitionId, 'staff', staffId);
+      
+      await updateDoc(docRef, {
+        assignedMats: [matParam],
+        lastReassignedAt: new Date().toISOString(),
+        reassignedToMat: matParam,
+        reassignedToMatName: matDisplay,
+        reassignedBy: 'Administrator',
+      });
+
+      // Broadcast to RTDB for immediate real-time cross-client notification
+      try {
+        const { rtdb } = await import('@lib/firebase');
+        const { ref, set } = await import('firebase/database');
+        await set(ref(rtdb, `live_scores/${competitionId}/staff_reassignments/${staffId}`), {
+          targetMatId: matParam,
+          targetMatName: matDisplay,
+          targetMatNum: matNum,
+          timestamp: Date.now(),
+          staffName: member.name
+        });
+      } catch (err) {
+        console.warn('RTDB sync notice:', err);
+      }
+
+      toast.success(`Assigned ${member.name} to ${matDisplay}. Live reassignment dispatched!`);
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to assign mat.');
+    }
+  };
+
+  const handleUnassignMemberMat = async (staffId: string, matId: string) => {
+    try {
+      const member = staffData.find(s => s.id === staffId);
+      if (!member) return;
+      const matNum = parseInt(matId.replace(/\D/g, '') || '1', 10);
+      const filtered = (member.assignedMats || []).filter(m => parseInt(m.replace(/\D/g, ''), 10) !== matNum);
+      const docRef = doc(db, 'competitions', competitionId, 'staff', staffId);
+      await updateDoc(docRef, { assignedMats: filtered });
+      toast.success(`Removed mat assignment.`);
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to remove mat assignment.');
+    }
+  };
+
+  const handleAssignMemberCategoryPool = async (staffId: string, roleType: 'attendance' | 'medal', item: string) => {
+    try {
+      const member = staffData.find(s => s.id === staffId);
+      if (!member) return;
+      const docRef = doc(db, 'competitions', competitionId, 'staff', staffId);
+      if (roleType === 'medal') {
+        const prev = member.assignedPools || [];
+        if (!prev.includes(item)) {
+          await updateDoc(docRef, { assignedPools: [...prev, item] });
+        }
+      } else {
+        const prev = member.assignedCategories || [];
+        if (!prev.includes(item)) {
+          await updateDoc(docRef, { assignedCategories: [...prev, item] });
+        }
+      }
+      toast.success(`Assigned to ${item}`);
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to assign category / pool.');
+    }
+  };
+
+  const handleUnassignMemberCategoryPool = async (staffId: string, roleType: 'attendance' | 'medal', item: string) => {
+    try {
+      const member = staffData.find(s => s.id === staffId);
+      if (!member) return;
+      const docRef = doc(db, 'competitions', competitionId, 'staff', staffId);
+      if (roleType === 'medal') {
+        const filtered = (member.assignedPools || []).filter(p => p !== item);
+        await updateDoc(docRef, { assignedPools: filtered });
+      } else {
+        const filtered = (member.assignedCategories || []).filter(c => c !== item);
+        await updateDoc(docRef, { assignedCategories: filtered });
+      }
+      toast.success(`Removed assignment.`);
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to remove assignment.');
+    }
+  };
+
   const pendingRequests = staffData.filter(s => s.approvalStatus === 'pending' && s.requestUserId);
   const matOperators = staffData.filter(s => s.role === 'score');
+  const kataJudges = staffData.filter(s => s.role === 'judge');
   const attendanceVolunteers = staffData.filter(s => s.role === 'attendance');
   const medalDistributors = staffData.filter(s => s.role === 'medal');
 
@@ -382,21 +482,40 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 12px 0;
+          padding: 10px 0;
           border-bottom: 1px solid var(--neutral-100);
+          gap: 12px;
         }
         .assignment-row:last-child {
           border-bottom: none;
         }
         .assignment-select {
           height: 36px;
-          border-radius: 6px;
+          border-radius: 8px;
           border: 1.5px solid var(--neutral-300);
-          padding: 0 8px;
+          padding: 0 10px;
           font-size: 13px;
           background: #fff;
           outline: none;
-          max-width: 180px;
+          max-width: 200px;
+          flex-shrink: 0;
+          cursor: pointer;
+        }
+        .assignment-select:focus {
+          border-color: var(--kuro);
+        }
+        @media (max-width: 520px) {
+          .assignment-row {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 6px;
+          }
+          .assignment-select {
+            max-width: 100%;
+            width: 100%;
+            height: 40px;
+            font-size: 14px;
+          }
         }
         .confirm-modal-overlay {
           position: fixed;
@@ -492,7 +611,7 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
                         <td><strong>{req.name}</strong></td>
                         <td>
                           <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--neutral-600)' }}>
-                            {req.role === 'score' ? 'Mat Operator' : req.role === 'attendance' ? 'Attendance' : 'Medals'}
+                            {req.role === 'score' ? 'Mat Operator' : req.role === 'judge' ? 'Kata Judge' : req.role === 'attendance' ? 'Attendance' : 'Medals'}
                           </span>
                         </td>
                         <td>{req.email ? `Email: ${req.email}` : 'Quick PIN Login'}</td>
@@ -535,6 +654,7 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
                     <label>Role</label>
                     <select value={newRole} onChange={e => setNewRole(e.target.value as any)}>
                       <option value="score">Mat Operator</option>
+                      <option value="judge">Kata Judge</option>
                       <option value="attendance">Attendance Volunteer</option>
                       <option value="medal">Medal Distributor</option>
                     </select>
@@ -589,7 +709,7 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
                         <td><strong>{member.name}</strong></td>
                         <td>
                           <span style={{ fontSize: '12px', fontWeight: 600 }}>
-                            {member.role === 'score' ? 'Mat Operator' : member.role === 'attendance' ? 'Attendance' : 'Medals'}
+                            {member.role === 'score' ? 'Mat Operator' : member.role === 'judge' ? 'Kata Judge' : member.role === 'attendance' ? 'Attendance' : 'Medals'}
                           </span>
                         </td>
                         <td>
@@ -607,22 +727,18 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
                           )}
                         </td>
                         <td>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                            {member.role === 'score' && (member.assignedMats || []).map(mat => (
-                              <span key={mat} style={{ fontSize: '11px', fontWeight: 700, padding: '2px 6px', background: 'var(--neutral-100)', borderRadius: '4px' }}>{mat}</span>
-                            ))}
-                            {member.role === 'attendance' && (member.assignedCategories || []).map(cat => (
-                              <span key={cat} style={{ fontSize: '11px', fontWeight: 700, padding: '2px 6px', background: 'var(--neutral-100)', borderRadius: '4px' }}>{cat}</span>
-                            ))}
-                            {member.role === 'medal' && (member.assignedPools || []).map(pool => (
-                              <span key={pool} style={{ fontSize: '11px', fontWeight: 700, padding: '2px 6px', background: 'var(--neutral-100)', borderRadius: '4px' }}>{pool}</span>
-                            ))}
-                            {((member.role === 'score' && (!member.assignedMats || member.assignedMats.length === 0)) ||
-                              (member.role === 'attendance' && (!member.assignedCategories || member.assignedCategories.length === 0)) ||
-                              (member.role === 'medal' && (!member.assignedPools || member.assignedPools.length === 0))) && (
-                              <span style={{ fontSize: '12px', fontStyle: 'italic', color: 'var(--neutral-400)' }}>Unassigned</span>
-                            )}
-                          </div>
+                          <StaffAssignmentDropdown
+                            member={member}
+                            competitionId={competitionId}
+                            matsList={matsList}
+                            categories={categories}
+                            allStaff={staffData}
+                            onAssignMat={handleAssignMemberMat}
+                            onUnassignMat={handleUnassignMemberMat}
+                            onAssignCategoryPool={handleAssignMemberCategoryPool}
+                            onUnassignCategoryPool={handleUnassignMemberCategoryPool}
+                            isAdmin={isAdmin}
+                          />
                         </td>
                         {isAdmin && (
                           <td style={{ textAlign: 'right' }}>
@@ -661,6 +777,33 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
                         <option value="">Unassigned</option>
                         {matOperators.map(op => (
                           <option key={op.id} value={op.id}>{op.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* Kata Judges Mapping */}
+            <section className="staff-card">
+              <h3 style={{ marginBottom: '4px' }}>Kata Judges Mapping</h3>
+              <p className="text-small" style={{ marginBottom: '16px' }}>Assign roster judges to score and vote on active mats.</p>
+              <div>
+                {matsList.map(mat => {
+                  const assignedJudge = kataJudges.find(j => j.assignedMats?.includes(mat));
+                  return (
+                    <div key={mat} className="assignment-row">
+                      <span><strong>{mat}</strong></span>
+                      <select
+                        className="assignment-select"
+                        value={assignedJudge?.id || ''}
+                        disabled={!isAdmin}
+                        onChange={e => assignTask('mat', mat, e.target.value)}
+                      >
+                        <option value="">Unassigned</option>
+                        {kataJudges.map(judge => (
+                          <option key={judge.id} value={judge.id}>{judge.name}</option>
                         ))}
                       </select>
                     </div>
@@ -711,24 +854,64 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
                   <p style={{ fontSize: '13px', color: 'var(--neutral-500)', fontStyle: 'italic' }}>No active categories loaded.</p>
                 ) : (
                   categories.map(cat => {
-                    const poolCount = Math.ceil(cat.entries / (cat.poolSize || globalPoolSize || 8));
-                    const pools = Array.from({ length: poolCount }, (_, index) => `${cat.name} - Pool ${index + 1}`);
-                    
+                    const allPoolsKey = `${cat.name} (All Pools)`;
+                    const poolList: Array<{ key: string; label: string; isAll?: boolean }> = [
+                      { key: allPoolsKey, label: '★ All Pools (Entire Category)', isAll: true }
+                    ];
+
+                    const poolSet = new Set<string>();
+                    if (cat.pools && Array.isArray(cat.pools)) {
+                      cat.pools.forEach((p: any) => {
+                        const pid = typeof p === 'string' ? p : (p.pool || p.id || '');
+                        if (pid) poolSet.add(String(pid));
+                      });
+                    }
+                    (cat.matches || []).forEach((m: any) => {
+                      const p = m.pool || (m.id && m.id.includes('Pool') ? m.id.split('-')[0].replace('Pool', '') : (m.id && m.id.includes('finals') ? 'finals' : ''));
+                      if (p) poolSet.add(String(p));
+                    });
+                    if (poolSet.size === 0) {
+                      const poolCount = Math.max(1, Math.ceil((cat.entries || 8) / (cat.poolSize || globalPoolSize || 8)));
+                      for (let i = 1; i <= poolCount; i++) poolSet.add(String(i));
+                      poolSet.add('finals');
+                    } else {
+                      poolSet.add('finals');
+                    }
+
+                    const sortedPools = Array.from(poolSet).sort((a, b) => {
+                      if (a === 'finals') return 1;
+                      if (b === 'finals') return -1;
+                      return parseInt(a) - parseInt(b);
+                    });
+
+                    sortedPools.forEach(p => {
+                      const pLabel = p === 'finals' ? 'Finals (Medals Ceremony)' : `Pool ${p}`;
+                      poolList.push({
+                        key: `${cat.name} (${pLabel})`,
+                        label: pLabel
+                      });
+                    });
+
                     return (
                       <div key={cat.id} style={{ borderBottom: '1px solid var(--neutral-200)', paddingBottom: '8px', marginBottom: '8px' }}>
                         <div style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--neutral-500)', marginBottom: '4px' }}>{cat.name}</div>
-                        {pools.map(poolName => {
-                          const assignedDist = medalDistributors.find(d => d.assignedPools?.includes(poolName));
-                          const displayName = poolName.replace(`${cat.name} - `, '');
-                          
+                        {poolList.map(item => {
+                          const assignedDist = medalDistributors.find(d => 
+                            d.assignedPools?.includes(item.key) ||
+                            (item.isAll && (d.assignedPools?.includes(cat.name) || d.assignedPools?.includes(`${cat.name} (All Pools / Category Medals)`))) ||
+                            d.assignedPools?.includes(`${cat.name} - ${item.label}`)
+                          );
+
                           return (
-                            <div key={poolName} className="assignment-row" style={{ paddingLeft: '8px', borderBottom: 'none' }}>
-                              <span style={{ fontSize: '13px' }}>{displayName}</span>
+                            <div key={item.key} className="assignment-row" style={{ paddingLeft: '8px', borderBottom: 'none' }}>
+                              <span style={{ fontSize: '13px', fontWeight: item.isAll ? 700 : 500, color: item.isAll ? 'var(--neutral-900)' : 'var(--neutral-700)' }}>
+                                {item.label}
+                              </span>
                               <select
                                 className="assignment-select"
                                 value={assignedDist?.id || ''}
                                 disabled={!isAdmin}
-                                onChange={e => assignTask('pool', poolName, e.target.value)}
+                                onChange={e => assignTask('pool', item.key, e.target.value)}
                               >
                                 <option value="">Unassigned</option>
                                 {medalDistributors.map(dist => (
@@ -750,27 +933,29 @@ export default function StaffAssignmentManager({ competitionId, isSetupMode = fa
       )}
 
       {/* Custom Confirm Modal */}
-      <div className={`confirm-modal-overlay ${deleteConfirmOpen ? 'active' : ''}`} onClick={(e) => {
-        if (e.target === e.currentTarget) setDeleteConfirmOpen(false);
-      }}>
-        <div className="confirm-modal-card">
-          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px', borderRadius: '50%', background: 'rgba(217,38,44,0.1)', color: 'var(--aka)', marginBottom: '16px' }}>
-            <ShieldAlert size={24} />
-          </div>
-          <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--neutral-900)', marginBottom: '8px' }}>Remove Staff Member</h3>
-          <p style={{ fontSize: '14px', color: 'var(--neutral-500)', lineHeight: '1.5', marginBottom: '24px', textAlign: 'center' }}>
-            Are you sure you want to remove this staff member? This action will clear their current assignments and credentials.
-          </p>
-          <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-            <button onClick={() => setDeleteConfirmOpen(false)} className="confirm-btn-cancel" type="button">
-              Cancel
-            </button>
-            <button onClick={confirmDeleteRosterMember} className="confirm-btn-danger" type="button">
-              Remove
-            </button>
+      {deleteConfirmOpen && (
+        <div className="confirm-modal-overlay active" onClick={(e) => {
+          if (e.target === e.currentTarget) setDeleteConfirmOpen(false);
+        }}>
+          <div className="confirm-modal-card">
+            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px', borderRadius: '50%', background: 'rgba(217,38,44,0.1)', color: 'var(--aka)', marginBottom: '16px' }}>
+              <ShieldAlert size={24} />
+            </div>
+            <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--neutral-900)', marginBottom: '8px' }}>Remove Staff Member</h3>
+            <p style={{ fontSize: '14px', color: 'var(--neutral-500)', lineHeight: '1.5', marginBottom: '24px', textAlign: 'center' }}>
+              Are you sure you want to remove this staff member? This action will clear their current assignments and credentials.
+            </p>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button onClick={() => setDeleteConfirmOpen(false)} className="confirm-btn-cancel" type="button">
+                Cancel
+              </button>
+              <button onClick={confirmDeleteRosterMember} className="confirm-btn-danger" type="button">
+                Remove
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </>
   );
 }

@@ -10,6 +10,17 @@ import ConfirmModal from '@/modules/shared/components/ConfirmModal';
 import DateRangePicker from '@/modules/shared/components/DateRangePicker';
 import PremiumCTA from '@/modules/shared/components/PremiumCTA';
 import { hashPassword } from '@/lib/hash';
+function getCompetitionDatesString(dates: any): string {
+  if (!dates) return '';
+  if (typeof dates === 'string') return dates;
+  if (typeof dates === 'object') {
+    const start = dates.start || dates.startDate || '';
+    const end = dates.end || dates.endDate || '';
+    if (start && end && start !== end) return `${start} – ${end}`;
+    return String(start || end || '');
+  }
+  return '';
+}
 
 export default function CompetitionsPage() {
   const router = useRouter();
@@ -18,7 +29,7 @@ export default function CompetitionsPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     name: '', dates: '', venue: '', type: 'national', rules: 'wkf', mats: '6', password: '',
-    startTime: '09:00', endTime: '18:00', estMinsPerPool: '45', tournamentDays: 1,
+    startTime: '09:00', endTime: '18:00', tournamentDays: 1,
     globalMatchTime: '3', globalRestTime: '1', globalMedicalTime: '0', globalBunkaiTime: '0'
   });
   const [presetCategories, setPresetCategories] = useState<any[] | null>(null);
@@ -210,7 +221,7 @@ export default function CompetitionsPage() {
           setPresetCategories(cleaned);
           toast.success(`Preset loaded: ${cleaned.length} categories ready`);
         } else {
-          toast.error('Invalid preset format — expected a JSON array');
+          toast.error('Invalid preset format: expected a JSON array');
           setPresetCategories(null);
           setPresetFileName('');
         }
@@ -476,9 +487,38 @@ export default function CompetitionsPage() {
               <Search style={{ position: 'absolute', right: '12px', top: '13px', width: '18px', color: 'var(--neutral-500)' }} />
             </div>
             {role === 'admin' && (
-              <button className="btn btn-primary" style={{ flexShrink: 0 }} onClick={() => setIsModalOpen(true)}>
-                <Plus style={{ width: '18px', marginRight: '6px' }} /> Create New
-              </button>
+              <>
+                <button 
+                  className="btn btn-secondary" 
+                  style={{ flexShrink: 0 }} 
+                  onClick={() => {
+                    setConfirmState({
+                      isOpen: true,
+                      title: 'Generate Demo Tournaments (Setup, Live, Archived)',
+                      message: 'Create all 3 realistic tournament scenarios ([Setup], [Live], and [Archived]) with identical categories (Kumite & Kata), seeded athletes, full tiesheet brackets, and pre-configured staff PINs (1234 / 2345 / 3456 / 4567)?',
+                      isDestructive: false,
+                      onConfirm: async () => {
+                        closeConfirm();
+                        const toastId = toast.loading('Generating 3 demo tournaments & computing brackets...');
+                        try {
+                          const { seedAllDemoTournaments } = await import('@/lib/seed-tournament');
+                          const { liveId } = await seedAllDemoTournaments(user?.uid, user?.email || undefined);
+                          toast.success('Generated [Setup], [Live], and [Archived] demo tournaments!', { id: toastId });
+                          router.push(`/competitions/${liveId}`);
+                        } catch (err) {
+                          console.error(err);
+                          toast.error("Failed to generate demo tournaments.", { id: toastId });
+                        }
+                      }
+                    });
+                  }}
+                >
+                  Populate Demo Data
+                </button>
+                <button className="btn btn-primary" style={{ flexShrink: 0 }} onClick={() => setIsModalOpen(true)}>
+                  <Plus style={{ width: '18px', marginRight: '6px' }} /> Create New
+                </button>
+              </>
             )}
           </div>
         </header>
@@ -502,26 +542,20 @@ export default function CompetitionsPage() {
                       onClick={() => {
                         setConfirmState({
                           isOpen: true,
-                          title: 'Add Dummy Competitions',
-                          message: 'Add 3 dummy competitions to the database for testing?',
+                          title: 'Generate Demo Tournaments (Setup, Live, Archived)',
+                          message: 'Create all 3 realistic tournament scenarios ([Setup], [Live], and [Archived]) with identical categories (Kumite & Kata), seeded athletes, full tiesheet brackets, and pre-configured staff PINs (1234 / 2345 / 3456 / 4567)?',
                           isDestructive: false,
                           onConfirm: async () => {
                             closeConfirm();
+                            const toastId = toast.loading('Generating 3 demo tournaments & computing brackets...');
                             try {
-                              const { collection, addDoc } = await import('firebase/firestore');
-                              const { db } = await import('@lib/firebase');
-                              
-                              const dummies = [
-                                { name: "Tokyo Open 2026", type: "international", rules: "wkf", status: "upcoming", mats: 4, createdAt: new Date().toISOString() },
-                                { name: "Kyoto Nationals", type: "national", rules: "wkf", status: "upcoming", mats: 6, createdAt: new Date().toISOString() },
-                                { name: "Osaka Regional Qualifier", type: "regional", rules: "wkf", status: "upcoming", mats: 2, createdAt: new Date().toISOString() }
-                              ];
-                              
-                              await Promise.all(dummies.map(d => addDoc(collection(db, 'competitions'), d)));
-                              toast.success('Added dummy competitions');
+                              const { seedAllDemoTournaments } = await import('@/lib/seed-tournament');
+                              const { liveId } = await seedAllDemoTournaments(user?.uid, user?.email || undefined);
+                              toast.success('Generated [Setup], [Live], and [Archived] demo tournaments!', { id: toastId });
+                              router.push(`/competitions/${liveId}`);
                             } catch (err) {
                               console.error(err);
-                              toast.error("Failed to add dummy competitions.");
+                              toast.error("Failed to generate demo tournaments.", { id: toastId });
                             }
                           }
                         });
@@ -532,8 +566,130 @@ export default function CompetitionsPage() {
                   </div>
                 </>
               ) : (
-                <div style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--neutral-500)', fontFamily: 'var(--font-body)', fontSize: '14px' }}>
-                  No competitions available right now.
+                <div className="no-comp-empty">
+                  <style dangerouslySetInnerHTML={{ __html: `
+                    .no-comp-empty {
+                      grid-column: 1 / -1;
+                      display: flex;
+                      flex-direction: column;
+                      align-items: center;
+                      padding: 80px 24px 72px;
+                      text-align: center;
+                      animation: nc-fade-in 400ms cubic-bezier(0.23, 1, 0.32, 1) both;
+                    }
+                    @keyframes nc-fade-in {
+                      from { opacity: 0; transform: translateY(16px); }
+                      to   { opacity: 1; transform: translateY(0); }
+                    }
+
+                    .no-comp-icon {
+                      width: 64px;
+                      height: 64px;
+                      border-radius: 16px;
+                      background: var(--neutral-100);
+                      border: 1.5px solid var(--neutral-200);
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      margin-bottom: 20px;
+                    }
+
+                    .no-comp-icon svg {
+                      width: 28px;
+                      height: 28px;
+                      color: var(--neutral-400);
+                    }
+
+                    .no-comp-heading {
+                      font-family: var(--font-display);
+                      font-size: 28px;
+                      letter-spacing: 0.04em;
+                      text-transform: uppercase;
+                      color: var(--neutral-900);
+                      margin-bottom: 8px;
+                    }
+
+                    .no-comp-sub {
+                      font-family: var(--font-body);
+                      font-size: 14px;
+                      color: var(--neutral-500);
+                      max-width: 320px;
+                      line-height: 1.6;
+                      margin-bottom: 36px;
+                    }
+
+                    .no-comp-hints {
+                      display: flex;
+                      gap: 12px;
+                      flex-wrap: wrap;
+                      justify-content: center;
+                    }
+
+                    .no-comp-hint {
+                      display: flex;
+                      align-items: center;
+                      gap: 8px;
+                      padding: 8px 14px;
+                      background: var(--shiro);
+                      border: 1.5px solid var(--neutral-200);
+                      border-radius: 8px;
+                      font-family: var(--font-body);
+                      font-size: 13px;
+                      color: var(--neutral-600);
+                      opacity: 0;
+                      transform: translateY(8px);
+                      animation: nc-hint-in 360ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
+                    }
+
+                    .no-comp-hint:nth-child(1) { animation-delay: 120ms; }
+                    .no-comp-hint:nth-child(2) { animation-delay: 180ms; }
+                    .no-comp-hint:nth-child(3) { animation-delay: 240ms; }
+
+                    @keyframes nc-hint-in {
+                      to { opacity: 1; transform: translateY(0); }
+                    }
+
+                    .no-comp-hint-dot {
+                      width: 6px;
+                      height: 6px;
+                      border-radius: 50%;
+                      background: var(--neutral-300);
+                      flex-shrink: 0;
+                    }
+
+                    @media (prefers-reduced-motion: reduce) {
+                      .no-comp-empty,
+                      .no-comp-hint { animation: none; opacity: 1; transform: none; }
+                    }
+                  `}} />
+
+                  <div className="no-comp-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="4" width="18" height="18" rx="2"/>
+                      <path d="M16 2v4M8 2v4M3 10h18"/>
+                      <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/>
+                    </svg>
+                  </div>
+
+                  <h2 className="no-comp-heading">No Events Scheduled</h2>
+                  <p className="no-comp-sub">
+                    Check back closer to the event date. Your admin will publish competitions here once they go live.
+                  </p>
+
+                  <div className="no-comp-hints">
+                    <div className="no-comp-hint">
+                      <div className="no-comp-hint-dot" />
+                      Live events appear automatically
+                    </div>
+                    <div className="no-comp-hint">
+                      <div className="no-comp-hint-dot" />
+                      No action required on your end
+                    </div>
+                    <div className="no-comp-hint">
+                      <div className="no-comp-hint-dot" />
+                      Refresh to check for updates
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -564,11 +720,18 @@ export default function CompetitionsPage() {
                   <span className="text-micro" style={{ color: 'var(--neutral-500)' }}>ID: {comp.id}</span>
                 </div>
                 <h3 style={{ fontSize: '22px', marginBottom: 'var(--space-1)' }}>{comp.name}</h3>
-                <div className="text-small mb-2">{comp.dates} • {comp.venue}</div>
-                 {(comp.startTime || comp.estMinsPerPool || comp.estMinsPerCategory) && (
+                <div className="text-small mb-2">
+                  {(() => {
+                    const datesText = getCompetitionDatesString(comp.dates);
+                    const venueText = typeof comp.venue === 'string' ? comp.venue : (typeof comp.location === 'string' ? comp.location : '');
+                    if (datesText && venueText) return `${datesText} • ${venueText}`;
+                    return datesText || venueText || '';
+                  })()}
+                </div>
+                {Boolean(comp.startTime || comp.estMinsPerPool || comp.estMinsPerCategory) && (
                   <div style={{ display: 'flex', gap: '16px', marginBottom: '8px', fontSize: '12px', color: 'var(--neutral-500)' }}>
-                    {comp.startTime && <span>🕘 {comp.startTime} – {comp.endTime || '?'}</span>}
-                    {(comp.estMinsPerPool || comp.estMinsPerCategory) && <span>⏱ {comp.estMinsPerPool || comp.estMinsPerCategory} min/pool</span>}
+                    {comp.startTime && <span>🕘 {typeof comp.startTime === 'string' ? comp.startTime : ''} – {typeof comp.endTime === 'string' ? comp.endTime : '?'}</span>}
+                    {Boolean(comp.estMinsPerPool || comp.estMinsPerCategory) && <span>⏱ {String(comp.estMinsPerPool || comp.estMinsPerCategory)} min/pool</span>}
                   </div>
                 )}
                 <div style={{ display: 'flex', gap: 'var(--space-4)', marginTop: 'var(--space-4)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--neutral-100)' }}>
@@ -685,10 +848,6 @@ export default function CompetitionsPage() {
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px', color: 'var(--neutral-700)' }}>End Time</label>
                   <input type="time" id="new-comp-end" className="input-field" value={formData.endTime} onChange={e => setFormData(p => ({ ...p, endTime: e.target.value }))} />
                 </div>
-                <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px', color: 'var(--neutral-700)' }}>Est. Min / Pool</label>
-                  <input type="number" id="new-comp-est" className="input-field" placeholder="45" min="5" max="240" value={formData.estMinsPerPool} onChange={e => setFormData(p => ({ ...p, estMinsPerPool: e.target.value }))} />
-                </div>
               </div>
               <div style={{ display: 'flex', gap: '12px' }}>
                 <div style={{ flex: 1 }}>
@@ -709,7 +868,7 @@ export default function CompetitionsPage() {
                 </div>
               </div>
               <p style={{ fontSize: '11px', color: 'var(--neutral-500)', marginTop: '8px', marginBottom: 0 }}>
-                These are used to auto-generate the competition schedule on deploy. Timings adapt automatically when categories finish early or late.
+                Pool and match durations are automatically calculated from match time, rest/buffer, medical, and bunkai times.
               </p>
             </div>
 
@@ -720,6 +879,7 @@ export default function CompetitionsPage() {
               </label>
               <div style={{ position: 'relative' }}>
                 <input
+                  id="new-comp-password"
                   type={showPassword ? 'text' : 'password'}
                   className="input-field"
                   placeholder="Set a strong password..."
@@ -741,22 +901,26 @@ export default function CompetitionsPage() {
           <div className="modal-footer">
             <button className="btn btn-secondary" onClick={() => { setIsModalOpen(false); setPresetCategories(null); setPresetFileName(''); }}>Cancel</button>
             <button className="btn btn-primary" onClick={async () => {
-              const { name, dates, venue, type, mats, password, startTime, endTime, estMinsPerPool, tournamentDays } = formData;
+              const { name, dates, venue, type, mats, password, startTime, endTime, tournamentDays } = formData;
               if (!name.trim()) { toast.error('Competition name is required'); return; }
-              if (!password.trim()) { toast.error('A password is required to protect this competition'); return; }
+              if (!password.trim()) { 
+                toast.error('A password is required to protect this competition'); 
+                const pwdInput = document.getElementById('new-comp-password');
+                if (pwdInput) { pwdInput.focus(); pwdInput.scrollIntoView({ behavior: 'smooth' }); }
+                return; 
+              }
               
               try {
-                const { collection, addDoc } = await import('firebase/firestore');
+                const { collection, addDoc, writeBatch, doc } = await import('firebase/firestore');
                 const { db } = await import('@lib/firebase');
                 
                 const compData = {
                   name, dates, venue, type,
                   rules: 'custom',
-                  mats: parseInt(mats),
+                  mats: parseInt(mats) || 6,
                   password: await hashPassword(password),
                   startTime: startTime || '09:00',
                   endTime: endTime || '18:00',
-                  estMinsPerPool: parseInt(estMinsPerPool) || 45,
                   globalMatchTime: parseFloat(formData.globalMatchTime) || 3,
                   globalRestTime: parseFloat(formData.globalRestTime) || 1,
                   globalMedicalTime: parseFloat(formData.globalMedicalTime) || 0,
@@ -767,14 +931,40 @@ export default function CompetitionsPage() {
                 };
                 
                 const newDocRef = await addDoc(collection(db, 'competitions'), compData);
+
+                if (presetCategories && presetCategories.length > 0) {
+                  const now = new Date().toISOString();
+                  const catsBatch = writeBatch(db);
+                  for (const cat of presetCategories) {
+                    const catDocRef = doc(collection(db, 'competitions', newDocRef.id, 'categories'));
+                    catsBatch.set(catDocRef, {
+                      name: cat.name,
+                      isKata: Boolean(cat.isKata || (cat.name && cat.name.toLowerCase().includes('kata'))),
+                      gender: cat.gender || 'Any',
+                      discipline: cat.discipline || (cat.isKata ? 'Kata' : 'Kumite'),
+                      minAge: cat.minAge,
+                      maxAge: cat.maxAge,
+                      minWeight: cat.minWeight,
+                      maxWeight: cat.maxWeight,
+                      entries: 0,
+                      athletes: [],
+                      status: 'upcoming',
+                      createdAt: now,
+                      updatedAt: now
+                    });
+                  }
+                  await catsBatch.commit().catch(e => console.warn('Could not save preset categories:', e));
+                }
  
                 toast.success('Competition created successfully!');
                 setIsModalOpen(false);
-                setFormData({ name: '', dates: '', venue: '', type: 'national', rules: 'custom', mats: '6', password: '', startTime: '09:00', endTime: '18:00', estMinsPerPool: '45', tournamentDays: 1, globalMatchTime: '3', globalRestTime: '1', globalMedicalTime: '0', globalBunkaiTime: '0' });
+                setPresetCategories(null);
+                setPresetFileName('');
+                setFormData({ name: '', dates: '', venue: '', type: 'national', rules: 'custom', mats: '6', password: '', startTime: '09:00', endTime: '18:00', tournamentDays: 1, globalMatchTime: '3', globalRestTime: '1', globalMedicalTime: '0', globalBunkaiTime: '0' });
                 router.push(`/setup/${newDocRef.id}`);
-              } catch (err) {
+              } catch (err: any) {
                 console.error(err);
-                toast.error('Failed to create competition');
+                toast.error(err?.message || 'Failed to create competition');
               }
             }}>Create Competition</button>
           </div>

@@ -1,6 +1,5 @@
-'use client';
-
 import React from 'react';
+import SportdataVictoryOverlay, { NextMatchPreview } from '@/modules/shared/components/SportdataVictoryOverlay';
 
 // ─── Flag SVG Component ─────────────────────────────────────────────────────────
 
@@ -46,10 +45,23 @@ export interface KataLiveScoreboardProps {
   // Kata winner (if decided)
   kataWinner?: 'aka' | 'ao' | 'tie_pending' | null;
   winnerName?: string;
+  winnerAcademy?: string;
+  nextMatch?: NextMatchPreview | null;
+  onDismissWinner?: () => void;
+  onProceedNextMatch?: () => void;
 
   // Reveal settings
   revealVotes?: boolean;
   revealCountdown?: number;
+}
+
+export function getKataAutoscaledFontSize(name: string): string {
+  const len = (name || '').trim().length;
+  if (len <= 7) return 'clamp(28px, 3.6vw, 44px)';
+  if (len <= 14) return 'clamp(24px, 3.0vw, 36px)';
+  if (len <= 22) return 'clamp(20px, 2.4vw, 30px)';
+  if (len <= 30) return 'clamp(16px, 1.9vw, 24px)';
+  return 'clamp(13px, 1.5vw, 20px)';
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────────
@@ -78,6 +90,10 @@ export default function KataLiveScoreboard({
   isFullscreen,
   kataWinner,
   winnerName,
+  winnerAcademy,
+  nextMatch,
+  onDismissWinner,
+  onProceedNextMatch,
   revealVotes = true,
   revealCountdown = 0,
 }: KataLiveScoreboardProps) {
@@ -97,29 +113,36 @@ export default function KataLiveScoreboard({
     return (
       <>
         <style dangerouslySetInnerHTML={{ __html: kataScoreboadStyles }} />
-        <div className="kls-root">
-          <div className="kls-header">
-            <div>
-              <div className="kls-title">{title}</div>
-              <div className="kls-subtitle">{subtitle}</div>
+        <div className="kls-root" style={{ position: 'relative' }}>
+          {(title || subtitle || onToggleFullscreen || onBack || logoUrl) && (
+            <div className="kls-header">
+              <div>
+                <div className="kls-title">{title}</div>
+                <div className="kls-subtitle">{subtitle}</div>
+              </div>
+              <div className="kls-header-actions">
+                {onToggleFullscreen && (
+                  <button className="kls-btn" onClick={onToggleFullscreen}>
+                    {isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+                  </button>
+                )}
+                {onBack && <button className="kls-btn kls-btn-dark" onClick={onBack}>← Return</button>}
+              </div>
             </div>
-            <div className="kls-header-actions">
-              {onToggleFullscreen && (
-                <button className="kls-btn" onClick={onToggleFullscreen}>
-                  {isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
-                </button>
-              )}
-              {onBack && <button className="kls-btn kls-btn-dark" onClick={onBack}>← Return</button>}
-            </div>
-          </div>
+          )}
 
-          <div className="kls-winner-wrap">
-            <div className={`kls-winner-showcase ${kataWinner}`}>
-              <div className="kls-winner-label">{kataWinner === 'aka' ? 'AKA WINS' : 'AO WINS'}</div>
-              <div className="kls-winner-flags">{kataWinner === 'aka' ? akaFlags : aoFlags}</div>
-              <div className="kls-winner-name">{winnerName || (kataWinner === 'aka' ? akaName : aoName)}</div>
-            </div>
-          </div>
+          <SportdataVictoryOverlay
+            winnerName={winnerName || (kataWinner === 'aka' ? akaName : aoName)}
+            winnerColor={kataWinner as 'aka' | 'ao'}
+            winnerAcademy={winnerAcademy || (kataWinner === 'aka' ? akaAcademy : aoAcademy)}
+            winnerCountry={kataWinner === 'aka' ? akaCountry : aoCountry}
+            isKata={true}
+            kataFlags={{ aka: akaFlags, ao: aoFlags }}
+            kataName={kataWinner === 'aka' ? akaKataName : aoKataName}
+            nextMatch={nextMatch}
+            onDismiss={onDismissWinner}
+            onProceedNextMatch={onProceedNextMatch}
+          />
         </div>
       </>
     );
@@ -209,7 +232,7 @@ export default function KataLiveScoreboard({
           <div className="kls-fighter-card">
             <div className="kls-fighter-head kls-fighter-head-aka">
               <div className="kls-fighter-lane">AKA</div>
-              <div className="kls-fighter-name">{akaName}</div>
+              <div className="kls-fighter-name" title={akaName} style={{ fontSize: getKataAutoscaledFontSize(akaName) }}>{akaName}</div>
             </div>
             <div className="kls-fighter-body">
               <div className="kls-flag-count kls-flag-count-aka">{revealVotes ? akaFlags : 0}</div>
@@ -248,7 +271,7 @@ export default function KataLiveScoreboard({
               </div>
             </div>
             {kataWinner === 'tie_pending' && (
-              <div className="kls-tie-badge">TIE — RESOLUTION PENDING</div>
+              <div className="kls-tie-badge">TIE: DECISION NEEDED</div>
             )}
           </div>
 
@@ -256,7 +279,7 @@ export default function KataLiveScoreboard({
           <div className="kls-fighter-card">
             <div className="kls-fighter-head kls-fighter-head-ao">
               <div className="kls-fighter-lane">AO</div>
-              <div className="kls-fighter-name">{aoName}</div>
+              <div className="kls-fighter-name" title={aoName} style={{ fontSize: getKataAutoscaledFontSize(aoName) }}>{aoName}</div>
             </div>
             <div className="kls-fighter-body">
               <div className="kls-flag-count kls-flag-count-ao">{revealVotes ? aoFlags : 0}</div>
@@ -309,10 +332,10 @@ export default function KataLiveScoreboard({
 
 const kataScoreboadStyles = `
   .kls-root {
-    position: fixed;
-    inset: 0;
+    width: 100%;
+    height: 100%;
+    position: relative;
     background: var(--neutral-50);
-    z-index: 9999;
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -444,12 +467,18 @@ const kataScoreboadStyles = `
     margin-bottom: 4px;
   }
   .kls-fighter-name {
-    font-size: clamp(28px, 3.5vw, 44px);
+    font-size: clamp(20px, 2.8vw, 36px);
     font-weight: 800;
-    line-height: 1;
+    line-height: 1.1;
     text-transform: uppercase;
     overflow-wrap: break-word;
     word-break: break-word;
+    max-height: 2.3em;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .kls-fighter-body {
@@ -677,19 +706,39 @@ export function deriveJudgeVotes(
   let akaFlags = 0;
   let aoFlags = 0;
 
-  if (!kataScores?.aka || !kataScores?.ao) {
+  if (!kataScores?.aka && !kataScores?.ao) {
     return { judgeVotes: Array(numberOfJudges).fill(null), akaFlags: 0, aoFlags: 0 };
   }
 
+  const akaMap = kataScores.aka || {};
+  const aoMap = kataScores.ao || {};
+
   for (let i = 0; i < numberOfJudges; i++) {
-    const a = kataScores.aka[String(i)] ?? null;
-    const b = kataScores.ao[String(i)] ?? null;
-    if (a === null || b === null) {
+    const a = akaMap[String(i)] ?? null;
+    const b = aoMap[String(i)] ?? null;
+    if (a === null && b === null) {
       judgeVotes.push(null);
-    } else if (a > b) {
+    } else if (a !== null && b === null) {
+      if (a > 0) {
+        judgeVotes.push('aka');
+        akaFlags++;
+      } else {
+        judgeVotes.push(null);
+      }
+    } else if (b !== null && a === null) {
+      if (b > 0) {
+        judgeVotes.push('ao');
+        aoFlags++;
+      } else {
+        judgeVotes.push(null);
+      }
+    } else if (a === 0 && b === 0) {
+      // Both zero means unvoted / reset state
+      judgeVotes.push(null);
+    } else if (a! > b!) {
       judgeVotes.push('aka');
       akaFlags++;
-    } else if (b > a) {
+    } else if (b! > a!) {
       judgeVotes.push('ao');
       aoFlags++;
     } else {

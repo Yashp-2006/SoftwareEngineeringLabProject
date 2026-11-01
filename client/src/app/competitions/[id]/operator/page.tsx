@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Maximize, ArrowLeft, Play, Pause, Flag, RotateCw, Coffee } from 'lucide-react';
+import Link from 'next/link';
+import { Maximize, ArrowLeft, Play, Pause, Flag, RotateCw, Coffee, Tv, ShieldAlert, ShieldCheck } from 'lucide-react';
 import Header from '@/modules/core/layout/Header';
 import PasswordGateway from '@/modules/auth/components/PasswordGateway';
 import { toast } from 'react-hot-toast';
@@ -11,29 +12,96 @@ import KumiteLiveScoreboard from '@/modules/kumite/components/KumiteLiveScoreboa
 import { useAuth } from '@/modules/auth/components/AuthProvider';
 import ScaleWrapper from '@/modules/shared/components/ScaleWrapper';
 import { Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { KATA_LIST } from '@/lib/kata-list';
+import { isMatSessionAuthorized } from '@/modules/auth/operator-auth';
 
-export default function OperatorPortal({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = React.use(params);
+function OperatorPortalInner({ id }: { id: string }) {
+  const searchParams = useSearchParams();
+  const matIdParam = searchParams.get('mat') || 'mat-1';
+  const matNumber = parseInt(matIdParam.replace(/\D/g, '') || '1', 10);
+  const matNum = String(matNumber).padStart(2, '0');
+  const matName = `MAT ${matNum}`;
+
   const [isFullscreen, setIsFullscreen] = useState(false);
   const { user, role, loading: authLoading } = useAuth();
-  const [verified, setVerified] = useState(false);
+  const authKey = matIdParam ? `auth_${id}_${matIdParam}` : `auth_${id}`;
+  const [verified, setVerified] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return isMatSessionAuthorized(id, matIdParam, (k) => sessionStorage.getItem(k));
+    }
+    return false;
+  });
   const [staffRole, setStaffRole] = useState<string | null>(null);
   const isViewer = role === 'guest_viewer' || (!staffRole && role !== 'admin');
+  const isAdmin = role === 'admin';
+
+  // Admin Override & TV Scoreboard states
+  const [adminOverride, setAdminOverride] = useState<{
+    active: boolean;
+    adminName?: string;
+    adminUid?: string | null;
+    timestamp?: number;
+  } | null>(null);
+  const isOverriddenByAdmin = Boolean(adminOverride?.active && !isAdmin);
+  const [isTvConnected, setIsTvConnected] = useState(false);
+  const bcRef = useRef<BroadcastChannel | null>(null);
+
+  // Live Staff Reassignment state
+  const [reassignmentNotice, setReassignmentNotice] = useState<{
+    active: boolean;
+    toMatId: string;
+    toMatName: string;
+    fromMatName: string;
+    countdown: number;
+  } | null>(null);
+
+  const playTransferChime = useCallback(() => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.25);
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.5);
+    } catch {
+      // AudioContext may be restricted by browser autoplay policy
+    }
+  }, []);
 
   useEffect(() => {
     if (authLoading) return;
-    
-    // Admins bypass staff check
-    if (role === 'admin') {
+
+    const hasPasswordAuth = isMatSessionAuthorized(id, matIdParam, (k) => sessionStorage.getItem(k));
+
+    if (hasPasswordAuth || role === 'admin' || role === 'mat_operator') {
       setVerified(true);
+    }
+    
+    if (!user) {
+      if (hasPasswordAuth || role === 'admin' || role === 'mat_operator') {
+        setVerified(true);
+      }
       return;
     }
+
+    let unsubscribe: (() => void) | null = null;
+    let verifyTimeout = setTimeout(() => {
+      setVerified(true);
+    }, 2500);
     
     const checkStaff = async () => {
       try {
         const { db } = await import('@lib/firebase');
-        const { collection, query, where, getDocs } = await import('firebase/firestore');
+        const { collection, query, where, getDocs, doc, onSnapshot } = await import('firebase/firestore');
         
         // 1. Check if matched by UID
         let q = query(collection(db, 'competitions', id, 'staff'), where('userId', '==', user.uid));
@@ -46,27 +114,59 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
         }
 
         if (snap.empty) {
+          clearTimeout(verifyTimeout);
+          if (role === 'admin' || hasPasswordAuth) {
+            setVerified(true);
+            return;
+          }
           // Not registered in roster
           window.location.href = `/login?compId=${id}`;
           return;
         }
         
         const staffDoc = snap.docs[0];
-        const staffData = staffDoc.data();
-        
-        if (staffData.approvalStatus === 'approved') {
-          setStaffRole(staffData.role);
-          // If no mat is specified in URL, redirect to their first assigned mat!
-          const urlParams = new URLSearchParams(window.location.search);
-          if (!urlParams.get('mat') && staffData.assignedMats && staffData.assignedMats.length > 0) {
-            window.location.href = `/competitions/${id}/operator?mat=${staffData.assignedMats[0]}`;
-            return;
+        const staffDocId = staffDoc.id;
+
+        // Set up real-time listener for this staff member doc
+        unsubscribe = onSnapshot(doc(db, 'competitions', id, 'staff', staffDocId), (docSnap) => {
+          if (!docSnap.exists()) return;
+          const staffData = docSnap.data();
+          
+          if (staffData.approvalStatus === 'approved') {
+            setStaffRole(staffData.role);
+            setVerified(true);
+
+            // Check live mat assignment (only for dedicated mat operators)
+            const currentMatNum = parseInt(matIdParam.replace(/\D/g, '') || '1', 10);
+            const targetMat = staffData.reassignedToMat || (staffData.assignedMats && staffData.assignedMats.length > 0 ? staffData.assignedMats[0] : null);
+            const isOperatorStaff = staffData.role === 'score' || role === 'mat_operator';
+            
+            if (isOperatorStaff && targetMat) {
+              const targetMatNum = parseInt(targetMat.replace(/\D/g, '') || '1', 10);
+              const targetMatId = `mat-${targetMatNum}`;
+              const targetMatName = staffData.reassignedToMatName || `MAT ${String(targetMatNum).padStart(2, '0')}`;
+              
+              if (currentMatNum !== targetMatNum) {
+                // Trigger 5-second countdown transfer modal
+                setReassignmentNotice(prev => {
+                  if (prev?.active && prev.toMatId === targetMatId) return prev;
+                  toast.success(`You are assigned to ${targetMatName}! Transferring...`, { duration: 5000, icon: '🔄' });
+                  playTransferChime();
+                  return {
+                    active: true,
+                    toMatId: targetMatId,
+                    toMatName: targetMatName,
+                    fromMatName: matName,
+                    countdown: 5,
+                  };
+                });
+              }
+            }
+          } else if (role !== 'admin') {
+            // Go to pending approval
+            window.location.href = `/login/pending?compId=${id}&staffId=${staffDocId}`;
           }
-          setVerified(true);
-        } else {
-          // Go to pending approval
-          window.location.href = `/login/pending?compId=${id}&staffId=${staffDoc.id}`;
-        }
+        });
       } catch (err) {
         console.error('Error verifying staff assignment:', err);
         setVerified(true); // Fallback to not lock operator out in case of errors
@@ -74,7 +174,37 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
     };
     
     checkStaff();
-  }, [user, role, authLoading, id]);
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [user, role, authLoading, id, matIdParam, matName, playTransferChime]);
+
+  // Countdown timer for live reassignment transfer
+  useEffect(() => {
+    if (!reassignmentNotice?.active) return;
+    
+    // Stop any active match running on current mat
+    setRunning(false);
+
+    if (reassignmentNotice.countdown <= 0) {
+      window.location.href = `/competitions/${id}/operator?mat=${reassignmentNotice.toMatId}`;
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setReassignmentNotice(prev => {
+        if (!prev) return null;
+        if (prev.countdown <= 1) {
+          window.location.href = `/competitions/${id}/operator?mat=${prev.toMatId}`;
+          return { ...prev, countdown: 0 };
+        }
+        return { ...prev, countdown: prev.countdown - 1 };
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [reassignmentNotice, id]);
 
   useEffect(() => {
     const handleFS = () => {
@@ -116,8 +246,10 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
   const [compData, setCompData] = useState<any>(null);
   const [matCategories, setMatCategories] = useState<any[]>([]);
   const [activeMatchId, setActiveMatchId] = useState<string | null>(null);
+  const hasHydratedRef = useRef(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [tempQueue, setTempQueue] = useState<any[]>([]);
+  const [winnerState, setWinnerState] = useState<{ color: 'aka'|'ao', name: string, academy: string, points: number } | null>(null);
   
   const [queueSearchQuery, setQueueSearchQuery] = useState('');
   const [queueFilterPool, setQueueFilterPool] = useState('1');
@@ -155,33 +287,124 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
 
   // RTDB sync — debounced to max 1 write per 500ms to avoid write storms during timer ticks
   const syncRTDB = useCallback(async (payload: any) => {
-    if (isViewer) return;
+    if (isViewer || isOverriddenByAdmin) return;
     try {
       if (!rtdbRefCache.current || !rtdbSetCache.current) {
         const { rtdb } = await import('@lib/firebase');
         const { ref, update } = await import('firebase/database');
-        const matId = new URLSearchParams(window.location.search).get('mat') || 'mat-1';
-        rtdbRefCache.current = ref(rtdb, `live_scores/${id}/mats/${matId}`);
+        rtdbRefCache.current = ref(rtdb, `live_scores/${id}/mats/${matIdParam}`);
         rtdbSetCache.current = update;
       }
       await rtdbSetCache.current(rtdbRefCache.current, payload);
     } catch (err) {
       console.error('Failed to sync RTDB', err);
     }
-  }, [id]);
+  }, [id, isViewer, isOverriddenByAdmin, matIdParam]);
 
   const isKata = activeCategoryData?.isKata || activeCategoryName?.toLowerCase().includes('kata');
+  const isKataCategory = Boolean(isKata);
+  const kataJudgeCount = activeCategoryData?.numberOfJudges || 3;
+  const derivedKataData = React.useMemo(() => deriveJudgeVotes(kataScores, kataJudgeCount), [kataScores, kataJudgeCount]);
 
+  // Broadcast current state to TV Scoreboard (via BroadcastChannel)
+  const broadcastCurrentState = useCallback(() => {
+    if (!bcRef.current) return;
+    try {
+      const mm = Math.floor(timer / 60).toString().padStart(2, '0');
+      const ss = (timer % 60).toString().padStart(2, '0');
+      const isKataMatch = activeCategoryName?.toLowerCase().includes('kata') || false;
+      bcRef.current.postMessage({
+        type: 'STATE_UPDATE',
+        payload: {
+          status: status === 'finished' ? 'standby' : (status === 'upcoming' ? 'upcoming' : (running ? 'live' : 'paused')),
+          matchStatus: status === 'finished' ? 'COMPLETED' : (running ? 'LIVE' : (status === 'upcoming' ? 'UPCOMING' : 'PAUSED')),
+          currentCategory: activeCategoryName || 'No Active Category',
+          isKata: isKataMatch,
+          numberOfJudges: activeCategoryData?.numberOfJudges || 3,
+          currentMatch: queue[0]?.displayId || 'Standby',
+          matchDisplayId: queue[0]?.displayId || 'Standby',
+          matchId: activeMatchId || queue[0]?.id || null,
+          akaName: aka.name, akaCountry: aka.country, akaAcademy: aka.academy,
+          aoName: ao.name, aoCountry: ao.country, aoAcademy: ao.academy,
+          scores: { aka: aka.score, ao: ao.score },
+          akaStats: { yuko: aka.yuko, waza: aka.waza, ippon: aka.ippon, senshu: aka.senshu },
+          aoStats: { yuko: ao.yuko, waza: ao.waza, ippon: ao.ippon, senshu: ao.senshu },
+          akaPenalties: { c1: aka.c1, c2: aka.c2, c3: aka.c3, hc: aka.hc, h: aka.h },
+          aoPenalties:  { c1: ao.c1,  c2: ao.c2,  c3: ao.c3,  hc: ao.hc,  h: ao.h  },
+          restTimerSeconds: restTimer, restTimerRunning: restRunning,
+          timeRemaining: `${mm}:${ss}`,
+          timerSeconds: timer,
+          timerRunning: running,
+          selectedKata,
+          akaKataName: selectedKata?.aka?.name || null,
+          aoKataName: selectedKata?.ao?.name || null,
+          kataVotes: kataVotes || (derivedKataData.akaFlags || derivedKataData.aoFlags ? { aka: derivedKataData.akaFlags, ao: derivedKataData.aoFlags } : null),
+          judgeVotes: derivedKataData.judgeVotes,
+          akaFlags: kataVotes?.aka ?? derivedKataData.akaFlags,
+          aoFlags: kataVotes?.ao ?? derivedKataData.aoFlags,
+          kataWinner,
+          kataScores,
+          revealVotes,
+          revealCountdown,
+          adminOverride,
+          winnerName: winnerState?.name || null,
+          winnerColor: winnerState?.color || null,
+          winnerAcademy: winnerState?.academy || null,
+          winnerPoints: winnerState?.points ?? null,
+          nextMatch: queue[0] ? {
+            matchId: queue[0].displayId || queue[0].id,
+            aka: queue[0].aka,
+            ao: queue[0].ao,
+            akaAcademy: queue[0].akaAcademy,
+            aoAcademy: queue[0].aoAcademy,
+            category: queue[0].category,
+            akaReady: queue[0].akaReady,
+            aoReady: queue[0].aoReady,
+          } : null,
+        }
+      });
+    } catch (e) {
+      console.warn('Broadcast error:', e);
+    }
+  }, [timer, activeCategoryName, status, running, activeCategoryData, queue, activeMatchId, aka, ao, restTimer, restRunning, selectedKata, kataVotes, kataWinner, kataScores, revealVotes, revealCountdown, adminOverride, winnerState, derivedKataData]);
+
+  // Native BroadcastChannel: 0 ms latency local cross-tab / cross-window sync
+  useEffect(() => {
+    let bc: BroadcastChannel | null = null;
+    try {
+      const channelName = `taikaix_scoreboard_${id}_${matIdParam}`;
+      bc = new BroadcastChannel(channelName);
+      bcRef.current = bc;
+
+      bc.onmessage = (event) => {
+        if (event.data?.type === 'SCOREBOARD_MOUNTED') {
+          setIsTvConnected(true);
+          broadcastCurrentState();
+        }
+      };
+    } catch (err) {
+      console.warn('BroadcastChannel error in operator:', err);
+    }
+
+    return () => {
+      if (bc) bc.close();
+      bcRef.current = null;
+    };
+  }, [id, matIdParam, broadcastCurrentState]);
+
+  // State sync effect: broadcasts immediately to local TV scoreboard (<1ms) and debounces RTDB
   useEffect(() => {
     const mm = Math.floor(timer / 60).toString().padStart(2, '0');
     const ss = (timer % 60).toString().padStart(2, '0');
     const isKataMatch = activeCategoryName?.toLowerCase().includes('kata') || false;
     const payload: any = {
       status: status === 'finished' ? 'standby' : (status === 'upcoming' ? 'upcoming' : (running ? 'live' : 'paused')),
+      matchStatus: status === 'finished' ? 'COMPLETED' : (running ? 'LIVE' : (status === 'upcoming' ? 'UPCOMING' : 'PAUSED')),
       currentCategory: activeCategoryName || 'No Active Category',
       isKata: isKataMatch,
       numberOfJudges: activeCategoryData?.numberOfJudges || 3,
       currentMatch: queue[0]?.displayId || 'Standby',
+      matchDisplayId: queue[0]?.displayId || 'Standby',
       matchId: activeMatchId || queue[0]?.id || null,
       akaName: aka.name, akaCountry: aka.country, akaAcademy: aka.academy,
       aoName: ao.name, aoCountry: ao.country, aoAcademy: ao.academy,
@@ -191,17 +414,62 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
       akaPenalties: { c1: aka.c1, c2: aka.c2, c3: aka.c3, hc: aka.hc, h: aka.h },
       aoPenalties:  { c1: ao.c1,  c2: ao.c2,  c3: ao.c3,  hc: ao.hc,  h: ao.h  },
       restTimerSeconds: restTimer, restTimerRunning: restRunning,
+      timeRemaining: `${mm}:${ss}`,
+      timerSeconds: timer,
+      timerRunning: running,
+      selectedKata,
+      akaKataName: selectedKata?.aka?.name || null,
+      aoKataName: selectedKata?.ao?.name || null,
+      kataVotes: kataVotes || (derivedKataData.akaFlags || derivedKataData.aoFlags ? { aka: derivedKataData.akaFlags, ao: derivedKataData.aoFlags } : null),
+      judgeVotes: derivedKataData.judgeVotes,
+      akaFlags: kataVotes?.aka ?? derivedKataData.akaFlags,
+      aoFlags: kataVotes?.ao ?? derivedKataData.aoFlags,
+      kataWinner,
+      kataScores,
+      revealVotes,
+      revealCountdown,
+      adminOverride,
+      winnerName: winnerState?.name || null,
+      winnerColor: winnerState?.color || null,
+      winnerAcademy: winnerState?.academy || null,
+      winnerPoints: winnerState?.points ?? null,
+      nextMatch: queue[0] ? {
+        matchId: queue[0].displayId || queue[0].id,
+        aka: queue[0].aka,
+        ao: queue[0].ao,
+        akaAcademy: queue[0].akaAcademy,
+        aoAcademy: queue[0].aoAcademy,
+        category: queue[0].category,
+        akaReady: queue[0].akaReady,
+        aoReady: queue[0].aoReady,
+      } : null,
     };
 
     if (!isKataMatch) {
       payload.timerSeconds = timer;
       payload.timerRunning = running;
       payload.timeRemaining = `${mm}:${ss}`;
+    } else {
+      if (payload.kataScores === null) delete payload.kataScores;
+      if (payload.kataVotes === null) delete payload.kataVotes;
+      if (payload.kataWinner === null) delete payload.kataWinner;
+      if (payload.selectedKata === null) delete payload.selectedKata;
     }
 
-    // Immediate sync for non-timer events (score/status/penalty changes)
-    // Debounced to 500ms for timer ticks to avoid 1 write/sec write storms
-    if (!isViewer) {
+    // 1. Instant local broadcast to Scoreboard (< 1 ms latency)
+    if (bcRef.current) {
+      try {
+        bcRef.current.postMessage({
+          type: 'STATE_UPDATE',
+          payload
+        });
+      } catch (err) {
+        console.warn('BroadcastChannel post error:', err);
+      }
+    }
+
+    // 2. Cloud RTDB sync (skip if viewer, overridden by admin, or not yet hydrated)
+    if (!isViewer && !isOverriddenByAdmin && hasHydratedRef.current) {
       if (rtdbDebounceTimer.current) clearTimeout(rtdbDebounceTimer.current);
       rtdbDebounceTimer.current = setTimeout(() => syncRTDB(payload), 500);
     }
@@ -209,25 +477,66 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
     return () => {
       if (rtdbDebounceTimer.current) clearTimeout(rtdbDebounceTimer.current);
     };
-  }, [id, aka, ao, timer, status, running, activeCategoryName, queue, syncRTDB, isViewer, activeMatchId]);
+  }, [id, aka, ao, timer, status, running, activeCategoryName, queue, syncRTDB, isViewer, isOverriddenByAdmin, activeMatchId, activeCategoryData, restTimer, restRunning, selectedKata, kataVotes, kataWinner, kataScores, revealVotes, revealCountdown, adminOverride, winnerState, derivedKataData]);
 
-  // Viewer RTDB listener
+  // Unified RTDB Listener: Syncs Admin Override, Viewer/Overridden mirror mode, and Kata events
   useEffect(() => {
-    if (!isViewer) return;
     let unsubscribe = () => {};
     const setupListener = async () => {
       const { rtdb } = await import('@lib/firebase');
       const { ref, onValue, off } = await import('firebase/database');
-      const matId = new URLSearchParams(window.location.search).get('mat') || 'mat-1';
-      const liveRef = ref(rtdb, `live_scores/${id}/mats/${matId}`);
+      const liveRef = ref(rtdb, `live_scores/${id}/mats/${matIdParam}`);
       
       onValue(liveRef, (snapshot) => {
         const val = snapshot.val();
-        if (val) {
-          setAka(prev => ({ ...prev, name: val.akaName || prev.name, country: val.akaCountry || prev.country, academy: val.akaAcademy || prev.academy, score: val.scores?.aka || 0, yuko: val.akaStats?.yuko || 0, waza: val.akaStats?.waza || 0, ippon: val.akaStats?.ippon || 0, senshu: val.akaStats?.senshu || false, c1: val.akaPenalties?.c1 || 0, c2: val.akaPenalties?.c2 || 0, c3: val.akaPenalties?.c3 || 0, hc: val.akaPenalties?.hc || 0, h: val.akaPenalties?.h || 0 }));
-          setAo(prev => ({ ...prev, name: val.aoName || prev.name, country: val.aoCountry || prev.country, academy: val.aoAcademy || prev.academy, score: val.scores?.ao || 0, yuko: val.aoStats?.yuko || 0, waza: val.aoStats?.waza || 0, ippon: val.aoStats?.ippon || 0, senshu: val.aoStats?.senshu || false, c1: val.aoPenalties?.c1 || 0, c2: val.aoPenalties?.c2 || 0, c3: val.aoPenalties?.c3 || 0, hc: val.aoPenalties?.hc || 0, h: val.aoPenalties?.h || 0 }));
+        if (!val) {
+          hasHydratedRef.current = true;
+          return;
+        }
+
+        // 1. Always sync admin override status
+        setAdminOverride(val.adminOverride || null);
+
+        const currentIsAdmin = role === 'admin';
+        const isOverridden = Boolean(val.adminOverride?.active && !currentIsAdmin);
+
+        // 2. If viewer OR overridden by admin, mirror the entire live score from RTDB
+        if (isViewer || isOverridden) {
+          setAka(prev => ({
+            ...prev,
+            name: val.akaName || prev.name,
+            country: val.akaCountry || prev.country,
+            academy: val.akaAcademy || prev.academy,
+            score: val.scores?.aka ?? prev.score,
+            yuko: val.akaStats?.yuko ?? prev.yuko,
+            waza: val.akaStats?.waza ?? prev.waza,
+            ippon: val.akaStats?.ippon ?? prev.ippon,
+            senshu: val.akaStats?.senshu ?? prev.senshu,
+            c1: val.akaPenalties?.c1 ?? prev.c1,
+            c2: val.akaPenalties?.c2 ?? prev.c2,
+            c3: val.akaPenalties?.c3 ?? prev.c3,
+            hc: val.akaPenalties?.hc ?? prev.hc,
+            h: val.akaPenalties?.h ?? prev.h,
+          }));
+          setAo(prev => ({
+            ...prev,
+            name: val.aoName || prev.name,
+            country: val.aoCountry || prev.country,
+            academy: val.aoAcademy || prev.academy,
+            score: val.scores?.ao ?? prev.score,
+            yuko: val.aoStats?.yuko ?? prev.yuko,
+            waza: val.aoStats?.waza ?? prev.waza,
+            ippon: val.aoStats?.ippon ?? prev.ippon,
+            senshu: val.aoStats?.senshu ?? prev.senshu,
+            c1: val.aoPenalties?.c1 ?? prev.c1,
+            c2: val.aoPenalties?.c2 ?? prev.c2,
+            c3: val.aoPenalties?.c3 ?? prev.c3,
+            hc: val.aoPenalties?.hc ?? prev.hc,
+            h: val.aoPenalties?.h ?? prev.h,
+          }));
           setStatus(val.status || 'ongoing');
           if (val.currentCategory) setActiveCategoryName(val.currentCategory);
+          if (val.matchId) setActiveMatchId(val.matchId);
           setKataVotes(val.kataVotes || null);
           setKataWinner(val.kataWinner || null);
           setKataScores(val.kataScores || null);
@@ -239,67 +548,238 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
             if (!isNaN(mm) && !isNaN(ss)) setTimer(mm * 60 + ss);
           }
           setRunning(val.timerRunning || false);
+        } else if (!hasHydratedRef.current) {
+          // 3. First arrival of live RTDB state for active operator: hydrate state so leaving/returning preserves match
+          hasHydratedRef.current = true;
+          if (val.matchId) {
+            setActiveMatchId(val.matchId);
+            if (typeof window !== 'undefined') {
+              sessionStorage.setItem(`activeMatch_${matIdParam}`, val.matchId);
+            }
+          }
+          if (val.akaName || val.scores?.aka !== undefined) {
+            setAka(prev => ({
+              ...prev,
+              name: val.akaName || prev.name,
+              country: val.akaCountry || prev.country,
+              academy: val.akaAcademy || prev.academy,
+              score: val.scores?.aka ?? prev.score,
+              yuko: val.akaStats?.yuko ?? prev.yuko,
+              waza: val.akaStats?.waza ?? prev.waza,
+              ippon: val.akaStats?.ippon ?? prev.ippon,
+              senshu: val.akaStats?.senshu ?? prev.senshu,
+              c1: val.akaPenalties?.c1 ?? prev.c1,
+              c2: val.akaPenalties?.c2 ?? prev.c2,
+              c3: val.akaPenalties?.c3 ?? prev.c3,
+              hc: val.akaPenalties?.hc ?? prev.hc,
+              h: val.akaPenalties?.h ?? prev.h,
+            }));
+          }
+          if (val.aoName || val.scores?.ao !== undefined) {
+            setAo(prev => ({
+              ...prev,
+              name: val.aoName || prev.name,
+              country: val.aoCountry || prev.country,
+              academy: val.aoAcademy || prev.academy,
+              score: val.scores?.ao ?? prev.score,
+              yuko: val.aoStats?.yuko ?? prev.yuko,
+              waza: val.aoStats?.waza ?? prev.waza,
+              ippon: val.aoStats?.ippon ?? prev.ippon,
+              senshu: val.aoStats?.senshu ?? prev.senshu,
+              c1: val.aoPenalties?.c1 ?? prev.c1,
+              c2: val.aoPenalties?.c2 ?? prev.c2,
+              c3: val.aoPenalties?.c3 ?? prev.c3,
+              hc: val.aoPenalties?.hc ?? prev.hc,
+              h: val.aoPenalties?.h ?? prev.h,
+            }));
+          }
+          if (val.status && val.status !== 'finished') setStatus(val.status);
+          if (val.currentCategory) setActiveCategoryName(val.currentCategory);
+          if (val.kataVotes !== undefined) setKataVotes(val.kataVotes || null);
+          if (val.kataWinner !== undefined) setKataWinner(val.kataWinner || null);
+          if (val.kataScores !== undefined) setKataScores(val.kataScores || null);
+          if (val.selectedKata !== undefined) setSelectedKata(val.selectedKata || null);
+          if (val.revealVotes !== undefined) setRevealVotes(val.revealVotes || false);
+          if (val.revealCountdown !== undefined) setRevealCountdown(val.revealCountdown || 0);
+          if (val.timeRemaining) {
+            const [mm, ss] = val.timeRemaining.split(':').map(Number);
+            if (!isNaN(mm) && !isNaN(ss)) setTimer(mm * 60 + ss);
+          } else if (val.timerSeconds !== undefined) {
+            setTimer(val.timerSeconds);
+          }
+          if (val.timerRunning !== undefined) setRunning(val.timerRunning);
+          if (val.restTimerSeconds !== undefined) setRestTimer(val.restTimerSeconds);
+          if (val.restTimerRunning !== undefined) setRestRunning(val.restTimerRunning);
+        } else {
+          // 4. Normal active operator runtime updates — sync Kata updates from remote judges / panel
+          if (val.kataVotes !== undefined) setKataVotes(val.kataVotes || null);
+          if (val.kataWinner !== undefined) setKataWinner(val.kataWinner || null);
+          if (val.kataScores !== undefined) setKataScores(val.kataScores || null);
+          if (val.selectedKata !== undefined) {
+            setSelectedKata(val.selectedKata || null);
+          } else if (val.akaKataName || val.aoKataName || val.akaKata || val.aoKata) {
+            setSelectedKata((prev: any) => ({
+              aka: (val.akaKataName || val.akaKata) ? { name: val.akaKataName || val.akaKata } : prev?.aka,
+              ao: (val.aoKataName || val.aoKata) ? { name: val.aoKataName || val.aoKata } : prev?.ao,
+            }));
+          }
+          if (val.revealVotes !== undefined) setRevealVotes(val.revealVotes || false);
+          if (val.revealCountdown !== undefined) setRevealCountdown(val.revealCountdown || 0);
         }
       });
       unsubscribe = () => off(liveRef);
     };
     setupListener();
     return () => unsubscribe();
-  }, [id, isViewer]);
+  }, [id, isViewer, role, matIdParam]);
 
-  // Kata RTDB listener for Operator (syncs state from KataOperatorPanel)
-  useEffect(() => {
-    if (isViewer) return;
-    let unsubscribe = () => {};
-    const setupListener = async () => {
+  // Admin Override Toggle Handler (Exclusive to Admin)
+  const handleToggleAdminOverride = useCallback(async () => {
+    if (role !== 'admin') {
+      toast.error('Only administrators can take direct control of mat scoreboards.');
+      return;
+    }
+
+    try {
       const { rtdb } = await import('@lib/firebase');
-      const { ref, onValue, off } = await import('firebase/database');
-      const matId = new URLSearchParams(window.location.search).get('mat') || 'mat-1';
-      const liveRef = ref(rtdb, `live_scores/${id}/mats/${matId}`);
-      
-      onValue(liveRef, (snapshot) => {
-        const val = snapshot.val();
-        if (val) {
-          setKataVotes(val.kataVotes || null);
-          setKataWinner(val.kataWinner || null);
-          setKataScores(val.kataScores || null);
-          setSelectedKata(val.selectedKata || null);
-          setRevealVotes(val.revealVotes || false);
-          setRevealCountdown(val.revealCountdown || 0);
+      const { ref, update, get } = await import('firebase/database');
+      const liveRef = ref(rtdb, `live_scores/${id}/mats/${matIdParam}`);
+
+      const currentlyActive = Boolean(adminOverride?.active);
+      const newActive = !currentlyActive;
+
+      const overrideData = {
+        adminOverride: {
+          active: newActive,
+          adminName: user?.displayName || user?.email?.split('@')[0] || 'Tournament Director',
+          adminUid: newActive ? (user?.uid || 'admin') : null,
+          timestamp: Date.now(),
         }
-      });
-      unsubscribe = () => off(liveRef);
-    };
-    setupListener();
-    return () => unsubscribe();
-  }, [id, isViewer]);
+      };
+
+      await update(liveRef, overrideData);
+      setAdminOverride(overrideData.adminOverride);
+
+      if (newActive) {
+        // Hydrate from existing RTDB so admin starts seamlessly with current match state
+        const snap = await get(liveRef);
+        const val = snap.val();
+        if (val) {
+          if (val.akaName) setAka(prev => ({ ...prev, name: val.akaName, country: val.akaCountry || '', academy: val.akaAcademy || '', score: val.scores?.aka ?? prev.score }));
+          if (val.aoName) setAo(prev => ({ ...prev, name: val.aoName, country: val.aoCountry || '', academy: val.aoAcademy || '', score: val.scores?.ao ?? prev.score }));
+          if (val.currentCategory) setActiveCategoryName(val.currentCategory);
+          if (val.matchId) setActiveMatchId(val.matchId);
+          if (val.timeRemaining) {
+            const [mm, ss] = val.timeRemaining.split(':').map(Number);
+            if (!isNaN(mm) && !isNaN(ss)) setTimer(mm * 60 + ss);
+          }
+        }
+        toast.success(`You have taken direct control of Mat ${matNum}. Operator controls are locked.`, {
+          icon: '🛡️',
+          duration: 4000,
+        });
+      } else {
+        toast.success('Mat control released. Operator controls restored.', {
+          icon: '✅',
+          duration: 3000,
+        });
+      }
+    } catch (err) {
+      console.error('Failed to update admin override:', err);
+      toast.error('Failed to change mat control state.');
+    }
+  }, [id, role, user, adminOverride, matIdParam, matNum]);
+
+  // Launch Dedicated TV Scoreboard on Secondary Monitor
+  const handleLaunchTVScoreboard = useCallback(async () => {
+    const targetUrl = `/competitions/${id}/scoreboard?mat=${matIdParam}&auto=1`;
+
+    // 1. Modern Chromium Multi-Screen Window Management API
+    if (typeof window !== 'undefined' && 'getScreenDetails' in window) {
+      try {
+        const screenDetails = await (window as any).getScreenDetails();
+        const secondaryScreen = screenDetails.screens.find((s: any) => !s.isPrimary) || (screenDetails.screens.length > 1 ? screenDetails.screens[1] : null);
+
+        if (secondaryScreen) {
+          const windowFeatures = [
+            `left=${secondaryScreen.availLeft}`,
+            `top=${secondaryScreen.availTop}`,
+            `width=${secondaryScreen.availWidth}`,
+            `height=${secondaryScreen.availHeight}`,
+            'menubar=no',
+            'toolbar=no',
+            'location=no',
+            'status=no',
+            'resizable=yes',
+            'scrollbars=no',
+            'popup=yes'
+          ].join(',');
+
+          const tvWin = window.open(targetUrl, `taikaix_scoreboard_${matIdParam}`, windowFeatures);
+          if (tvWin) {
+            toast.success(`Scoreboard opened on secondary display (${secondaryScreen.label || 'Screen 2'})!`, { icon: '📺' });
+            return;
+          }
+        }
+      } catch (err) {
+        console.log('Window Management API not permitted or skipped:', err);
+      }
+    }
+
+    // 2. Fallback popup window positioned on secondary display or new tab
+    const screenLeftOffset = typeof window !== 'undefined' ? (window.screen.availWidth || 1920) : 1920;
+    const fallbackFeatures = `left=${screenLeftOffset},top=0,width=1920,height=1080,popup=yes,resizable=yes`;
+    const popup = window.open(targetUrl, `taikaix_scoreboard_${matIdParam}`, fallbackFeatures);
+
+    if (popup) {
+      toast.success('Scoreboard window opened! Press F on the scoreboard to enter fullscreen.', { icon: '📺' });
+    } else {
+      window.open(targetUrl, '_blank');
+      toast.success('Scoreboard opened in a new tab. Press F to enter fullscreen.', { icon: '📺' });
+    }
+  }, [id, matIdParam]);
 
   useEffect(() => {
     let unsubscribe = () => {};
     const setupQueue = async () => {
       const { db } = await import('@lib/firebase');
-      const { collection, onSnapshot, query, where, doc, getDoc } = await import('firebase/firestore');
+      const { collection, onSnapshot, doc, getDoc } = await import('firebase/firestore');
 
-      const params = new URLSearchParams(window.location.search);
-      const matId = params.get('mat') || 'mat-1';
-      const matNumberStr = matId.replace('mat-', '');
-      const matName = `MAT ${matNumberStr.padStart(2, '0')}`;
-      
+      // Clear previous mat state immediately on mat switch
+      hasHydratedRef.current = false;
+      setActiveMatchId(null);
+      activeCategoryRef.current = null;
+      setActiveCategoryId(null);
+      setActiveCategoryName('');
+      setActiveCategoryData(null);
+      setQueue([]);
+      setRecentMatches([]);
+      setSkippedCategories([]);
+      setPoolStatuses({});
+      setAka({ name: 'AKA', country: '', academy: '', score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: '' });
+      setAo({ name: 'AO', country: '', academy: '', score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: '' });
+      setStatus('upcoming');
+      setRunning(false);
+      setTimer(180);
+      rtdbRefCache.current = null;
+
       const compRef = doc(db, 'competitions', id);
       const compSnap = await getDoc(compRef);
       if (compSnap.exists()) {
         setCompData(compSnap.data());
       }
 
-      const qMat = query(
-        collection(db, 'competitions', id, 'categories'),
-        where('mat', '==', matName)
-      );
+      const catsCollection = collection(db, 'competitions', id, 'categories');
 
-      unsubscribe = onSnapshot(qMat, (snap) => {
-        let cats = snap.docs
-          .map(d => ({ id: d.id, ...d.data() } as any))
-          .filter(c => (c.athletes?.length ?? c.entries ?? 0) > 0);
+      unsubscribe = onSnapshot(catsCollection, (snap) => {
+        // Robust mat matching: extracts any digits from category.mat (e.g. 'MAT 03', 'mat-3', 'Mat 3', 3)
+        const allCats = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+        const matCats = allCats.filter(c => {
+          const catMatNum = parseInt(String(c.mat || '').replace(/\D/g, ''), 10);
+          return catMatNum === matNumber;
+        });
+
+        let cats = matCats.filter(c => (c.athletes?.length ?? c.entries ?? 0) > 0);
         
         let completed: any[] = [];
         cats.forEach(cat => {
@@ -311,10 +791,8 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
         });
         setAllCompletedMatches(completed);
 
-        // Extract skipped categories for the sidebar
-        const skipped = snap.docs
-          .map(d => ({ id: d.id, ...d.data() }))
-          .filter((c: any) => c.status === 'skipped');
+        // Extract skipped categories for this mat for the sidebar
+        const skipped = matCats.filter((c: any) => c.status === 'skipped');
         setSkippedCategories(skipped);
         setMatCategories(cats);
 
@@ -353,6 +831,49 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
             aoReady: m.ao?.readiness === 'ready',
           })).filter((m: any) => !m.aka.startsWith('Winner M') && !m.ao.startsWith('Winner M'));
           setQueue(mappedQueue);
+
+          // Automatically select best match if none is active or active is not in mappedQueue
+          if (mappedQueue.length > 0) {
+            setActiveMatchId(prevActiveId => {
+              if (prevActiveId && mappedQueue.some((m: any) => m.id === prevActiveId)) {
+                return prevActiveId;
+              }
+              const stored = typeof window !== 'undefined' ? sessionStorage.getItem(`activeMatch_${matIdParam}`) : null;
+              if (stored && mappedQueue.some((m: any) => m.id === stored)) {
+                const matched = mappedQueue.find((m: any) => m.id === stored);
+                if (matched) {
+                  if (!hasHydratedRef.current) {
+                    setAka({ name: matched.aka, country: matched.akaCountry, academy: matched.akaAcademy, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: matched.akaId });
+                    setAo({ name: matched.ao, country: matched.aoCountry, academy: matched.aoAcademy, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: matched.aoId });
+                    const isKata = activeCat.isKata || activeCat.name?.toLowerCase().includes('kata') || false;
+                    setTimer(isKata ? 0 : matchDuration);
+                    setStatus('upcoming');
+                    setWinnerState(null);
+                  }
+                  return matched.id;
+                }
+              }
+              const candidate = mappedQueue.find((m: any) => m.akaReady && m.aoReady)
+                || mappedQueue.find((m: any) => m.akaReady || m.aoReady)
+                || mappedQueue[0];
+
+              if (candidate) {
+                if (!hasHydratedRef.current) {
+                  setAka({ name: candidate.aka, country: candidate.akaCountry, academy: candidate.akaAcademy, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: candidate.akaId });
+                  setAo({ name: candidate.ao, country: candidate.aoCountry, academy: candidate.aoAcademy, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: candidate.aoId });
+                  const isKata = activeCat.isKata || activeCat.name?.toLowerCase().includes('kata') || false;
+                  setTimer(isKata ? 0 : matchDuration);
+                  setStatus('upcoming');
+                  setWinnerState(null);
+                }
+                if (typeof window !== 'undefined') {
+                  sessionStorage.setItem(`activeMatch_${matIdParam}`, candidate.id);
+                }
+                return candidate.id;
+              }
+              return null;
+            });
+          }
           
           const poolStats: Record<string, { total: number, completed: number }> = {};
           matches.forEach((m: any) => {
@@ -386,18 +907,26 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
     };
     setupQueue();
     return () => unsubscribe();
-  }, [id]);
+  }, [id, matIdParam, matNumber]);
   const loadMatch = (m: any, isHydrating = false) => {
+    if (!isHydrating && isOverriddenByAdmin) {
+      toast.error('Cannot change match while Admin override is active.');
+      return;
+    }
     setActiveMatchId(m.id);
-    setAka({ name: m.aka, country: m.akaCountry, academy: m.akaAcademy, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: m.akaId });
-    setAo({ name: m.ao, country: m.aoCountry, academy: m.aoAcademy, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: m.aoId });
-    
     const isKataMatch = m.category?.toLowerCase().includes('kata') || activeCategoryData?.isKata || activeCategoryName?.toLowerCase().includes('kata') || false;
-    
-    setTimer(isKataMatch ? 0 : matchDuration);
-    setStatus('upcoming');
+    if (!isHydrating) {
+      setAka({ name: m.aka, country: m.akaCountry, academy: m.akaAcademy, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: m.akaId });
+      setAo({ name: m.ao, country: m.aoCountry, academy: m.aoAcademy, score: 0, yuko: 0, waza: 0, ippon: 0, c1: 0, c2: 0, c3: 0, hc: 0, h: 0, senshu: false, id: m.aoId });
+      
+      setTimer(isKataMatch ? 0 : matchDuration);
+      setStatus('upcoming');
 
-    setWinnerState(null);
+      setWinnerState(null);
+    } else {
+      setAka(p => ({ ...p, name: m.aka, country: m.akaCountry, academy: m.akaAcademy, id: m.akaId }));
+      setAo(p => ({ ...p, name: m.ao, country: m.aoCountry, academy: m.aoAcademy, id: m.aoId }));
+    }
 
     if (!isViewer && !isHydrating) {
       try {
@@ -443,8 +972,6 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
   }
 
   useEffect(() => {
-    const matIdParam = new URLSearchParams(window.location.search).get('mat') || 'mat-1';
-
     if (queue.length > 0 && !activeMatchId) {
       const storedMatchId = sessionStorage.getItem(`activeMatch_${matIdParam}`);
       const exists = queue.find(m => m.id === storedMatchId);
@@ -464,7 +991,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                        if (d.timerSeconds !== undefined) setTimer(d.timerSeconds);
                        if (d.timerRunning !== undefined) setRunning(d.timerRunning);
                        if (d.status) {
-                          setStatus(d.status === 'live' || d.status === 'paused' ? 'upcoming' : d.status);
+                          setStatus(d.status);
                        }
                     }
                  }
@@ -478,8 +1005,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
     } else if (queue.length > 0 && activeMatchId) {
        sessionStorage.setItem(`activeMatch_${matIdParam}`, activeMatchId);
     }
-
-  }, [queue, activeMatchId, id, isViewer]);
+  }, [queue, activeMatchId, id, isViewer, matIdParam]);
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
     setDraggedIdx(index);
@@ -606,7 +1132,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
       if (points === -2) next.waza = Math.max(0, next.waza - 1);
       if (points === -1) next.yuko = Math.max(0, next.yuko - 1);
       
-      next.score = Math.max(0, next.score + points);
+      next.score = (next.yuko * 1) + (next.waza * 2) + (next.ippon * 3);
       return next;
     });
   };
@@ -630,8 +1156,6 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
   const mins = Math.floor(timer / 60).toString().padStart(2, '0');
   const secs = (timer % 60).toString().padStart(2, '0');
 
-  const [winnerState, setWinnerState] = useState<{ color: 'aka'|'ao', name: string, academy: string, points: number } | null>(null);
-
   const handleNextMatch = () => {
     const currentIdx = queue.findIndex(m => m.id === activeMatchId);
     if (currentIdx !== -1 && queue.length > currentIdx + 1) {
@@ -644,6 +1168,10 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
   };
 
   const handleStartCategory = async () => {
+    if (isOverriddenByAdmin) {
+      toast.error('Controls are locked while Admin override is active.');
+      return;
+    }
     if (!activeCategoryId) return;
     try {
       const { db } = await import('@lib/firebase');
@@ -658,6 +1186,10 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
   };
 
   const handleNextCategory = async () => {
+    if (isOverriddenByAdmin) {
+      toast.error('Controls are locked while Admin override is active.');
+      return;
+    }
     if (!activeCategoryId) return;
     try {
       const { db } = await import('@lib/firebase');
@@ -672,6 +1204,10 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
   };
 
   const handleFinishMatch = async () => {
+    if (isOverriddenByAdmin) {
+      toast.error('Controls are locked while Admin override is active.');
+      return;
+    }
     const currentMatch = queue.find(m => m.id === activeMatchId);
     if (!currentMatch || !activeCategoryId) {
       toast.error('No active match to finish');
@@ -728,7 +1264,24 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
       const res = await fetch(`/api/competitions/${id}/brackets/${activeCategoryId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ matchId: activeMatchId, winnerId: realWinnerId || winnerId }),
+        body: JSON.stringify({
+          matchId: activeMatchId,
+          winnerId: realWinnerId || winnerId,
+          akaScore: (aka.yuko * 1) + (aka.waza * 2) + (aka.ippon * 3),
+          aoScore: (ao.yuko * 1) + (ao.waza * 2) + (ao.ippon * 3),
+          akaIppon: aka.ippon,
+          akaWazaari: aka.waza,
+          akaYuko: aka.yuko,
+          akaSenshu: aka.senshu,
+          akaC1: aka.c1,
+          akaC2: aka.c2,
+          aoIppon: ao.ippon,
+          aoWazaari: ao.waza,
+          aoYuko: ao.yuko,
+          aoSenshu: ao.senshu,
+          aoC1: ao.c1,
+          aoC2: ao.c2,
+        }),
       });
       const data = await res.json();
       if (data.success) {
@@ -759,8 +1312,22 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
     setKataWinner(winner);
     setKataVotes(votes);
 
+    const kataToSave = kataSelectionUsed || selectedKata;
+    const akaKataName = (typeof kataToSave?.aka === 'string' ? kataToSave.aka : kataToSave?.aka?.name) || null;
+    const aoKataName = (typeof kataToSave?.ao === 'string' ? kataToSave.ao : kataToSave?.ao?.name) || null;
+
     if (currentMatch) {
-      setRecentMatches(prev => [{ ...currentMatch, status: 'completed', winnerId: realWinnerId, akaScore: votes.aka, aoScore: votes.ao }, ...prev].slice(0, 3));
+      setRecentMatches(prev => [{
+        ...currentMatch,
+        status: 'completed',
+        winnerId: realWinnerId,
+        akaScore: votes.aka,
+        aoScore: votes.ao,
+        selectedKata: kataToSave || currentMatch.selectedKata,
+        akaKata: akaKataName || currentMatch.akaKata,
+        aoKata: aoKataName || currentMatch.aoKata,
+        kataVotes: votes,
+      }, ...prev].slice(0, 3));
       setQueue(prev => prev.filter(m => m.id !== activeMatchId));
     }
 
@@ -768,7 +1335,16 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
       const res = await fetch(`/api/competitions/${id}/brackets/${activeCategoryId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ matchId: activeMatchId, winnerId: realWinnerId, selectedKata: kataSelectionUsed, kataVotes: votes }),
+        body: JSON.stringify({
+          matchId: activeMatchId,
+          winnerId: realWinnerId,
+          selectedKata: kataToSave || null,
+          akaKata: akaKataName,
+          aoKata: aoKataName,
+          kataVotes: votes,
+          akaScore: votes.aka,
+          aoScore: votes.ao,
+        }),
       });
       const data = await res.json();
       if (data.success) {
@@ -818,7 +1394,12 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
       const res = await fetch(`/api/competitions/${id}/brackets/${activeCategoryId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ matchId: activeMatchId, winnerId }),
+        body: JSON.stringify({
+          matchId: activeMatchId,
+          winnerId,
+          akaScore: aka.score,
+          aoScore: ao.score,
+        }),
       });
       const data = await res.json();
       if (data.success) {
@@ -844,28 +1425,27 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
   };
 
   const handleFinishCategory = async () => {
+    if (isOverriddenByAdmin) {
+      toast.error('Controls are locked while Admin override is active.');
+      return;
+    }
     try {
       const { db } = await import('@lib/firebase');
-      const { collection, getDocs, query, where, updateDoc, doc } = await import('firebase/firestore');
+      const { collection, getDocs, updateDoc, doc } = await import('firebase/firestore');
       
-      const params = new URLSearchParams(window.location.search);
-      const matId = params.get('mat') || 'mat-1';
-      const matNumberStr = matId.replace('mat-', '');
-      const matName = `MAT ${matNumberStr.padStart(2, '0')}`;
-      
-      const q = query(
-        collection(db, 'competitions', id, 'categories'),
-        where('mat', '==', matName),
-        where('status', 'in', ['live', 'upcoming'])
-      );
-      
-      const snaps = await getDocs(q);
-      if (snaps.empty) {
-        toast.error(`No active categories found on ${matName} to finish.`);
+      const snaps = await getDocs(collection(db, 'competitions', id, 'categories'));
+      const activeCatDocs = snaps.docs.filter(d => {
+        const c = d.data();
+        const catMatNum = parseInt(String(c.mat || '').replace(/\D/g, ''), 10);
+        return (d.id === activeCategoryId) || (catMatNum === matNumber && (c.status === 'live' || c.status === 'upcoming'));
+      });
+
+      if (activeCatDocs.length === 0) {
+        toast.error(`No active categories found on Mat ${matNum} to finish.`);
         return;
       }
       
-      const targetDoc = snaps.docs[0];
+      const targetDoc = activeCatDocs[0];
       const catRef = doc(db, 'competitions', id, 'categories', targetDoc.id);
       
       const addMinutesToTime = (timeStr: string, minutes: number) => {
@@ -931,16 +1511,16 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
       
       if (diffMins !== 0) {
         const { writeBatch } = await import('firebase/firestore');
-        const upcomingQ = query(
-          collection(db, 'competitions', id, 'categories'),
-          where('mat', '==', matName),
-          where('status', '==', 'upcoming')
-        );
-        const upcomingSnaps = await getDocs(upcomingQ);
+        const upcomingOnThisMat = snaps.docs.filter(d => {
+          if (d.id === targetDoc.id) return false;
+          const data = d.data();
+          const catMatNum = parseInt(String(data.mat || '').replace(/\D/g, ''), 10);
+          return catMatNum === matNumber && data.status === 'upcoming';
+        });
         const batch = writeBatch(db);
         let shiftedCount = 0;
         
-        upcomingSnaps.docs.forEach(d => {
+        upcomingOnThisMat.forEach(d => {
           const data = d.data();
           const newStart = addMinutesToTime(data.scheduledStartTime, diffMins);
           const newEnd = addMinutesToTime(data.scheduledEndTime, diffMins);
@@ -963,22 +1543,10 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
     }
   };
 
-  const prevCategoryRef = React.useRef(activeCategoryId);
-  React.useEffect(() => {
-    if (activeCategoryId !== prevCategoryRef.current) {
-      setActiveMatchId(null);
-      prevCategoryRef.current = activeCategoryId;
-    }
-  }, [activeCategoryId]);
 
-  const isKataCategory = activeCategoryData?.isKata || activeCategoryName?.toLowerCase().includes('kata') || false;
-  const kataJudgeCount = activeCategoryData?.numberOfJudges || 3;
-  const derivedKataData = React.useMemo(() => deriveJudgeVotes(kataScores, kataJudgeCount), [kataScores, kataJudgeCount]);
+  const hasPasswordAuth = isMatSessionAuthorized(id, matIdParam, (k) => sessionStorage.getItem(k));
 
-  const matIdParam = typeof window !== 'undefined' ? (new URLSearchParams(window.location.search).get('mat') || 'mat-1') : 'mat-1';
-  const matNum = matIdParam.replace('mat-', '').padStart(2, '0');
-
-  if (!verified && !isViewer && role !== 'admin') {
+  if (!verified && !isViewer && role !== 'admin' && role !== 'mat_operator' && !hasPasswordAuth) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--neutral-50)' }}>
         <p style={{ color: 'var(--neutral-500)', fontSize: '14px', fontWeight: 600 }}>Verifying credentials and assignments...</p>
@@ -988,7 +1556,6 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
 
   return (
     <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
-      <PasswordGateway>
       {/* FULLSCREEN OVERLAY */}
       {isFullscreen && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: '#000', zIndex: 9999, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -1011,8 +1578,8 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                 revealCountdown={revealCountdown}
                 timeRemaining={`${Math.floor(timer / 60).toString().padStart(2, '0')}:${(timer % 60).toString().padStart(2, '0')}`}
                 matchStatus={status === 'finished' ? 'COMPLETED' : (running ? 'LIVE' : status.toUpperCase())}
-                logoUrl={compData?.scoreboardLogo}
-                title={`Mat ${matNum} — Kata Scoreboard`}
+                logoUrl={compData?.scoreboardLogo || compData?.logoUrl}
+                title={`Mat ${matNum}: Kata Scoreboard`}
                 subtitle={`${compData?.name || 'Tournament'} • ${activeCategoryName || 'Kata'}`}
                 onToggleFullscreen={() => {
                   if (document.fullscreenElement) {
@@ -1032,6 +1599,22 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                 }}
                 kataWinner={winnerState ? winnerState.color : (kataWinner as any)}
                 winnerName={winnerState?.name}
+                winnerAcademy={winnerState?.academy}
+                nextMatch={queue[0] ? {
+                  matchId: queue[0].displayId || queue[0].id,
+                  aka: queue[0].aka,
+                  ao: queue[0].ao,
+                  akaAcademy: queue[0].akaAcademy,
+                  aoAcademy: queue[0].aoAcademy,
+                  category: queue[0].category,
+                  akaReady: queue[0].akaReady,
+                  aoReady: queue[0].aoReady,
+                } : null}
+                onDismissWinner={() => setWinnerState(null)}
+                onProceedNextMatch={() => {
+                  setWinnerState(null);
+                  if (queue[0]) loadMatch(queue[0]);
+                }}
               />
             ) : (
               <KumiteLiveScoreboard
@@ -1049,10 +1632,18 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                 aoWazaari={ao.waza}
                 akaYuko={aka.yuko}
                 aoYuko={ao.yuko}
-                akaC1={(aka.c1?1:0) + (aka.c2?1:0) + (aka.c3?1:0) + (aka.hc?1:0) + (aka.h?1:0)}
-                aoC1={(ao.c1?1:0) + (ao.c2?1:0) + (ao.c3?1:0) + (ao.hc?1:0) + (ao.h?1:0)}
-                akaC2={0}
-                aoC2={0}
+                akaC1={aka.c1}
+                aoC1={ao.c1}
+                akaC2={aka.c2}
+                aoC2={ao.c2}
+                akaC3={aka.c3}
+                aoC3={ao.c3}
+                akaHC={aka.hc}
+                aoHC={ao.hc}
+                akaH={aka.h}
+                aoH={ao.h}
+                akaPenalties={{ c1: aka.c1, c2: aka.c2, c3: aka.c3, hc: aka.hc, h: aka.h }}
+                aoPenalties={{ c1: ao.c1, c2: ao.c2, c3: ao.c3, hc: ao.hc, h: ao.h }}
                 akaSenshu={aka.senshu}
                 aoSenshu={ao.senshu}
                 timerDisplay={`${Math.floor(timer / 60).toString().padStart(2, '0')}:${(timer % 60).toString().padStart(2, '0')}`}
@@ -1060,9 +1651,26 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                 matchStatus={timer === 0 ? 'TIME OVER' : running ? 'MATCH LIVE' : timer === matchDuration ? 'PRE-MATCH' : 'PAUSED'}
                 title={compData?.name || 'TAIKAIX'}
                 categoryName={activeCategoryName || 'KUMITE'}
-                matchId={`MAT ${matNum} - ${queue.find(m => m.id === activeMatchId)?.displayId || '—'}`}
+                logoUrl={compData?.scoreboardLogo || compData?.logoUrl}
+                matchId={`MAT ${matNum} - ${queue.find(m => m.id === activeMatchId)?.displayId || '-'}`}
                 winnerName={winnerState ? winnerState.name : undefined}
                 winnerColor={winnerState ? winnerState.color : undefined}
+                winnerAcademy={winnerState?.academy}
+                nextMatch={queue[0] ? {
+                  matchId: queue[0].displayId || queue[0].id,
+                  aka: queue[0].aka,
+                  ao: queue[0].ao,
+                  akaAcademy: queue[0].akaAcademy,
+                  aoAcademy: queue[0].aoAcademy,
+                  category: queue[0].category,
+                  akaReady: queue[0].akaReady,
+                  aoReady: queue[0].aoReady,
+                } : null}
+                onDismissWinner={() => setWinnerState(null)}
+                onProceedNextMatch={() => {
+                  setWinnerState(null);
+                  if (queue[0]) loadMatch(queue[0]);
+                }}
                 isFullscreen={isFullscreen}
                 onToggleFullscreen={() => {
                   if (document.fullscreenElement) {
@@ -1203,13 +1811,68 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
       `}} />
 
       <main className="container">
+        {isAdmin && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', background: 'var(--neutral-900)', color: '#fff', borderRadius: '10px', marginBottom: '20px', flexWrap: 'wrap', border: '1px solid var(--neutral-700)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginRight: '8px' }}>
+              <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: 'var(--status-live)' }} />
+              <span style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--neutral-400)' }}>
+                Admin Mat Monitor:
+              </span>
+            </div>
+            <Link
+              href={`/competitions/${id}/mats`}
+              style={{
+                color: '#fff',
+                textDecoration: 'none',
+                fontSize: '12px',
+                fontWeight: 700,
+                padding: '4px 10px',
+                borderRadius: '6px',
+                background: 'rgba(255,255,255,0.15)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                marginRight: '8px'
+              }}
+            >
+              ← All Mats
+            </Link>
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+              {Array.from({ length: compData?.mats || 6 }, (_, i) => {
+                const currentNum = i + 1;
+                const mNum = currentNum.toString().padStart(2, '0');
+                const mId = `mat-${currentNum}`;
+                const isCurrent = matNumber === currentNum;
+                return (
+                  <Link
+                    key={mId}
+                    href={`/competitions/${id}/operator?mat=${mId}`}
+                    style={{
+                      color: isCurrent ? '#000' : '#fff',
+                      background: isCurrent ? 'var(--status-live)' : 'rgba(255,255,255,0.1)',
+                      padding: '4px 12px',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: 800,
+                      textDecoration: 'none',
+                      boxShadow: isCurrent ? '0 0 10px rgba(34, 197, 94, 0.4)' : 'none',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    MAT {mNum}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
         <header className="page-header" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
           <div style={{ flex: '1 1 min-content' }}>
             <div className="breadcrumb" style={{ fontSize: '13px', fontWeight: 800, color: 'var(--neutral-500)', letterSpacing: '0.1em', marginBottom: '8px' }}>
               {compData?.name ? compData.name.toUpperCase() : 'TOURNAMENT'} • {activeCategoryName ? activeCategoryName.toUpperCase() : 'NO CATEGORY'}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-              <h1 style={{ fontSize: '40px', margin: 0, lineHeight: 1 }}>{new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('mat') ? `Mat ${new URLSearchParams(window.location.search).get('mat')?.replace('mat-', '').padStart(2, '0')}` : 'Mat 01'}</h1>
+              <h1 style={{ fontSize: '40px', margin: 0, lineHeight: 1 }}>{`Mat ${matNum}`}</h1>
               <span className="status-chip status-live">Live</span>
               {activeCategoryName && (
                 <span style={{ fontSize: '16px', fontWeight: 700, color: 'var(--neutral-500)', marginLeft: '4px' }}>
@@ -1219,22 +1882,122 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
             </div>
           </div>
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'flex-end', flex: '0 1 auto' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={handleLaunchTVScoreboard}
+              title="Launch dedicated TV Scoreboard on secondary display / TV"
+              style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+            >
+              <Tv size={16} />
+              <span>Send to TV</span>
+              {isTvConnected && (
+                <span
+                  style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    background: '#22c55e',
+                    boxShadow: '0 0 8px #22c55e',
+                    display: 'inline-block'
+                  }}
+                  title="TV Scoreboard Connected"
+                />
+              )}
+            </button>
+
             {!isViewer && (
               <>
-                <button type="button" className="btn btn-primary" onClick={handleStartCategory}><Play size={16} /> Start Category</button>
-                <button type="button" className="btn btn-secondary" onClick={handleFinishCategory}><Flag size={16} /> Finish Category</button>
-                <button type="button" className="btn btn-secondary" onClick={handleNextCategory}>Next Category</button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={handleStartCategory}
+                  disabled={isOverriddenByAdmin}
+                >
+                  <Play size={16} /> Start Category
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={handleFinishCategory}
+                  disabled={isOverriddenByAdmin}
+                >
+                  <Flag size={16} /> Finish Category
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={handleNextCategory}
+                  disabled={isOverriddenByAdmin}
+                >
+                  Next Category
+                </button>
               </>
             )}
-            <button type="button" className="btn btn-primary" onClick={() => {
-              document.documentElement.requestFullscreen().catch(()=>{});
-            }}>
-              <Maximize size={16} /> View Scoreboard Fullscreen
+
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => {
+                document.documentElement.requestFullscreen().catch(()=>{});
+              }}
+            >
+              <Maximize size={16} /> Fullscreen
             </button>
           </div>
         </header>
-        
-        <div className="mat-detail-grid">
+
+        {/* Admin Mat Override Banner (for Operators) */}
+        {isOverriddenByAdmin && (
+          <div style={{
+            background: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)',
+            color: '#ffffff',
+            padding: '16px 20px',
+            borderRadius: '12px',
+            marginBottom: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            boxShadow: '0 8px 24px rgba(239, 68, 68, 0.25)',
+            border: '1px solid rgba(255, 255, 255, 0.2)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <div style={{ background: 'rgba(255,255,255,0.2)', padding: '8px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <ShieldAlert size={28} color="#ffffff" />
+              </div>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: '16px', letterSpacing: '0.02em', textTransform: 'uppercase' }}>
+                  Admin Mat Override Active
+                </div>
+                <div style={{ fontSize: '13px', opacity: 0.95, marginTop: '2px' }}>
+                  Administrator <strong>{adminOverride?.adminName || 'Tournament Director'}</strong> has taken live control of this mat. Your local controls are locked and mirroring the administrator in real time.
+                </div>
+              </div>
+            </div>
+            <span style={{
+              fontSize: '11px',
+              fontWeight: 800,
+              background: 'rgba(0, 0, 0, 0.3)',
+              padding: '6px 14px',
+              borderRadius: '999px',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              whiteSpace: 'nowrap'
+            }}>
+              Controls Locked
+            </span>
+          </div>
+        )}
+
+        <div
+          className="mat-detail-grid"
+          style={{
+            pointerEvents: isOverriddenByAdmin ? 'none' : 'auto',
+            opacity: isOverriddenByAdmin ? 0.7 : 1,
+            position: 'relative',
+            userSelect: isOverriddenByAdmin ? 'none' : 'auto'
+          }}
+        >
           
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <section className="ops-scoreboard">
@@ -1246,7 +2009,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                 <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
                 <div style={{ textAlign: 'right' }}>
                     <div style={{ color: 'var(--neutral-500)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Match ID</div>
-                    <div style={{ fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{queue.find(m => m.id === activeMatchId)?.displayId || '—'}</div>
+                    <div style={{ fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{queue.find(m => m.id === activeMatchId)?.displayId || '-'}</div>
                   </div>
                 </div>
               </div>
@@ -1272,10 +2035,18 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                           aoWazaari={ao.waza}
                           akaYuko={aka.yuko}
                           aoYuko={ao.yuko}
-                          akaC1={(aka.c1?1:0) + (aka.c2?1:0) + (aka.c3?1:0) + (aka.hc?1:0) + (aka.h?1:0)}
-                          aoC1={(ao.c1?1:0) + (ao.c2?1:0) + (ao.c3?1:0) + (ao.hc?1:0) + (ao.h?1:0)}
-                          akaC2={0}
-                          aoC2={0}
+                          akaC1={aka.c1}
+                          aoC1={ao.c1}
+                          akaC2={aka.c2}
+                          aoC2={ao.c2}
+                          akaC3={aka.c3}
+                          aoC3={ao.c3}
+                          akaHC={aka.hc}
+                          aoHC={ao.hc}
+                          akaH={aka.h}
+                          aoH={ao.h}
+                          akaPenalties={{ c1: aka.c1, c2: aka.c2, c3: aka.c3, hc: aka.hc, h: aka.h }}
+                          aoPenalties={{ c1: ao.c1, c2: ao.c2, c3: ao.c3, hc: ao.hc, h: ao.h }}
                           akaSenshu={aka.senshu}
                           aoSenshu={ao.senshu}
                           timerDisplay={`${mins}:${secs}`}
@@ -1283,9 +2054,25 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                           matchStatus={timer === 0 ? 'TIME OVER' : running ? 'MATCH LIVE' : timer === matchDuration ? 'PRE-MATCH' : 'PAUSED'}
                           title={compData?.name || 'TAIKAIX'}
                           categoryName={activeCategoryName || 'KUMITE'}
-                          matchId={`MAT ${new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('mat')?.replace('mat-', '').padStart(2, '0') || '01'} - ${queue.find(m => m.id === activeMatchId)?.displayId || '—'}`}
+                          matchId={`MAT ${new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('mat')?.replace('mat-', '').padStart(2, '0') || '01'} - ${queue.find(m => m.id === activeMatchId)?.displayId || '-'}`}
                           winnerName={winnerState ? winnerState.name : undefined}
                           winnerColor={winnerState ? winnerState.color : undefined}
+                          winnerAcademy={winnerState?.academy}
+                          nextMatch={queue[0] ? {
+                            matchId: queue[0].displayId || queue[0].id,
+                            aka: queue[0].aka,
+                            ao: queue[0].ao,
+                            akaAcademy: queue[0].akaAcademy,
+                            aoAcademy: queue[0].aoAcademy,
+                            category: queue[0].category,
+                            akaReady: queue[0].akaReady,
+                            aoReady: queue[0].aoReady,
+                          } : null}
+                          onDismissWinner={() => setWinnerState(null)}
+                          onProceedNextMatch={() => {
+                            setWinnerState(null);
+                            if (queue[0]) loadMatch(queue[0]);
+                          }}
                           isKata={!!isKata}
                           akaKataName={selectedKata?.aka?.name}
                           aoKataName={selectedKata?.ao?.name}
@@ -1314,10 +2101,68 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                     kataFormat={activeCategoryData?.kataFormat || 'elimination'}
                     isTeam={activeCategoryData?.isTeam}
                     onMatchFinished={handleKataMatchFinished}
+                    onKataSelect={(sel) => setSelectedKata(sel)}
                   />
                 ) : (
-                  <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--neutral-400)', fontWeight: 600 }}>
-                    Select a match from the queue below to begin kata scoring.
+                  <div style={{ padding: '32px 24px', background: 'linear-gradient(135deg, rgba(248,250,252,0.9) 0%, rgba(241,245,249,0.9) 100%)', borderRadius: '16px', border: '1.5px dashed var(--neutral-300)', textAlign: 'center' }}>
+                    {queue.length > 0 ? (
+                      <>
+                        <div style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--neutral-500)', marginBottom: '8px' }}>
+                          Next Bout Ready to Stage
+                        </div>
+                        <h3 style={{ fontSize: '22px', fontWeight: 800, margin: '0 0 16px 0', color: 'var(--neutral-900)' }}>
+                          {queue[0].displayId}: {queue[0].aka} vs {queue[0].ao}
+                        </h3>
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginBottom: '24px', flexWrap: 'wrap' }}>
+                          <div style={{ padding: '12px 20px', background: 'rgba(239,68,68,0.06)', borderRadius: '12px', border: '1.5px solid rgba(239,68,68,0.2)', minWidth: '180px', textAlign: 'left' }}>
+                            <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--aka)', marginBottom: '2px' }}>AKA (RED)</div>
+                            <div style={{ fontWeight: 800, fontSize: '16px', color: 'var(--neutral-900)' }}>{queue[0].aka}</div>
+                            <div style={{ fontSize: '12px', color: 'var(--neutral-500)', marginTop: '2px' }}>{queue[0].akaAcademy || 'Unattached'}</div>
+                            <div style={{ marginTop: '8px', display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '11px', fontWeight: 800, color: queue[0].akaReady ? '#059669' : '#dc2626' }}>
+                              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: queue[0].akaReady ? '#10b981' : '#ef4444' }} />
+                              {queue[0].akaReady ? 'READY' : 'NOT READY'}
+                            </div>
+                          </div>
+                          <div style={{ alignSelf: 'center', fontWeight: 800, color: 'var(--neutral-400)', fontSize: '14px' }}>VS</div>
+                          <div style={{ padding: '12px 20px', background: 'rgba(37,99,235,0.06)', borderRadius: '12px', border: '1.5px solid rgba(37,99,235,0.2)', minWidth: '180px', textAlign: 'left' }}>
+                            <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--ao)', marginBottom: '2px' }}>AO (BLUE)</div>
+                            <div style={{ fontWeight: 800, fontSize: '16px', color: 'var(--neutral-900)' }}>{queue[0].ao}</div>
+                            <div style={{ fontSize: '12px', color: 'var(--neutral-500)', marginTop: '2px' }}>{queue[0].aoAcademy || 'Unattached'}</div>
+                            <div style={{ marginTop: '8px', display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '11px', fontWeight: 800, color: queue[0].aoReady ? '#059669' : '#dc2626' }}>
+                              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: queue[0].aoReady ? '#10b981' : '#ef4444' }} />
+                              {queue[0].aoReady ? 'READY' : 'NOT READY'}
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          onClick={() => {
+                            const readyCandidate = queue.find(m => m.akaReady && m.aoReady) || queue[0];
+                            loadMatch(readyCandidate);
+                            toast.success(`Loaded Match ${readyCandidate.displayId}: ${readyCandidate.aka} vs ${readyCandidate.ao}`);
+                          }}
+                          style={{
+                            padding: '12px 28px',
+                            fontSize: '14px',
+                            fontWeight: 800,
+                            borderRadius: '10px',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            boxShadow: '0 4px 14px rgba(0,0,0,0.1)'
+                          }}
+                        >
+                          🥋 Load Bout #{queue[0].displayId} to Operator Panel
+                        </button>
+                      </>
+                    ) : (
+                      <div style={{ color: 'var(--neutral-500)', fontWeight: 600 }}>
+                        <p style={{ margin: 0, fontSize: '15px' }}>All matches in this category are completed.</p>
+                        <p style={{ margin: '6px 0 0 0', fontSize: '13px' }}>Click "Finish Category" above to advance the mat schedule.</p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1372,7 +2217,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
 
                 <div className="ops-side ops-center">
                   <div style={{ border: '1px solid var(--neutral-300)', padding: '4px 16px', borderRadius: '999px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '24px' }}>
-                    Match {queue.find(m => m.id === activeMatchId)?.displayId || '—'}
+                    Match {queue.find(m => m.id === activeMatchId)?.displayId || '-'}
                   </div>
 
                   <div style={{ color: 'var(--neutral-500)', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px' }}>Remaining</div>
@@ -1592,7 +2437,7 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                       if (b === 'finals') return -1;
                       return parseInt(a) - parseInt(b);
                     }).map(p => (
-                      <option key={p} value={p}>{p === 'finals' ? 'Finals' : `Pool ${p}`} {poolStatuses[p] ? '✅' : '🔴'}</option>
+                      <option key={p} value={p}>{p === 'finals' ? 'Finals' : `Pool ${p}`} {poolStatuses[p] ? '(Done)' : '(Live)'}</option>
                     ))}
                   </select>
                   {!isViewer && (
@@ -1640,6 +2485,8 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                     )}
                     {visibleQueue.length > 0 && visibleQueue.map((match, idx) => {
                       const isDraggable = !isViewer && match.id !== activeMatchId;
+                      const isActive = match.id === activeMatchId;
+                      const isBothReady = Boolean(match.akaReady && match.aoReady);
                       return (
                         <tr 
                           key={match.id}
@@ -1647,17 +2494,29 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                           onDragStart={(e) => isDraggable && handleDragStart(e, idx)}
                           onDragOver={(e) => isDraggable && e.preventDefault()}
                           onDrop={(e) => isDraggable && handleDropQueue(e, idx)}
+                          onClick={() => {
+                            loadMatch(match);
+                            toast.success(`Loaded Match ${match.displayId}: ${match.aka} vs ${match.ao}`);
+                          }}
                           style={{  
                             borderBottom: '1px solid var(--neutral-100)',
-                            backgroundColor: match.pool && poolStatuses[match.pool] ? '#ecfdf5' : 'transparent',
-                            cursor: isDraggable ? 'grab' : 'default',
-                            opacity: draggedIdx === idx ? 0.5 : 1
+                            backgroundColor: isActive 
+                              ? 'rgba(16, 185, 129, 0.08)' 
+                              : (isBothReady ? 'rgba(16, 185, 129, 0.04)' : (match.pool && poolStatuses[match.pool] ? '#ecfdf5' : 'transparent')),
+                            borderLeft: isActive 
+                              ? '4px solid #10b981' 
+                              : (isBothReady ? '4px solid #34d399' : '4px solid transparent'),
+                            cursor: 'pointer',
+                            opacity: draggedIdx === idx ? 0.5 : 1,
+                            transition: 'all 0.15s ease'
                           }}
                         >
-                          <td style={{ padding: '16px 20px', fontFamily: 'var(--font-mono)', fontWeight: 700, color: idx === 0 ? 'inherit' : 'var(--neutral-500)' }}>{match.displayId}</td>
+                          <td style={{ padding: '16px 20px', fontFamily: 'var(--font-mono)', fontWeight: 700, color: isActive ? '#059669' : (idx === 0 ? 'inherit' : 'var(--neutral-500)') }}>
+                            {match.displayId}
+                          </td>
                           <td style={{ padding: '16px 20px', fontWeight: idx === 0 ? 800 : 700, fontSize: '14px' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                                   <span>{match.aka}</span>
                                   <span style={{ fontSize: '11px', color: 'var(--neutral-500)', fontWeight: 500 }}>{match.akaAcademy || 'Unattached'}</span>
@@ -1667,6 +2526,11 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                                   <span>{match.ao}</span>
                                   <span style={{ fontSize: '11px', color: 'var(--neutral-500)', fontWeight: 500 }}>{match.aoAcademy || 'Unattached'}</span>
                                 </div>
+                                {isBothReady && !isActive && (
+                                  <span style={{ padding: '2px 8px', background: '#d1fae5', color: '#065f46', borderRadius: '4px', fontSize: '10px', fontWeight: 800, letterSpacing: '0.04em' }}>
+                                    ⚡ READY TO PERFORM
+                                  </span>
+                                )}
                               </div>
                               <div style={{ display: 'flex', gap: '8px', fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                 <span style={{ color: match.akaReady ? '#10b981' : '#ef4444', display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -1683,13 +2547,52 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
                           </td>
                           <td style={{ padding: '16px 20px', color: 'var(--neutral-600)', fontSize: '14px' }}>{match.category}</td>
                           <td style={{ padding: '16px 20px', textAlign: 'right' }}>
-                            {match.id === activeMatchId ? (
-                              <span style={{ background: '#fef2f2', color: '#dc2626', padding: '4px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 800, letterSpacing: '0.05em' }}>LIVE / CURRENT</span>
-                            ) : idx === 0 || (idx === 1 && visibleQueue[0]?.id === activeMatchId) ? (
-                              <span style={{ background: '#fef3c7', color: '#b45309', padding: '4px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 800, letterSpacing: '0.05em' }}>NEXT</span>
-                            ) : (
-                              <span style={{ background: 'var(--neutral-100)', color: 'var(--neutral-600)', padding: '4px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 800, letterSpacing: '0.05em' }}>STANDBY</span>
-                            )}
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
+                              {isActive ? (
+                                <span style={{ 
+                                  background: '#ecfdf5', 
+                                  color: '#065f46', 
+                                  border: '1px solid #a7f3d0', 
+                                  padding: '4px 10px', 
+                                  borderRadius: '6px', 
+                                  fontSize: '11px', 
+                                  fontWeight: 800, 
+                                  letterSpacing: '0.05em',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px'
+                                }}>
+                                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }} />
+                                  LIVE ON MAT
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="btn btn-secondary"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    loadMatch(match);
+                                    toast.success(`Loaded Match ${match.displayId}: ${match.aka} vs ${match.ao}`);
+                                  }}
+                                  style={{
+                                    fontSize: '11px',
+                                    fontWeight: 800,
+                                    padding: '5px 12px',
+                                    borderRadius: '6px',
+                                    background: isBothReady ? 'var(--status-live)' : 'var(--neutral-100)',
+                                    color: isBothReady ? '#000' : 'var(--neutral-700)',
+                                    border: isBothReady ? 'none' : '1px solid var(--neutral-300)',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.15s ease',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                  }}
+                                >
+                                  {isBothReady ? '⚡ Load & Start' : 'Select'}
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );
@@ -1918,9 +2821,175 @@ export default function OperatorPortal({ params }: { params: Promise<{ id: strin
           </div>
         </div>
       )}
+
+      {/* Live Staff Station Reassignment - 5-Second Transfer Modal */}
+      {reassignmentNotice?.active && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 999999,
+          background: 'rgba(8, 12, 22, 0.94)',
+          backdropFilter: 'blur(16px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '24px',
+          animation: 'fadeIn 0.25s ease-out'
+        }}>
+          <div style={{
+            maxWidth: '520px',
+            width: '100%',
+            background: 'linear-gradient(160deg, #1e293b 0%, #0f172a 100%)',
+            border: '2px solid rgba(239, 68, 68, 0.5)',
+            boxShadow: '0 25px 60px -10px rgba(0, 0, 0, 0.9), 0 0 50px rgba(239, 68, 68, 0.25)',
+            borderRadius: '24px',
+            padding: '40px 32px',
+            textAlign: 'center',
+            color: '#ffffff',
+            position: 'relative'
+          }}>
+            {/* Animated Pulsing Ring */}
+            <div style={{
+              width: '80px',
+              height: '80px',
+              borderRadius: '50%',
+              background: 'rgba(239, 68, 68, 0.15)',
+              border: '2px solid #ef4444',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 24px',
+              position: 'relative'
+            }}>
+              <span style={{ fontSize: '32px' }}>🔄</span>
+              <div style={{
+                position: 'absolute',
+                inset: '-6px',
+                borderRadius: '50%',
+                border: '2px solid rgba(239, 68, 68, 0.4)',
+                animation: 'pulse 1.5s cubic-bezier(0, 0, 0.2, 1) infinite'
+              }} />
+            </div>
+
+            <div style={{
+              fontSize: '12px',
+              fontWeight: 800,
+              textTransform: 'uppercase',
+              letterSpacing: '0.12em',
+              color: '#ef4444',
+              marginBottom: '8px'
+            }}>
+              Station Reassigned by Admin
+            </div>
+
+            <h2 style={{
+              fontSize: '26px',
+              fontWeight: 900,
+              letterSpacing: '-0.02em',
+              marginBottom: '16px',
+              lineHeight: 1.2
+            }}>
+              You are assigned to {reassignmentNotice.toMatName}
+            </h2>
+
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '12px',
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              padding: '10px 20px',
+              borderRadius: '12px',
+              marginBottom: '20px'
+            }}>
+              <span style={{ color: 'var(--neutral-400)', fontWeight: 600 }}>{reassignmentNotice.fromMatName}</span>
+              <span style={{ color: '#ef4444', fontWeight: 900 }}>➔</span>
+              <span style={{ color: '#ffffff', fontWeight: 800, fontSize: '16px' }}>{reassignmentNotice.toMatName}</span>
+            </div>
+
+            <p style={{
+              color: 'var(--neutral-300)',
+              fontSize: '14px',
+              lineHeight: 1.6,
+              marginBottom: '28px'
+            }}>
+              Your station has been updated live. Logging you out from <strong>{reassignmentNotice.fromMatName}</strong> and transferring you to <strong>{reassignmentNotice.toMatName}</strong> in <strong>{reassignmentNotice.countdown}s</strong>.
+            </p>
+
+            {/* Countdown Badge */}
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '8px',
+              marginBottom: '28px'
+            }}>
+              <div style={{
+                width: '64px',
+                height: '64px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #ef4444, #b91c1c)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '28px',
+                fontWeight: 900,
+                color: '#ffffff',
+                boxShadow: '0 0 20px rgba(239, 68, 68, 0.5)'
+              }}>
+                {reassignmentNotice.countdown}s
+              </div>
+              <span style={{ fontSize: '12px', color: 'var(--neutral-400)', fontWeight: 500 }}>
+                Transferring automatically...
+              </span>
+            </div>
+
+            {/* Quick Action Button */}
+            <button
+              type="button"
+              onClick={() => {
+                window.location.href = `/competitions/${id}/operator?mat=${reassignmentNotice.toMatId}`;
+              }}
+              style={{
+                width: '100%',
+                padding: '14px 24px',
+                borderRadius: '12px',
+                background: '#ef4444',
+                color: '#ffffff',
+                fontWeight: 800,
+                fontSize: '15px',
+                letterSpacing: '0.02em',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                transition: 'all 0.2s',
+                boxShadow: '0 4px 14px rgba(239, 68, 68, 0.4)'
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
+              onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
+            >
+              <span>Go to {reassignmentNotice.toMatName} Now</span>
+              <span>➔</span>
+            </button>
+          </div>
+        </div>
+      )}
       </div>
       </div>
-    </PasswordGateway>
+    </Suspense>
+  );
+}
+
+export default function OperatorPortal({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = React.use(params);
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <PasswordGateway>
+        <OperatorPortalInner id={id} />
+      </PasswordGateway>
     </Suspense>
   );
 }

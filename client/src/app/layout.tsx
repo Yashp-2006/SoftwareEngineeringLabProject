@@ -1,13 +1,12 @@
 import type { Metadata } from "next";
-import Script from "next/script";
 import "./globals.css";
 import Sidebar from "@/modules/core/layout/Sidebar";
 import { AuthProvider } from "@/modules/auth/components/AuthProvider";
 import { Toaster } from "react-hot-toast";
 
 export const metadata: Metadata = {
-  title: "TaiKaiX — Operations Hub",
-  description: "Next-gen karate tournament management system.",
+  title: "TaiKaiX: Tournament Management",
+  description: "Karate tournament scoring and bracket management system.",
 };
 
 export default function RootLayout({
@@ -23,10 +22,6 @@ export default function RootLayout({
         <link
           href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap"
           rel="stylesheet"
-        />
-        <Script
-          src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"
-          strategy="afterInteractive"
         />
       </head>
       <body suppressHydrationWarning>

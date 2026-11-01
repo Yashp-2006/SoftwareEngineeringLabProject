@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/modules/auth/components/AuthProvider';
-import { Menu, X, ChevronDown } from 'lucide-react';
+import { Menu, X, ChevronDown, LogOut, User } from 'lucide-react';
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -19,38 +19,53 @@ export default function Sidebar() {
     setMobileMenuOpen(false);
   }, [pathname]);
 
-  // Close mobile menu on outside click
+  // Close mobile menu on outside click or tap
   useEffect(() => {
     if (!mobileMenuOpen) return;
-    const handleOutsideClick = (e: MouseEvent) => {
+    const handleOutsideClick = (e: MouseEvent | TouchEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setMobileMenuOpen(false);
       }
     };
     document.addEventListener('mousedown', handleOutsideClick);
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('touchstart', handleOutsideClick);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('touchstart', handleOutsideClick);
+    };
   }, [mobileMenuOpen]);
 
   // Close profile dropdown on outside click or Escape
   useEffect(() => {
     if (!profileOpen) return;
-    const handleClick = (e: MouseEvent) => {
+    const handleClick = (e: MouseEvent | TouchEvent) => {
       if (profileRef.current && !profileRef.current.contains(e.target as Node)) setProfileOpen(false);
     };
     const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setProfileOpen(false); };
     document.addEventListener('mousedown', handleClick);
+    document.addEventListener('touchstart', handleClick);
     document.addEventListener('keydown', handleKey);
-    return () => { document.removeEventListener('mousedown', handleClick); document.removeEventListener('keydown', handleKey); };
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('touchstart', handleClick);
+      document.removeEventListener('keydown', handleKey);
+    };
   }, [profileOpen]);
 
   const handleSignOut = async () => {
     setProfileOpen(false);
-    const { auth } = await import('@lib/firebase');
-    await auth.signOut();
+    setMobileMenuOpen(false);
+    document.cookie = 'session=; path=/; max-age=0; SameSite=Lax; Secure';
+    try {
+      const { auth } = await import('@lib/firebase');
+      await auth.signOut();
+    } catch (err) {
+      console.error('Sign out error:', err);
+    }
     window.location.href = '/';
   };
 
-  if (pathname === '/' || pathname.startsWith('/login') || pathname.startsWith('/live')) {
+  if (pathname === '/' || pathname.startsWith('/login') || pathname.startsWith('/live') || pathname.includes('/scoreboard')) {
     return null;
   }
 
@@ -58,7 +73,7 @@ export default function Sidebar() {
     <div ref={menuRef} style={{ position: 'sticky', top: 0, zIndex: 100 }}>
       <nav style={{ position: 'relative', zIndex: 100 }}>
         {user && !user.isAnonymous ? (
-          <Link href="/dashboard" className="nav-logo" style={{ textDecoration: 'none' }}>TAIKAIX</Link>
+          <Link href={(role === 'admin' || role === 'guest_viewer') ? "/dashboard" : "/competitions"} className="nav-logo" style={{ textDecoration: 'none' }}>TAIKAIX</Link>
         ) : (
           <Link href="/" className="nav-logo" style={{ textDecoration: 'none' }}>TAIKAIX</Link>
         )}
@@ -135,6 +150,7 @@ export default function Sidebar() {
                   boxShadow: '0 8px 24px rgba(0,0,0,0.10)',
                   overflow: 'hidden',
                   zIndex: 200,
+                  transformOrigin: 'top right',
                   animation: 'profileDropIn 160ms var(--ease-out) both',
                 }}>
                   {/* User info header */}
@@ -200,30 +216,49 @@ export default function Sidebar() {
           )}
         </div>
 
-        {/* Hamburger — only shown on mobile */}
-        <button
-          className="show-on-mobile"
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          style={{
-            marginLeft: 'auto',
-            background: 'transparent',
-            border: 'none',
-            color: 'var(--shiro)',
-            cursor: 'pointer',
-            padding: '8px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            minHeight: '44px',
-            minWidth: '44px',
-            borderRadius: '6px',
-            transition: 'background 0.2s',
-          }}
-          aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
-          aria-expanded={mobileMenuOpen}
-        >
-          {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
-        </button>
+        {/* Mobile Nav Right: Avatar + Hamburger */}
+        <div className="show-on-mobile" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {user && !user.isAnonymous && (
+            <Link
+              href="/profile"
+              style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}
+              title="Profile"
+            >
+              <div
+                className="avatar"
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  border: '1.5px solid rgba(255,255,255,0.25)',
+                  background: user?.photoURL
+                    ? `url(${user.photoURL}) center/cover`
+                    : `var(--neutral-700) url('https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email || 'Felix'}') center/cover`,
+                }}
+              />
+            </Link>
+          )}
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--shiro)',
+              cursor: 'pointer',
+              padding: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: '44px',
+              minWidth: '44px',
+              borderRadius: '6px',
+              transition: 'background 0.2s',
+            }}
+            aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={mobileMenuOpen}
+          >
+            {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
+        </div>
       </nav>
 
       {/* Mobile Dropdown — z-index 200 sits above sub-nav (99) and nav (100) */}
@@ -292,19 +327,100 @@ export default function Sidebar() {
           />
 
           {user && !user.isAnonymous ? (
-            <Link
-              href="/profile"
-              className="nav-link"
-              style={{ padding: '10px 12px', borderRadius: '8px', height: 'auto', minHeight: '44px' }}
-              onClick={() => setMobileMenuOpen(false)}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '12px',
+                background: 'rgba(255,255,255,0.06)',
+                borderRadius: '10px',
+                marginTop: '4px',
+                border: '1px solid rgba(255,255,255,0.08)',
+              }}
             >
-              Profile ({(user.email || '').split('@')[0]})
-            </Link>
+              <Link
+                href="/profile"
+                onClick={() => setMobileMenuOpen(false)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  textDecoration: 'none',
+                  color: 'inherit',
+                  flex: 1,
+                  minWidth: 0,
+                }}
+              >
+                <div
+                  className="avatar"
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    flexShrink: 0,
+                    border: '1.5px solid rgba(255,255,255,0.2)',
+                    background: user?.photoURL
+                      ? `url(${user.photoURL}) center/cover`
+                      : `var(--neutral-700) url('https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email || 'Felix'}') center/cover`,
+                  }}
+                />
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div
+                    style={{
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      color: 'var(--shiro)',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {user.displayName || (user.email || '').split('@')[0]}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '11px',
+                      color: 'rgba(255,255,255,0.5)',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {user.email}
+                  </div>
+                </div>
+              </Link>
+              <button
+                type="button"
+                onClick={handleSignOut}
+                title="Log Out"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 14px',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                  background: 'rgba(239, 68, 68, 0.12)',
+                  color: '#f87171',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  minHeight: '40px',
+                  marginLeft: '8px',
+                  flexShrink: 0,
+                  fontFamily: 'inherit',
+                }}
+              >
+                <LogOut size={15} />
+                <span>Log Out</span>
+              </button>
+            </div>
           ) : (
             <Link
               href="/login"
               className="btn btn-primary"
-              style={{ justifyContent: 'center', margin: '4px 0' }}
+              style={{ justifyContent: 'center', margin: '4px 0', minHeight: '44px' }}
               onClick={() => setMobileMenuOpen(false)}
             >
               Sign In

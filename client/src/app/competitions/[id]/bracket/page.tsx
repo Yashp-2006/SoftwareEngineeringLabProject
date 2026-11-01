@@ -4,7 +4,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { db } from '@lib/firebase';
 import { collection, onSnapshot, query, doc, getDoc } from 'firebase/firestore';
 import FullscreenBracketModal from '@/modules/brackets/components/FullscreenBracketModal';
-import { Eye, Trophy, Target, Clock, X, Plus, Star, Zap, Download, UserPlus } from 'lucide-react';
+import { Eye, Trophy, Target, Clock, X, Plus, Star, Zap, Download, UserPlus, GitFork, Layers, CheckCircle2, Award } from 'lucide-react';
+import Link from 'next/link';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/modules/auth/components/AuthProvider';
 
@@ -74,6 +75,24 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
     const uniqueResults = results.filter((v, i, a) => a.findIndex(t => (t.matchId === v.matchId)) === i);
     return uniqueResults.slice(0, 50);
   }, [categories, searchQuery, isDropdownOpen]);
+
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  // Close search dropdown on outside click or tap
+  useEffect(() => {
+    if (!isDropdownOpen) return;
+    const handleOutside = (e: MouseEvent | TouchEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    document.addEventListener('touchstart', handleOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleOutside);
+      document.removeEventListener('touchstart', handleOutside);
+    };
+  }, [isDropdownOpen]);
 
   const handleSearchResultClick = (result: any) => {
     setActiveCategoryId(result.categoryId);
@@ -193,14 +212,22 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
       const res = await fetch(`/api/competitions/${id}/brackets/${categoryId}/swap`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sourceMatchId, sourceSide, targetMatchId, targetSide, targetCategoryId, action }),
+        body: JSON.stringify({
+          sourceMatchId,
+          sourceSide,
+          targetMatchId,
+          targetSide,
+          targetCategoryId,
+          action: action || 'swap'
+        }),
       });
       const data = await res.json();
       if (data.success) {
         toast.success(action === 'move' ? 'Athlete moved successfully!' : 'Athletes swapped successfully!');
       } else {
         setCategories(previousCategories);
-        toast.error('Failed to update tiesheet: ' + data.error);
+        const errMsg = typeof data.error === 'string' ? data.error : (data.error?.message || 'Unknown error');
+        toast.error('Failed to update tiesheet: ' + errMsg);
       }
     } catch (err) {
       console.error('Error updating tiesheet:', err);
@@ -255,8 +282,8 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
           isKata: c.isKata === true || (typeof c.name === 'string' && c.name.toLowerCase().includes('kata')),
         })),
         isArchived: false,
-        venue: compData?.venue || '',
-        date: compData?.dates || '',
+        venue: compData?.venue || compData?.location || '',
+        date: typeof compData?.dates === 'string' ? compData.dates : (compData?.dates?.start ? `${compData.dates.start} – ${compData.dates.end || ''}` : ''),
       });
       toast.success('Tiesheets PDF downloaded!');
     } catch (e: any) {
@@ -428,32 +455,126 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
         .tiesheet-card.live-card .btn-view-tiesheet:hover { background: var(--aka-hover); }
         .tiesheet-card.completed-card .btn-view-tiesheet { background: #10b981; border-color: #10b981; color: white; }
         .tiesheet-card.completed-card .btn-view-tiesheet:hover { background: #059669; }
-        .tiesheet-card.special-card .btn-view-tiesheet { background: #f59e0b; border-color: #f59e0b; color: white; }
+        .tiesheet-card.completed-card .btn-view-tiesheet:hover { background: #059669; }
+        .tiesheet-card.special-card .btn-view-tiesheet { background: var(--neutral-900); border-color: var(--neutral-900); color: white; }
         .btn-create-special {
-          display: flex; align-items: center; gap: 8px; padding: 8px 16px;
-          background: linear-gradient(135deg, #f59e0b, #d97706);
-          color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 700;
-          cursor: pointer; transition: transform 160ms var(--ease-out), box-shadow 160ms var(--ease-out); white-space: nowrap;
+          display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px;
+          background: var(--shiro); color: var(--neutral-800); border: 1px solid var(--neutral-300); border-radius: 8px;
+          font-size: 13px; font-weight: 600; cursor: pointer;
+          transition: background 160ms var(--ease-out), border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out), transform 160ms var(--ease-out);
+          white-space: nowrap; height: 38px;
         }
-        .btn-create-special:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(217,119,6,0.4); }
-        .empty-state { padding: var(--space-12); text-align: center; color: var(--neutral-400); display: flex; flex-direction: column; align-items: center; gap: 12px; }
-        .special-badge { display: inline-flex; align-items: center; gap: 4px; padding: '2px 8px'; background: #fffbeb; color: #92400e; font-size: 10px; font-weight: 700; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+        .btn-create-special:hover {
+          background: var(--neutral-50); border-color: var(--neutral-400); color: var(--neutral-900);
+          box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .btn-create-special:active { transform: scale(0.98); }
+        .empty-state-card {
+          display: flex; flex-direction: column; align-items: center; justify-content: center;
+          padding: 64px 24px; text-align: center; background: var(--shiro);
+          border: 1px dashed var(--neutral-300); border-radius: 16px; margin: 24px 0;
+          animation: empty-fade 280ms var(--ease-out) both;
+        }
+        @keyframes empty-fade {
+          from { opacity: 0; transform: scale(0.98); }
+          to { opacity: 1; transform: scale(1); }
+        }
+        .empty-icon-wrap {
+          width: 56px; height: 56px; border-radius: 14px; background: var(--neutral-50);
+          border: 1px solid var(--neutral-200); display: flex; align-items: center; justify-content: center;
+          color: var(--neutral-500); margin-bottom: 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+        }
+        .empty-title { font-size: 16px; font-weight: 700; color: var(--neutral-900); margin-bottom: 6px; }
+        .empty-desc { font-size: 13px; color: var(--neutral-500); max-width: 400px; line-height: 1.5; margin: 0; }
+        .special-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; background: var(--neutral-100); color: var(--neutral-700); font-size: 10px; font-weight: 700; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+        .tiesheet-hero-top { display: flex; justify-content: space-between; width: 100%; align-items: flex-start; flex-wrap: wrap; gap: 16px; }
+        .tiesheet-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .filter-search-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; width: 100%; padding: 14px 16px; background: var(--shiro); border: 1px solid var(--neutral-200); border-radius: 12px; box-sizing: border-box; }
+        .discipline-select {
+          padding: 8px 12px; border-radius: 8px; border: 1px solid var(--neutral-300); background: var(--shiro); font-size: 14px; color: var(--neutral-900); cursor: pointer; min-width: 140px; height: 40px;
+        }
+
+        @media (max-width: 768px) {
+          .tiesheet-page { padding: var(--space-3); }
+          .tiesheet-hero-top { flex-direction: column; align-items: stretch; gap: 12px; }
+          .tiesheet-actions { width: 100%; display: grid; grid-template-columns: 1fr; gap: 8px; }
+          .tiesheet-actions button, .tiesheet-actions a { width: 100%; justify-content: center; min-height: 44px; }
+          .filter-search-row { flex-direction: column; align-items: stretch; padding: 12px; gap: 10px; width: 100%; }
+          .discipline-select { width: 100%; min-width: 0; min-height: 44px; font-size: 15px; }
+          .search-container { width: 100% !important; min-width: 0 !important; }
+          .search-input { min-height: 44px; font-size: 15px; padding: 10px 14px; }
+          .search-dropdown {
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 0;
+            right: 0;
+            width: 100%;
+            z-index: 300;
+            max-height: 55vh;
+            border-radius: 12px;
+            box-shadow: 0 12px 36px rgba(0,0,0,0.22);
+            -webkit-overflow-scrolling: touch;
+          }
+          .search-result-item { padding: 14px 16px; min-height: 50px; }
+          .tiesheet-grid { grid-template-columns: 1fr; gap: 10px; }
+        }
+
+        .entry-modal-card {
+          background: white;
+          border-radius: 12px;
+          width: 100%;
+          max-width: 500px;
+          padding: 24px;
+          box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+          max-height: 90vh;
+          overflow-y: auto;
+        }
+        .entry-form-row-2 {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 16px;
+          margin-bottom: 16px;
+        }
+        .entry-form-row-3 {
+          display: grid;
+          grid-template-columns: 1fr 1fr 1fr;
+          gap: 16px;
+          margin-bottom: 16px;
+        }
+        @media (max-width: 480px) {
+          .entry-modal-card {
+            padding: 16px;
+            margin: 12px;
+          }
+          .entry-form-row-2 {
+            grid-template-columns: 1fr;
+            gap: 12px;
+          }
+          .entry-form-row-3 {
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+          }
+          .entry-form-row-3 > div:last-child {
+            grid-column: span 2;
+          }
+        }
       `}} />
 
       <div className="tiesheet-page">
         {/* Page Hero */}
-        <div className="tiesheet-hero" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '16px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+        <div className="tiesheet-hero" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '16px' }}>
+          <div className="tiesheet-hero-top">
             <div>
               <h2 style={{ fontSize: '24px', margin: '0 0 4px 0' }}>Tiesheet Management</h2>
               <p style={{ fontSize: '14px', color: 'var(--neutral-500)', margin: 0 }}>
                 {categories.length} categories • Click any category to open its bracket
               </p>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            <div className="tiesheet-actions">
               {role === 'admin' && (
                 <button type="button" className="btn-create-special" onClick={() => setSpecialModalOpen(true)}>
-                  <Star size={14} />
+                  <Layers size={15} />
                   Create Special Tiesheet
                 </button>
               )}
@@ -483,27 +604,18 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
             </div>
           </div>
           
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', width: '100%', padding: '16px', background: 'var(--shiro)', border: '1px solid var(--neutral-200)', borderRadius: '12px' }}>
+          <div className="filter-search-row">
             <select
               value={disciplineFilter}
               onChange={e => setDisciplineFilter(e.target.value as any)}
-              style={{
-                padding: '8px 12px',
-                borderRadius: '8px',
-                border: '1px solid var(--neutral-300)',
-                background: 'var(--shiro)',
-                fontSize: '14px',
-                color: 'var(--neutral-900)',
-                cursor: 'pointer',
-                minWidth: '140px'
-              }}
+              className="discipline-select"
             >
               <option value="All">All Disciplines</option>
               <option value="Kumite">Kumite Only</option>
               <option value="Kata">Kata Only</option>
             </select>
             {categories.length > 0 && (
-              <div className="search-container" style={{ flex: 1, minWidth: '280px' }}>
+              <div ref={searchContainerRef} className="search-container" style={{ flex: 1, minWidth: '240px' }}>
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                   <input 
                     type="text" 
@@ -560,19 +672,31 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
         </div>
 
         {categories.length === 0 ? (
-          <div className="empty-state">
-            <div style={{ fontSize: '48px' }}>⚔️</div>
-            <div style={{ fontSize: '16px', fontWeight: 700 }}>No tiesheets generated yet</div>
-            <p style={{ fontSize: '14px', maxWidth: '320px' }}>
-              Go to the Setup Wizard and complete Phase 2 (Import Athletes) to generate tiesheets for this competition.
+          <div className="empty-state-card">
+            <div className="empty-icon-wrap">
+              <GitFork size={28} strokeWidth={1.5} />
+            </div>
+            <div className="empty-title">No Tiesheets Available</div>
+            <p className="empty-desc">
+              Brackets and match schedules will automatically appear here once categories and athletes are seeded into this competition.
             </p>
+            {role === 'admin' && (
+              <Link 
+                href={`/setup/${id}?phase=2`} 
+                className="btn btn-primary"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginTop: '16px' }}
+              >
+                <Plus size={16} />
+                Setup & Import Athletes
+              </Link>
+            )}
           </div>
         ) : (
           <>
             {/* Live Standard Categories */}
             {liveCategories.length > 0 && (
               <>
-                <div className="tiesheet-section-title"><span>🔴</span> Live Now</div>
+                <div className="tiesheet-section-title"><span className="live-dot-sm" /> Live Categories</div>
                 <div className="tiesheet-grid">
                   {liveCategories.map(cat => (
                     <TiesheetCard key={cat.id} cat={cat} onClick={() => openModal(cat.id)} />
@@ -584,7 +708,7 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
             {/* Live Special Categories */}
             {liveSpecial.length > 0 && (
               <>
-                <div className="tiesheet-section-title"><span>⭐</span> Special — Live</div>
+                <div className="tiesheet-section-title"><Layers size={14} className="text-neutral-500" /> Special Brackets · Live</div>
                 <div className="tiesheet-grid">
                   {liveSpecial.map(cat => (
                     <TiesheetCard key={cat.id} cat={cat} isSpecial onClick={() => openModal(cat.id)} />
@@ -596,7 +720,7 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
             {/* Upcoming Standard */}
             {upcomingCategories.length > 0 && (
               <>
-                <div className="tiesheet-section-title"><span>🕐</span> Upcoming</div>
+                <div className="tiesheet-section-title"><Clock size={14} className="text-neutral-500" /> Upcoming Categories</div>
                 <div className="tiesheet-grid">
                   {upcomingCategories.map(cat => (
                     <TiesheetCard key={cat.id} cat={cat} onClick={() => openModal(cat.id)} />
@@ -608,7 +732,7 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
             {/* Upcoming Special */}
             {upcomingSpecial.length > 0 && (
               <>
-                <div className="tiesheet-section-title"><span>⭐</span> Special — Upcoming</div>
+                <div className="tiesheet-section-title"><Layers size={14} className="text-neutral-500" /> Special Brackets · Upcoming</div>
                 <div className="tiesheet-grid">
                   {upcomingSpecial.map(cat => (
                     <TiesheetCard key={cat.id} cat={cat} isSpecial onClick={() => openModal(cat.id)} />
@@ -620,7 +744,7 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
             {/* Completed Standard */}
             {completedCategories.length > 0 && (
               <>
-                <div className="tiesheet-section-title"><span>✅</span> Completed</div>
+                <div className="tiesheet-section-title"><CheckCircle2 size={14} style={{ color: '#10b981' }} /> Completed Categories</div>
                 <div className="tiesheet-grid">
                   {completedCategories.map(cat => (
                     <TiesheetCard key={cat.id} cat={cat} onClick={() => openModal(cat.id)} />
@@ -632,7 +756,7 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
             {/* Completed Special */}
             {completedSpecial.length > 0 && (
               <>
-                <div className="tiesheet-section-title"><span>⭐</span> Special — Completed</div>
+                <div className="tiesheet-section-title"><Layers size={14} className="text-neutral-500" /> Special Brackets · Completed</div>
                 <div className="tiesheet-grid">
                   {completedSpecial.map(cat => (
                     <TiesheetCard key={cat.id} cat={cat} isSpecial onClick={() => openModal(cat.id)} />
@@ -679,7 +803,7 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
       {/* Add On-Spot Entry Modal */}
       {isAddModalOpen && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000 }} onClick={() => !addingAthlete && setIsAddModalOpen(false)}>
-          <div style={{ background: 'white', borderRadius: '12px', width: '100%', maxWidth: '500px', padding: '24px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+          <div className="entry-modal-card" onClick={e => e.stopPropagation()}>
             <h2 style={{ marginBottom: '20px' }}>Add On-Spot Entry</h2>
             <form onSubmit={handleAddAthlete}>
               <div style={{ marginBottom: '16px' }}>
@@ -694,7 +818,7 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Coach Name</label>
                 <input style={{ width: '100%', padding: '10px', border: '1px solid var(--neutral-300)', borderRadius: '6px' }} placeholder="Coach's full name" value={addForm.coachName} onChange={e => setAddForm(p => ({...p, coachName: e.target.value}))} />
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+              <div className="entry-form-row-2">
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Phone Number</label>
                   <input type="tel" style={{ width: '100%', padding: '10px', border: '1px solid var(--neutral-300)', borderRadius: '6px' }} placeholder="e.g. +91 98765 43210" value={addForm.phone} onChange={e => setAddForm(p => ({...p, phone: e.target.value}))} />
@@ -704,7 +828,7 @@ export default function BracketPage({ params }: { params: Promise<{ id: string }
                   <input type="email" style={{ width: '100%', padding: '10px', border: '1px solid var(--neutral-300)', borderRadius: '6px' }} placeholder="athlete@email.com" value={addForm.email} onChange={e => setAddForm(p => ({...p, email: e.target.value}))} />
                 </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+              <div className="entry-form-row-3">
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Age</label>
                   <input required type="number" style={{ width: '100%', padding: '10px', border: '1px solid var(--neutral-300)', borderRadius: '6px' }} value={addForm.age} onChange={e => setAddForm(p => ({...p, age: e.target.value}))} />
@@ -779,8 +903,8 @@ function TiesheetCard({ cat, onClick, isSpecial = false }: { cat: any; onClick: 
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', justifyContent: 'space-between' }}>
         <div className="tiesheet-card-name">{cat.name}</div>
         {isSpecial && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '2px 7px', background: '#fffbeb', color: '#92400e', fontSize: '10px', fontWeight: 700, borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap', flexShrink: 0 }}>
-            <Star size={9} /> Special
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 7px', background: 'var(--neutral-100)', color: 'var(--neutral-700)', fontSize: '10px', fontWeight: 700, border: '1px solid var(--neutral-200)', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap', flexShrink: 0 }}>
+            <Layers size={10} /> Special
           </span>
         )}
       </div>
@@ -796,14 +920,16 @@ function TiesheetCard({ cat, onClick, isSpecial = false }: { cat: any; onClick: 
             COMPLETED
           </div>
         ) : (
-          <div style={{ color: isSpecial ? '#d97706' : 'var(--status-upcoming)' }}>
+          <div style={{ color: isSpecial ? 'var(--neutral-700)' : 'var(--status-upcoming)', fontWeight: isSpecial ? 700 : 600 }}>
             {cat.mat ? `${cat.mat.toUpperCase().includes('MAT') ? cat.mat : `MAT ${cat.mat.padStart(2, '0')}`} • UPCOMING` : 'NOT ASSIGNED'}
           </div>
         )}
         <div>{athleteCount} ATHLETES</div>
       </div>
       {isSpecial && cat.medal && (
-        <div style={{ fontSize: '11px', color: '#92400e', fontWeight: 600 }}>🥇 Seeded from: {cat.medal}</div>
+        <div style={{ fontSize: '11px', color: 'var(--neutral-600)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <Award size={12} /> Seeded from: {cat.medal}
+        </div>
       )}
       <div className="tiesheet-card-footer">
         <button type="button" className="btn-view-tiesheet">

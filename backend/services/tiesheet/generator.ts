@@ -35,6 +35,9 @@ export interface MatchNode {
   nextMatchId: string | null;
   status: 'upcoming' | 'live' | 'completed';
   mat?: string | null;
+  akaKata?: string | null;
+  aoKata?: string | null;
+  selectedKata?: any;
 }
 
 export interface SpecialCategoryRule {
@@ -73,23 +76,11 @@ const PARSE_PAGE_SIZE = 500;
  * Athletes are returned sorted A-Z by name.
  */
 export function parseExcel(buffer: ArrayBuffer | string): AthleteRow[] {
-  let workbook;
-  if (typeof buffer === 'string') {
-    workbook = xlsx.read(buffer, { type: 'string' });
-  } else {
-    const dataArray = new Uint8Array(buffer);
-    workbook = xlsx.read(dataArray, { type: 'array' });
-  }
-  let allRows: any[] = [];
-
-  // Read all sheets (some tournaments export one sheet per category)
-  for (const sheetName of workbook.SheetNames) {
-    const worksheet = workbook.Sheets[sheetName];
-    // Read all rows for this sheet at once (xlsx.read is fast; sharding is at the JS array level)
-    const rows = xlsx.utils.sheet_to_json(worksheet, { defval: '' }) as any[];
-    allRows = allRows.concat(rows);
-  }
-
+  const isStr = typeof buffer === 'string';
+  const workbook = xlsx.read(isStr ? buffer : new Uint8Array(buffer), { type: isStr ? 'string' : 'array' });
+  const allRows: any[] = workbook.SheetNames.flatMap(name =>
+    xlsx.utils.sheet_to_json(workbook.Sheets[name], { defval: '', blankrows: false })
+  );
   return normalizeAthleteRows(allRows);
 }
 
@@ -104,6 +95,12 @@ export function normalizeAthleteRows(rawData: any[]): AthleteRow[] {
     const pageRows = rawData.slice(pageStart, pageStart + PARSE_PAGE_SIZE);
 
     for (const rawRow of pageRows) {
+      if (!rawRow || typeof rawRow !== 'object') continue;
+
+      // Skip completely empty/whitespace rows
+      const hasAnyValue = Object.values(rawRow).some(v => v !== null && v !== undefined && String(v).trim() !== '');
+      if (!hasAnyValue) continue;
+
       const row: any = {};
       for (const key in rawRow) {
         row[key.trim().toLowerCase()] = rawRow[key];
@@ -195,8 +192,9 @@ export function normalizeAthleteRows(rawData: any[]): AthleteRow[] {
         parsedName = `${parsedFirst} ${parsedLast}`.trim();
       }
       
-      parsedName = parsedName.trim() || 'Unknown';
-      if (parsedName.toUpperCase() === 'BYE') continue; // Skip explicit BYE rows to let generator handle empty slots
+      parsedName = parsedName.trim();
+      // Skip blank rows where no athlete name was provided, or explicit BYE placeholder rows
+      if (!parsedName || parsedName.toUpperCase() === 'BYE') continue;
       parsedAcademy = parsedAcademy.trim() || 'Unknown';
 
       let parsedAge = parseFloat(String(row['age'] ?? ''));
@@ -307,7 +305,10 @@ export function normalizeAthleteRows(rawData: any[]): AthleteRow[] {
           `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         name: parsedName,
         gender: parsedGender,
-        weight: Math.floor(parseFloat(String(rawWeight).replace(/\s*(kg|kgs|lbs?|kilos?)\s*/gi, '').trim()) || 0),
+        weight: (() => {
+          const wNum = parseFloat(String(rawWeight).replace(/\s*(kg|kgs|lbs?|kilos?)\s*/gi, '').trim());
+          return isNaN(wNum) ? 0 : Math.round(wNum * 100) / 100;
+        })(),
         age: parsedAge,
         country: String(row['country'] || row['nation'] || row['nationality'] || ''),
         state: String(row['state'] || row['region'] || row['province'] || ''),
@@ -617,7 +618,8 @@ export function determineCategory(athlete: AthleteRow, specialCategories: Specia
 function getSeedingSequence(size: number): number[] {
   if (size <= 1) return [0];
   let seq = [0, 1];
-  while (seq.length < size) {
+  const target = Math.max(2, size);
+  while (seq.length < target && seq.length < 2048) {
     const nextSeq = [];
     const currentSize = seq.length * 2;
     for (const val of seq) {
@@ -678,7 +680,7 @@ export function separateAthletes(
 
   // 2. Determine required bracket size (next power of 2)
   let bracketSize = 2;
-  while (bracketSize < sorted.length) {
+  while (bracketSize < sorted.length && bracketSize < 2048) {
     bracketSize *= 2;
   }
   // If poolSize forces a larger bracket, use it
@@ -767,8 +769,8 @@ export function generateBracket(
   }
 
   // Determine the next power of 2 for single elimination
-  let targetPoolSize = poolSize;
-  while (targetPoolSize < athletes.length) {
+  let targetPoolSize = Math.max(poolSize || 8, 2);
+  while (targetPoolSize < athletes.length && targetPoolSize < 2048) {
     targetPoolSize *= 2;
   }
 
@@ -862,7 +864,7 @@ export function buildSingleElimination(athletes: AthleteRow[], compType: string,
   let currentRound = round1Matches;
   let roundNum = 2;
 
-  while (currentRound.length > 1) {
+  while (currentRound.length > 1 && roundNum <= 25) {
     const nextRound: MatchNode[] = [];
 
     for (let i = 0; i < currentRound.length; i += 2) {
@@ -925,13 +927,14 @@ function buildMultiPool(athletes: AthleteRow[], compType: string, poolSize: Pool
   // Merge those athletes into the nearest pool that still has room.
   // We iterate repeatedly until no singleton pools remain.
   let changed = true;
-  while (changed) {
+  let mergeLimit = pools.length * 2 + 10;
+  while (changed && mergeLimit-- > 0) {
     changed = false;
     for (let p = pools.length - 1; p >= 0; p--) {
       if (pools[p].length <= 1) {
         changed = true;
         const overflow = pools.splice(p, 1)[0]; // remove this pool
-        if (overflow.length === 1) {
+        if (overflow && overflow.length === 1) {
           // Donate the lone athlete to the largest remaining pool.
           // They will then have enough partners for real matches.
           let largestIdx = 0;
@@ -1104,7 +1107,9 @@ export function propagateByesAndWinners(matches: MatchNode[]): void {
   }
 
   let changed = true;
-  while (changed) {
+  let iterations = 0;
+  const maxIterations = Math.max(matches.length * 2, 50);
+  while (changed && iterations++ < maxIterations) {
     changed = false;
     for (const m of matches) {
       if (m.round > 1) {
@@ -1141,8 +1146,10 @@ export function propagateByesAndWinners(matches: MatchNode[]): void {
       }
 
       if (!m.winnerId && m.status !== 'completed' && !(m as any).manualByeRevert) {
+        const visited = new Set<string>();
         const isTreeEmpty = (matchId: string | null): boolean => {
-          if (!matchId) return true;
+          if (!matchId || visited.has(matchId)) return true;
+          visited.add(matchId);
           const prev = matchMap.get(matchId);
           if (!prev) return true;
           if (prev.aka || prev.ao) return false;

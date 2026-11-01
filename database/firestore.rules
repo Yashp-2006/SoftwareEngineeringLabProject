@@ -31,7 +31,7 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if request.auth != null && (request.auth.uid == uid || isAdmin());
       // Prevent users from granting themselves admin roles on creation
-      allow create: if request.auth != null && (request.auth.uid == uid || isAdmin()) && (!request.resource.data.keys().hasAll(['role']) || request.resource.data.role == 'user');
+      allow create: if request.auth != null && (request.auth.uid == uid || isAdmin()) && (!request.resource.data.keys().hasAll(['role']) || request.resource.data.role == 'user' || request.resource.data.role == 'audience' || request.resource.data.role == 'viewer');
       // Prevent privilege escalation by blocking edits to the 'role' field
       allow update: if request.auth != null && (
         isAdmin() || 

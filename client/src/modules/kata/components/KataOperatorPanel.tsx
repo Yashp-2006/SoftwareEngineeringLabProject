@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
-import { Scale } from 'lucide-react';
+import { Scale, Play, Pause, RotateCcw, Zap, Timer } from 'lucide-react';
 import KataSelectionRow from './KataSelectionRow';
 import FoulPanel from './FoulPanel';
 import DQPanel from './DQPanel';
@@ -26,6 +26,7 @@ interface Props {
   kataFormat: 'elimination' | 'round-robin' | 'two-pool';
   isTeam?: boolean;
   onMatchFinished: (winner: 'aka' | 'ao', voteCount: { aka: number; ao: number }, selectedKata?: { aka: KataEntry | null; ao: KataEntry | null }) => void;
+  onKataSelect?: (selected: { aka: KataEntry | null; ao: KataEntry | null }) => void;
   onClose?: () => void;
 }
 
@@ -53,6 +54,7 @@ export default function KataOperatorPanel({
   kataFormat,
   isTeam,
   onMatchFinished,
+  onKataSelect,
 }: Props) {
   const [selectedKata, setSelectedKata] = useState<{ aka: KataEntry | null; ao: KataEntry | null }>({ aka: null, ao: null });
   const [akaUsageMap, setAkaUsageMap] = useState<Record<number, number>>({});
@@ -99,7 +101,7 @@ export default function KataOperatorPanel({
   );
 
   const startRevealCountdown = async () => {
-    const { judgeVotes } = deriveJudgeVotes(liveVotes, numberOfJudges);
+    const { judgeVotes, akaFlags, aoFlags } = deriveJudgeVotes(liveVotes, numberOfJudges);
     const votedCount = judgeVotes.filter((v) => v !== null).length;
     if (votedCount < numberOfJudges) {
       const missing = numberOfJudges - votedCount;
@@ -109,14 +111,22 @@ export default function KataOperatorPanel({
 
     setRevealing(true);
     let count = 3;
-    await syncRTDB({ revealCountdown: count, revealVotes: false });
+    await syncRTDB({ revealCountdown: count, revealVotes: false, judgeVotes, akaFlags, aoFlags });
 
     const interval = setInterval(async () => {
       count -= 1;
       if (count <= 0) {
         clearInterval(interval);
         setRevealing(false);
-        await syncRTDB({ revealCountdown: 0, revealVotes: true });
+        const { judgeVotes: jv, akaFlags: af, aoFlags: of_ } = deriveJudgeVotes(liveVotes, numberOfJudges);
+        await syncRTDB({
+          revealCountdown: 0,
+          revealVotes: true,
+          judgeVotes: jv,
+          akaFlags: af,
+          aoFlags: of_,
+          kataVotes: { aka: af, ao: of_ },
+        });
         handleFinishBout();
       } else {
         await syncRTDB({ revealCountdown: count });
@@ -125,7 +135,12 @@ export default function KataOperatorPanel({
   };
 
   // Auto-sync rest timer to RTDB when updated
+  const hasMountedRestTimer = React.useRef(false);
   useEffect(() => {
+    if (!hasMountedRestTimer.current) {
+      hasMountedRestTimer.current = true;
+      if (restTimer === 0 && !restRunning) return;
+    }
     syncRTDB({
       restTimerSeconds: restTimer,
       restTimerRunning: restRunning,
@@ -133,9 +148,18 @@ export default function KataOperatorPanel({
   }, [restTimer, restRunning, syncRTDB]);
 
   // Auto-sync performance timer to RTDB when updated
+  const hasMountedTeamTimer = React.useRef(false);
   useEffect(() => {
+    if (!hasMountedTeamTimer.current) {
+      hasMountedTeamTimer.current = true;
+      if (teamTimer === 0 && !timerRunning) return;
+    }
+    const mins = String(Math.floor(teamTimer / 60)).padStart(2, '0');
+    const secs = String(teamTimer % 60).padStart(2, '0');
     syncRTDB({
       teamTimerSeconds: teamTimer,
+      timerSeconds: teamTimer,
+      timeRemaining: `${mins}:${secs}`,
       timerRunning: timerRunning,
     });
   }, [teamTimer, timerRunning, syncRTDB]);
@@ -143,19 +167,30 @@ export default function KataOperatorPanel({
   const handleKataSelect = async (side: 'aka' | 'ao', kata: KataEntry | null) => {
     const nextSelected = { ...selectedKata, [side]: kata };
     setSelectedKata(nextSelected);
+    if (onKataSelect) onKataSelect(nextSelected);
 
     // Save to Firestore (fire-and-forget)
     fetch(`/api/competitions/${competitionId}/brackets/${categoryId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ matchId, selectedKata: nextSelected }),
+      body: JSON.stringify({
+        matchId,
+        selectedKata: nextSelected,
+        akaKata: nextSelected.aka?.name || null,
+        aoKata: nextSelected.ao?.name || null,
+      }),
     }).catch((e) => console.error('Failed to save kata selection', e));
 
     // Save to RTDB and clear any previous bout state for this match
     await syncRTDB({
       isKata: true,
-      'selectedKata/aka': nextSelected.aka,
-      'selectedKata/ao': nextSelected.ao,
+      selectedKata: nextSelected,
+      'selectedKata/aka': nextSelected.aka || null,
+      'selectedKata/ao': nextSelected.ao || null,
+      akaKata: nextSelected.aka?.name || null,
+      aoKata: nextSelected.ao?.name || null,
+      akaKataName: nextSelected.aka?.name || null,
+      aoKataName: nextSelected.ao?.name || null,
       kataWinner: null,
       boutFinished: false,
       kataScores: null,
@@ -180,8 +215,9 @@ export default function KataOperatorPanel({
           const d = snap.val();
           if (d.matchId === matchId) {
             if (d.kataScores) setLiveVotes(d.kataScores);
-            if (d.selectedKata && !boutStarted) {
+            if (d.selectedKata) {
               setSelectedKata(d.selectedKata);
+              if (onKataSelect) onKataSelect(d.selectedKata);
             }
             if (d.boutFinished && !boutFinished) setBoutFinished(true);
             if (d.kataWinner) setKataWinner(d.kataWinner);
@@ -215,6 +251,7 @@ export default function KataOperatorPanel({
           if (d.matchId === matchId && d.isKata) {
             if (d.selectedKata) {
               setSelectedKata(d.selectedKata);
+              if (onKataSelect) onKataSelect(d.selectedKata);
               setBoutStarted(true);
             }
             if (d.boutFinished) setBoutFinished(true);
@@ -298,10 +335,110 @@ export default function KataOperatorPanel({
     else if (currentVote === 'aka') nextVote = 'ao';
     else nextVote = null;
 
+    const prevAka = liveVotes?.aka || {};
+    const prevAo = liveVotes?.ao || {};
+    const newAka: Record<string, number> = { ...prevAka };
+    const newAo: Record<string, number> = { ...prevAo };
+
+    for (let i = 0; i < numberOfJudges; i++) {
+      if (newAka[String(i)] === undefined) newAka[String(i)] = 0;
+      if (newAo[String(i)] === undefined) newAo[String(i)] = 0;
+    }
+
+    newAka[String(judgeIndex)] = nextVote === 'aka' ? 1 : 0;
+    newAo[String(judgeIndex)] = nextVote === 'ao' ? 1 : 0;
+
+    const nextLiveVotes = { aka: newAka, ao: newAo };
+    setLiveVotes(nextLiveVotes);
+
+    const { judgeVotes: nextJudgeVotes, akaFlags: nextAkaFlags, aoFlags: nextAoFlags } = deriveJudgeVotes(nextLiveVotes, numberOfJudges);
+
     await syncRTDB({
       [`kataScores/aka/${judgeIndex}`]: nextVote === 'aka' ? 1 : 0,
       [`kataScores/ao/${judgeIndex}`]: nextVote === 'ao' ? 1 : 0,
+      kataScores: nextLiveVotes,
+      judgeVotes: nextJudgeVotes,
+      akaFlags: nextAkaFlags,
+      aoFlags: nextAoFlags,
+      kataVotes: { aka: nextAkaFlags, ao: nextAoFlags },
     });
+  };
+
+  const handleSetJudgeVote = async (judgeIndex: number, side: 'aka' | 'ao') => {
+    if (boutFinished) return;
+    const currentVote = judgeVotes[judgeIndex];
+    const nextVote = currentVote === side ? null : side;
+
+    const prevAka = liveVotes?.aka || {};
+    const prevAo = liveVotes?.ao || {};
+    const newAka: Record<string, number> = { ...prevAka };
+    const newAo: Record<string, number> = { ...prevAo };
+
+    for (let i = 0; i < numberOfJudges; i++) {
+      if (newAka[String(i)] === undefined) newAka[String(i)] = 0;
+      if (newAo[String(i)] === undefined) newAo[String(i)] = 0;
+    }
+
+    newAka[String(judgeIndex)] = nextVote === 'aka' ? 1 : 0;
+    newAo[String(judgeIndex)] = nextVote === 'ao' ? 1 : 0;
+
+    const nextLiveVotes = { aka: newAka, ao: newAo };
+    setLiveVotes(nextLiveVotes);
+
+    const { judgeVotes: nextJudgeVotes, akaFlags: nextAkaFlags, aoFlags: nextAoFlags } = deriveJudgeVotes(nextLiveVotes, numberOfJudges);
+
+    await syncRTDB({
+      [`kataScores/aka/${judgeIndex}`]: nextVote === 'aka' ? 1 : 0,
+      [`kataScores/ao/${judgeIndex}`]: nextVote === 'ao' ? 1 : 0,
+      kataScores: nextLiveVotes,
+      judgeVotes: nextJudgeVotes,
+      akaFlags: nextAkaFlags,
+      aoFlags: nextAoFlags,
+      kataVotes: { aka: nextAkaFlags, ao: nextAoFlags },
+    });
+  };
+
+  const handleInstantReveal = async () => {
+    const { judgeVotes: votes, akaFlags, aoFlags } = deriveJudgeVotes(liveVotes, numberOfJudges);
+    const votedCount = votes.filter((v) => v !== null).length;
+    if (votedCount < numberOfJudges) {
+      const missing = numberOfJudges - votedCount;
+      toast.error(`${missing} judge${missing > 1 ? 's' : ''} haven't voted yet.`);
+      return;
+    }
+    await syncRTDB({
+      revealCountdown: 0,
+      revealVotes: true,
+      judgeVotes: votes,
+      akaFlags,
+      aoFlags,
+      kataVotes: { aka: akaFlags, ao: aoFlags },
+    });
+    handleFinishBout();
+  };
+
+  const handleClearAllVotes = async () => {
+    if (boutFinished) return;
+    const clearedAka: Record<string, number> = {};
+    const clearedAo: Record<string, number> = {};
+    for (let i = 0; i < numberOfJudges; i++) {
+      clearedAka[String(i)] = 0;
+      clearedAo[String(i)] = 0;
+    }
+    const clearedVotes = { aka: clearedAka, ao: clearedAo };
+    setLiveVotes(clearedVotes);
+    await syncRTDB({
+      'kataScores/aka': clearedAka,
+      'kataScores/ao': clearedAo,
+      kataScores: clearedVotes,
+      judgeVotes: Array(numberOfJudges).fill(null),
+      akaFlags: 0,
+      aoFlags: 0,
+      kataVotes: { aka: 0, ao: 0 },
+      revealVotes: false,
+      revealCountdown: 0,
+    });
+    toast.success('Judge votes reset');
   };
 
   const handleDQ = async (side: 'aka' | 'ao', reason: string) => {
@@ -316,20 +453,28 @@ export default function KataOperatorPanel({
       fullVotesAo[String(i)] = opponentSide === 'ao' ? 1 : 0;
     }
 
+    const opponentFlags = numberOfJudges;
+    const opponentVotes = Array(numberOfJudges).fill(opponentSide);
+
     const patch: Record<string, any> = {
       [`isDQ/${side}`]: true,
       [`isDQ/${opponentSide}`]: false,
       kataWinner: opponentSide,
       boutFinished: true,
+      revealVotes: true,
+      revealCountdown: 0,
       'kataScores/aka': fullVotesAka,
       'kataScores/ao': fullVotesAo,
-      kataVotes: { aka: opponentSide === 'aka' ? numberOfJudges : 0, ao: opponentSide === 'ao' ? numberOfJudges : 0 },
+      judgeVotes: opponentVotes,
+      akaFlags: opponentSide === 'aka' ? opponentFlags : 0,
+      aoFlags: opponentSide === 'ao' ? opponentFlags : 0,
+      kataVotes: { aka: opponentSide === 'aka' ? opponentFlags : 0, ao: opponentSide === 'ao' ? opponentFlags : 0 },
     };
     await syncRTDB(patch);
     toast.success(`${side.toUpperCase()} disqualified. ${opponentSide.toUpperCase()} wins.`);
     setBoutFinished(true);
     setKataWinner(opponentSide);
-    onMatchFinished(opponentSide, { aka: opponentSide === 'aka' ? numberOfJudges : 0, ao: opponentSide === 'ao' ? numberOfJudges : 0 }, selectedKata);
+    onMatchFinished(opponentSide, { aka: opponentSide === 'aka' ? opponentFlags : 0, ao: opponentSide === 'ao' ? opponentFlags : 0 }, selectedKata);
   };
 
   const handleLogFoul = (side: 'aka' | 'ao', code: string) => {
@@ -367,6 +512,9 @@ export default function KataOperatorPanel({
 
     await syncRTDB({
       kataVotes: { aka: akaFlags, ao: aoFlags },
+      judgeVotes,
+      akaFlags,
+      aoFlags,
       kataWinner: winner,
       boutFinished: true,
       revealVotes: true,
@@ -374,7 +522,7 @@ export default function KataOperatorPanel({
     });
 
     if (winner === 'tie_pending') {
-      toast('Tie detected — requesting revote.', { icon: <Scale size={16} /> });
+      toast('Tie detected: requesting revote.', { icon: <Scale size={16} /> });
     } else {
       onMatchFinished(winner, { aka: akaFlags, ao: aoFlags }, selectedKata);
     }
@@ -389,6 +537,9 @@ export default function KataOperatorPanel({
     await syncRTDB({
       kataScores: null,
       kataVotes: null,
+      judgeVotes: Array(numberOfJudges).fill(null),
+      akaFlags: 0,
+      aoFlags: 0,
       kataWinner: null,
       boutFinished: false,
       revealVotes: false,
@@ -508,7 +659,7 @@ export default function KataOperatorPanel({
         </div>
 
         {/* ── KATA SELECTION ── */}
-        <div className="kata-panel-section" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div className="kata-panel-section" style={{ display: 'flex', flexDirection: 'column', gap: '12px', position: 'relative', zIndex: 60 }}>
           <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--neutral-700)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
             Kata Selection
           </div>
@@ -548,6 +699,8 @@ export default function KataOperatorPanel({
               display: 'flex',
               alignItems: 'center',
               gap: '24px',
+              position: 'relative',
+              zIndex: 10,
             }}
           >
             <div>
@@ -575,14 +728,49 @@ export default function KataOperatorPanel({
                   padding: '8px 16px',
                   borderRadius: '8px',
                   border: 'none',
-                  background: timerRunning ? 'var(--neutral-800)' : '#10b981',
+                  background: timerRunning ? '#ef4444' : '#10b981',
                   color: '#fff',
                   fontWeight: 700,
                   fontSize: '13px',
                   cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
                 }}
               >
-                {timerRunning ? '⏸ Stop Timer' : '▶ Start Timer'}
+                {timerRunning ? (
+                  <>
+                    <Pause size={14} /> Pause Timer
+                  </>
+                ) : (
+                  <>
+                    <Play size={14} /> Start Timer
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                className="kata-btn"
+                onClick={() => {
+                  setTimerRunning(false);
+                  setTeamTimer(0);
+                }}
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--neutral-300)',
+                  background: 'var(--shiro)',
+                  color: 'var(--neutral-700)',
+                  fontWeight: 700,
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+                title="Reset timer to 00:00"
+              >
+                <RotateCcw size={13} /> Reset
               </button>
             </div>
 
@@ -648,13 +836,12 @@ export default function KataOperatorPanel({
                 <div
                   key={i}
                   className="kata-judge-card"
-                  onClick={() => handleJudgeCardClick(i)}
                   style={{
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
                     gap: '6px',
-                    padding: '12px 8px',
+                    padding: '10px 6px',
                     background:
                       vote === 'aka'
                         ? 'rgba(217,38,44,0.06)'
@@ -663,22 +850,22 @@ export default function KataOperatorPanel({
                         : 'var(--neutral-50)',
                     border: `2px solid ${
                       vote === 'aka'
-                        ? 'rgba(217,38,44,0.25)'
+                        ? 'rgba(217,38,44,0.35)'
                         : vote === 'ao'
-                        ? 'rgba(26,77,181,0.25)'
+                        ? 'rgba(26,77,181,0.35)'
                         : 'var(--neutral-200)'
                     }`,
-                    borderRadius: '10px',
-                    cursor: !boutFinished ? 'pointer' : 'default',
+                    borderRadius: '12px',
                     boxShadow:
                       vote === 'aka'
                         ? '0 4px 12px rgba(217,38,44,0.1)'
                         : vote === 'ao'
                         ? '0 4px 12px rgba(26,77,181,0.1)'
                         : 'none',
+                    transition: 'all 0.15s ease',
                   }}
                 >
-                  <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--neutral-500)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--neutral-500)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                     J{i + 1}
                   </div>
                   {vote === null ? (
@@ -715,6 +902,50 @@ export default function KataOperatorPanel({
                   >
                     {vote ?? 'wait'}
                   </div>
+
+                  {/* Manual Operator Toggle Buttons */}
+                  {!boutFinished && (
+                    <div style={{ display: 'flex', gap: '4px', width: '100%', marginTop: '4px' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleSetJudgeVote(i, 'aka')}
+                        style={{
+                          flex: 1,
+                          padding: '5px 0',
+                          borderRadius: '6px',
+                          border: vote === 'aka' ? 'none' : '1px solid rgba(217,38,44,0.3)',
+                          background: vote === 'aka' ? 'var(--aka)' : 'rgba(217,38,44,0.06)',
+                          color: vote === 'aka' ? '#fff' : 'var(--aka)',
+                          fontSize: '10px',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                          transition: 'all 0.15s',
+                        }}
+                        title={`Record AKA vote for Judge ${i + 1}`}
+                      >
+                        AKA
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSetJudgeVote(i, 'ao')}
+                        style={{
+                          flex: 1,
+                          padding: '5px 0',
+                          borderRadius: '6px',
+                          border: vote === 'ao' ? 'none' : '1px solid rgba(26,77,181,0.3)',
+                          background: vote === 'ao' ? 'var(--ao)' : 'rgba(26,77,181,0.06)',
+                          color: vote === 'ao' ? '#fff' : 'var(--ao)',
+                          fontSize: '10px',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                          transition: 'all 0.15s',
+                        }}
+                        title={`Record AO vote for Judge ${i + 1}`}
+                      >
+                        AO
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -824,58 +1055,91 @@ export default function KataOperatorPanel({
               </div>
             )}
 
-            {/* Finish button */}
+            {/* Finish / Reveal Buttons */}
             {!boutFinished && (
-              <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '12px' }}>
-                {!allJudgesVoted && (
-                  <span style={{ fontSize: '12px', color: 'var(--neutral-500)', fontWeight: 600 }}>
-                    {judgeVotes.filter((v) => v !== null).length}/{numberOfJudges} judges voted
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginTop: '6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{ fontSize: '13px', color: allJudgesVoted ? '#10b981' : 'var(--neutral-500)', fontWeight: 700 }}>
+                    {allJudgesVoted ? '✓ All judges voted' : `${judgeVotes.filter((v) => v !== null).length}/${numberOfJudges} judges voted`}
                   </span>
-                )}
-                
-                {allJudgesVoted && (
+                  {judgeVotes.some((v) => v !== null) && (
+                    <button
+                      type="button"
+                      onClick={handleClearAllVotes}
+                      style={{
+                        padding: '4px 10px',
+                        background: 'transparent',
+                        border: '1px solid var(--neutral-300)',
+                        borderRadius: '6px',
+                        color: 'var(--neutral-500)',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                      }}
+                      title="Clear all recorded judge votes"
+                    >
+                      <RotateCcw size={12} /> Clear Votes
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    className="kata-btn"
+                    onClick={handleInstantReveal}
+                    disabled={revealing || !allJudgesVoted}
+                    style={{
+                      padding: '10px 20px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: allJudgesVoted ? '#10b981' : 'var(--neutral-200)',
+                      color: allJudgesVoted ? '#fff' : 'var(--neutral-400)',
+                      fontWeight: 800,
+                      fontSize: '13px',
+                      cursor: allJudgesVoted ? 'pointer' : 'not-allowed',
+                      letterSpacing: '0.04em',
+                      textTransform: 'uppercase',
+                      boxShadow: allJudgesVoted ? '0 4px 12px rgba(16,185,129,0.25)' : 'none',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '7px',
+                    }}
+                    title="Reveal winner on scoreboard immediately without delay"
+                  >
+                    <Zap size={14} /> Instant Reveal
+                  </button>
+
                   <button
                     type="button"
                     className="kata-btn"
                     onClick={startRevealCountdown}
-                    disabled={revealing}
+                    disabled={revealing || !allJudgesVoted}
                     style={{
-                      padding: '10px 24px',
+                      padding: '10px 22px',
                       borderRadius: '8px',
                       border: 'none',
-                      background: 'var(--ao)',
-                      color: '#fff',
+                      background: allJudgesVoted ? 'var(--ao)' : 'var(--neutral-200)',
+                      color: allJudgesVoted ? '#fff' : 'var(--neutral-400)',
                       fontWeight: 800,
                       fontSize: '13px',
-                      cursor: 'pointer',
+                      cursor: allJudgesVoted ? 'pointer' : 'not-allowed',
                       letterSpacing: '0.04em',
                       textTransform: 'uppercase',
+                      boxShadow: allJudgesVoted ? '0 4px 12px rgba(26,77,181,0.25)' : 'none',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '7px',
                     }}
+                    title="3-second dramatic countdown before revealing winner on scoreboard"
                   >
-                    {revealing ? 'Revealing...' : '⏱ Reveal & Finish (3s)'}
+                    <Timer size={14} /> {revealing ? 'Revealing...' : '3s Countdown'}
                   </button>
-                )}
-
-                <button
-                  type="button"
-                  className="kata-btn"
-                  onClick={handleFinishBout}
-                  disabled={revealing || !allJudgesVoted}
-                  style={{
-                    padding: '10px 20px',
-                    borderRadius: '8px',
-                    border: '1.5px solid var(--neutral-300)',
-                    background: '#fff',
-                    color: allJudgesVoted ? 'var(--neutral-850)' : 'var(--neutral-400)',
-                    fontWeight: 700,
-                    fontSize: '13px',
-                    cursor: allJudgesVoted ? 'pointer' : 'default',
-                    letterSpacing: '0.04em',
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  Reveal Instantly
-                </button>
+                </div>
               </div>
             )}
           </div>

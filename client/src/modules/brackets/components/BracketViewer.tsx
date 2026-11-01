@@ -112,7 +112,7 @@ export default function BracketViewer({ matches, categoryName, isKata: propIsKat
     currentRound++;
   }
 
-  const isKata = propIsKata !== undefined ? propIsKata : (categoryName?.toLowerCase().includes('kata') || false);
+  const isKata = propIsKata !== undefined ? propIsKata : (categoryName?.toLowerCase().includes('kata') || matches.some(m => !!(m.selectedKata || m.akaKata || m.aoKata || m.isKata)) || false);
 
   // ── SVG Connector Computation ── (must stay above early return to satisfy Rules of Hooks)
   const computeConnectors = useCallback(() => {
@@ -388,7 +388,16 @@ export default function BracketViewer({ matches, categoryName, isKata: propIsKat
               {rounds.map((roundMatches, rIdx) => (
                 <div key={rIdx} className="bracket-round">
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-around' }}>
-                    {roundMatches.map(m => (
+                    {roundMatches.map(m => {
+                      const effAkaScore = m.akaScore !== undefined && m.akaScore !== null ? m.akaScore : m.kataVotes?.aka;
+                      const effAoScore = m.aoScore !== undefined && m.aoScore !== null ? m.aoScore : m.kataVotes?.ao;
+                      const isMatchPlayed = m.status === 'completed' || m.status === 'live' || (effAkaScore !== undefined && effAkaScore !== null && effAkaScore !== '') || (effAoScore !== undefined && effAoScore !== null && effAoScore !== '');
+                      const akaDisplayScore = isMatchPlayed && effAkaScore !== undefined && effAkaScore !== null && effAkaScore !== '' ? effAkaScore : (m.status === 'completed' ? 0 : '');
+                      const aoDisplayScore = isMatchPlayed && effAoScore !== undefined && effAoScore !== null && effAoScore !== '' ? effAoScore : (m.status === 'completed' ? 0 : '');
+                      const akaKataName = m.selectedKata?.aka?.name || (typeof m.selectedKata?.aka === 'string' ? m.selectedKata.aka : null) || m.akaKata;
+                      const aoKataName = m.selectedKata?.ao?.name || (typeof m.selectedKata?.ao === 'string' ? m.selectedKata.ao : null) || m.aoKata;
+
+                      return (
                       <div key={m.id} className="match-wrapper" ref={(el) => { if (el) (el as any).__matchId = m.id; }}>
                         <div className={`bracket-node${m.status === 'live' ? ' live' : ''}`}>
                           {m.status === 'live' && (
@@ -397,7 +406,7 @@ export default function BracketViewer({ matches, categoryName, isKata: propIsKat
                           <div className="competitor-row aka">
                             <div className="comp-info">
                               <div className="comp-name" style={{ color: m.aka ? 'inherit' : 'var(--neutral-400)' }}>{m.aka ? m.aka.name : 'No player assigned'}</div>
-                              <div className="comp-team">{m.aka ? `${m.aka.state} • ${m.aka.academy}` : '—'}</div>
+                              <div className="comp-team">{m.aka ? `${m.aka.state} • ${m.aka.academy}` : '-'}</div>
                               {!isKata && m.aka && (
                                 <div className="comp-stats">
                                   {(m.akaIppon > 0 || m.akaWazaari > 0 || m.akaYuko > 0) && (
@@ -419,22 +428,26 @@ export default function BracketViewer({ matches, categoryName, isKata: propIsKat
                             </div>
                             {isKata && m.aka && (
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', marginLeft: '12px' }}>
-                                <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-500)', padding: '4px 10px', background: 'var(--neutral-50)', borderRadius: '6px' }}>
-                                  {m.akaKata ? m.akaKata : ''}
-                                </div>
-                                {(m.akaScore !== undefined && m.akaScore !== null) && (
+                                {akaKataName ? (
+                                  <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-500)', padding: '4px 10px', background: 'var(--neutral-50)', borderRadius: '6px' }}>
+                                    Kata: <span style={{ color: 'var(--aka)', fontWeight: 700 }}>{akaKataName}</span>
+                                  </div>
+                                ) : (
+                                  <div style={{ fontSize: '11px', color: 'var(--neutral-400)', padding: '4px 8px' }}>&mdash;</div>
+                                )}
+                                {(isMatchPlayed && effAkaScore !== undefined && effAkaScore !== null) && (
                                   <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--aka)' }}>
-                                    Flags: {m.akaScore}
+                                    Flags: {effAkaScore}
                                   </div>
                                 )}
                               </div>
                             )}
-                            <div className="comp-score">{(m.akaScore !== undefined && m.akaScore !== null && m.akaScore !== '') ? m.akaScore : ''}</div>
+                            <div className="comp-score">{akaDisplayScore}</div>
                           </div>
                           <div className="competitor-row ao">
                             <div className="comp-info">
                               <div className="comp-name" style={{ color: m.ao ? 'inherit' : 'var(--neutral-400)' }}>{m.ao ? m.ao.name : 'No player assigned'}</div>
-                              <div className="comp-team">{m.ao ? `${m.ao.state} • ${m.ao.academy}` : '—'}</div>
+                              <div className="comp-team">{m.ao ? `${m.ao.state} • ${m.ao.academy}` : '-'}</div>
                               {!isKata && m.ao && (
                                 <div className="comp-stats">
                                   {(m.aoIppon > 0 || m.aoWazaari > 0 || m.aoYuko > 0) && (
@@ -456,17 +469,21 @@ export default function BracketViewer({ matches, categoryName, isKata: propIsKat
                             </div>
                             {isKata && m.ao && (
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', marginLeft: '12px' }}>
-                                <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-500)', padding: '4px 10px', background: 'var(--neutral-50)', borderRadius: '6px' }}>
-                                  {m.aoKata ? m.aoKata : ''}
-                                </div>
-                                {(m.aoScore !== undefined && m.aoScore !== null) && (
+                                {aoKataName ? (
+                                  <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-500)', padding: '4px 10px', background: 'var(--neutral-50)', borderRadius: '6px' }}>
+                                    Kata: <span style={{ color: 'var(--ao)', fontWeight: 700 }}>{aoKataName}</span>
+                                  </div>
+                                ) : (
+                                  <div style={{ fontSize: '11px', color: 'var(--neutral-400)', padding: '4px 8px' }}>&mdash;</div>
+                                )}
+                                {(isMatchPlayed && effAoScore !== undefined && effAoScore !== null) && (
                                   <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--ao)' }}>
-                                    Flags: {m.aoScore}
+                                    Flags: {effAoScore}
                                   </div>
                                 )}
                               </div>
                             )}
-                            <div className="comp-score">{(m.aoScore !== undefined && m.aoScore !== null && m.aoScore !== '') ? m.aoScore : ''}</div>
+                            <div className="comp-score">{aoDisplayScore}</div>
                           </div>
                           <div className="match-footer">
                             <div className="text-micro" style={{ flex: 1, color: 'var(--neutral-400)', fontWeight: 700, letterSpacing: '0.1em' }}>
@@ -475,7 +492,8 @@ export default function BracketViewer({ matches, categoryName, isKata: propIsKat
                           </div>
                         </div>
                       </div>
-                    ))}
+                    );
+                  })}
                   </div>
                 </div>
               ))}

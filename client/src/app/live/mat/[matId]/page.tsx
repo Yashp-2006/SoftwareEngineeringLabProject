@@ -260,7 +260,7 @@ export default function LiveMatPage({ params }: { params: Promise<{ matId: strin
       {/* Scoreboard-specific minimal nav strip */}
       <div style={{ height: '48px', background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', padding: '0 var(--space-6)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
         <div className="nav-logo" style={{ color: 'var(--shiro)', fontSize: '18px', letterSpacing: '0.1em', marginRight: 'auto' }}>TAIKAIX LIVE</div>
-        <Link href="/competitions" style={{ color: 'var(--neutral-400)', fontSize: '13px', textDecoration: 'none', transition: 'color 0.2s' }}>← Back to Operations</Link>
+        <Link href="/competitions" style={{ color: 'var(--neutral-400)', fontSize: '13px', textDecoration: 'none', transition: 'color 0.2s' }}>← Back to Competitions</Link>
       </div>
 
       <div className="mat-container">
@@ -289,17 +289,17 @@ export default function LiveMatPage({ params }: { params: Promise<{ matId: strin
                 aoAcademy={matchData.ao?.academy}
                 akaCountry={matchData.aka?.country}
                 aoCountry={matchData.ao?.country}
-                akaKataName={matchData.selectedKata?.aka?.name}
-                aoKataName={matchData.selectedKata?.ao?.name}
+                akaKataName={matchData.selectedKata?.aka?.name || matchData.akaKataName || matchData.akaKata}
+                aoKataName={matchData.selectedKata?.ao?.name || matchData.aoKataName || matchData.aoKata}
                 numberOfJudges={nJudges}
-                judgeVotes={judgeVotes}
-                akaFlags={matchData.kataVotes?.aka ?? akaFlags}
-                aoFlags={matchData.kataVotes?.ao ?? aoFlags}
+                judgeVotes={matchData.judgeVotes || judgeVotes}
+                akaFlags={matchData.akaFlags ?? matchData.kataVotes?.aka ?? akaFlags}
+                aoFlags={matchData.aoFlags ?? matchData.kataVotes?.ao ?? aoFlags}
                 revealVotes={matchData.revealVotes === true}
                 revealCountdown={matchData.revealCountdown || 0}
                 timeRemaining={formatTime(time)}
                 matchStatus={matchData.status === 'live' ? 'LIVE' : matchData.status?.toUpperCase() || 'STANDBY'}
-                title={`TAIKAIX LIVE — MAT ${matId.padStart(2, '0')}`}
+                title={`TAIKAIX LIVE: MAT ${matId.padStart(2, '0')}`}
                 subtitle={matchData.currentCategory || 'KATA'}
                 kataWinner={matchData.kataWinner}
                 winnerName={matchData.kataWinner === 'aka' ? matchData.aka?.name : matchData.kataWinner === 'ao' ? matchData.ao?.name : undefined}

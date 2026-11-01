@@ -313,12 +313,12 @@ export default function ScoreboardPage({ params }: { params: Promise<{ matchId: 
           aoAcademy={rtdbData.aoAcademy}
           akaCountry={rtdbData.akaCountry}
           aoCountry={rtdbData.aoCountry}
-          akaKataName={rtdbData.selectedKata?.aka?.name}
-          aoKataName={rtdbData.selectedKata?.ao?.name}
+          akaKataName={rtdbData.selectedKata?.aka?.name || rtdbData.akaKataName || rtdbData.akaKata}
+          aoKataName={rtdbData.selectedKata?.ao?.name || rtdbData.aoKataName || rtdbData.aoKata}
           numberOfJudges={nJudges}
-          judgeVotes={judgeVotes}
-          akaFlags={rtdbData.kataVotes?.aka ?? akaFlags}
-          aoFlags={rtdbData.kataVotes?.ao ?? aoFlags}
+          judgeVotes={rtdbData.judgeVotes || judgeVotes}
+          akaFlags={rtdbData.akaFlags ?? rtdbData.kataVotes?.aka ?? akaFlags}
+          aoFlags={rtdbData.aoFlags ?? rtdbData.kataVotes?.ao ?? aoFlags}
           revealVotes={rtdbData.revealVotes === true}
           revealCountdown={rtdbData.revealCountdown || 0}
           timeRemaining={
@@ -328,7 +328,7 @@ export default function ScoreboardPage({ params }: { params: Promise<{ matchId: 
               : '00:00')
           }
           matchStatus={rtdbData.status === 'live' ? 'LIVE' : (rtdbData.status || 'STANDBY').toUpperCase()}
-          title={`TAIKAIX — SCOREBOARD`}
+          title={`TAIKAIX: SCOREBOARD`}
           subtitle={rtdbData.currentCategory || 'KATA'}
           kataWinner={rtdbData.kataWinner}
           winnerName={rtdbData.kataWinner === 'aka' ? rtdbData.akaName : rtdbData.kataWinner === 'ao' ? rtdbData.aoName : undefined}
@@ -393,10 +393,18 @@ export default function ScoreboardPage({ params }: { params: Promise<{ matchId: 
             aoWazaari={ao.wazaari}
             akaYuko={aka.yuko}
             aoYuko={ao.yuko}
-            akaC1={(aka.c1?1:0) + (aka.c2?1:0) + (aka.c3?1:0) + (aka.hc?1:0) + (aka.h?1:0)}
-            aoC1={(ao.c1?1:0) + (ao.c2?1:0) + (ao.c3?1:0) + (ao.hc?1:0) + (ao.h?1:0)}
-            akaC2={0}
-            aoC2={0}
+            akaC1={aka.c1 ? 1 : 0}
+            aoC1={ao.c1 ? 1 : 0}
+            akaC2={aka.c2 ? 1 : 0}
+            aoC2={ao.c2 ? 1 : 0}
+            akaC3={aka.c3 ? 1 : 0}
+            aoC3={ao.c3 ? 1 : 0}
+            akaHC={aka.hc ? 1 : 0}
+            aoHC={ao.hc ? 1 : 0}
+            akaH={aka.h ? 1 : 0}
+            aoH={ao.h ? 1 : 0}
+            akaPenalties={{ c1: aka.c1, c2: aka.c2, c3: aka.c3, hc: aka.hc, h: aka.h }}
+            aoPenalties={{ c1: ao.c1, c2: ao.c2, c3: ao.c3, hc: ao.hc, h: ao.h }}
             akaSenshu={aka.senshu}
             aoSenshu={ao.senshu}
             timerDisplay={formatTime(timer)}
@@ -407,6 +415,7 @@ export default function ScoreboardPage({ params }: { params: Promise<{ matchId: 
             matchId={rtdbData?.displayId || `MAT ${new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('mat')?.replace('mat-', '').padStart(2, '0') || '01'}`}
             winnerName={winnerOverlay.active ? winnerOverlay.winner : undefined}
             winnerColor={winnerOverlay.classMode === 'winner-aka' ? 'aka' : winnerOverlay.classMode === 'winner-ao' ? 'ao' : undefined}
+            onDismissWinner={() => setWinnerOverlay({ ...winnerOverlay, active: false })}
           />
         </ScaleWrapper>
         {winnerOverlay.active && (

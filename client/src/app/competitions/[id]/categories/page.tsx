@@ -57,14 +57,15 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
 
   const filteredCategories = categories.filter(row => {
     const nameLower = row.name.toLowerCase();
+    const isKata = Boolean(row.isKata || nameLower.includes('kata'));
+
     if (filterType !== 'all') {
-      if (filterType === 'kata' && !nameLower.includes('kata')) return false;
-      if (filterType === 'kumite' && !nameLower.includes('kumite')) return false;
+      if (filterType === 'kata' && !isKata) return false;
+      if (filterType === 'kumite' && isKata) return false;
     }
     if (filterGender !== 'all') {
-      // 'female' contains 'male', so check 'female' first
-      const isFemale = nameLower.includes('female') || nameLower.includes('women');
-      const isMale = !isFemale && (nameLower.includes('male') || nameLower.includes('men'));
+      const isFemale = /\b(female|girls?|women)\b/.test(nameLower) || nameLower.includes('female');
+      const isMale = !isFemale && (/\b(male|boys?|men)\b/.test(nameLower) || nameLower.includes('male'));
       const isMixed = nameLower.includes('mixed') || nameLower.includes('team');
       
       if (filterGender === 'female' && !isFemale) return false;
@@ -429,24 +430,141 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
         }
         .saved-tag.visible { opacity: 1; }
 
+        .mobile-label { display: none; }
+        .entries-badge-mobile { display: none; }
+
+        .category-filters {
+          display: flex;
+          gap: 12px;
+          margin-bottom: 24px;
+          flex-wrap: wrap;
+        }
+        .category-filters select {
+          height: 40px;
+          border-radius: 8px;
+          border: 1.5px solid var(--neutral-300);
+          padding: 0 12px;
+          font-family: var(--font-body);
+          font-size: 13px;
+          outline: none;
+          background: var(--shiro);
+          transition: border-color 0.2s;
+        }
+        .category-filters select:focus {
+          border-color: var(--ao);
+        }
+
         @media (max-width: 1360px) {
           .category-row {
             grid-template-columns: 1.8fr 0.7fr 1fr 0.8fr 1fr 0.8fr 1.4fr 0.9fr;
           }
         }
-        @media (max-width: 1180px) {
-          .category-row {
-            grid-template-columns: 1fr;
-            gap: var(--space-2);
-          }
-          .category-row .text-micro {
-            margin-bottom: 2px;
-          }
-          .row-actions {
-            justify-content: flex-start;
-          }
+        @media (max-width: 900px) {
           .header-row {
-            display: none;
+            display: none !important;
+          }
+          .category-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            padding: 14px;
+          }
+          .col-name {
+            grid-column: span 2;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+            border-bottom: 1px solid var(--neutral-200);
+            padding-bottom: 10px;
+          }
+          .mobile-label {
+            display: block;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--neutral-500);
+            margin-bottom: 4px;
+          }
+          .entries-badge-mobile {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: var(--neutral-100);
+            color: var(--neutral-700);
+            font-size: 11px;
+            font-family: var(--font-mono);
+            font-weight: 600;
+            margin-left: auto;
+          }
+          .col-entries {
+            display: none !important;
+          }
+          .col-status {
+            display: flex;
+            flex-direction: column;
+          }
+          .col-status .status-select-header {
+            max-width: 100%;
+            height: 38px;
+          }
+          .col-day {
+            display: flex;
+            flex-direction: column;
+          }
+          .col-mat {
+            display: flex;
+            flex-direction: column;
+          }
+          .col-judges {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start !important;
+            align-items: flex-start !important;
+          }
+          .col-judges .mat-select {
+            width: 100% !important;
+            text-align: left !important;
+          }
+          .col-time {
+            grid-column: span 2;
+            display: flex;
+            flex-direction: column;
+          }
+          .col-time .time-wrap {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            align-items: center;
+            gap: 8px;
+          }
+          .col-time .time-input {
+            min-width: 0;
+            width: 100%;
+          }
+          .col-actions {
+            grid-column: span 2;
+            display: flex;
+            align-items: center;
+            justify-content: space-between !important;
+            border-top: 1px solid var(--neutral-100);
+            padding-top: 10px;
+            margin-top: 4px;
+          }
+        }
+        @media (max-width: 640px) {
+          .category-filters {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 16px;
+          }
+          .category-filters select {
+            width: 100%;
+          }
+          .category-filters select:last-child {
+            grid-column: span 2;
           }
         }
       `}} />
@@ -455,9 +573,9 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
         <header className="page-header">
           <div>
             <div className="breadcrumb">
-              <Link href="/competitions" style={{ color: 'inherit', textDecoration: 'none' }}>Competitions</Link> / {id} / Management
+              <Link href="/competitions" style={{ color: 'inherit', textDecoration: 'none' }}>Competitions</Link> / {id} / Categories
             </div>
-            <h1>Category Management</h1>
+            <h1>Categories</h1>
           </div>
           <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
             {lastSaved && (
@@ -466,43 +584,40 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
               </span>
             )}
             <button className="btn btn-primary" onClick={handleSaveAll}>
-              <Save style={{ width: '18px', marginRight: '6px' }} /> Save Category Schedule
+              <Save style={{ width: '18px', marginRight: '6px' }} /> Save Schedule
             </button>
           </div>
         </header>
- 
-        <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
+
+        <div className="category-filters">
           <select 
             value={filterType} 
             onChange={e => setFilterType(e.target.value)}
-            style={{ height: '38px', borderRadius: '8px', border: '1.5px solid var(--neutral-300)', padding: '0 12px', fontFamily: 'var(--font-body)', fontSize: '13px', outline: 'none', background: 'var(--shiro)' }}
           >
             <option value="all">All Types (Kata/Kumite)</option>
             <option value="kata">Kata</option>
             <option value="kumite">Kumite</option>
           </select>
- 
+
           <select 
             value={filterGender} 
             onChange={e => setFilterGender(e.target.value)}
-            style={{ height: '38px', borderRadius: '8px', border: '1.5px solid var(--neutral-300)', padding: '0 12px', fontFamily: 'var(--font-body)', fontSize: '13px', outline: 'none', background: 'var(--shiro)' }}
           >
             <option value="all">All Genders</option>
             <option value="male">Male</option>
             <option value="female">Female</option>
             <option value="mixed">Mixed</option>
           </select>
- 
+
           <select 
             value={filterMat} 
             onChange={e => setFilterMat(e.target.value)}
-            style={{ height: '38px', borderRadius: '8px', border: '1.5px solid var(--neutral-300)', padding: '0 12px', fontFamily: 'var(--font-body)', fontSize: '13px', outline: 'none', background: 'var(--shiro)' }}
           >
             <option value="all">All Mats</option>
             {MATS.map(m => <option key={m} value={m}>{m}</option>)}
           </select>
         </div>
- 
+
         <section className="category-list">
           <div className="category-row header-row" style={{ background: 'var(--neutral-50)', border: 'none', fontWeight: 600, paddingTop: '12px', paddingBottom: '12px' }}>
             <div className="text-micro">Category Name</div>
@@ -514,7 +629,7 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
             <div className="text-micro">Time Frame</div>
             <div className="text-micro" style={{ textAlign: 'right' }}>Action</div>
           </div>
- 
+
           {filteredCategories.map((row, idx) => (
             <article 
               key={row.id} 
@@ -530,14 +645,16 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
                 cursor: 'move'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}>
+              <div className="col-name">
                 <div style={{ color: 'var(--neutral-400)', cursor: 'grab', display: 'flex' }}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></svg>
                 </div>
-                {row.name}
+                <span>{row.name}</span>
+                <span className="entries-badge-mobile">{row.entries} entries</span>
               </div>
-              <div className="data-mono" style={{ textAlign: 'center' }}>{row.entries}</div>
-              <div>
+              <div className="col-entries data-mono" style={{ textAlign: 'center' }}>{row.entries}</div>
+              <div className="col-status">
+                <span className="mobile-label">Status</span>
                 <select 
                   className={`status-select-header ${getStatusClass(row.status)}`}
                   value={row.status}
@@ -548,7 +665,8 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
                   <option value="done">DONE</option>
                 </select>
               </div>
-              <div>
+              <div className="col-day">
+                <span className="mobile-label">Assigned Day</span>
                 <select 
                   className="mat-select"
                   value={row.day || 1}
@@ -559,7 +677,8 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
                   ))}
                 </select>
               </div>
-              <div>
+              <div className="col-mat">
+                <span className="mobile-label">Assigned Mat</span>
                 <select 
                   className="mat-select"
                   value={row.mat}
@@ -568,7 +687,8 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
                   {MATS.map(m => <option key={m} value={m}>{m}</option>)}
                 </select>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <div className="col-judges" style={{ display: 'flex', justifyContent: 'center' }}>
+                <span className="mobile-label">Judges</span>
                 {row.isKata ? (
                   <select 
                     className="mat-select"
@@ -582,25 +702,28 @@ export default function CategoriesPage({ params }: { params: Promise<{ id: strin
                     <option value="7">7</option>
                   </select>
                 ) : (
-                  <span className="text-micro" style={{ color: 'var(--neutral-400)' }}>—</span>
+                  <span className="text-micro" style={{ color: 'var(--neutral-400)' }}>-</span>
                 )}
               </div>
-              <div className="time-wrap">
-                <input 
-                  className="time-input" 
-                  type="time" 
-                  value={row.start}
-                  onChange={(e) => handleUpdate(row.id, 'start', e.target.value)}
-                />
-                <span className="text-small">to</span>
-                <input 
-                  className="time-input" 
-                  type="time" 
-                  value={row.end}
-                  onChange={(e) => handleUpdate(row.id, 'end', e.target.value)}
-                />
+              <div className="col-time time-wrap">
+                <span className="mobile-label">Time Frame</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', width: '100%' }}>
+                  <input 
+                    className="time-input" 
+                    type="time" 
+                    value={row.start}
+                    onChange={(e) => handleUpdate(row.id, 'start', e.target.value)}
+                  />
+                  <span className="text-small">to</span>
+                  <input 
+                    className="time-input" 
+                    type="time" 
+                    value={row.end}
+                    onChange={(e) => handleUpdate(row.id, 'end', e.target.value)}
+                  />
+                </div>
               </div>
-              <div className="row-actions">
+              <div className="col-actions row-actions">
                 <span className={`saved-tag ${row.saved ? 'visible' : ''}`}>Saved</span>
                 <button 
                   className="btn btn-secondary" 

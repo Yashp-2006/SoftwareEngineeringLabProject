@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/modules/auth/components/AuthProvider';
@@ -12,15 +12,25 @@ export default function CompetitionLayout({
   children: React.ReactNode;
   params: Promise<{ id: string }>;
 }) {
+  const { id } = React.use(params);
   const pathname = usePathname();
-
   const router = useRouter();
   const { role, user, loading: authLoading } = useAuth();
-  const { id } = React.use(params);
   const [staffRole, setStaffRole] = useState<string | null>(null);
+  const subNavRef = useRef<HTMLDivElement>(null);
 
   const isActive = (segment: string) => pathname.includes(segment);
   const isRoot = pathname === `/competitions/${id}`;
+
+  // Auto-scroll active sub-nav item into horizontal view on mobile
+  useEffect(() => {
+    if (subNavRef.current) {
+      const activeEl = subNavRef.current.querySelector<HTMLElement>('.sub-nav-link.active');
+      if (activeEl) {
+        activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }
+    }
+  }, [pathname]);
 
   // Redirect unauthenticated viewers trying to access sub-pages directly
   // The overview page handles the password gate itself; sub-pages redirect back to it
@@ -40,11 +50,14 @@ export default function CompetitionLayout({
       return;
     }
 
+    const isStationRoute = pathname.includes('/operator') || pathname.includes('/judge');
+
     // If on a sub-page (not overview) and not authenticated, redirect to overview
-    if (!isRoot && !isJoined) {
+    // Exclude station routes (/operator, /judge) which have dedicated station password gateways
+    if (!isRoot && !isJoined && !isStationRoute) {
       router.replace(`/competitions/${id}`);
     }
-  }, [authLoading, user, id, isRoot, router]);
+  }, [authLoading, user, id, isRoot, pathname, router]);
 
   useEffect(() => {
     if (!user) {
@@ -55,12 +68,29 @@ export default function CompetitionLayout({
       try {
         const { db } = await import('@lib/firebase');
         const { collection, query, where, getDocs } = await import('firebase/firestore');
-        const q = query(
+        // Check by userId first (set by PIN auth and approved email login)
+        let snap = await getDocs(query(
           collection(db, 'competitions', id, 'staff'),
-          where('requestUserId', '==', user.uid),
+          where('userId', '==', user.uid),
           where('approvalStatus', '==', 'approved')
-        );
-        const snap = await getDocs(q);
+        ));
+        // Fallback to requestUserId (set during enrollment requests)
+        if (snap.empty) {
+          snap = await getDocs(query(
+            collection(db, 'competitions', id, 'staff'),
+            where('requestUserId', '==', user.uid),
+            where('approvalStatus', '==', 'approved')
+          ));
+        }
+        // Fallback to direct email match if user logged in via email
+        if (snap.empty && user.email) {
+          snap = await getDocs(query(
+            collection(db, 'competitions', id, 'staff'),
+            where('email', '==', user.email),
+            where('approvalStatus', '==', 'approved')
+          ));
+        }
+
         if (!snap.empty) {
           setStaffRole(snap.docs[0].data().role);
         } else {
@@ -80,18 +110,23 @@ export default function CompetitionLayout({
   const showStaff = isAdminOrGuest;
   const showAthletes = isAdminOrGuest || role === 'attendance_volunteer' || staffRole === 'attendance';
   const showRecords = isAdminOrGuest;
+  // Medals: only visible to admin, guest_viewer, or medal_distributor staff
   const showMedals = isAdminOrGuest || role === 'medal_distributor' || staffRole === 'medal';
   const showOperator = isAdminOrGuest || role === 'mat_operator' || staffRole === 'score';
-  // Judge tab only visible for signed-in users with judge or admin/guest_viewer role (removed per request)
-  const showJudge = false;
+  // Judge tab: visible to judges (by global role or staff assignment) and admins/guest_viewers
+  const showJudge = isAdminOrGuest || role === 'judge' || staffRole === 'judge';
 
   const linkStyle = { background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' };
 
   const joinParam = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('join') === 'true' ? '?join=true' : '';
 
+  if (pathname.includes('/scoreboard')) {
+    return <>{children}</>;
+  }
+
   return (
     <>
-      <div className="sub-nav">
+      <div className="sub-nav" ref={subNavRef}>
         <Link
           href={`/competitions/${id}${joinParam}`}
           className={`sub-nav-link ${isRoot ? 'active' : ''}`}
@@ -122,7 +157,7 @@ export default function CompetitionLayout({
         </Link>
         <Link
           href={`/competitions/${id}/mats${joinParam}`}
-          className={`sub-nav-link ${isActive('/mats') ? 'active' : ''}`}
+          className={`sub-nav-link ${isActive('/mats') || isActive('/operator') ? 'active' : ''}`}
         >
           Mats
         </Link>
@@ -169,16 +204,6 @@ export default function CompetitionLayout({
         >
           Schedule
         </Link>
-
-        {showOperator && (
-          <Link
-            href={`/competitions/${id}/operator${joinParam}`}
-            className={`sub-nav-link ${isActive('/operator') ? 'active' : ''}`}
-            style={{ marginLeft: 'auto', color: isActive('/operator') ? 'var(--aka)' : 'var(--neutral-500)', fontWeight: 600 }}
-          >
-            ● Mat Operations
-          </Link>
-        )}
       </div>
 
       {children}

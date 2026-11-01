@@ -27,6 +27,18 @@ export default function KataSelectionRow({
 }: KataSelectionRowProps) {
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
+  const dropdownRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [open]);
 
   const allowedKata = useMemo(() => {
     if (!allowedKataNumbers || allowedKataNumbers.length === 0) return KATA_LIST;
@@ -46,7 +58,7 @@ export default function KataSelectionRow({
   const label = side.toUpperCase();
 
   return (
-    <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
+    <div ref={dropdownRef} style={{ position: 'relative', flex: 1, minWidth: '220px', zIndex: open ? 100 : 1 }}>
       <div
         style={{
           display: 'flex',
@@ -66,7 +78,7 @@ export default function KataSelectionRow({
             flexShrink: 0,
           }}
         >
-          {label} — Kata Selection
+          {label}: Select Kata
         </div>
         {playerName && (
           <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--neutral-600)', textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginLeft: '12px' }}>
@@ -82,6 +94,7 @@ export default function KataSelectionRow({
         onClick={() => setOpen((o) => !o)}
         style={{
           width: '100%',
+          boxSizing: 'border-box',
           padding: '10px 14px',
           border: `1.5px solid ${selectedKata ? colorVar : 'var(--neutral-300)'}`,
           borderRadius: '8px',
@@ -96,7 +109,7 @@ export default function KataSelectionRow({
           alignItems: 'center',
         }}
       >
-        <span>{selectedKata ? `#${selectedKata.number} — ${selectedKata.name}` : 'Select Kata…'}</span>
+        <span>{selectedKata ? `#${selectedKata.number}: ${selectedKata.name}` : 'Select Kata...'}</span>
         <span style={{ fontSize: '10px', opacity: 0.6 }}>▼</span>
       </button>
 
@@ -110,7 +123,7 @@ export default function KataSelectionRow({
             paddingLeft: '2px',
           }}
         >
-          Using kata #{selectedKata.number} — {selectedKata.name}
+          Using kata #{selectedKata.number}: {selectedKata.name}
         </div>
       )}
 
@@ -122,7 +135,9 @@ export default function KataSelectionRow({
             top: '100%',
             left: 0,
             right: 0,
-            zIndex: 200,
+            minWidth: '220px',
+            boxSizing: 'border-box',
+            zIndex: 1000,
             background: 'var(--shiro)',
             border: '1px solid var(--neutral-200)',
             borderRadius: '10px',
@@ -133,7 +148,7 @@ export default function KataSelectionRow({
             flexDirection: 'column',
           }}
         >
-          <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--neutral-100)' }}>
+          <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--neutral-100)', boxSizing: 'border-box' }}>
             <input
               autoFocus
               type="text"
@@ -142,6 +157,7 @@ export default function KataSelectionRow({
               onChange={(e) => setSearch(e.target.value)}
               style={{
                 width: '100%',
+                boxSizing: 'border-box',
                 padding: '6px 10px',
                 border: '1px solid var(--neutral-300)',
                 borderRadius: '6px',
@@ -180,7 +196,7 @@ export default function KataSelectionRow({
               onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--neutral-50)')}
               onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
             >
-              — None
+              None
             </div>
 
             {filtered.map((kata) => {

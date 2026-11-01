@@ -59,7 +59,7 @@ export default function TieResolutionModal({
             label: '1. Victory Points',
             auto: true,
             result: akaVictoryPoints > aoVictoryPoints ? 'aka' : aoVictoryPoints > akaVictoryPoints ? 'ao' : 'tied',
-            description: `Total victory points across all group bouts — AKA: ${akaVictoryPoints} pts, AO: ${aoVictoryPoints} pts`,
+            description: `Total victory points: AKA ${akaVictoryPoints} pts, AO ${aoVictoryPoints} pts`,
           },
           {
             label: '2. Head-to-Head',
@@ -71,7 +71,7 @@ export default function TieResolutionModal({
             label: '3. Cumulative Judge Votes',
             auto: true,
             result: akaCumulativeVotes > aoCumulativeVotes ? 'aka' : aoCumulativeVotes > akaCumulativeVotes ? 'ao' : 'tied',
-            description: `Total judge votes across all group bouts — AKA: ${akaCumulativeVotes}, AO: ${aoCumulativeVotes}`,
+            description: `Total judge votes: AKA ${akaCumulativeVotes}, AO ${aoCumulativeVotes}`,
           },
           {
             label: '4. Extra Kata (No Bunkai)',
@@ -84,7 +84,7 @@ export default function TieResolutionModal({
             label: '1. Victory Points',
             auto: true,
             result: akaVictoryPoints > aoVictoryPoints ? 'aka' : aoVictoryPoints > akaVictoryPoints ? 'ao' : 'tied',
-            description: `Total victory points across all group bouts — AKA: ${akaVictoryPoints} pts, AO: ${aoVictoryPoints} pts`,
+            description: `Total victory points: AKA ${akaVictoryPoints} pts, AO ${aoVictoryPoints} pts`,
           },
           {
             label: '2. Head-to-Head',
@@ -96,7 +96,7 @@ export default function TieResolutionModal({
             label: '3. Cumulative Judge Votes',
             auto: true,
             result: akaCumulativeVotes > aoCumulativeVotes ? 'aka' : aoCumulativeVotes > akaCumulativeVotes ? 'ao' : 'tied',
-            description: `Total judge votes across all group bouts — AKA: ${akaCumulativeVotes}, AO: ${aoCumulativeVotes}`,
+            description: `Total judge votes: AKA ${akaCumulativeVotes}, AO ${aoCumulativeVotes}`,
           },
           {
             label: '4. WKF World Ranking',
@@ -197,7 +197,7 @@ export default function TieResolutionModal({
                   marginBottom: '8px',
                 }}
               >
-                <Scale size={14} /> Tie — Resolution Required
+                <Scale size={14} /> Tie: Action Needed
               </div>
               <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--neutral-900)' }}>
                 {akaName} vs {aoName}
@@ -295,7 +295,7 @@ export default function TieResolutionModal({
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: 'var(--aka)', marginBottom: '6px', textTransform: 'uppercase' }}>
-                  {akaName} — WKF Ranking
+                  {akaName} (WKF Rank)
                 </label>
                 <input
                   type="number"
@@ -318,7 +318,7 @@ export default function TieResolutionModal({
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: 'var(--ao)', marginBottom: '6px', textTransform: 'uppercase' }}>
-                  {aoName} — WKF Ranking
+                  {aoName} (WKF Rank)
                 </label>
                 <input
                   type="number"

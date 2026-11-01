@@ -82,8 +82,17 @@ export class GatewayService {
       for (let p = 1; p <= poolCount; p++) {
         const poolId = `${cat.id || cat.name}_pool_${p}`;
         const poolSched = data.poolsSchedule?.[poolId];
+        const mTime = cat.matchTime ?? (data.globalMatchTime || 3);
+        const rTime = cat.restTime ?? (data.globalRestTime || 1);
+        const medTime = cat.medicalTime ?? (data.globalMedicalTime || 0);
+        const bTime = cat.bunkaiTime ?? (data.globalBunkaiTime || 0);
+        const isKata = Boolean(cat.isKata || cat.name?.toLowerCase().includes('kata'));
+        const matchDuration = mTime + rTime + medTime + (isKata ? bTime : 0);
+        const entriesInPool = baseEntries + (p - 1 < extraEntries ? 1 : 0);
+        const matchesInPool = isKata ? entriesInPool : Math.max(0, entriesInPool - 1);
+        const computedEstTime = Math.max(1, Math.ceil(matchesInPool * matchDuration));
 
-        const estTime = poolSched?.estTime || configEstMins;
+        const estTime = poolSched?.estTime || computedEstTime;
 
         let matId = 1;
         let day = 1;
@@ -122,28 +131,13 @@ export class GatewayService {
         });
       }
 
-      if (poolCount > 1) {
-        const finalsId = `${cat.id || cat.name}_finals`;
-        const finalsSched = data.poolsSchedule?.[finalsId];
+      const finalsId = `${cat.id || cat.name}_finals`;
+      const finalsSched = data.poolsSchedule?.[finalsId];
 
-        const estTime = finalsSched?.estTime || configEstMins;
-
-        let finalsMatId = 1;
-        let finalsDay = 1;
-        if (finalsSched && finalsSched.matId !== -1) {
-          finalsMatId = finalsSched.matId;
-          finalsDay = finalsSched.day !== -1 ? finalsSched.day : 1;
-        } else {
-          let bestMatIdx = assignedMatId - 1;
-          const tracker = matTrackers[bestMatIdx];
-          if (tracker.currentMins + estTime > configEndMins && tracker.currentMins > configStartMins) {
-            tracker.day++;
-            tracker.currentMins = configStartMins;
-          }
-          finalsMatId = bestMatIdx + 1;
-          finalsDay = tracker.day;
-          tracker.currentMins += estTime;
-        }
+      if (poolCount > 1 && finalsSched && finalsSched.matId !== -1) {
+        const estTime = finalsSched.estTime || configEstMins;
+        const finalsMatId = finalsSched.matId;
+        const finalsDay = finalsSched.day !== -1 ? finalsSched.day : 1;
 
         scheduledPoolsList.push({
           id: finalsId,
@@ -152,7 +146,7 @@ export class GatewayService {
           poolLabel: 'finals',
           matId: finalsMatId,
           day: finalsDay,
-          order: finalsSched ? finalsSched.order : 0,
+          order: finalsSched.order || 0,
           duration: estTime,
           isFinals: true
         });
@@ -199,8 +193,8 @@ export class GatewayService {
         day: p.day,
         order: p.order,
         duration: p.duration,
-        startTime: p.startTime || '—',
-        endTime: p.endTime || '—'
+        startTime: p.startTime || '-',
+        endTime: p.endTime || '-'
       }));
 
       const firstPool = catPools[0] || {};

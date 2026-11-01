@@ -26,6 +26,7 @@ interface CategoriesPhaseProps {
   handleImportPreset: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleLoadWkfCategories: () => void;
   setModalType: (val: any) => void;
+  onClearAll?: () => void;
 
   searchQuery: string;
   setSearchQuery: (val: string) => void;
@@ -57,7 +58,7 @@ export default function CategoriesPhase({
   compEndTime, setCompEndTime, compEstMinsPerPool, setCompEstMinsPerPool,
   globalMatchTime, setGlobalMatchTime, globalRestTime, setGlobalRestTime,
   globalMedicalTime, setGlobalMedicalTime, globalBunkaiTime, setGlobalBunkaiTime,
-  handleExportPreset, handleImportPreset, handleLoadWkfCategories, setModalType,
+  handleExportPreset, handleImportPreset, handleLoadWkfCategories, setModalType, onClearAll,
   searchQuery, setSearchQuery, filterGender, setFilterGender, filterDiscipline, setFilterDiscipline,
   hideEmpty, setHideEmpty, filteredCategories, categories, setCategories,
   dragIdx, dragOverIdx, handleDragStart, handleRowDragOver, handleRowDrop,
@@ -77,19 +78,45 @@ export default function CategoriesPhase({
             <button type="button" className="btn btn-ghost" style={{ height: '36px', padding: '0 12px' }} onClick={handleExportPreset}>
               <Download size={16} /> Export
             </button>
-            <button type="button" className="btn btn-ghost" style={{ height: '36px', padding: '0 12px' }} onClick={() => document.getElementById('preset-upload')?.click()}>
+            <button 
+              type="button" 
+              className="btn btn-ghost" 
+              style={{ height: '36px', padding: '0 12px' }} 
+              onClick={(e) => {
+                e.stopPropagation();
+                document.getElementById('preset-upload')?.click();
+              }}
+            >
               <UploadCloud size={16} /> Import
             </button>
             <button type="button" className="btn btn-ghost" onClick={handleLoadWkfCategories} style={{ color: 'var(--ao)', borderColor: 'var(--ao)', height: '36px', padding: '0 12px' }}>
               <RefreshCw size={16} /> Load WKF Rules
             </button>
-            <input type="file" id="preset-upload" style={{ display: 'none' }} accept=".json" onChange={handleImportPreset} />
+            <input 
+              type="file" 
+              id="preset-upload" 
+              style={{ display: 'none' }} 
+              accept=".json,.csv,.xlsx,.xls" 
+              onClick={(e) => e.stopPropagation()} 
+              onChange={handleImportPreset} 
+            />
             <button type="button" className="btn btn-ghost" style={{ height: '36px', padding: '0 12px' }} onClick={() => setModalType('merge')}>
               <Combine size={16} /> Merge
             </button>
             <button type="button" className="btn btn-secondary" style={{ height: '36px', padding: '0 12px' }} onClick={() => setModalType('standard')}>
               <Plus size={16} /> Add Category
             </button>
+            {categories.length > 0 && onClearAll && (
+              <button 
+                type="button" 
+                className="btn btn-ghost" 
+                style={{ height: '36px', padding: '0 12px', color: 'var(--aka)', borderColor: 'var(--aka)' }} 
+                onClick={onClearAll}
+                title="Delete all categories from this tournament"
+              >
+                <Trash2 size={16} /> Clear All
+              </button>
+            )}
           </div>
         </div>
 
@@ -112,9 +139,7 @@ export default function CategoriesPhase({
           <select className="input-field" style={{ width: '160px', height: '36px', marginBottom: 0 }} value={filterDiscipline} onChange={e => setFilterDiscipline(e.target.value as any)}>
             <option value="all">All Disciplines</option>
             <option value="kata">Kata Only</option>
-            <option value="kumite">Kumite Only</option>
           </select>
-
         </div>
 
         <div className="table-responsive" style={{ maxHeight: '400px', overflowY: 'auto' }}>
@@ -125,7 +150,6 @@ export default function CategoriesPhase({
                 <th>Category Name</th>
                 <th>Discipline</th>
                 <th>Requirements</th>
-                <th>Entries</th>
                 <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
@@ -177,7 +201,6 @@ export default function CategoriesPhase({
                       </div>
                     )}
                   </td>
-                  <td>{cat.entries}</td>
                   <td style={{ textAlign: 'right' }}>
                     <button type="button" className="btn btn-ghost" style={{ padding: '4px' }} onClick={() => {
                       setEditCatId(cat.id);
@@ -192,7 +215,9 @@ export default function CategoriesPhase({
               {filteredCategories.length === 0 && (
                 <tr>
                   <td colSpan={5} style={{ textAlign: 'center', color: 'var(--neutral-500)', padding: 'var(--space-6)' }}>
-                    No categories found matching filters.
+                    {categories.length === 0
+                      ? 'No categories defined yet. Click "Load WKF Rules", "Import", or "Add Category" above to get started.'
+                      : 'No categories found matching filters.'}
                   </td>
                 </tr>
               )}

@@ -2,38 +2,18 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, Trophy, Zap } from 'lucide-react';
+import { Search, Trophy, Zap, X } from 'lucide-react';
 import PageSkeleton from '@/modules/core/layout/PageSkeleton';
 import SpecialCategoryModal from '@/modules/competitions/components/category/SpecialCategoryModal';
 import { useAuth } from '@/modules/auth/components/AuthProvider';
-
-interface Athlete {
-  id: string;
-  playerId?: string;
-  name: string;
-  academy: string;
-  medal?: 'gold' | 'silver' | 'bronze' | 'received' | 'not-received' | null;
-  medalReceived?: 'received' | 'not-received';
-  sourceCategory?: string;
-}
-
-interface Category {
-  id: string;
-  name: string;
-  mat: string;
-  status: string;
-  order: number;
-  // athletes is the flat array on the category doc (written by operator on close)
-  athletes: Athlete[];
-  matches: any[];
-}
+import type { Athlete, Category } from '@taikaix/backend/types';
 
 export default function MedalsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
   const { user, role, loading: authLoading } = useAuth();
   const [verified, setVerified] = useState(false);
   const [staffRole, setStaffRole] = useState<string | null>(null);
-  const canWrite = role === 'admin' || role === 'medal' || role === 'medal_distributor' || staffRole === 'medal' || staffRole === 'medal_distributor';
+  const canWrite = role === 'admin' || (role as string) === 'medal' || role === 'medal_distributor' || staffRole === 'medal' || staffRole === 'medal_distributor';
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
@@ -48,7 +28,16 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
       setVerified(true);
       return;
     }
+
+    if (!user) {
+      window.location.href = `/login?compId=${id}`;
+      return;
+    }
     
+    const checkStaffTimeout = setTimeout(() => {
+      setVerified(true);
+    }, 2500);
+
     const checkStaff = async () => {
       try {
         const { db } = await import('@lib/firebase');
@@ -65,6 +54,7 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
         }
 
         if (snap.empty) {
+          clearTimeout(checkStaffTimeout);
           window.location.href = `/login?compId=${id}`;
           return;
         }
@@ -74,12 +64,15 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
         
         if (staffData.approvalStatus === 'approved') {
           setStaffRole(staffData.role);
+          clearTimeout(checkStaffTimeout);
           setVerified(true);
         } else {
+          clearTimeout(checkStaffTimeout);
           window.location.href = `/login/pending?compId=${id}&staffId=${staffDoc.id}`;
         }
       } catch (err) {
         console.error('Error verifying staff assignment:', err);
+        clearTimeout(checkStaffTimeout);
         setVerified(true);
       }
     };
@@ -168,8 +161,8 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
     const isDone = activeCategory.status === 'done' || activeCategory.status === 'completed';
 
     // --- Strategy A: Done category — athletes array has medals already assigned ---
-    if (isDone && activeCategory.athletes.length > 0) {
-      const withMedals = activeCategory.athletes.filter(a => a.medal === 'gold' || a.medal === 'silver' || a.medal === 'bronze');
+    if (isDone && (activeCategory.athletes || []).length > 0) {
+      const withMedals = (activeCategory.athletes || []).filter(a => a.medal === 'gold' || a.medal === 'silver' || a.medal === 'bronze');
       if (withMedals.length > 0) {
         const medalOrder = { gold: 0, silver: 1, bronze: 2 };
         const sorted = [...withMedals].sort((a, b) =>
@@ -190,7 +183,7 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
           const q = searchQuery.toLowerCase();
           for (const key of Object.keys(groups)) {
             groups[key] = groups[key].filter(a =>
-              a.name.toLowerCase().includes(q) || a.academy.toLowerCase().includes(q)
+              a.name.toLowerCase().includes(q) || (a.academy || '').toLowerCase().includes(q)
             );
             if (groups[key].length === 0) delete groups[key];
           }
@@ -233,7 +226,7 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
 
           if (goldAthRaw?.playerId || goldAthRaw?.name) {
             // Also try to cross-reference against the doc athletes array for medalReceived
-            const docAth = activeCategory.athletes.find(a => a.playerId === (goldAthRaw.playerId || goldWinnerId));
+            const docAth = (activeCategory.athletes || []).find(a => a.playerId === (goldAthRaw.playerId || goldWinnerId));
             poolWinners.push({
               id: goldAthRaw.playerId || goldAthRaw.name || goldWinnerId,
               playerId: goldAthRaw.playerId,
@@ -245,7 +238,7 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
             });
           } else {
             // Last resort: look up in the doc athletes array
-            const docAth = activeCategory.athletes.find(a => a.playerId === goldWinnerId || a.id === goldWinnerId);
+            const docAth = (activeCategory.athletes || []).find(a => a.playerId === goldWinnerId || a.id === goldWinnerId);
             if (docAth) {
               poolWinners.push({ ...docAth, medal: 'gold', medalName: 'Gold' });
             }
@@ -253,7 +246,7 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
 
           // Silver
           if (silverAthRaw?.playerId || silverAthRaw?.name) {
-            const docAth = activeCategory.athletes.find(a => a.playerId === silverAthRaw.playerId);
+            const docAth = (activeCategory.athletes || []).find(a => a.playerId === silverAthRaw.playerId);
             poolWinners.push({
               id: silverAthRaw.playerId || silverAthRaw.name || 'silver',
               playerId: silverAthRaw.playerId,
@@ -272,7 +265,7 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
             for (const semi of semiMatches) {
               const loserRaw = semi.winnerId === semi.aka?.playerId ? semi.ao : semi.aka;
               if (loserRaw?.playerId || loserRaw?.name) {
-                const docAth = activeCategory.athletes.find(a => a.playerId === loserRaw.playerId);
+                const docAth = (activeCategory.athletes || []).find(a => a.playerId === loserRaw.playerId);
                 poolWinners.push({
                   id: loserRaw.playerId || loserRaw.name || 'bronze',
                   playerId: loserRaw.playerId,
@@ -290,7 +283,7 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
 
       const poolKey = poolMap.size === 1 && pool === '1' ? 'General' : `Pool ${pool}`;
       const filtered = searchQuery
-        ? poolWinners.filter(a => a.name.toLowerCase().includes(searchQuery.toLowerCase()) || a.academy.toLowerCase().includes(searchQuery.toLowerCase()))
+        ? poolWinners.filter(a => a.name.toLowerCase().includes(searchQuery.toLowerCase()) || (a.academy || '').toLowerCase().includes(searchQuery.toLowerCase()))
         : poolWinners;
 
       if (filtered.length > 0) groups[poolKey] = filtered;
@@ -313,7 +306,7 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
       if (cat.id !== activeCategoryId) return cat;
       return {
         ...cat,
-        athletes: cat.athletes.map(a =>
+        athletes: (cat.athletes || []).map(a =>
           (a.playerId === athletePlayerId || a.id === athletePlayerId) ? { ...a, medalReceived: status } : a
         )
       };
@@ -321,23 +314,25 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
 
     try {
       const { db } = await import('@lib/firebase');
-      const { doc, getDoc, updateDoc } = await import('firebase/firestore');
+      const { doc, runTransaction } = await import('firebase/firestore');
       const catRef = doc(db, 'competitions', id, 'categories', activeCategoryId!);
-      const catSnap = await getDoc(catRef);
-      if (!catSnap.exists()) return;
+      await runTransaction(db, async (transaction) => {
+        const catSnap = await transaction.get(catRef);
+        if (!catSnap.exists()) return;
 
-      const catData = catSnap.data();
-      const athletes = (catData.athletes || []).map((a: any) => {
-        if (a.playerId === athletePlayerId) return { ...a, medalReceived: status };
-        return a;
+        const catData = catSnap.data();
+        const athletes = (catData.athletes || []).map((a: any) => {
+          if (a.playerId === athletePlayerId) return { ...a, medalReceived: status };
+          return a;
+        });
+        transaction.update(catRef, { athletes });
       });
-      await updateDoc(catRef, { athletes });
     } catch (err) {
       console.error('Failed to update medal received status', err);
     }
   };
 
-  if (!verified && !canWrite && role !== 'admin') {
+  if (!verified && !canWrite) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--neutral-50)' }}>
         <p style={{ color: 'var(--neutral-500)', fontSize: '14px', fontWeight: 600 }}>Verifying credentials and assignments...</p>
@@ -534,9 +529,40 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
             overflow-x: auto;
             max-height: none;
             gap: var(--space-2);
-            padding-bottom: var(--space-4);
+            padding-bottom: var(--space-3);
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
           }
-          .category-button { margin-bottom: 0; min-width: 220px; }
+          .category-button { margin-bottom: 0; min-width: 200px; flex-shrink: 0; }
+        }
+        @media (max-width: 640px) {
+          .category-button { min-width: 170px; padding: 10px; }
+          .medals-panel-header {
+            padding: 12px 14px;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 10px;
+          }
+          .search-wrap {
+            width: 100%;
+          }
+          .search-input {
+            height: 40px;
+            font-size: 14px;
+          }
+          .medal-table thead th,
+          .medal-table tbody td {
+            padding: 10px 12px;
+            font-size: 13px;
+          }
+          .medal-control {
+            touch-action: manipulation;
+          }
+          .medal-btn {
+            padding: 6px 12px;
+            font-size: 11px;
+            min-height: 32px;
+          }
         }
       `}} />
 
@@ -544,9 +570,9 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
         <header className="page-header">
           <div>
             <div className="breadcrumb">
-              <Link href="/competitions" style={{ color: 'inherit', textDecoration: 'none' }}>Competitions</Link> / {id} / Operations
+              <Link href="/competitions" style={{ color: 'inherit', textDecoration: 'none' }}>Competitions</Link> / {id} / Medals
             </div>
-            <h1>Pool Winners &amp; Finals</h1>
+            <h1>Medals &amp; Winners</h1>
           </div>
         </header>
 
@@ -592,14 +618,24 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
                 </div>
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
                   <div className="search-wrap">
-                    <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--neutral-500)' }} />
+                    <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--neutral-500)', pointerEvents: 'none' }} />
                     <input
                       className="search-input"
                       type="text"
                       placeholder="Search athlete or academy..."
                       value={searchQuery}
                       onChange={e => setSearchQuery(e.target.value)}
+                      style={{ paddingRight: searchQuery ? '30px' : '12px' }}
                     />
+                    {searchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setSearchQuery('')}
+                        style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--neutral-400)', cursor: 'pointer', padding: 0 }}
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
                   </div>
                   {role === 'admin' && (
                     <button className="btn-action" onClick={() => setSpecialModalOpen(true)}>
@@ -668,20 +704,20 @@ export default function MedalsPage({ params }: { params: Promise<{ id: string }>
                                   <div className="medal-control">
                                     <button
                                       className={`medal-btn received ${athlete.medalReceived === 'received' ? 'active' : ''}`}
-                                      onClick={() => updateAthleteMedalReceived(athlete.playerId || athlete.id, 'received')}
+                                      onClick={() => updateAthleteMedalReceived(athlete.playerId || athlete.id || '', 'received')}
                                     >
                                       Received
                                     </button>
                                     <button
                                       className={`medal-btn not-received ${athlete.medalReceived === 'not-received' ? 'active' : ''}`}
-                                      onClick={() => updateAthleteMedalReceived(athlete.playerId || athlete.id, 'not-received')}
+                                      onClick={() => updateAthleteMedalReceived(athlete.playerId || athlete.id || '', 'not-received')}
                                     >
                                       Not Received
                                     </button>
                                   </div>
                                 ) : (
                                   <span style={{ fontSize: '12px', fontWeight: 700, color: athlete.medalReceived === 'received' ? '#16a34a' : athlete.medalReceived === 'not-received' ? 'var(--aka)' : 'var(--neutral-400)' }}>
-                                    {athlete.medalReceived === 'received' ? 'Received' : athlete.medalReceived === 'not-received' ? 'Not Received' : '—'}
+                                    {athlete.medalReceived === 'received' ? 'Received' : athlete.medalReceived === 'not-received' ? 'Not Received' : '-'}
                                   </span>
                                 )}
                               </td>
